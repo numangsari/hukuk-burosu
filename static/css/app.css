@@ -170,8 +170,6 @@ a.head-row:hover { color: #fff; text-decoration: none; }
 .sidebar-foot .foot-title { font-weight: 600; font-style: italic; color: rgba(214, 179, 124, .85); margin-bottom: .45rem; }
 .sidebar-foot .foot-line { display: flex; gap: .55rem; margin-bottom: .3rem; }
 .sidebar-foot .foot-line i { color: rgba(255, 255, 255, .35); font-size: .8rem; margin-top: .05rem; }
-.sidebar-foot a { color: rgba(255, 255, 255, .6); }
-.sidebar-foot a:hover { color: #fff; text-decoration: none; }
 .sidebar-head .dropdown-menu { width: 100%; margin-top: .25rem !important; }
 /* Giriş ekranındaki logo */
 .brand-mark {
