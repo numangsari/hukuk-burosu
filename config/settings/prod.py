@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from .base import *  # noqa: F403
 from .base import env
 
@@ -12,13 +14,15 @@ STORAGES = {
     "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
     "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"},
 }
+LOG_FILE = env.path("LOG_FILE", default=BASE_DIR / "logs" / "app.log")  # noqa: F405
+Path(LOG_FILE).parent.mkdir(parents=True, exist_ok=True)
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
     "handlers": {
         "file": {
             "class": "logging.handlers.RotatingFileHandler",
-            "filename": env.path("LOG_FILE", default=BASE_DIR / "logs" / "app.log"),  # noqa: F405
+            "filename": str(LOG_FILE),
             "maxBytes": 5 * 1024 * 1024,
             "backupCount": 5,
         }

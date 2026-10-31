@@ -1,4 +1,4 @@
-<# Uygulama çalışırken hatırlatmaları oluşturur; bakım sırasında veritabanına dokunmaz. #>
+﻿<# Uygulama çalışırken hatırlatmaları oluşturur; bakım sırasında veritabanına dokunmaz. #>
 param([string]$ToolsDir = $PSScriptRoot)
 $ErrorActionPreference = "Stop"
 $appService = Get-Service -Name "OzkurtHukukApp" -ErrorAction SilentlyContinue

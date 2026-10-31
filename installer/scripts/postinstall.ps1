@@ -1,4 +1,4 @@
-<#
+﻿<#
   Kurulum/güncelleme sonrası çalışır (Inno Setup [Run]). Tekrar çalıştırılması güvenlidir.
   - İlk kurulumda: .env (gizli anahtarlar), PostgreSQL veri klasörü ve servisi, veritabanı,
     ofis kullanıcıları, yedek parolası dosyası.

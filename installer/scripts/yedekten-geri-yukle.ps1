@@ -1,4 +1,4 @@
-<#
+﻿<#
   Seçilen yedeği geri yükler: servis durdurulur, geri yüklenir, servis başlatılır.
   Yönetici olarak çalıştırın (sağ tık > PowerShell ile çalıştır > Evet).
 #>

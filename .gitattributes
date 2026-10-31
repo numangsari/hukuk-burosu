@@ -3,3 +3,7 @@
 *.woff binary
 *.woff2 binary
 *.pdf binary
+# PowerShell 5, BOM olmayan UTF-8 betikleri ANSI okur: .ps1/.iss dosyaları UTF-8 BOM ile tutulur
+*.ps1 text eol=crlf
+*.iss text eol=crlf
+*.cmd text eol=crlf

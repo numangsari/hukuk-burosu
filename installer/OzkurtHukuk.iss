@@ -1,4 +1,4 @@
-; Özkurt Hukuk Büro Yönetim Sistemi — Inno Setup betiği
+﻿; Özkurt Hukuk Büro Yönetim Sistemi — Inno Setup betiği
 ; Derleme: installer\build.ps1 (BuildDir ve AppVersion parametrelerini verir)
 
 #ifndef AppVersion

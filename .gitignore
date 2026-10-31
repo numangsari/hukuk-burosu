@@ -31,3 +31,4 @@ installer/dist/
 .DS_Store
 Thumbs.db
 installer/cache/
+installer/build-log.txt

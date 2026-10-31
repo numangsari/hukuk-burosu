@@ -16,7 +16,8 @@ docker compose -f docker-compose.dev.yml up -d   # dev PostgreSQL, host portu 54
 uv sync                                          # bağımlılıklar
 uv run python manage.py migrate
 uv run python manage.py setup_office_users --pin <PIN>   # ofis kullanıcıları (PIN repoya yazılmaz)
-uv run python manage.py seed_dev                 # örnek müvekkil/dosya (kullanıcılar önceden olmalı)
+uv run python manage.py seed_dev                 # 2 küçük örnek kayıt (kullanıcılar önceden olmalı)
+uv run python manage.py seed_demo                # deneme için uydurma kapsamlı veri (yalnızca DEBUG; tekrar çalıştırılırsa eklemez)
 uv run python manage.py runserver
 uv run pytest                                    # testler (dev DB'de test_ veritabanı açar)
 uv run ruff check .
@@ -96,7 +97,7 @@ Dev ayarları `config/settings/dev.py`, varsayılan DB bağlantısı dev compose
 3. ✅ Muhasebe: hareketler, cari/emanet, mahsup, yetki matrisi; müvekkil listesine bakiye, borçlu ve açık görev filtreleri.
 3b. ✅ Görev belgeleri ve ofis klasörü (aşağıdaki "Belgeler ve ofis klasörü" maddesi).
 4. ✅ Global arama, aktivite ekranları, 6 rapor (Excel + PDF).
-5. ✅ Ayarlar ekranları (kullanıcılar, yedekleme), şifreli yedek/geri yükleme, Windows kurulum betikleri (`installer/`, ayrıntı `installer/README.md`). `Setup.exe` derlemesi Inno Setup 6 ister; henüz derlenip temiz Windows'ta denenmedi.
+5. ✅ Ayarlar ekranları (kullanıcılar, yedekleme), şifreli yedek/geri yükleme, Windows kurulum betikleri (`installer/`, ayrıntı `installer/README.md`). `Setup.exe` derlemesi Inno Setup 6 ister (bu makinede `%LOCALAPPDATA%\Programs\Inno Setup 6`); 1.0.0 derlendi (~66 MB) ama temiz bir Windows'ta kurulum denemesi henüz yapılmadı. `.ps1`/`.iss` dosyaları UTF-8 BOM ile tutulur (PowerShell 5 BOM'suz UTF-8'i ANSI okur).
 6. ✅ Excel'den içe aktarım (`apps/imports`, `/aktar/`, yalnızca yönetici): sistemin kendi şablonu (Müvekkiller, Dosyalar, Açılış bakiyeleri sayfaları); yükle → satır satır önizleme → onayla (tek transaction). Var olan müvekkil (TCKN/VKN/ad) ve dosya (arşiv no) atlanır; hatalı satır varsa hiçbir şey yazılmaz. Ofisin kendi Excel formatı görülünce şablon ona göre uyarlanabilir.
 
 ## Çalışma kuralları

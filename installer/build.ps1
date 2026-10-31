@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
   Özkurt Hukuk kurulum paketini (Setup.exe) üretir. Geliştirici makinesinde çalıştırılır.
 
@@ -22,6 +22,7 @@ param(
     [string]$WinSWVersion = "v2.12.0"
 )
 $ErrorActionPreference = "Stop"
+$ProgressPreference = "SilentlyContinue"  # Invoke-WebRequest/Expand-Archive ilerleme çubuğu çok yavaşlatır
 $Root = Split-Path -Parent $PSScriptRoot
 $Build = Join-Path $PSScriptRoot "build"
 $Cache = Join-Path $PSScriptRoot "cache"
@@ -60,7 +61,9 @@ if ($LASTEXITCODE -ne 0) { throw "Python bağımlılıkları kurulamadı." }
 # 2) PostgreSQL (yalnızca sunucu bileşenleri)
 $pgZip = Get-Cached "https://get.enterprisedb.com/postgresql/postgresql-$PostgresVersion-windows-x64-binaries.zip" "postgresql-$PostgresVersion-windows-x64-binaries.zip"
 $pgTmp = Join-Path $Build "pgtmp"
-Expand-Archive $pgZip $pgTmp
+New-Item -ItemType Directory -Force $pgTmp | Out-Null
+tar -xf $pgZip -C $pgTmp  # Windows'un yerleşik tar'ı Expand-Archive'den çok daha hızlı
+if ($LASTEXITCODE -ne 0) { throw "PostgreSQL arşivi açılamadı." }
 Move-Item (Join-Path $pgTmp "pgsql") (Join-Path $Build "pgsql")
 Remove-Item -Recurse -Force $pgTmp
 foreach ($junk in @("pgAdmin 4", "doc", "StackBuilder", "symbols", "include")) {
@@ -95,7 +98,8 @@ Remove-Item Env:\DATABASE_URL, Env:\DJANGO_SECRET_KEY, Env:\STATIC_ROOT
 $hashes | Set-Content -Encoding utf8 (Join-Path $Build "indirilenler.txt")
 
 # 5) Inno Setup
-$iscc = @("${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe", "$env:ProgramFiles\Inno Setup 6\ISCC.exe") |
+$iscc = @("${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe", "$env:ProgramFiles\Inno Setup 6\ISCC.exe",
+          "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe") |
     Where-Object { Test-Path $_ } | Select-Object -First 1
 if (-not $iscc) { throw "Inno Setup 6 bulunamadı. Kurmak için: winget install JRSoftware.InnoSetup" }
 & $iscc "/DAppVersion=$Version" "/DBuildDir=$Build" (Join-Path $PSScriptRoot "OzkurtHukuk.iss")

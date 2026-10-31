@@ -1,4 +1,4 @@
-<#
+﻿<#
   Kaldırmada servisleri, zamanlanmış görevi ve güvenlik duvarı kuralını siler.
   VERİLER (data\pgdata, data\media, data\backups) ve .env SİLİNMEZ.
 #>
