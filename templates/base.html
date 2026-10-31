@@ -16,13 +16,11 @@
 <div class="app-shell" x-data="{ nav: false }">
   <aside class="sidebar" :class="nav && 'open'">
     <div class="sidebar-head">
-    <a href="{% url 'core:home' %}" class="head-row">
-      <span class="brand-mark">{% if office.logo %}<img src="{{ office.logo.url }}" alt="">{% else %}ÖH{% endif %}</span>
+    <a href="{% url 'core:home' %}" class="head-row head-office">
       <span class="head-text"><strong>{{ office.name }}</strong><small>Büro Yönetimi</small></span>
     </a>
     <div class="dropdown">
       <button class="head-row head-user" data-bs-toggle="dropdown" aria-expanded="false">
-        <span class="avatar" style="--h: {{ request.user.avatar_hue }}">{{ request.user.initials }}</span>
         <span class="head-text"><strong>{{ request.user }}</strong><small>{{ request.user.display_title }}</small></span>
         <i class="bi bi-chevron-down head-caret"></i>
       </button>

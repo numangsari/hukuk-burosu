@@ -134,20 +134,29 @@ a:hover { text-decoration: underline; }
   z-index: 1040;
 }
 .sidebar-head {
-  padding: .75rem .75rem .75rem;
+  padding: 1.1rem .75rem .9rem;
   border-bottom: 1px solid rgba(255, 255, 255, .07);
-  display: flex; flex-direction: column; gap: .25rem;
+  display: flex; flex-direction: column; gap: .35rem;
 }
 .head-row {
-  display: flex; align-items: center; gap: .75rem;
-  width: 100%; padding: .5rem; border-radius: var(--radius-sm);
-  background: none; border: 0; text-align: left;
-  color: #fff;
+  display: flex; align-items: center; gap: .5rem;
+  width: 100%; padding: .4rem .75rem; border-radius: var(--radius-sm);
+  background: none; border: 0; text-align: left; color: #fff;
 }
+.head-row:focus { outline: none; }
+.head-row:focus-visible { box-shadow: 0 0 0 2px rgba(184, 146, 90, .5); }
 a.head-row:hover { color: #fff; text-decoration: none; }
+.head-text { min-width: 0; flex: 1; line-height: 1.3; }
+.head-text strong { display: block; font-weight: 700; letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.head-text small { display: block; font-style: italic; font-size: .78rem; color: rgba(255, 255, 255, .55); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Ofis adı bronz vurgu renginde, kullanıcı adı beyaz. */
+.head-office strong { font-size: 1.02rem; color: #d6b37c; }
 .head-user { cursor: pointer; transition: background .15s; }
+.head-user strong { font-size: .92rem; }
 .head-user:hover, .head-user[aria-expanded="true"] { background: rgba(255, 255, 255, .06); }
-.head-row .avatar { width: 36px; height: 36px; font-size: .8rem; border-radius: 50%; }
+.head-caret { font-size: .75rem; color: rgba(255, 255, 255, .45); }
+.sidebar-head .dropdown-menu { width: 100%; margin-top: .25rem !important; }
+/* Giriş ekranındaki logo */
 .brand-mark {
   width: 36px; height: 36px; border-radius: 10px;
   display: grid; place-items: center; flex-shrink: 0;
@@ -155,11 +164,6 @@ a.head-row:hover { color: #fff; text-decoration: none; }
   color: #fff; font-weight: 700; font-size: .85rem; letter-spacing: .02em;
 }
 .brand-mark img { max-width: 100%; max-height: 100%; border-radius: 10px; }
-.head-text { min-width: 0; flex: 1; line-height: 1.25; }
-.head-text strong { display: block; font-size: .9rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.head-text small { display: block; font-size: .75rem; color: rgba(255, 255, 255, .5); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.head-caret { font-size: .75rem; color: rgba(255, 255, 255, .45); }
-.sidebar-head .dropdown-menu { width: 100%; margin-top: .25rem !important; }
 
 .sidebar-nav { padding: .75rem .75rem 1rem; overflow-y: auto; flex: 1; }
 .nav-section {
