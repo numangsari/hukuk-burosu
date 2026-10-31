@@ -4,7 +4,7 @@ from django.shortcuts import get_object_or_404, render
 from django.utils import timezone
 from django.views import View
 
-from apps.core.permissions import is_admin
+from apps.core.permissions import AdminRequiredMixin, is_admin
 
 from .forms import CaseEventForm, HearingForm, HearingResultForm, ServiceForm
 from .models import Case, CaseEvent, Hearing, HearingStatus, Service
@@ -82,7 +82,7 @@ class HearingResultView(View):
         return hearings_partial(request, case)
 
 
-class HearingDeleteView(View):
+class HearingDeleteView(AdminRequiredMixin, View):
     def post(self, request, pk, item_pk):
         case = get_object_or_404(Case, pk=pk)
         get_object_or_404(Hearing, pk=item_pk, case=case).delete()
@@ -119,7 +119,7 @@ class ServiceToggleView(View):
         return services_partial(request, case)
 
 
-class ServiceDeleteView(View):
+class ServiceDeleteView(AdminRequiredMixin, View):
     def post(self, request, pk, item_pk):
         case = get_object_or_404(Case, pk=pk)
         get_object_or_404(Service, pk=item_pk, case=case).delete()

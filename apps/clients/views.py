@@ -231,7 +231,7 @@ class SubrecordView(View):
         )
 
 
-class SubrecordDeleteView(View):
+class SubrecordDeleteView(AdminRequiredMixin, View):
     def post(self, request, pk, kind, item_pk):
         if kind not in SUBRECORDS:
             raise Http404

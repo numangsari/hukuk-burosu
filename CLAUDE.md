@@ -19,7 +19,8 @@ uv run python manage.py setup_office_users --pin <PIN>   # ofis kullanıcıları
 uv run python manage.py seed_dev                 # örnek müvekkil/dosya (kullanıcılar önceden olmalı)
 uv run python manage.py runserver
 uv run pytest                                    # testler (dev DB'de test_ veritabanı açar)
-uv run ruff check . && uv run ruff format --check .
+uv run ruff check .
+uv run ruff format --check .
 ```
 Dev ayarları `config/settings/dev.py`, varsayılan DB bağlantısı dev compose'daki DB'dir. 5433 portu bu makinede başka bir projede dolu olduğu için 5434 kullanılır.
 
@@ -49,6 +50,15 @@ Dev ayarları `config/settings/dev.py`, varsayılan DB bağlantısı dev compose
 - Aktivite kaydı `django-auditlog`; her app `ready()` içinde kendi modellerini kaydeder.
 - `apps/agenda`: takvim = Google Takvim (salt okunur) + sistemdeki planlı duruşmalar ve gereği yapılmamış tebligat son günleri (`combined_events`, `Event.source` google/hearing/deadline). Google kısmı: Yönetici Ayarlar > Google Takvim'e "iCal biçiminde gizli adres"i girer (`OfficeSettings.calendar_ics_url`, ekranda gösterilmez, repoya/log'a yazılmaz). `services.py` ICS'i çeker (5 dk önbellek, erişilemezse 1 güne kadar son kopya), `icalendar` + `recurring-ical-events` ile tekrar eden etkinlikleri açar. Ana sayfada önümüzdeki 7 gün, `/takvim/` sayfasında ay/hafta görünümü. Sunucunun internet erişimi gerekir.
 - Ayarlar sayfası `/hesap/ayarlar/?bolum=profil|pin|ofis|takvim` (`accounts.views.SettingsView`); ofis ve takvim bölümleri yalnızca yönetici.
+
+### Kayıt bütünlüğü
+- Duruşma, tebligat, dosyadaki karşı taraf bağlantısı ve müvekkil alt kayıtlarını yalnızca yönetici silebilir; düğmeler de aynı kurala bağlıdır.
+- Ekrandan muhasebe hareketi oluşturma/iptal işlemleri `apps/accounting/services.py` üzerinden yürür. Müvekkil satırı işlem boyunca kilitlenir; bakiye kayıttan hemen önce yeniden hesaplanır. Emaneti eksiye düşüren ödeme/mahsup ve tahsilat iptali reddedilir. Yeni para işlemleri bu yardımcıları kullanmalıdır; tamamlanmamış `apps/imports` bu kapsama henüz alınmamıştır.
+- Bağlı görev veya muhasebe hareketi olan dosyanın müvekkili düzenleme formunda değiştirilemez. Dosya düzenleme ve ekrandan görev/para hareketi ekleme, aynı dosya kilidini kullanır.
+- Görev ve belgeleri yalnızca `active` durumunda değiştirilebilir. Kontroldeki belge için önce revizyon istenir; onayda belge zorunluluğu yeniden denetlenir. Durum geçişleri ve belge değişiklikleri görev satırını kilitler; eski durumla gelen ikinci onay yeniden kayıt üretmez.
+- Excel raporlarındaki bütün metinler açıkça metin hücresi olarak yazılır. Uyarı ve hata mesajları kullanıcı kapatana kadar görünür kalır; başarı mesajı kısa sürede kapanır.
+- Yedek dosyalarını dışlayan kural yalnızca kökteki `/backups/` içindir; `apps/backups/` uygulama kodu ve şema dosyaları ortak proje kaydına dahildir.
+- Geri yükleme önce belgeleri aynı diskte geçici klasöre hazırlar. Veritabanı `pg_restore --single-transaction --exit-on-error` ile yüklenir; hata halinde eski belge klasörü geri konur. Başarılı dönüşte eski belgeler `media.onceki-...` altında saklanır. Windows yardımcısı güvenlik yedeği veya servis durdurma başarısızsa başlamaz; geri yükleme hatasında uygulamayı kapalı tutar. Gerçek yedek ve kurulu Windows servisleriyle dönüş provası hâlâ gereklidir.
 
 ## Arayüz
 - Tasarım sistemi `static/css/app.css`: tokenlar `:root` ve `[data-bs-theme=dark]` altında (lacivert yan menü, bronz vurgu `--accent`, marka mavisi `--brand`). Font Inter, `static/vendor/inter/` altında gömülü.
@@ -88,3 +98,4 @@ Dev ayarları `config/settings/dev.py`, varsayılan DB bağlantısı dev compose
 - Model değişikliğinde migration üret ve commit'le. Yeni modeli auditlog'a kaydet.
 - Yeni sayfa: liste filtreleri HTMX (`hx-get` + `_list_table.html` partial), satır içi alt kayıtlar HTMX partial ile.
 - Her değişiklikten sonra `pytest` ve `ruff` çalıştır.
+- Eşzamanlı işlem denemeleri `tests/test_report_concurrency.py` içindedir; gerçek PostgreSQL bağlantıları kullanır, kurulumla gelen başlangıç kayıtlarını denemelerden sonra geri koyar. Windows'ta geçici test klasöründe erişim reddi olursa denemeler için ek erişim gerekir.

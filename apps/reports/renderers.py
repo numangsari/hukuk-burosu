@@ -21,27 +21,34 @@ def to_xlsx(r: ReportResult, office_name: str) -> bytes:
 
     wb = Workbook()
     ws = wb.active
+
+    def write_cell(row, column, value=None):
+        cell = ws.cell(row, column, value)
+        if isinstance(value, str):
+            cell.data_type = "s"
+        return cell
+
     # Excel sayfa adı en çok 31 karakter olabilir ve []:*?/\ içeremez.
     ws.title = re.sub(r"[\[\]:*?/\\]", "-", r.title)[:31]
     navy = "0F1F38"
     ncol = len(r.columns)
-    ws.cell(1, 1, office_name).font = Font(bold=True, size=12, color=navy)
-    ws.cell(2, 1, r.title).font = Font(bold=True, size=14)
-    ws.cell(3, 1, r.subtitle).font = Font(italic=True, color="666666")
-    ws.cell(3, ncol, f"Oluşturma: {timezone.localtime():%d.%m.%Y %H:%M}").alignment = Alignment(
+    write_cell(1, 1, office_name).font = Font(bold=True, size=12, color=navy)
+    write_cell(2, 1, r.title).font = Font(bold=True, size=14)
+    write_cell(3, 1, r.subtitle).font = Font(italic=True, color="666666")
+    write_cell(3, ncol, f"Oluşturma: {timezone.localtime():%d.%m.%Y %H:%M}").alignment = Alignment(
         horizontal="right"
     )
     row = 5
     for label, value in r.summary:
-        ws.cell(row, 1, label).font = Font(bold=True)
-        ws.cell(row, 2, value)
+        write_cell(row, 1, label).font = Font(bold=True)
+        write_cell(row, 2, value)
         row += 1
     if r.summary:
         row += 1
     header_row = row
     thin = Side(style="thin", color="D9DEE5")
     for i, c in enumerate(r.columns, start=1):
-        cell = ws.cell(header_row, i, c.label)
+        cell = write_cell(header_row, i, c.label)
         cell.font = Font(bold=True, color="FFFFFF")
         cell.fill = PatternFill("solid", fgColor=navy)
         cell.alignment = Alignment(
@@ -57,7 +64,7 @@ def to_xlsx(r: ReportResult, office_name: str) -> bytes:
                 value = float(value)
             elif value is not None and not isinstance(value, (str, int, float, dt.date)):
                 value = str(value)  # ör. kullanıcı nesnesi
-            cell = ws.cell(row, i, value if value not in (None, "") else None)
+            cell = write_cell(row, i, value if value not in (None, "") else None)
             cell.border = Border(bottom=thin)
             if c.kind == "money":
                 cell.number_format = money_fmt

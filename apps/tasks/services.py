@@ -73,8 +73,10 @@ def available_actions(task: Task, user) -> list[Action]:
 
 
 def can_upload(task: Task, user) -> bool:
-    """Açık görevde sorumlu, kontrolcü ve yönetici belge yükleyebilir."""
-    return task.is_open and (is_admin(user) or user.pk in (task.assignee_id, task.reviewer_id))
+    """Aktif görevde sorumlu, kontrolcü ve yönetici belge yükleyebilir."""
+    return task.status == S.ACTIVE and (
+        is_admin(user) or user.pk in (task.assignee_id, task.reviewer_id)
+    )
 
 
 def can_delete(task: Task, user) -> bool:
@@ -82,7 +84,7 @@ def can_delete(task: Task, user) -> bool:
 
 
 def can_edit(task: Task, user) -> bool:
-    return task.is_open and (
+    return task.status == S.ACTIVE and (
         is_admin(user) or user.pk in (task.created_by_id, task.reviewer_id, task.assignee_id)
     )
 
@@ -92,18 +94,22 @@ def perform(task: Task, key: str, user, comment: str = "") -> Task:
     action = ACTIONS.get(key)
     if action is None:
         raise ValidationError("Geçersiz işlem.")
+    task.refresh_from_db(from_queryset=Task.objects.select_for_update())
+    if task.status not in action.sources:
+        raise ValidationError("Görevin durumu değişmiş. Sayfayı yenileyip tekrar deneyin.")
     if not can_do(action, task, user):
         raise PermissionDenied("Bu işlemi yapma yetkiniz yok.")
     comment = (comment or "").strip()
     if action.needs_comment and not comment:
         raise ValidationError("Revizyon isterken açıklama yazmalısınız.")
     if (
-        key == "submit"
+        key in ("submit", "approve")
         and task.task_type.requires_document
         and not task.documents.filter(is_current=True).exists()
     ):
         raise ValidationError(
-            f'"{task.task_type}" türündeki görevi kontrole göndermeden önce belge yüklemelisiniz.'
+            f'"{task.task_type}" türündeki görev için belge zorunludur. '
+            "Belgeyi aktif görevde yükleyip yeniden kontrole gönderin."
         )
     task.warnings = []
 

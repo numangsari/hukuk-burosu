@@ -1,12 +1,6 @@
 {% extends "base.html" %}
 {% load ui %}
-{% block title %}{{ client }} — {{ office.name }}<script>
-  // #cari ile gelindiğinde cari hesap sekmesini aç
-  document.addEventListener("DOMContentLoaded", () => {
-    if (location.hash === "#cari") document.getElementById("tab-cari")?.click();
-  });
-</script>
-{% endblock %}
+{% block title %}{{ client }} — {{ office.name }}{% endblock %}
 {% block content %}
 <div class="page-header mb-3">
   <div class="eyebrow"><a href="{% url 'clients:list' %}"><i class="bi bi-chevron-left"></i> Müvekkiller</a></div>

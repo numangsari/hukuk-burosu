@@ -7,7 +7,7 @@
     {% for l in party_links %}
       <tr><td class="cell-main">{{ l.party.name }}</td><td><span class="chip no-dot">{{ l.get_role_display }}</span></td>
         <td class="tabular">{{ l.party.identity_no|default:"—" }}</td><td>{{ l.party.lawyer|default:"—" }}</td><td class="small text-body-secondary">{{ l.party.address|default:"—" }}</td>
-        <td class="text-end"><button class="btn-ghost-danger" title="Dosyadan çıkar" hx-post="{% url 'cases:party_remove' case.pk l.pk %}" hx-target="#parties" hx-swap="outerHTML" hx-confirm="Taraf dosyadan çıkarılsın mı?"><i class="bi bi-x-lg"></i></button></td></tr>
+        <td class="text-end">{% if request.user.is_office_admin %}<button class="btn-ghost-danger" title="Dosyadan çıkar" hx-post="{% url 'cases:party_remove' case.pk l.pk %}" hx-target="#parties" hx-swap="outerHTML" hx-confirm="Taraf dosyadan çıkarılsın mı?"><i class="bi bi-x-lg"></i></button>{% endif %}</td></tr>
     {% empty %}<tr><td colspan="6"><div class="empty-state py-3"><strong>Karşı taraf eklenmemiş</strong>Davalı, borçlu, şüpheli gibi tarafları aşağıdan ekleyin.</div></td></tr>{% endfor %}
     </tbody>
   </table>

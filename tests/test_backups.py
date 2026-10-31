@@ -96,6 +96,85 @@ def test_restore_roundtrip(backup_env, monkeypatch, settings):
     assert list(backup_env.glob("media.onceki-*"))  # önceki belgeler saklandı
 
 
+def test_failed_restore_keeps_previous_media(backup_env, monkeypatch):
+    rec = services.run_backup()
+    document = backup_env / "media" / "cases" / "1" / "dilekce.pdf"
+    document.write_bytes(b"mevcut belge")
+
+    def fail(cmd, **kwargs):
+        assert "--single-transaction" in cmd
+        assert "--exit-on-error" in cmd
+        raise services.BackupError("Örnek veritabanı hatası")
+
+    monkeypatch.setattr(services, "_run", fail)
+    with pytest.raises(services.BackupError, match="Örnek veritabanı hatası"):
+        services.restore(backup_env / "yedekler" / rec.file_name)
+    assert document.read_bytes() == b"mevcut belge"
+
+
+def test_media_copy_failure_does_not_start_database_restore(backup_env, monkeypatch):
+    rec = services.run_backup()
+    document = backup_env / "media" / "cases" / "1" / "dilekce.pdf"
+    document.write_bytes(b"mevcut belge")
+    calls = []
+    monkeypatch.setattr(services, "_run", lambda *args, **kwargs: calls.append(args))
+
+    def fail(*args, **kwargs):
+        raise OSError("Örnek disk hatası")
+
+    monkeypatch.setattr(services.shutil, "copytree", fail)
+    with pytest.raises(services.BackupError):
+        services.restore(backup_env / "yedekler" / rec.file_name)
+    assert not calls
+    assert document.read_bytes() == b"mevcut belge"
+
+
+def test_restore_without_media_replaces_current_documents(backup_env, monkeypatch):
+    archive = backup_env / "bos-belgeli-yedek.zip"
+    with pyzipper.AESZipFile(archive, "w", encryption=pyzipper.WZ_AES) as zf:
+        zf.setpassword(TEST_PASSWORD.encode())
+        zf.writestr("db.dump", b"PGDMP ornek")
+    monkeypatch.setattr(services, "_run", lambda *args, **kwargs: None)
+    services.restore(archive)
+    assert list((backup_env / "media").iterdir()) == []
+    previous = list(backup_env.glob("media.onceki-*"))
+    assert len(previous) == 1
+    assert (previous[0] / "cases" / "1" / "dilekce.pdf").read_bytes() == b"%PDF belge"
+
+
+def test_corrupt_archive_does_not_touch_media(backup_env, monkeypatch):
+    archive = backup_env / "bozuk.zip"
+    archive.write_bytes(b"arsiv degil")
+    calls = []
+    monkeypatch.setattr(services, "_run", lambda *args, **kwargs: calls.append(args))
+    with pytest.raises(services.BackupError, match="Yedek açılamadı"):
+        services.restore(archive)
+    assert not calls
+    assert (backup_env / "media" / "cases" / "1" / "dilekce.pdf").read_bytes() == b"%PDF belge"
+
+
+def test_media_swap_failure_restores_previous_folder(backup_env, monkeypatch):
+    from pathlib import Path
+
+    rec = services.run_backup()
+    document = backup_env / "media" / "cases" / "1" / "dilekce.pdf"
+    document.write_bytes(b"mevcut belge")
+    rename = Path.rename
+    calls = []
+    monkeypatch.setattr(services, "_run", lambda *args, **kwargs: calls.append(args))
+
+    def fail_staged_swap(source, target):
+        if source.parent.name.startswith(".geri-yukleme-"):
+            raise OSError("Örnek klasör değiştirme hatası")
+        return rename(source, target)
+
+    monkeypatch.setattr(Path, "rename", fail_staged_swap)
+    with pytest.raises(services.BackupError):
+        services.restore(backup_env / "yedekler" / rec.file_name)
+    assert not calls
+    assert document.read_bytes() == b"mevcut belge"
+
+
 def test_backup_now_view_admin_only(backup_env, admin_user, lawyer):
     c = HttpClient()
     c.force_login(lawyer)

@@ -28,7 +28,7 @@
         </td>
         <td class="text-end text-nowrap">
           <button class="btn btn-light btn-sm" @click="open = !open"><i class="bi bi-journal-text"></i>Sonuç</button>
-          <button class="btn-ghost-danger" title="Sil" hx-post="{% url 'cases:hearing_delete' case.pk h.pk %}" hx-target="#hearings" hx-swap="outerHTML" hx-confirm="Duruşma kaydı silinsin mi?"><i class="bi bi-trash"></i></button>
+          {% if request.user.is_office_admin %}<button class="btn-ghost-danger" title="Sil" hx-post="{% url 'cases:hearing_delete' case.pk h.pk %}" hx-target="#hearings" hx-swap="outerHTML" hx-confirm="Duruşma kaydı silinsin mi?"><i class="bi bi-trash"></i></button>{% endif %}
         </td>
       </tr>
     {% empty %}<tr><td colspan="5"><div class="empty-state py-3"><strong>Duruşma kaydı yok</strong>Duruşma, keşif, bilirkişi incelemesi gibi tarihleri aşağıdan ekleyin.</div></td></tr>{% endfor %}

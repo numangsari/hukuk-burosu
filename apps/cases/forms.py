@@ -42,6 +42,18 @@ class CaseForm(BootstrapMixin, forms.ModelForm):
                 pk=self.instance.client_id
             )
 
+    def clean_client(self):
+        client = self.cleaned_data["client"]
+        if (
+            self.instance.pk
+            and client.pk != self.instance.client_id
+            and (self.instance.tasks.exists() or self.instance.ledger_entries.exists())
+        ):
+            raise forms.ValidationError(
+                "Bu dosyaya bağlı görev veya muhasebe hareketi var; müvekkili değiştirilemez."
+            )
+        return client
+
     def clean_archive_no(self):
         value = self.cleaned_data["archive_no"].strip()
         qs = Case.objects.filter(archive_no__iexact=value)

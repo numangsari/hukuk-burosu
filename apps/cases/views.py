@@ -1,4 +1,5 @@
 from django.contrib import messages
+from django.db import transaction
 from django.db.models import ProtectedError, Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -111,7 +112,13 @@ class CaseCreateView(CaseFormMixin, CreateView):
 
 
 class CaseUpdateView(CaseFormMixin, UpdateView):
-    pass
+    @transaction.atomic
+    def post(self, request, *args, **kwargs):
+        return super().post(request, *args, **kwargs)
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        return qs.select_for_update() if self.request.method == "POST" else qs
 
 
 class CaseDetailView(DetailView):
@@ -200,7 +207,7 @@ class CasePartyAddView(View):
         return _parties_partial(request, case)
 
 
-class CasePartyRemoveView(View):
+class CasePartyRemoveView(AdminRequiredMixin, View):
     def post(self, request, pk, link_pk):
         case = get_object_or_404(Case, pk=pk)
         get_object_or_404(CaseParty, pk=link_pk, case=case).delete()

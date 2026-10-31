@@ -13,7 +13,7 @@ __pycache__/
 # Veri: asla repoya girmez
 media/
 .test-media/
-backups/
+/backups/
 *.dump
 *.sql
 *.bak

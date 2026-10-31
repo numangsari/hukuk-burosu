@@ -18,7 +18,7 @@
           <button class="chip {% if s.is_done %}chip-success{% else %}chip-warning{% endif %} border-0" title="Durumu değiştir"
                   hx-post="{% url 'cases:service_toggle' case.pk s.pk %}" hx-target="#services" hx-swap="outerHTML">{% if s.is_done %}Gereği yapıldı{% else %}Bekliyor{% endif %}</button>
         </td>
-        <td class="text-end"><button class="btn-ghost-danger" title="Sil" hx-post="{% url 'cases:service_delete' case.pk s.pk %}" hx-target="#services" hx-swap="outerHTML" hx-confirm="Tebligat kaydı silinsin mi?"><i class="bi bi-trash"></i></button></td>
+        <td class="text-end">{% if request.user.is_office_admin %}<button class="btn-ghost-danger" title="Sil" hx-post="{% url 'cases:service_delete' case.pk s.pk %}" hx-target="#services" hx-swap="outerHTML" hx-confirm="Tebligat kaydı silinsin mi?"><i class="bi bi-trash"></i></button>{% endif %}</td>
       </tr>
     {% empty %}<tr><td colspan="6"><div class="empty-state py-3"><strong>Tebligat kaydı yok</strong>Gelen tebligatları ve son günlerini aşağıdan ekleyin.</div></td></tr>{% endfor %}
     </tbody>

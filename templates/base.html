@@ -114,10 +114,11 @@
 <div class="toast-stack">
   {% for m in messages %}
     <div class="alert alert-{% if m.tags == 'error' %}danger{% else %}{{ m.tags }}{% endif %} d-flex align-items-center gap-2"
-         x-data="{ show: true }" x-show="show" x-init="setTimeout(() => show = false, 4500)" x-transition>
+         role="{% if m.level >= 30 %}alert{% else %}status{% endif %}"
+         x-data="{ show: true }" x-show="show"{% if m.level < 30 %} x-init="setTimeout(() => show = false, 4500)"{% endif %} x-transition>
       <i class="bi {% if m.tags == 'error' %}bi-exclamation-octagon{% else %}bi-check-circle{% endif %}"></i>
       <span>{{ m }}</span>
-      <button type="button" class="btn-close btn-sm ms-auto" @click="show = false"></button>
+      <button type="button" class="btn-close btn-sm ms-auto" aria-label="Bildirimi kapat" @click="show = false"></button>
     </div>
   {% endfor %}
 </div>

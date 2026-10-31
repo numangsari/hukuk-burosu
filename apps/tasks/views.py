@@ -1,5 +1,6 @@
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied, ValidationError
+from django.db import transaction
 from django.db.models import Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -99,8 +100,10 @@ class TaskCreateView(CreateView):
 
     def form_valid(self, form):
         form.instance.created_by = self.request.user
-        response = super().form_valid(form)
-        services.on_created(self.object, self.request.user)
+        with transaction.atomic():
+            form.instance.case = Case.objects.select_for_update().get(pk=form.instance.case_id)
+            response = super().form_valid(form)
+            services.on_created(self.object, self.request.user)
         messages.success(self.request, "Görev oluşturuldu.")
         return response
 
@@ -110,6 +113,14 @@ class TaskUpdateView(UpdateView):
     form_class = TaskForm
     template_name = "tasks/form.html"
 
+    @transaction.atomic
+    def post(self, request, *args, **kwargs):
+        return super().post(request, *args, **kwargs)
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        return qs.select_for_update() if self.request.method == "POST" else qs
+
     def get_object(self, queryset=None):
         task = super().get_object(queryset)
         if not services.can_edit(task, self.request.user):
@@ -117,6 +128,7 @@ class TaskUpdateView(UpdateView):
         return task
 
     def form_valid(self, form):
+        form.instance.case = Case.objects.select_for_update().get(pk=form.instance.case_id)
         old_assignee = Task.objects.values_list("assignee_id", flat=True).get(pk=self.object.pk)
         changed = [form.fields[f].label for f in form.changed_data if f != "client"]
         response = super().form_valid(form)
@@ -241,8 +253,9 @@ def _docs_partial(request, task, error=""):
 
 
 class TaskDocumentUploadView(View):
+    @transaction.atomic
     def post(self, request, pk):
-        task = get_object_or_404(Task, pk=pk)
+        task = get_object_or_404(Task.objects.select_for_update(), pk=pk)
         if not services.can_upload(task, request.user):
             raise PermissionDenied
         f = request.FILES.get("file")
@@ -274,12 +287,13 @@ class TaskDocumentUploadView(View):
 
 
 class TaskDocumentDeleteView(View):
-    """Açık görevde belgeyi yükleyen veya yönetici siler; önceki sürüm varsa o güncel olur."""
+    """Aktif görevde belgeyi yükleyen veya yönetici siler; önceki sürüm varsa o güncel olur."""
 
+    @transaction.atomic
     def post(self, request, pk, doc_pk):
-        task = get_object_or_404(Task, pk=pk)
+        task = get_object_or_404(Task.objects.select_for_update(), pk=pk)
         doc = get_object_or_404(TaskDocument, pk=doc_pk, task=task, is_current=True)
-        if not task.is_open or not (
+        if task.status != TaskStatus.ACTIVE or not (
             doc.uploaded_by_id == request.user.pk or is_admin(request.user)
         ):
             raise PermissionDenied

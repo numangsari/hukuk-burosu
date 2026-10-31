@@ -5,6 +5,7 @@
     {% if task.task_type.requires_document %}<span class="chip chip-warning no-dot">Kontrol için belge zorunlu</span>{% endif %}
   </div>
   {% if doc_error %}<div class="alert alert-danger small m-3 mb-0 py-2">{{ doc_error }}</div>{% endif %}
+  {% if task.status == "review" %}<div class="alert alert-info small m-3 mb-0 py-2">Kontroldeki belgeler değiştirilemez. Değişiklik gerekiyorsa önce revizyon istenmelidir.</div>{% endif %}
   {% if task_docs %}
   <ul class="doc-list">
     {% for d in task_docs %}

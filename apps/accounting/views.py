@@ -1,7 +1,7 @@
 import datetime as dt
 
 from django.contrib import messages
-from django.db import transaction
+from django.core.exceptions import ValidationError
 from django.shortcuts import get_object_or_404, redirect
 from django.utils import timezone
 from django.views.generic import CreateView, ListView, View
@@ -12,6 +12,7 @@ from apps.clients.models import Client
 from .forms import LedgerEntryForm
 from .models import KIND_HELP, EntryKind, LedgerEntry
 from .permissions import EditRequiredMixin, ViewRequiredMixin
+from .services import cancel_entry, create_entry
 
 
 def _date(value):
@@ -99,9 +100,13 @@ class EntryCreateView(EditRequiredMixin, CreateView):
 
     def form_valid(self, form):
         form.instance.created_by = self.request.user
-        response = super().form_valid(form)
+        try:
+            self.object = create_entry(form.save(commit=False))
+        except ValidationError as e:
+            form.add_error(None, e)
+            return self.form_invalid(form)
         messages.success(self.request, f"{self.object.get_kind_display()} kaydedildi.")
-        return response
+        return redirect(self.get_success_url())
 
     def get_success_url(self):
         nxt = self.request.POST.get("next", "")
@@ -116,15 +121,11 @@ class EntryCancelView(EditRequiredMixin, View):
     def post(self, request, pk):
         entry = get_object_or_404(LedgerEntry, pk=pk, is_cancelled=False)
         reason = request.POST.get("reason", "").strip()
-        if not reason:
-            messages.error(request, "İptal nedeni yazılmalı.")
+        try:
+            cancel_entry(entry, request.user, reason)
+        except ValidationError as e:
+            messages.error(request, " ".join(e.messages))
         else:
-            with transaction.atomic():
-                entry.is_cancelled = True
-                entry.cancelled_at = timezone.now()
-                entry.cancelled_by = request.user
-                entry.cancel_reason = reason[:300]
-                entry.save()
             messages.success(request, "Hareket iptal edildi.")
         nxt = request.POST.get("next", "")
         return redirect(
