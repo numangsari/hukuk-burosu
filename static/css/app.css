@@ -151,6 +151,12 @@ a.head-row:hover { color: #fff; text-decoration: none; }
 .head-text small { display: block; font-style: italic; font-size: .78rem; color: rgba(255, 255, 255, .55); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* Ofis adı bronz vurgu renginde, kullanıcı adı beyaz. */
 .head-office strong { font-size: 1.02rem; color: #d6b37c; }
+/* Büro ile kullanıcı arasında belli belirsiz ayırıcı çizgi */
+.head-office { position: relative; padding-bottom: .85rem; margin-bottom: .3rem; }
+.head-office::after {
+  content: ""; position: absolute; left: .75rem; right: .75rem; bottom: 0; height: 1px;
+  background: linear-gradient(90deg, rgba(214, 179, 124, .28), rgba(255, 255, 255, .04));
+}
 .head-user { cursor: pointer; transition: background .15s; }
 .head-user strong { font-size: .92rem; }
 .head-user:hover, .head-user[aria-expanded="true"] { background: rgba(255, 255, 255, .06); }
