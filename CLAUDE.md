@@ -66,6 +66,8 @@ Dev ayarları `config/settings/dev.py`, varsayılan DB bağlantısı dev compose
 - Yan menü: üstte ofis adı, altında kullanıcı bloğu (tıklayınca Ayarlar / Çıkış yap). Ana sayfa: yalnızca selamlama başlığı; solda "Aktif görevlerim" (sorumlu olduğu açık görevler + kontrolünü bekleyenler, son güne göre, gecikmiş üstte), sağda 4 hızlı işlem (Yeni görev, Yeni dosya, Yeni müvekkil, Yeni gelir/gider — muhasebe gelene kadar pasif) ve "Yaklaşan tarihler" (süresi geçmiş tebligatlar + 7 gün).
 - Bildirim mesajları sağ altta toast olarak çıkar. Tema düğmesi `accounts:theme_toggle` ile kullanıcı tercihine yazılır.
 - Yeni sayfalar bu bileşenlerle yazılır; satır içi stil yerine token kullanılır.
+- Ana sayfa ve yan menüde UYAP Avukat, UETS, Google Takvim ve WhatsApp Web kısayolları vardır. Adresler `apps/core/links.py` içinde tek yerde tutulur; `ui.office_links` ve `partials/office_links.html` iki yerleşimde aynı listeyi kullanır. Siteler kendi giriş ekranlarıyla yeni sekmede açılır. Tam WhatsApp bağlantısına geçmeden ofis numarası, resmî işletme hesabı ve ücret/kurulum kapsamı belirlenmelidir.
+- Devam eden WhatsApp isteği: program içinden mesaj gönderme, gelen cevapları görme ve otomatik hatırlatma. Gönderici numaranın ortak/kişisel olması, hatırlatma alıcıları ve mevcut hesap türü henüz netleşmedi. Yerel ofis uygulamasına dışarıdan cevapların nasıl ulaştırılacağı da kararlaştırılmalıdır; bu kapsam netleşmeden mesaj gönderimi etkinleştirilmez.
 
 ## Kurulum (production)
 - `installer/build.ps1` → gömülü Python 3.13 + PostgreSQL 17 binary + WinSW + uygulama → Inno Setup ile `installer/dist/OzkurtHukuk-Kurulum-<sürüm>.exe`.

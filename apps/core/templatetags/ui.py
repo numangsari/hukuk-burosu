@@ -3,7 +3,14 @@ from decimal import Decimal
 from django import template
 from django.utils.http import urlencode
 
+from apps.core.links import OFFICE_LINKS
+
 register = template.Library()
+
+
+@register.simple_tag
+def office_links():
+    return OFFICE_LINKS
 
 
 @register.filter

@@ -53,6 +53,8 @@
       {% if request.user.is_office_admin %}
       <a class="side-link" href="{% url 'admin:index' %}"><i class="bi bi-sliders"></i>Yönetim paneli</a>
       {% endif %}
+      <div class="nav-section">Kısayollar</div>
+      {% include "partials/office_links.html" with compact=True %}
     </nav>
     {% endwith %}
     {% if office.address or office.phone or office.email or office.tax_number %}
