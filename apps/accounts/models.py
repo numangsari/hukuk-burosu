@@ -20,6 +20,11 @@ class User(AbstractUser):
     phone = models.CharField("telefon", max_length=30, blank=True)
     avatar = models.ImageField("fotoğraf", upload_to="avatars/", blank=True)
     theme = models.CharField("tema", max_length=10, choices=Theme.choices, default=Theme.LIGHT)
+    must_change_pin = models.BooleanField(
+        "PIN değiştirmesi gerekiyor",
+        default=False,
+        help_text="Geçici PIN'le girişte kullanıcı yeni PIN belirlemeye yönlendirilir.",
+    )
     page_size = models.PositiveSmallIntegerField(
         "sayfa başına kayıt", default=25, choices=[(n, str(n)) for n in (25, 50, 100)]
     )

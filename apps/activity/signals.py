@@ -9,7 +9,8 @@ def _log(user, event, request):
         return
     ip = (request.META.get("REMOTE_ADDR") or "") if request else ""
     LogEntry.objects.create(
-        content_type=ContentType.objects.get_for_model(type(user)),
+        # type(user) değil: çıkışta kullanıcı tembel (lazy) sarmalayıcı olarak gelir
+        content_type=ContentType.objects.get_for_model(user),
         object_pk=str(user.pk),
         object_id=user.pk,
         object_repr=str(user)[:200],

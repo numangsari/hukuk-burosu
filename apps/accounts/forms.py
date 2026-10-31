@@ -38,6 +38,8 @@ class PinChangeForm(BootstrapMixin, forms.Form):
         new, new2 = data.get("new_pin"), data.get("new_pin2")
         if new and new2 and new != new2:
             self.add_error("new_pin2", "PIN'ler eşleşmiyor.")
+        elif new and new == data.get("old_pin"):
+            self.add_error("new_pin", "Yeni PIN mevcut PIN'den farklı olmalı.")
         elif new:
             try:
                 password_validation.validate_password(new, self.user)
@@ -47,7 +49,8 @@ class PinChangeForm(BootstrapMixin, forms.Form):
 
     def save(self):
         self.user.set_password(self.cleaned_data["new_pin"])
-        self.user.save(update_fields=["password"])
+        self.user.must_change_pin = False
+        self.user.save(update_fields=["password", "must_change_pin"])
         return self.user
 
 
@@ -110,6 +113,8 @@ class UserAdminForm(BootstrapMixin, forms.ModelForm):
         user.is_staff = user.is_superuser = user.role == User.Role.ADMIN
         if self.cleaned_data.get("pin"):
             user.set_password(self.cleaned_data["pin"])
+            # Yöneticinin başkasına verdiği PIN geçicidir; kişi ilk girişte kendi PIN'ini belirler.
+            user.must_change_pin = not (self.editor and user.pk == self.editor.pk)
         if commit:
             user.save()
         return user

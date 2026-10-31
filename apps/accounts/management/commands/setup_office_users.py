@@ -54,5 +54,6 @@ class Command(BaseCommand):
             )
             if created or reset_pin:
                 user.set_password(pin)
-                user.save(update_fields=["password"])
+                user.must_change_pin = True  # ortak başlangıç PIN'i ilk girişte değiştirilir
+                user.save(update_fields=["password", "must_change_pin"])
             self.stdout.write(f"{'oluşturuldu' if created else 'güncellendi'}: {user} ({title})")

@@ -72,7 +72,7 @@ class Command(BaseCommand):
         interns = list(User.objects.filter(role="intern", is_active=True))
         if not lawyers or not interns:
             raise CommandError("Önce setup_office_users ile kullanıcıları oluşturun.")
-        rnd = random.Random(2661)
+        rnd = random.Random(20261101)
         today = timezone.localdate()
         with transaction.atomic():
             counts = self.seed(rnd, today, lawyers, interns)

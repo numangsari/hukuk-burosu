@@ -25,6 +25,11 @@ class OfficeSettings(models.Model):
         blank=True,
         help_text=r"Sunucu PC'de belgelerin kopyalanacağı kök klasör, ör. D:\Ozkurt Hukuk Ofis",
     )
+    idle_minutes = models.PositiveSmallIntegerField(
+        "boşta kalınca oturumu kapat (dakika)",
+        default=30,
+        help_text="Bu süre işlem yapılmayan bilgisayarda oturum kapanır. 0 = kapalı.",
+    )
     upcoming_days = models.PositiveSmallIntegerField("yaklaşan tarih penceresi (gün)", default=7)
     backup_time = models.TimeField("yedek saati", default=datetime.time(12, 30))
     backup_dir = models.CharField("yedek hedef klasörü", max_length=500, blank=True)

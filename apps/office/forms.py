@@ -8,7 +8,16 @@ from .models import OfficeSettings, TaskType
 class OfficeForm(BootstrapMixin, forms.ModelForm):
     class Meta:
         model = OfficeSettings
-        fields = ["name", "address", "phone", "email", "tax_office", "tax_number", "logo"]
+        fields = [
+            "name",
+            "address",
+            "phone",
+            "email",
+            "tax_office",
+            "tax_number",
+            "logo",
+            "idle_minutes",
+        ]
         widgets = {"address": forms.Textarea(attrs={"rows": 2})}
 
 

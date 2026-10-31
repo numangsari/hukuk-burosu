@@ -693,3 +693,4 @@ a.agenda-item:hover { background: var(--surface-2); text-decoration: none; color
 .report-summary span { display: block; font-size: .74rem; color: var(--muted); }
 .report-summary strong { font-variant-numeric: tabular-nums; }
 .report-total td { font-weight: 700; background: var(--surface-2); border-top: 2px solid var(--line) !important; }
+.idle-note { color: #f3d9ab !important; font-size: .88rem; }

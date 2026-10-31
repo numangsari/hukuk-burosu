@@ -55,6 +55,8 @@ MIDDLEWARE = [
     "auditlog.middleware.AuditlogMiddleware",
     "django.contrib.auth.middleware.LoginRequiredMiddleware",
     "axes.middleware.AxesMiddleware",
+    "apps.accounts.middleware.IdleTimeoutMiddleware",
+    "apps.accounts.middleware.ForcePinChangeMiddleware",
 ]
 
 ROOT_URLCONF = "config.urls"

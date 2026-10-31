@@ -130,5 +130,17 @@
   {% block anonymous %}{% endblock %}
 {% endif %}
 <script src="{% static 'vendor/bootstrap/bootstrap.bundle.min.js' %}"></script>
+{% if request.user.is_authenticated and office.idle_minutes %}
+<script>
+  // Boşta kalma: bu süre fare/klavye hareketi olmazsa sayfa yenilenir, sunucu oturumu kapatır.
+  (() => {
+    const limit = ({{ office.idle_minutes }} * 60 + 75) * 1000;
+    let last = Date.now();
+    ["mousemove", "keydown", "click", "scroll", "touchstart"].forEach(e =>
+      addEventListener(e, () => { last = Date.now(); }, { passive: true }));
+    setInterval(() => { if (Date.now() - last > limit) location.reload(); }, 30000);
+  })();
+</script>
+{% endif %}
 </body>
 </html>
