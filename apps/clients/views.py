@@ -200,12 +200,17 @@ class SubrecordView(View):
         form_class, related, _ = self._spec(kind)
         client = get_object_or_404(Client, pk=pk)
         form = form_class(request.POST, request.FILES)
+        warning = ""
         if form.is_valid():
             item = form.save(commit=False)
             item.client = client
             if hasattr(item, "created_by"):
                 item.created_by = request.user
             item.save()
+            if kind == "vekalet":
+                from apps.cases.documents import mirror_poa
+
+                warning = mirror_poa(item)
             if getattr(item, "is_primary", False):
                 getattr(client, related).exclude(pk=item.pk).filter(
                     **({"kind": item.kind} if kind == "iletisim" else {})
@@ -214,7 +219,12 @@ class SubrecordView(View):
         return render(
             request,
             f"clients/_sub_{kind}.html",
-            {"client": client, "form": form, "items": getattr(client, related).all()},
+            {
+                "client": client,
+                "form": form,
+                "items": getattr(client, related).all(),
+                "folder_warning": warning,
+            },
         )
 
 

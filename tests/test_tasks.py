@@ -21,7 +21,7 @@ def task_factory(case_factory, lawyer, intern):
     def factory(**kw):
         case = kw.pop("case", None) or case_factory()
         defaults = {
-            "task_type": TaskType.objects.first(),
+            "task_type": TaskType.objects.get(name="Müvekkil görüşmesi"),  # belge zorunlu değil
             "title": "Cevap dilekçesi hazırla",
             "case": case,
             "assignee": intern,

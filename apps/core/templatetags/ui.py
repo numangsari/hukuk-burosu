@@ -19,6 +19,11 @@ def tl(value):
 
 
 @register.filter
+def get_item(mapping, key):
+    return mapping.get(key) if hasattr(mapping, "get") else None
+
+
+@register.filter
 def phone_tr(value):
     """05330430023 -> 0533 043 00 23. Tanınmayan biçim olduğu gibi döner."""
     digits = "".join(c for c in str(value or "") if c.isdigit())

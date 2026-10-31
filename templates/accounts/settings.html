@@ -12,6 +12,9 @@
       {% if forms.ofis %}
       <div class="nav-group">Ofis</div>
       <a class="{% if active == 'ofis' %}active{% endif %}" href="?bolum=ofis"><i class="bi bi-building"></i>Ofis bilgileri</a>
+      <a class="{% if active == 'klasor' %}active{% endif %}" href="?bolum=klasor"><i class="bi bi-folder2"></i>Belge klasörü
+        {% if office.documents_root %}<span class="chip chip-success ms-auto">Ayarlı</span>{% endif %}</a>
+      <a class="{% if active == 'gorev_turleri' %}active{% endif %}" href="?bolum=gorev_turleri"><i class="bi bi-list-check"></i>Görev türleri</a>
       <a class="{% if active == 'yetkiler' %}active{% endif %}" href="?bolum=yetkiler"><i class="bi bi-shield-check"></i>Muhasebe yetkileri</a>
       <a class="{% if active == 'takvim' %}active{% endif %}" href="?bolum=takvim"><i class="bi bi-calendar3"></i>Google Takvim
         {% if calendar_connected %}<span class="chip chip-success ms-auto">Bağlı</span>{% endif %}</a>
@@ -70,6 +73,50 @@
           <div class="col-md-4">{% include "partials/field.html" with field=form.tax_number %}</div>
           <div class="col-12">{% include "partials/field.html" with field=form.logo wrap_class="" %}</div>
         </div>
+      </div>
+      <div class="form-footer"><button class="btn btn-primary"><i class="bi bi-check2"></i>Kaydet</button></div>
+    </form>
+    {% endwith %}
+
+  {% elif active == "klasor" %}
+    {% with form=forms.klasor %}
+    <form method="post" class="card" style="max-width: 760px">{% csrf_token %}<input type="hidden" name="section" value="klasor">
+      <div class="form-section">
+        <div class="form-section-head"><h2>Belge klasörü</h2><p>Onaylanan görev belgeleri, dosya belgeleri ve vekaletler bu klasöre otomatik kopyalanır.</p></div>
+        {% include "partials/field.html" with field=form.documents_root %}
+        <div class="folder-tree small">
+          <div><i class="bi bi-folder2"></i> {{ form.documents_root.value|default:"Ofis klasörü" }}</div>
+          <div class="ms-3"><i class="bi bi-folder2"></i> Müvekkiller</div>
+          <div class="ms-5"><i class="bi bi-folder2"></i> Ahmet Yılmaz</div>
+          <div class="ms-5 ps-3"><i class="bi bi-folder2"></i> 2026-0041 - Alacak davası <span class="text-body-secondary">— görev ve dosya belgeleri</span></div>
+          <div class="ms-5 ps-3"><i class="bi bi-folder2"></i> Vekaletler</div>
+        </div>
+        <div class="form-text mt-2">Aynı adla bir müvekkil klasörü zaten varsa o kullanılır. Klasör adları müvekkil ve dosya düzenleme ekranından değiştirilebilir. Sistem hiçbir dosyanın üzerine yazmaz; aynı ad varsa sonuna (2) ekler.</div>
+      </div>
+      <div class="form-footer"><button class="btn btn-primary"><i class="bi bi-check2"></i>Kaydet ve dene</button></div>
+    </form>
+    {% endwith %}
+
+  {% elif active == "gorev_turleri" %}
+    {% with fs=forms.gorev_turleri %}
+    <form method="post" class="card" style="max-width: 860px">{% csrf_token %}<input type="hidden" name="section" value="gorev_turleri">
+      {{ fs.management_form }}
+      <div class="form-section">
+        <div class="form-section-head"><h2>Görev türleri</h2><p>"Belge zorunlu" işaretli türlerde görev, belge yüklenmeden kontrole gönderilemez. Kullanılmayan türü pasife alın; son satırdan yeni tür ekleyin.</p></div>
+        {% if fs.non_form_errors %}<div class="alert alert-danger">{{ fs.non_form_errors }}</div>{% endif %}
+        <table class="table perm-table mb-0">
+          <thead><tr><th>Tür adı</th><th class="text-center">Belge zorunlu</th><th class="text-center">Aktif</th><th style="width: 90px">Sıra</th></tr></thead>
+          <tbody>
+          {% for f in fs %}
+            <tr>
+              <td>{{ f.id }}{{ f.name }}{% for e in f.name.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}</td>
+              <td class="text-center">{{ f.requires_document }}</td>
+              <td class="text-center">{{ f.is_active }}</td>
+              <td>{{ f.order }}</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
       </div>
       <div class="form-footer"><button class="btn btn-primary"><i class="bi bi-check2"></i>Kaydet</button></div>
     </form>

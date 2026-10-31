@@ -139,3 +139,41 @@ class TaskEvent(models.Model):
 
     def __str__(self):
         return f"{self.actor} {self.get_kind_display()}"
+
+
+def task_document_upload_to(instance, filename):
+    from pathlib import Path
+    from uuid import uuid4
+
+    name = Path(filename)
+    return f"tasks/{instance.task_id}/{uuid4().hex[:8]}_{name.stem[:80]}{name.suffix.lower()}"
+
+
+class TaskDocument(models.Model):
+    """Görev belgesi. Yeni sürüm yüklenince eskisi `is_current=False` olur ve geçmişte kalır."""
+
+    task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name="documents")
+    file = models.FileField("belge", upload_to=task_document_upload_to)
+    original_name = models.CharField(max_length=300)
+    size = models.PositiveBigIntegerField(default=0)
+    version = models.PositiveSmallIntegerField(default=1)
+    previous = models.OneToOneField(
+        "self", on_delete=models.SET_NULL, null=True, blank=True, related_name="next_version"
+    )
+    is_current = models.BooleanField(default=True)
+    uploaded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "görev belgesi"
+        verbose_name_plural = "görev belgeleri"
+        ordering = ["-created_at", "-pk"]
+
+    def __str__(self):
+        return self.original_name
+
+    @property
+    def is_pdf(self) -> bool:
+        return self.original_name.lower().endswith(".pdf")

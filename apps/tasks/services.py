@@ -12,6 +12,7 @@ from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
 from django.utils import timezone
 
+from apps.cases.documents import publish_task_documents
 from apps.cases.models import CaseEvent
 from apps.core.permissions import is_admin
 from apps.notifications.services import notify
@@ -71,6 +72,11 @@ def available_actions(task: Task, user) -> list[Action]:
     return [a for a in ACTIONS.values() if can_do(a, task, user)]
 
 
+def can_upload(task: Task, user) -> bool:
+    """Açık görevde sorumlu, kontrolcü ve yönetici belge yükleyebilir."""
+    return task.is_open and (is_admin(user) or user.pk in (task.assignee_id, task.reviewer_id))
+
+
 def can_delete(task: Task, user) -> bool:
     return is_admin(user) or user.pk == task.created_by_id
 
@@ -91,6 +97,15 @@ def perform(task: Task, key: str, user, comment: str = "") -> Task:
     comment = (comment or "").strip()
     if action.needs_comment and not comment:
         raise ValidationError("Revizyon isterken açıklama yazmalısınız.")
+    if (
+        key == "submit"
+        and task.task_type.requires_document
+        and not task.documents.filter(is_current=True).exists()
+    ):
+        raise ValidationError(
+            f'"{task.task_type}" türündeki görevi kontrole göndermeden önce belge yüklemelisiniz.'
+        )
+    task.warnings = []
 
     old = task.status
     task.status = action.target
@@ -110,12 +125,15 @@ def perform(task: Task, key: str, user, comment: str = "") -> Task:
         notify(task.reviewer, f"Kontrolünüzü bekliyor: {task.title}", url=url, actor=user)
     elif key == "approve":
         notify(task.assignee, f"Görev onaylandı: {task.title}", url=url, actor=user)
+        docs, task.warnings = publish_task_documents(task, user)
+        names = ", ".join(d.title for d in docs)
         CaseEvent.objects.create(
             case=task.case,
             date=timezone.localdate(),
             kind=CaseEvent.Kind.TASK,
             title=f"Görev tamamlandı: {task.title}",
-            description=f"{task.assignee} · onaylayan {user}",
+            description=f"{task.assignee} · onaylayan {user}"
+            + (f" · belgeler: {names}" if names else ""),
             created_by=user,
         )
     elif key == "revise":

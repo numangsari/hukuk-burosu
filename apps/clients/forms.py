@@ -33,6 +33,7 @@ class ClientForm(BootstrapMixin, forms.ModelForm):
             "responsible_intern",
             "notes",
             "is_active",
+            "folder_name",
         ]
         widgets = {"kind": forms.RadioSelect}
 

@@ -71,6 +71,13 @@
     {% include "partials/field.html" with field=form.notes wrap_class="" %}
   </div>
 
+  {% if object %}
+  <div class="form-section">
+    <div class="form-section-head"><h2>Ofis klasörü</h2><p>Bu dosyanın belgelerinin kopyalanacağı klasörün adı (müvekkil klasörü içinde).</p></div>
+    {% include "partials/field.html" with field=form.folder_name wrap_class="" %}
+  </div>
+  {% endif %}
+
   <div class="form-footer">
     <a class="btn btn-light" href="{% if object %}{{ object.get_absolute_url }}{% else %}{% url 'cases:list' %}{% endif %}">Vazgeç</a>
     <button class="btn btn-primary"><i class="bi bi-check2"></i>Kaydet</button>

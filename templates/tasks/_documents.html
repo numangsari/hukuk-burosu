@@ -1,0 +1,46 @@
+{% load ui %}
+<div id="task-docs" class="card" x-data="{ replaces: '' }">
+  <div class="card-header">
+    <h2 class="card-title">Belgeler</h2>
+    {% if task.task_type.requires_document %}<span class="chip chip-warning no-dot">Kontrol için belge zorunlu</span>{% endif %}
+  </div>
+  {% if doc_error %}<div class="alert alert-danger small m-3 mb-0 py-2">{{ doc_error }}</div>{% endif %}
+  {% if task_docs %}
+  <ul class="doc-list">
+    {% for d in task_docs %}
+      <li class="doc-row">
+        <span class="doc-icon {% if d.is_pdf %}pdf{% endif %}"><i class="bi {% if d.is_pdf %}bi-file-earmark-pdf{% else %}bi-file-earmark-text{% endif %}"></i></span>
+        <div class="min-w-0 flex-grow-1">
+          <a class="fw-semibold text-reset" href="{{ d.file.url }}" target="_blank">{{ d.original_name }}</a>
+          {% if d.version > 1 %}<span class="chip chip-primary no-dot ms-1">v{{ d.version }}</span>{% endif %}
+          <div class="small text-body-secondary">{{ d.uploaded_by }} · {{ d.created_at|date:"d.m.Y H:i" }} · {{ d.size|filesizeformat }}</div>
+          {% with olds=old_docs|get_item:d.pk %}{% if olds %}
+          <details class="small mt-1"><summary class="text-body-secondary">Önceki sürümler ({{ olds|length }})</summary>
+            {% for o in olds %}<div class="ms-3 mt-1"><a href="{{ o.file.url }}" target="_blank">v{{ o.version }} · {{ o.original_name }}</a> <span class="text-body-secondary">— {{ o.uploaded_by }}, {{ o.created_at|date:"d.m.Y H:i" }}</span></div>{% endfor %}
+          </details>
+          {% endif %}{% endwith %}
+        </div>
+        <div class="d-flex gap-1 flex-shrink-0">
+          <a class="btn btn-light btn-sm" href="{{ d.file.url }}" target="_blank"><i class="bi {% if d.is_pdf %}bi-eye{% else %}bi-download{% endif %}"></i>{% if d.is_pdf %}Aç{% else %}İndir{% endif %}</a>
+          {% if can_upload %}
+            <button type="button" class="btn btn-light btn-sm" @click="replaces = '{{ d.pk }}'; $refs.file.click()"><i class="bi bi-arrow-repeat"></i>Yeni sürüm</button>
+            {% if d.uploaded_by_id == request.user.pk or request.user.is_office_admin %}
+            <button class="btn-ghost-danger" title="Sil" hx-post="{% url 'tasks:doc_delete' task.pk d.pk %}" hx-target="#task-docs" hx-swap="outerHTML" hx-confirm="Belge silinsin mi?{% if d.version > 1 %} Önceki sürüm güncel olur.{% endif %}"><i class="bi bi-trash"></i></button>
+            {% endif %}
+          {% endif %}
+        </div>
+      </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+    <div class="empty-state py-3"><i class="bi bi-file-earmark-arrow-up"></i><strong>Belge yok</strong>{% if can_upload %}Görevin çıktısını (dilekçe, rapor vb.) aşağıdan yükleyin.{% endif %}</div>
+  {% endif %}
+  {% if can_upload %}
+  <form class="inline-form d-flex align-items-center gap-2 flex-wrap" hx-post="{% url 'tasks:doc_upload' task.pk %}" hx-target="#task-docs" hx-swap="outerHTML" hx-encoding="multipart/form-data" x-ref="form">
+    <input type="hidden" name="replaces" :value="replaces">
+    <input type="file" name="file" class="form-control" style="max-width: 420px" x-ref="file" @change="if (replaces) $refs.form.requestSubmit()">
+    <button class="btn btn-primary" @click="replaces = ''"><i class="bi bi-upload"></i>Belge yükle</button>
+    <span class="small text-body-secondary">Onaylanınca belge dosyanın Belgeler'ine ve ofis klasörüne kaydedilir.</span>
+  </form>
+  {% endif %}
+</div>

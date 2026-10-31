@@ -13,6 +13,7 @@ from apps.core.permissions import AdminRequiredMixin, is_admin
 from apps.core.text import fold
 from apps.office.models import Court
 
+from .documents import mirror_document
 from .forms import (
     CaseEventForm,
     CaseForm,
@@ -203,7 +204,7 @@ class CasePartyRemoveView(View):
         return _parties_partial(request, case)
 
 
-def _documents_partial(request, case, form=None):
+def _documents_partial(request, case, form=None, warning=""):
     return render(
         request,
         "cases/_documents.html",
@@ -211,6 +212,7 @@ def _documents_partial(request, case, form=None):
             "case": case,
             "document_form": form or DocumentForm(),
             "documents": case.documents.select_related("created_by"),
+            "folder_warning": warning,
         },
     )
 
@@ -226,7 +228,7 @@ class DocumentUploadView(View):
         doc.created_by = request.user
         doc.original_name = request.FILES["file"].name
         doc.save()
-        return _documents_partial(request, case)
+        return _documents_partial(request, case, warning=mirror_document(doc))
 
 
 class DocumentDeleteView(View):

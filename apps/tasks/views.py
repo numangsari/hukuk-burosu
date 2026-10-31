@@ -2,16 +2,17 @@ from django.contrib import messages
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db.models import Q
 from django.http import JsonResponse
-from django.shortcuts import get_object_or_404, redirect
+from django.shortcuts import get_object_or_404, redirect, render
 from django.views.generic import CreateView, DetailView, ListView, UpdateView, View
 
 from apps.cases.models import Case
+from apps.core.permissions import is_admin
 from apps.core.text import fold
 from apps.office.models import TaskType
 
 from . import services
 from .forms import CommentForm, TaskForm
-from .models import OPEN_STATUSES, Task, TaskStatus
+from .models import OPEN_STATUSES, Task, TaskDocument, TaskEvent, TaskStatus
 
 SCOPES = {
     "bana": "Bana atanan",
@@ -138,6 +139,7 @@ class TaskDetailView(DetailView):
             actions=services.available_actions(t, u),
             can_edit=services.can_edit(t, u),
             can_delete=services.can_delete(t, u),
+            **documents_context(t, u),
             events=t.events.select_related("actor"),
             comment_form=CommentForm(),
         )
@@ -155,6 +157,8 @@ class TaskActionView(View):
             messages.error(request, " ".join(e.messages))
         else:
             messages.success(request, f"Görev durumu: {task.get_status_display()}")
+            for w in getattr(task, "warnings", []):
+                messages.warning(request, w)
         return redirect(task)
 
 
@@ -202,3 +206,87 @@ def case_options(request):
             ]
         }
     )
+
+
+MAX_UPLOAD = 50 * 1024 * 1024
+
+
+def documents_context(task, user, error=""):
+    docs = list(task.documents.select_related("uploaded_by").order_by("-created_at"))
+    current = [d for d in docs if d.is_current]
+    return {
+        "task_docs": current,
+        "old_docs": {
+            d.pk: [o for o in docs if not o.is_current and _root(o, docs) == d.pk] for d in current
+        },
+        "can_upload": services.can_upload(task, user),
+        "doc_error": error,
+    }
+
+
+def _root(doc, docs):
+    """Bir eski sürümün hangi güncel belgeye ait olduğunu bulur (sürüm zinciri)."""
+    by_prev = {d.previous_id: d for d in docs if d.previous_id}
+    while doc.pk in by_prev:
+        doc = by_prev[doc.pk]
+    return doc.pk
+
+
+def _docs_partial(request, task, error=""):
+    return render(
+        request,
+        "tasks/_documents.html",
+        {"task": task, **documents_context(task, request.user, error)},
+    )
+
+
+class TaskDocumentUploadView(View):
+    def post(self, request, pk):
+        task = get_object_or_404(Task, pk=pk)
+        if not services.can_upload(task, request.user):
+            raise PermissionDenied
+        f = request.FILES.get("file")
+        if not f:
+            return _docs_partial(request, task, "Yüklenecek belgeyi seçin.")
+        if f.size > MAX_UPLOAD:
+            return _docs_partial(request, task, "Belge 50 MB'tan büyük olamaz.")
+        previous = task.documents.filter(
+            pk=request.POST.get("replaces") or 0, is_current=True
+        ).first()
+        doc = TaskDocument(
+            task=task,
+            original_name=f.name[:300],
+            size=f.size,
+            uploaded_by=request.user,
+            previous=previous,
+            version=(previous.version + 1) if previous else 1,
+        )
+        doc.file.save(f.name, f, save=False)
+        doc.save()
+        if previous:
+            previous.is_current = False
+            previous.save(update_fields=["is_current"])
+        verb = f"yeni sürüm yükledi (v{doc.version})" if previous else "belge yükledi"
+        TaskEvent.objects.create(
+            task=task, actor=request.user, kind="updated", comment=f"{doc.original_name} — {verb}"
+        )
+        return _docs_partial(request, task)
+
+
+class TaskDocumentDeleteView(View):
+    """Açık görevde belgeyi yükleyen veya yönetici siler; önceki sürüm varsa o güncel olur."""
+
+    def post(self, request, pk, doc_pk):
+        task = get_object_or_404(Task, pk=pk)
+        doc = get_object_or_404(TaskDocument, pk=doc_pk, task=task, is_current=True)
+        if not task.is_open or not (
+            doc.uploaded_by_id == request.user.pk or is_admin(request.user)
+        ):
+            raise PermissionDenied
+        previous = doc.previous
+        doc.file.delete(save=False)
+        doc.delete()
+        if previous:
+            previous.is_current = True
+            previous.save(update_fields=["is_current"])
+        return _docs_partial(request, task)

@@ -12,4 +12,10 @@ urlpatterns = [
     path("<int:pk>/islem/", views.TaskActionView.as_view(), name="action"),
     path("<int:pk>/yorum/", views.TaskCommentView.as_view(), name="comment"),
     path("<int:pk>/sil/", views.TaskDeleteView.as_view(), name="delete"),
+    path("<int:pk>/belge/", views.TaskDocumentUploadView.as_view(), name="doc_upload"),
+    path(
+        "<int:pk>/belge/<int:doc_pk>/sil/",
+        views.TaskDocumentDeleteView.as_view(),
+        name="doc_delete",
+    ),
 ]

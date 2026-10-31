@@ -110,6 +110,12 @@ class Case(TimeStampedModel):
     opened_on = models.DateField("açılış tarihi", null=True, blank=True)
     closed_on = models.DateField("kapanış tarihi", null=True, blank=True)
     notes = models.TextField("notlar", blank=True)
+    folder_name = models.CharField(
+        "klasör adı",
+        max_length=150,
+        blank=True,
+        help_text='Müvekkil klasörü içindeki dosya klasörü. Boşsa "Arşiv no - Konu" kullanılır.',
+    )
     parties = models.ManyToManyField(
         Party, through="CaseParty", related_name="cases", verbose_name="karşı taraflar"
     )
@@ -211,6 +217,7 @@ class Document(TimeStampedModel):
     original_name = models.CharField(max_length=300, editable=False)
     size = models.PositiveBigIntegerField(default=0, editable=False)
     notes = models.TextField("notlar", blank=True)
+    folder_path = models.CharField("klasördeki kopya", max_length=500, blank=True, editable=False)
 
     class Meta:
         verbose_name = "belge"

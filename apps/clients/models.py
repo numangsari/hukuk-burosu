@@ -47,6 +47,12 @@ class Client(TimeStampedModel):
     )
     notes = models.TextField("notlar", blank=True)
     is_active = models.BooleanField("aktif", default=True)
+    folder_name = models.CharField(
+        "klasör adı",
+        max_length=120,
+        blank=True,
+        help_text="Ofis klasöründeki müvekkil klasörü. Boşsa otomatik bulunur/oluşturulur.",
+    )
     # Görüntülenen ad ve aksansız arama anahtarı save() içinde doldurulur.
     name = models.CharField("ad / unvan", max_length=300, editable=False, db_index=True)
     search_key = models.CharField(max_length=300, editable=False, db_index=True)
@@ -172,6 +178,7 @@ class PowerOfAttorney(TimeStampedModel):
     archive_no = models.CharField("arşiv no", max_length=50, blank=True)
     pdf = models.FileField("PDF", upload_to=poa_upload_to, blank=True)
     notes = models.TextField("notlar", blank=True)
+    folder_path = models.CharField("klasördeki kopya", max_length=500, blank=True, editable=False)
 
     class Meta:
         verbose_name = "vekalet"

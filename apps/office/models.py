@@ -19,6 +19,12 @@ class OfficeSettings(models.Model):
         blank=True,
         help_text="Google Takvim > Ayarlar > Takvimi entegre et > iCal biçiminde gizli adres",
     )
+    documents_root = models.CharField(
+        "ofis klasörü",
+        max_length=500,
+        blank=True,
+        help_text=r"Sunucu PC'de belgelerin kopyalanacağı kök klasör, ör. D:\Ozkurt Hukuk Ofis",
+    )
     upcoming_days = models.PositiveSmallIntegerField("yaklaşan tarih penceresi (gün)", default=7)
     backup_time = models.TimeField("yedek saati", default=datetime.time(12, 30))
     backup_dir = models.CharField("yedek hedef klasörü", max_length=500, blank=True)
@@ -58,6 +64,8 @@ class LookupModel(models.Model):
 
 
 class TaskType(LookupModel):
+    requires_document = models.BooleanField("kontrole göndermek için belge zorunlu", default=False)
+
     class Meta(LookupModel.Meta):
         verbose_name = "görev türü"
         verbose_name_plural = "görev türleri"

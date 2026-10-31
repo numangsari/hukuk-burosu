@@ -2,7 +2,7 @@ from django import forms
 
 from apps.core.forms import BootstrapMixin
 
-from .models import OfficeSettings
+from .models import OfficeSettings, TaskType
 
 
 class OfficeForm(BootstrapMixin, forms.ModelForm):
@@ -65,3 +65,26 @@ class AccountingPermissionsForm(BootstrapMixin, forms.ModelForm):
             if not data.get(f"{role}_can_view_accounting"):
                 data[f"{role}_can_edit_accounting"] = False
         return data
+
+
+class DocumentsRootForm(BootstrapMixin, forms.ModelForm):
+    class Meta:
+        model = OfficeSettings
+        fields = ["documents_root"]
+
+    def clean_documents_root(self):
+        from apps.core.folders import check_writable
+
+        value = (self.cleaned_data.get("documents_root") or "").strip()
+        if value and (error := check_writable(value)):
+            raise forms.ValidationError(error)
+        return value
+
+
+class TaskTypeForm(BootstrapMixin, forms.ModelForm):
+    class Meta:
+        model = TaskType
+        fields = ["name", "requires_document", "is_active", "order"]
+
+
+TaskTypeFormSet = forms.modelformset_factory(TaskType, form=TaskTypeForm, extra=1)

@@ -27,6 +27,7 @@ class CaseForm(BootstrapMixin, forms.ModelForm):
             "opened_on",
             "closed_on",
             "notes",
+            "folder_name",
         ]
         widgets = {"opened_on": DateInput(), "closed_on": DateInput()}
 
