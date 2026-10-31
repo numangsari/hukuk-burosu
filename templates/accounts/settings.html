@@ -12,6 +12,9 @@
       {% if forms.ofis %}
       <div class="nav-group">Ofis</div>
       <a class="{% if active == 'ofis' %}active{% endif %}" href="?bolum=ofis"><i class="bi bi-building"></i>Ofis bilgileri</a>
+      <a class="{% if active == 'kullanicilar' %}active{% endif %}" href="?bolum=kullanicilar"><i class="bi bi-people"></i>Kullanıcılar</a>
+      <a class="{% if active == 'yedek' %}active{% endif %}" href="?bolum=yedek"><i class="bi bi-cloud-arrow-up"></i>Yedekleme
+        {% if backup_stale %}<span class="chip chip-danger ms-auto">!</span>{% endif %}</a>
       <a class="{% if active == 'klasor' %}active{% endif %}" href="?bolum=klasor"><i class="bi bi-folder2"></i>Belge klasörü
         {% if office.documents_root %}<span class="chip chip-success ms-auto">Ayarlı</span>{% endif %}</a>
       <a class="{% if active == 'gorev_turleri' %}active{% endif %}" href="?bolum=gorev_turleri"><i class="bi bi-list-check"></i>Görev türleri</a>
@@ -76,6 +79,104 @@
       </div>
       <div class="form-footer"><button class="btn btn-primary"><i class="bi bi-check2"></i>Kaydet</button></div>
     </form>
+    {% endwith %}
+
+  {% elif active == "kullanicilar" %}
+    {% with form=forms.kullanicilar %}
+    <div class="row g-3">
+      <div class="col-xl-7">
+        <div class="card table-card">
+          <div class="card-header"><h2 class="card-title">Kullanıcılar</h2>
+            <a class="btn btn-sm btn-primary ms-auto" href="?bolum=kullanicilar"><i class="bi bi-person-plus"></i>Yeni kullanıcı</a></div>
+          <div class="table-responsive">
+          <table class="table table-hover">
+            <thead><tr><th>Ad soyad</th><th>Unvan / rol</th><th>Durum</th><th></th></tr></thead>
+            <tbody>
+            {% for u in users %}
+              <tr class="{% if form.instance.pk == u.pk %}table-active{% endif %}">
+                <td><div class="d-flex align-items-center gap-2"><span class="avatar avatar-sm" style="--h: {{ u.avatar_hue }}">{{ u.initials }}</span><span class="fw-medium">{{ u }}</span></div></td>
+                <td>{{ u.display_title }}<div class="cell-sub">{{ u.get_role_display }}</div></td>
+                <td>{% if u.is_active %}<span class="chip chip-success">Aktif</span>{% else %}<span class="chip">Pasif</span>{% endif %}</td>
+                <td class="text-end"><a class="btn btn-light btn-sm" href="?bolum=kullanicilar&id={{ u.pk }}"><i class="bi bi-pencil"></i>Düzenle</a></td>
+              </tr>
+            {% endfor %}
+            </tbody>
+          </table>
+          </div>
+        </div>
+      </div>
+      <div class="col-xl-5">
+        <form method="post" class="card">{% csrf_token %}<input type="hidden" name="section" value="kullanicilar">
+          {% if form.instance.pk %}<input type="hidden" name="user_id" value="{{ form.instance.pk }}">{% endif %}
+          <div class="form-section">
+            <div class="form-section-head"><h2>{% if form.instance.pk %}{{ form.instance }} — düzenle{% else %}Yeni kullanıcı{% endif %}</h2>
+              <p>Kullanıcı giriş ekranında kart olarak görünür ve PIN ile girer. Pasif kullanıcı giriş yapamaz, kayıtlardaki adı korunur.</p></div>
+            {% if form.non_field_errors %}<div class="alert alert-danger py-2">{{ form.non_field_errors }}</div>{% endif %}
+            <div class="row">
+              <div class="col-md-6">{% include "partials/field.html" with field=form.first_name %}</div>
+              <div class="col-md-6">{% include "partials/field.html" with field=form.last_name %}</div>
+              <div class="col-md-6">{% include "partials/field.html" with field=form.role %}</div>
+              <div class="col-md-6">{% include "partials/field.html" with field=form.title %}</div>
+              <div class="col-md-6">{% include "partials/field.html" with field=form.pin %}</div>
+              <div class="col-md-6">{% include "partials/field.html" with field=form.order %}</div>
+            </div>
+            {% include "partials/field.html" with field=form.is_active wrap_class="" %}
+          </div>
+          <div class="form-footer"><button class="btn btn-primary"><i class="bi bi-check2"></i>Kaydet</button></div>
+        </form>
+      </div>
+    </div>
+    {% endwith %}
+
+  {% elif active == "yedek" %}
+    {% with form=forms.yedek %}
+    <div class="row g-3">
+      <div class="col-xl-6">
+        <form method="post" class="card">{% csrf_token %}<input type="hidden" name="section" value="yedek">
+          <div class="form-section">
+            <div class="form-section-head"><h2>Günlük yedek</h2><p>Veritabanı ve tüm belgeler her gün şifreli tek bir dosyaya yedeklenir. Son 30 günün günlük ve son 12 ayın aylık yedeği saklanır.</p></div>
+            {% if backup_problem %}<div class="alert alert-warning py-2 small"><i class="bi bi-exclamation-triangle me-1"></i>{{ backup_problem }}</div>{% endif %}
+            {% include "partials/field.html" with field=form.backup_time %}
+            {% include "partials/field.html" with field=form.backup_dir wrap_class="" %}
+          </div>
+          <div class="form-footer"><button class="btn btn-primary"><i class="bi bi-check2"></i>Kaydet</button></div>
+        </form>
+        <div class="card mt-3"><div class="card-body small">
+          <h2 class="section-title">Geri yükleme</h2>
+          Geri yükleme mevcut verilerin yerine geçtiği için yalnızca sunucu PC'de yapılır:
+          <ol class="mb-0 mt-2 ps-3">
+            <li>"Özkurt Hukuk" uygulama servisini durdurun (kurulum klasöründeki <b>servisi-durdur</b> kısayolu).</li>
+            <li>Kurulum klasöründe <b>yedekten-geri-yukle</b> kısayolunu çalıştırıp yedek dosyasını seçin.</li>
+            <li>Servisi yeniden başlatın. Önceki belgeler "media.onceki-…" adıyla saklanır.</li>
+          </ol>
+        </div></div>
+      </div>
+      <div class="col-xl-6">
+        <div class="card table-card">
+          <div class="card-header"><h2 class="card-title">Son yedekler</h2>
+            <form method="post" action="{% url 'backups:now' %}" class="ms-auto">{% csrf_token %}
+              <button class="btn btn-sm btn-primary" {% if backup_problem %}disabled{% endif %}><i class="bi bi-cloud-arrow-up"></i>Şimdi yedek al</button>
+            </form>
+          </div>
+          <div class="table-responsive">
+          <table class="table">
+            <thead><tr><th>Tarih</th><th>Tür</th><th>Durum</th><th class="text-end">Boyut</th></tr></thead>
+            <tbody>
+            {% for b in backups %}
+              <tr>
+                <td class="tabular text-nowrap">{{ b.started_at|date:"d.m.Y H:i" }}</td>
+                <td>{{ b.get_kind_display }}</td>
+                <td>{% if b.status == "ok" %}<span class="chip chip-success">Başarılı</span>{% if b.copied_to %} <i class="bi bi-cloud-check" title="Kopyalandı: {{ b.copied_to }}" style="color: var(--success-ink)"></i>{% endif %}{% else %}<span class="chip chip-danger">Hatalı</span>{% endif %}
+                  {% if b.message %}<div class="cell-sub">{{ b.message|truncatechars:140 }}</div>{% endif %}</td>
+                <td class="text-end tabular">{{ b.size|filesizeformat }}</td>
+              </tr>
+            {% empty %}<tr><td colspan="4"><div class="empty-state py-3"><strong>Henüz yedek yok</strong></div></td></tr>{% endfor %}
+            </tbody>
+          </table>
+          </div>
+        </div>
+      </div>
+    </div>
     {% endwith %}
 
   {% elif active == "klasor" %}

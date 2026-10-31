@@ -88,3 +88,24 @@ class TaskTypeForm(BootstrapMixin, forms.ModelForm):
 
 
 TaskTypeFormSet = forms.modelformset_factory(TaskType, form=TaskTypeForm, extra=1)
+
+
+class BackupSettingsForm(BootstrapMixin, forms.ModelForm):
+    class Meta:
+        model = OfficeSettings
+        fields = ["backup_time", "backup_dir"]
+        widgets = {"backup_time": forms.TimeInput(attrs={"type": "time"}, format="%H:%M")}
+        labels = {"backup_dir": "Yedek kopyası klasörü (Google Drive / OneDrive)"}
+        help_texts = {
+            "backup_time": "Bu saatte PC kapalıysa yedek, PC açılınca alınır.",
+            "backup_dir": "Yedekler önce sunucuda saklanır, ayrıca bu klasöre kopyalanır. "
+            "Bulut senkron klasörü seçerseniz yedek buluta da gider.",
+        }
+
+    def clean_backup_dir(self):
+        from apps.core.folders import check_writable
+
+        value = (self.cleaned_data.get("backup_dir") or "").strip()
+        if value and (error := check_writable(value)):
+            raise forms.ValidationError(error)
+        return value

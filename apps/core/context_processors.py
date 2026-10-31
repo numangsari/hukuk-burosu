@@ -12,4 +12,8 @@ def app_context(request):
 
         ctx["can_view_accounting"] = can_view(user)
         ctx["can_edit_accounting"] = can_edit(user)
+        if user.is_office_admin:
+            from apps.backups.services import backup_stale
+
+            ctx["backup_stale"] = backup_stale()
     return ctx

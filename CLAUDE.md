@@ -24,7 +24,7 @@ uv run ruff check . && uv run ruff format --check .
 Dev ayarları `config/settings/dev.py`, varsayılan DB bağlantısı dev compose'daki DB'dir. 5433 portu bu makinede başka bir projede dolu olduğu için 5434 kullanılır.
 
 ## Env değişkenleri (production)
-`DJANGO_SETTINGS_MODULE=config.settings.prod`, `DJANGO_SECRET_KEY`, `DATABASE_URL`, `DJANGO_ALLOWED_HOSTS`, `MEDIA_ROOT`, `STATIC_ROOT`, `LOG_FILE`. Yedekleme aşamasında: `BACKUP_PASSWORD`. Şablon: `.env.example`.
+`DJANGO_SETTINGS_MODULE=config.settings.prod`, `DJANGO_SECRET_KEY`, `DATABASE_URL`, `DJANGO_ALLOWED_HOSTS`, `MEDIA_ROOT`, `STATIC_ROOT`, `LOG_FILE`. `BACKUP_PASSWORD`, `BACKUP_DIR`, `PG_DUMP`, `PG_RESTORE`, `BACKUP_DATABASE_URL`. Şablon: `.env.example`.
 
 ## Mimari
 - `config/settings/{base,dev,test,prod}.py`, `config/urls.py`.
@@ -42,6 +42,8 @@ Dev ayarları `config/settings/dev.py`, varsayılan DB bağlantısı dev compose
 - `apps/search`: global arama (üst çubuk canlı açılır liste + `/ara/` sonuç sayfası; Ctrl+K). Müvekkil/karşı taraf `search_key` (fold) ile, diğer alanlar `__unaccent__icontains` ile; müvekkilde sonuç yoksa `TrigramWordSimilarity` (> 0.45) ile yazım hatası toleransı. Muhasebe kayıtları aranmaz.
 - `apps/activity`: auditlog kayıtlarının ekranı (`/aktivite/`; yönetici herkesi, diğerleri kendini görür; kullanıcı/tür/işlem/tarih filtresi). Giriş/çıkış `LogEntry.Action.ACCESS` olarak yazılır (`signals.py`). `User` değişiklikleri parola/son giriş/tema/liste boyutu hariç kaydedilir. Müvekkil ve dosya detayında "Geçmiş" sekmesi (`history_for`).
 - `apps/reports`: 6 rapor (`definitions.REPORTS`: parametre formu + `build()` → `ReportResult`); önizleme HTML, `renderers.to_xlsx` (openpyxl) ve `to_pdf` (ReportLab, `reports/fonts/` altında gömülü DejaVu Sans — Türkçe karakter için). Finansal raporlar (`financial: True`) muhasebe görme yetkisi ister.
+- `apps/backups`: `manage.py backup [--scheduled|--update]` = `pg_dump -Fc` + MEDIA_ROOT → AES-256 şifreli ZIP (`pyzipper`, parola `BACKUP_PASSWORD`) → `BACKUP_DIR`; ayrıca `OfficeSettings.backup_dir`'e (bulut senkron klasörü) kopya. Saklama: son 30 günün günlük + son 12 ayın ilk yedeği (`apply_retention`, yalnızca `ozkurt-yedek-*.zip` dosyalarına dokunur). Görev Zamanlayıcı 30 dakikada bir `backup --scheduled` çalıştırır; bugün başarılı yedek yoksa ve `backup_time` geçtiyse yedekler (PC o saatte kapalıysa açılınca alınır). `manage.py restore <zip> --yes` (servis durdurulmuşken; mevcut media `media.onceki-…` olarak saklanır). `BackupRecord` geçmişi Ayarlar > Yedekleme'de; yöneticiye 2 günden eski yedekte uyarı bandı. Dev ortamında pg_dump host'ta yok: `PG_DUMP="docker exec -i ozkurt-hukuk-db-1 pg_dump"`, `PG_RESTORE=...pg_restore`, `BACKUP_DATABASE_URL=postgresql://ozkurt:<dev parola>@localhost:5432/ozkurt`.
+- Ayarlar > Kullanıcılar: yönetici kullanıcı ekler/düzenler/pasife alır, PIN sıfırlar (`UserAdminForm`; kullanıcı adı ad-soyaddan üretilir; kendi hesabını pasife alamaz/yöneticiliğini kaldıramaz).
 - `apps/notifications`: `Notification` (zil). `notify()` kişinin kendi işlemi için bildirim üretmez; `key` ile tekrarı önler. `send_daily_reminders()` (son günü bugün/yarın/geçmiş açık görevler, yarınki duruşmalar) günde bir kez ilk sayfa açılışında context processor'dan tetiklenir (`run_daily_reminders_once`, önbellek anahtarı).
 - Tüm kullanıcı view'ları `LoginRequiredMiddleware` ile korunur. `/media/` de giriş ister.
 - Aktivite kaydı `django-auditlog`; her app `ready()` içinde kendi modellerini kaydeder.

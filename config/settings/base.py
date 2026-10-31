@@ -37,6 +37,7 @@ INSTALLED_APPS = [
     "apps.search",
     "apps.activity",
     "apps.reports",
+    "apps.backups",
 ]
 
 MIDDLEWARE = [

@@ -10,6 +10,7 @@ from django.views import View
 from apps.core.permissions import is_admin
 from apps.office.forms import (
     AccountingPermissionsForm,
+    BackupSettingsForm,
     CalendarForm,
     DocumentsRootForm,
     OfficeForm,
@@ -17,7 +18,7 @@ from apps.office.forms import (
 )
 from apps.office.models import OfficeSettings, TaskType
 
-from .forms import PinChangeForm, PinLoginForm, ProfileForm
+from .forms import PinChangeForm, PinLoginForm, ProfileForm, UserAdminForm
 from .models import User
 
 
@@ -36,7 +37,15 @@ class SettingsView(View):
     """Kullanıcı ayarları (profil, görünüm, PIN) ve yöneticiye ofis/takvim ayarları."""
 
     template_name = "accounts/settings.html"
-    ADMIN_SECTIONS = {"ofis", "takvim", "yetkiler", "klasor", "gorev_turleri"}
+    ADMIN_SECTIONS = {
+        "ofis",
+        "takvim",
+        "yetkiler",
+        "klasor",
+        "gorev_turleri",
+        "kullanicilar",
+        "yedek",
+    }
 
     def _forms(self, request, section=None, data=None, files=None):
         user, office = request.user, OfficeSettings.load()
@@ -53,6 +62,13 @@ class SettingsView(View):
             forms["takvim"] = CalendarForm(*bound("takvim"), instance=office)
             forms["yetkiler"] = AccountingPermissionsForm(*bound("yetkiler"), instance=office)
             forms["klasor"] = DocumentsRootForm(*bound("klasor"), instance=office)
+            edit = User.objects.filter(
+                pk=request.GET.get("id") or request.POST.get("user_id") or 0
+            ).first()
+            forms["kullanicilar"] = UserAdminForm(
+                *bound("kullanicilar"), instance=edit or User(), editor=user
+            )
+            forms["yedek"] = BackupSettingsForm(*bound("yedek"), instance=office)
             forms["gorev_turleri"] = TaskTypeFormSet(
                 *bound("gorev_turleri"), queryset=TaskType.objects.all(), prefix="tt"
             )
@@ -60,11 +76,20 @@ class SettingsView(View):
 
     def _render(self, request, forms, active):
         office = OfficeSettings.load()
-        return render(
-            request,
-            self.template_name,
-            {"forms": forms, "active": active, "calendar_connected": bool(office.calendar_ics_url)},
-        )
+        ctx = {
+            "forms": forms,
+            "active": active,
+            "calendar_connected": bool(office.calendar_ics_url),
+        }
+        if active == "kullanicilar":
+            ctx["users"] = User.objects.all()
+        if active == "yedek":
+            from apps.backups.models import BackupRecord
+            from apps.backups.services import backup_ready
+
+            ctx["backups"] = BackupRecord.objects.all()[:20]
+            ctx["backup_problem"] = backup_ready()
+        return render(request, self.template_name, ctx)
 
     def get(self, request):
         active = request.GET.get("bolum", "profil")
@@ -84,6 +109,9 @@ class SettingsView(View):
         if not form.is_valid():
             return self._render(request, forms, section)
         saved = form.save()
+        if section == "kullanicilar":
+            messages.success(request, f"{saved} kaydedildi.")
+            return redirect(f"{reverse('accounts:settings')}?bolum=kullanicilar&id={saved.pk}")
         if section == "pin":
             update_session_auth_hash(request, saved)
         if section == "takvim":
