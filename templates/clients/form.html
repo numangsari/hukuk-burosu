@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}{% if object %}{{ object }} — düzenle{% else %}Yeni müvekkil{% endif %}{% endblock %}
+{% block content %}
+<h1 class="h4 mb-3">{% if object %}{{ object }} — düzenle{% else %}Yeni müvekkil{% endif %}</h1>
+<form method="post" x-data="{ kind: '{{ form.kind.value|default:'person' }}' }" class="card card-body" style="max-width: 860px"
+      hx-get="{% url 'clients:conflict_check' %}" hx-target="#conflict-live" hx-trigger="change from:.identity" hx-include="this">
+  {% csrf_token %}
+  {% if form.non_field_errors %}<div class="alert alert-danger py-2">{{ form.non_field_errors }}</div>{% endif %}
+  <div class="mb-3">
+    <div class="form-label fw-semibold">Tür</div>
+    {% for radio in form.kind %}
+      <div class="form-check form-check-inline">{{ radio.tag }}<label class="form-check-label" for="{{ radio.id_for_label }}">{{ radio.choice_label }}</label></div>
+    {% endfor %}
+  </div>
+  <div class="row identity" x-show="kind === 'person'">
+    <div class="col-md-4">{% include "partials/field.html" with field=form.first_name %}</div>
+    <div class="col-md-4">{% include "partials/field.html" with field=form.last_name %}</div>
+    <div class="col-md-4">{% include "partials/field.html" with field=form.tckn %}</div>
+  </div>
+  <div class="row identity" x-show="kind === 'company'" x-cloak>
+    <div class="col-md-8">{% include "partials/field.html" with field=form.title %}</div>
+    <div class="col-md-4">{% include "partials/field.html" with field=form.vkn %}</div>
+    <div class="col-md-6">{% include "partials/field.html" with field=form.tax_office %}</div>
+    <div class="col-md-6">{% include "partials/field.html" with field=form.mersis_no %}</div>
+  </div>
+  <div id="conflict-live">{% include "clients/_conflicts.html" with conflicts=form.conflicts %}</div>
+  {% if form.conflicts %}{% include "partials/field.html" with field=form.confirm_conflict %}{% endif %}
+  <div class="row">
+    <div class="col-md-6">{% include "partials/field.html" with field=form.responsible_lawyer %}</div>
+    <div class="col-md-6">{% include "partials/field.html" with field=form.responsible_intern %}</div>
+  </div>
+  {% include "partials/field.html" with field=form.notes %}
+  {% include "partials/field.html" with field=form.is_active %}
+  <div class="d-flex gap-2">
+    <button class="btn btn-primary">Kaydet</button>
+    <a class="btn btn-outline-secondary" href="{% if object %}{{ object.get_absolute_url }}{% else %}{% url 'clients:list' %}{% endif %}">Vazgeç</a>
+  </div>
+  {% if not object %}<div class="form-text mt-2">İletişim, IBAN, yetkili ve vekalet bilgileri kayıttan sonra müvekkil kartından eklenir.</div>{% endif %}
+</form>
+{% endblock %}

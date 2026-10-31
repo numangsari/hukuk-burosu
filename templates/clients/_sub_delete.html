@@ -1,0 +1,3 @@
+<button class="btn btn-sm btn-link text-danger p-0" title="Sil"
+        hx-post="{% url 'clients:sub_delete' client.pk kind i.pk %}" hx-target="#sub-{{ kind }}" hx-swap="outerHTML"
+        hx-confirm="Kayıt silinsin mi?"><i class="bi bi-trash"></i></button>

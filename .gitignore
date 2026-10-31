@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+
+# Ortam ve gizli bilgiler
+.env
+.env.*
+!.env.example
+
+# Veri: asla repoya girmez
+media/
+.test-media/
+backups/
+*.dump
+*.sql
+*.bak
+logs/
+staticfiles/
+
+# Kurulum çıktıları
+installer/build/
+installer/dist/
+*.exe
+
+# Editör / işletim sistemi
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

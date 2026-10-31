@@ -1,0 +1,13 @@
+{% if conflicts %}
+<div class="alert alert-warning py-2">
+  <div class="fw-semibold"><i class="bi bi-exclamation-triangle me-1"></i>Çıkar çatışması uyarısı</div>
+  <div class="small">Bu kişi aşağıdaki dosyalarda karşı taraf olarak kayıtlı:</div>
+  <ul class="small mb-0">
+    {% for p in conflicts %}
+      <li>{{ p.name }}{% if p.identity_no %} ({{ p.identity_no }}){% endif %} —
+        {% for link in p.case_links.all %}<a href="{{ link.case.get_absolute_url }}" target="_blank">{{ link.case.archive_no }}</a> ({{ link.get_role_display }}){% if not forloop.last %}, {% endif %}{% empty %}dosyaya bağlı değil{% endfor %}
+      </li>
+    {% endfor %}
+  </ul>
+</div>
+{% endif %}

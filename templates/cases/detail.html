@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% load ui %}
+{% block title %}{{ case.archive_no }} — {{ office.name }}{% endblock %}
+{% block content %}
+<div class="d-flex align-items-start mb-3 gap-2">
+  <div>
+    <div class="small text-body-secondary">{{ case.get_case_type_display }} · Arşiv no {{ case.archive_no }}</div>
+    <h1 class="h4 mb-1">{{ case.subject }}</h1>
+    <div class="small">Müvekkil: <a href="{{ case.client.get_absolute_url }}">{{ case.client }}</a>
+      · <span class="badge text-bg-primary">{{ case.get_status_display }}</span>{% if case.stage %} <span class="badge text-bg-light">{{ case.get_stage_display }}</span>{% endif %}</div>
+  </div>
+  <div class="ms-auto d-flex gap-2">
+    <a class="btn btn-sm btn-outline-secondary" href="{% url 'cases:update' case.pk %}"><i class="bi bi-pencil me-1"></i>Düzenle</a>
+    {% if request.user.is_office_admin %}
+    <form method="post" action="{% url 'cases:delete' case.pk %}" onsubmit="return confirm('Dosya ve belgeleri silinsin mi?')">{% csrf_token %}
+      <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+
+<ul class="nav nav-tabs mb-3">
+  <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#t-ozet">Özet</button></li>
+  <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-taraflar">Karşı taraflar <span class="badge text-bg-light">{{ party_links|length }}</span></button></li>
+  <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-belgeler">Belgeler <span class="badge text-bg-light">{{ documents|length }}</span></button></li>
+</ul>
+<div class="tab-content">
+  <div class="tab-pane fade show active" id="t-ozet">
+    <dl class="dl-grid">
+      <dt>{{ case.labels.official_no }}</dt><dd>{{ case.official_no|default:"—" }}</dd>
+      {% if case.labels.authority %}<dt>{{ case.labels.authority }}</dt><dd>{{ case.authority|default:"—" }}</dd>{% endif %}
+      {% if case.labels.value %}<dt>{{ case.labels.value }}</dt><dd>{{ case.value|tl }}</dd>{% endif %}
+      {% if case.enforcement_type %}<dt>Takip türü</dt><dd>{{ case.get_enforcement_type_display }}</dd>{% endif %}
+      {% if case.crime %}<dt>Suç</dt><dd>{{ case.crime }}</dd>{% endif %}
+      {% if case.mediator %}<dt>Arabulucu</dt><dd>{{ case.mediator }}</dd>{% endif %}
+      <dt>Sorumlu avukat</dt><dd>{{ case.responsible_lawyer }}</dd>
+      <dt>Sorumlu stajyer</dt><dd>{{ case.responsible_intern }}</dd>
+      <dt>Açılış / kapanış</dt><dd>{{ case.opened_on|date:"d.m.Y"|default:"—" }} / {{ case.closed_on|date:"d.m.Y"|default:"—" }}</dd>
+      <dt>Notlar</dt><dd>{{ case.notes|linebreaksbr|default:"—" }}</dd>
+    </dl>
+  </div>
+  <div class="tab-pane fade" id="t-taraflar">{% include "cases/_parties.html" %}</div>
+  <div class="tab-pane fade" id="t-belgeler">{% include "cases/_documents.html" %}</div>
+</div>
+{% endblock %}

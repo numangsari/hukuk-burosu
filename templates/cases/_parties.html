@@ -1,0 +1,28 @@
+<div id="parties">
+  <table class="table table-sm">
+    <thead><tr><th>Ad / Unvan</th><th>Rol</th><th>TCKN / VKN</th><th>Vekili</th><th>Adres</th><th></th></tr></thead>
+    <tbody>
+    {% for l in party_links %}
+      <tr><td>{{ l.party.name }}</td><td>{{ l.get_role_display }}</td><td>{{ l.party.identity_no }}</td><td>{{ l.party.lawyer }}</td><td class="small">{{ l.party.address }}</td>
+        <td class="text-end"><button class="btn btn-sm btn-link text-danger p-0" hx-post="{% url 'cases:party_remove' case.pk l.pk %}" hx-target="#parties" hx-swap="outerHTML" hx-confirm="Taraf dosyadan çıkarılsın mı?"><i class="bi bi-x-lg"></i></button></td></tr>
+    {% empty %}<tr><td colspan="6" class="text-body-secondary">Karşı taraf eklenmemiş.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+  {% if conflicts %}
+  <div class="alert alert-warning py-2 small">
+    <i class="bi bi-exclamation-triangle me-1"></i><b>Çıkar çatışması:</b> bu kişi müvekkil olarak kayıtlı —
+    {% for c in conflicts %}<a href="{{ c.get_absolute_url }}" target="_blank">{{ c.name }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}
+  </div>
+  {% endif %}
+  <form class="row g-2 align-items-end" hx-post="{% url 'cases:party_add' case.pk %}" hx-target="#parties" hx-swap="outerHTML">
+    <div class="col-md-2">{% include "partials/field.html" with field=party_form.role wrap_class="" %}</div>
+    <div class="col-md-2">{% include "partials/field.html" with field=party_form.kind wrap_class="" %}</div>
+    <div class="col-md-3">{% include "partials/field.html" with field=party_form.name wrap_class="" %}</div>
+    <div class="col-md-2">{% include "partials/field.html" with field=party_form.identity_no wrap_class="" %}</div>
+    <div class="col-md-3">{% include "partials/field.html" with field=party_form.lawyer wrap_class="" %}</div>
+    <div class="col-md-10">{% include "partials/field.html" with field=party_form.address wrap_class="" %}</div>
+    <div class="col-md-2"><button class="btn btn-outline-primary w-100"><i class="bi bi-plus"></i> Ekle</button></div>
+    {% if conflicts %}<div class="col-12">{% include "partials/field.html" with field=party_form.confirm_conflict wrap_class="" %}</div>{% endif %}
+  </form>
+  <div class="form-text">Aynı TCKN/VKN ile daha önce kaydedilmiş karşı taraf varsa mevcut kayıt kullanılır.</div>
+</div>

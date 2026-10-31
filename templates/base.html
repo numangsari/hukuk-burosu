@@ -1,0 +1,68 @@
+{% load static %}<!doctype html>
+<html lang="tr" data-bs-theme="{{ request.user.theme|default:'light' }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{{ office.name }}{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'vendor/bootstrap/bootstrap.min.css' %}">
+  <link rel="stylesheet" href="{% static 'vendor/bootstrap-icons/bootstrap-icons.min.css' %}">
+  <link rel="stylesheet" href="{% static 'css/app.css' %}">
+  <script src="{% static 'vendor/htmx.min.js' %}" defer></script>
+  <script src="{% static 'vendor/alpine.min.js' %}" defer></script>
+</head>
+<body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+{% if request.user.is_authenticated %}
+<div class="d-flex min-vh-100">
+  <nav class="sidebar bg-body-tertiary border-end d-flex flex-column p-3">
+    <a href="{% url 'core:home' %}" class="fs-5 fw-semibold text-reset text-decoration-none mb-3 d-flex align-items-center gap-2">
+      {% if office.logo %}<img src="{{ office.logo.url }}" alt="" height="28">{% else %}<i class="bi bi-bank"></i>{% endif %}
+      <span class="text-truncate">{{ office.name }}</span>
+    </a>
+    {% with ns=request.resolver_match.namespace %}
+    <ul class="nav nav-pills flex-column gap-1">
+      <li><a class="nav-link {% if ns == 'core' %}active{% endif %}" href="{% url 'core:home' %}"><i class="bi bi-house me-2"></i>Ana sayfa</a></li>
+      <li><a class="nav-link {% if ns == 'clients' %}active{% endif %}" href="{% url 'clients:list' %}"><i class="bi bi-people me-2"></i>Müvekkiller</a></li>
+      <li><a class="nav-link {% if ns == 'cases' %}active{% endif %}" href="{% url 'cases:list' %}"><i class="bi bi-folder2-open me-2"></i>Dosyalar</a></li>
+      <li><span class="nav-link disabled"><i class="bi bi-check2-square me-2"></i>Görevler</span></li>
+      <li><span class="nav-link disabled"><i class="bi bi-cash-coin me-2"></i>Muhasebe</span></li>
+      <li><span class="nav-link disabled"><i class="bi bi-file-earmark-bar-graph me-2"></i>Raporlar</span></li>
+    </ul>
+    {% endwith %}
+    <div class="mt-auto small text-body-secondary">
+      {% if request.user.is_office_admin %}<a class="d-block mb-2 text-reset" href="{% url 'admin:index' %}"><i class="bi bi-gear me-1"></i>Yönetim</a>{% endif %}
+    </div>
+  </nav>
+  <div class="flex-grow-1 d-flex flex-column min-w-0">
+    <header class="border-bottom px-4 py-2 d-flex align-items-center gap-3">
+      <form class="flex-grow-1" style="max-width: 480px" role="search">
+        <input class="form-control form-control-sm" type="search" placeholder="Ara (yakında)…" disabled>
+      </form>
+      <div class="ms-auto dropdown">
+        <button class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
+          <i class="bi bi-person-circle me-1"></i>{{ request.user }} <span class="badge text-bg-secondary ms-1">{{ request.user.get_role_display }}</span>
+        </button>
+        <ul class="dropdown-menu dropdown-menu-end">
+          <li>
+            <form method="post" action="{% url 'accounts:logout' %}">{% csrf_token %}
+              <button class="dropdown-item"><i class="bi bi-box-arrow-right me-2"></i>Çıkış</button>
+            </form>
+          </li>
+        </ul>
+      </div>
+    </header>
+    <main class="p-4 flex-grow-1">
+      {% for m in messages %}
+        <div class="alert alert-{% if m.tags == 'error' %}danger{% else %}{{ m.tags }}{% endif %} alert-dismissible fade show py-2">
+          {{ m }}<button type="button" class="btn-close py-2" data-bs-dismiss="alert"></button>
+        </div>
+      {% endfor %}
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+</div>
+{% else %}
+  {% block anonymous %}{% endblock %}
+{% endif %}
+<script src="{% static 'vendor/bootstrap/bootstrap.bundle.min.js' %}"></script>
+</body>
+</html>

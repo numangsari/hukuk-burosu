@@ -1,0 +1,31 @@
+{% load ui %}
+<div class="table-responsive border rounded">
+<table class="table table-hover mb-0">
+  <thead class="table-light">
+    <tr>
+      <th>{% sort_link "name" "Ad / Unvan" %}</th>
+      <th>{% sort_link "kind" "Tip" %}</th>
+      <th>{% sort_link "responsible_lawyer__first_name" "Sorumlu avukat" %}</th>
+      <th>Stajyer</th>
+      <th class="text-center">Vekalet</th>
+      <th class="text-end">{% sort_link "case_count" "Dosya" %}</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for c in clients %}
+    <tr data-href="{{ c.get_absolute_url }}" onclick="location.href=this.dataset.href">
+      <td><a href="{{ c.get_absolute_url }}" class="fw-medium">{{ c.name }}</a>{% if not c.is_active %} <span class="badge text-bg-secondary">Pasif</span>{% endif %}
+        <div class="small text-body-secondary">{{ c.identity_no }}</div></td>
+      <td>{{ c.get_kind_display }}</td>
+      <td>{{ c.responsible_lawyer }}</td>
+      <td>{{ c.responsible_intern }}</td>
+      <td class="text-center">{% if c.has_poa %}<i class="bi bi-check-circle-fill text-success"></i>{% else %}<i class="bi bi-dash-circle text-body-tertiary"></i>{% endif %}</td>
+      <td class="text-end">{{ c.case_count }}</td>
+    </tr>
+  {% empty %}
+    <tr><td colspan="6" class="text-center text-body-secondary py-4">Kayıt bulunamadı.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% include "partials/pagination.html" %}

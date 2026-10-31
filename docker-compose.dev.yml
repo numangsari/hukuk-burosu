@@ -1,0 +1,14 @@
+# Yalnızca geliştirme ortamı içindir. Production'da Docker kullanılmaz.
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: ozkurt
+      POSTGRES_USER: ozkurt
+      POSTGRES_PASSWORD: ozkurt_dev
+    ports:
+      - "5434:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+volumes:
+  pgdata:

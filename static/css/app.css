@@ -1,0 +1,13 @@
+.sidebar { width: 230px; flex-shrink: 0; }
+.min-w-0 { min-width: 0; }
+.table td, .table th { vertical-align: middle; }
+.table-hover tbody tr[data-href] { cursor: pointer; }
+.htmx-request.htmx-indicator, .htmx-request .htmx-indicator { opacity: 1; }
+.htmx-indicator { opacity: 0; transition: opacity .2s; }
+[x-cloak] { display: none !important; }
+.dl-grid { display: grid; grid-template-columns: 170px 1fr; gap: .35rem 1rem; }
+.dl-grid dt { font-weight: 500; color: var(--bs-secondary-color); }
+.dl-grid dd { margin: 0; }
+@media (max-width: 768px) {
+  .sidebar { display: none !important; }
+}

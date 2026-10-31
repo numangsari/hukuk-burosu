@@ -1,0 +1,15 @@
+{# Kullanım: {% include "partials/field.html" with field=form.x %} #}
+{% if field.field.widget.input_type == "checkbox" %}
+<div class="form-check {{ wrap_class|default:'mb-3' }}">
+  {{ field }}
+  <label class="form-check-label" for="{{ field.id_for_label }}">{{ field.label|capfirst }}</label>
+  {% for e in field.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}
+</div>
+{% else %}
+<div class="{{ wrap_class|default:'mb-3' }}">
+  <label class="form-label{% if field.field.required %} fw-semibold{% endif %}" for="{{ field.id_for_label }}">{{ label|default:field.label|capfirst }}</label>
+  {{ field }}
+  {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+  {% for e in field.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}
+</div>
+{% endif %}

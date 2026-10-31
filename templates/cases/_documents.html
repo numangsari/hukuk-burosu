@@ -1,0 +1,20 @@
+<div id="documents">
+  <table class="table table-sm">
+    <thead><tr><th>Başlık</th><th>Kategori</th><th>Dosya</th><th>Yükleyen</th><th>Tarih</th><th></th></tr></thead>
+    <tbody>
+    {% for d in documents %}
+      <tr><td>{{ d.title }}{% if d.notes %}<div class="small text-body-secondary">{{ d.notes }}</div>{% endif %}</td><td>{{ d.get_category_display }}</td>
+        <td><a href="{{ d.file.url }}" target="_blank"><i class="bi bi-paperclip"></i> {{ d.original_name }}</a> <span class="small text-body-secondary">{{ d.size|filesizeformat }}</span></td>
+        <td>{{ d.created_by }}</td><td>{{ d.created_at|date:"d.m.Y H:i" }}</td>
+        <td class="text-end">{% if d.created_by_id == request.user.pk or request.user.is_office_admin %}<button class="btn btn-sm btn-link text-danger p-0" hx-post="{% url 'cases:document_delete' case.pk d.pk %}" hx-target="#documents" hx-swap="outerHTML" hx-confirm="Belge silinsin mi?"><i class="bi bi-trash"></i></button>{% endif %}</td></tr>
+    {% empty %}<tr><td colspan="6" class="text-body-secondary">Belge yok.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+  <form class="row g-2 align-items-end" hx-post="{% url 'cases:document_upload' case.pk %}" hx-target="#documents" hx-swap="outerHTML" hx-encoding="multipart/form-data">
+    <div class="col-md-3">{% include "partials/field.html" with field=document_form.title wrap_class="" %}</div>
+    <div class="col-md-2">{% include "partials/field.html" with field=document_form.category wrap_class="" %}</div>
+    <div class="col-md-3">{% include "partials/field.html" with field=document_form.file wrap_class="" %}</div>
+    <div class="col-md-2">{% include "partials/field.html" with field=document_form.notes wrap_class="" %}</div>
+    <div class="col-md-2"><button class="btn btn-outline-primary w-100"><i class="bi bi-upload"></i> Yükle</button></div>
+  </form>
+</div>

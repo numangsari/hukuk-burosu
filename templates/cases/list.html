@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Dosyalar — {{ office.name }}{% endblock %}
+{% block content %}
+<div class="d-flex align-items-center mb-3">
+  <h1 class="h4 mb-0">Dosyalar</h1>
+  <a class="btn btn-primary ms-auto" href="{% url 'cases:create' %}"><i class="bi bi-folder-plus me-1"></i>Yeni dosya</a>
+</div>
+<form class="row g-2 mb-3" hx-get="{% url 'cases:list' %}" hx-target="#list-table" hx-push-url="true"
+      hx-trigger="input changed delay:300ms from:input[name=q], change">
+  <div class="col-md-4"><input class="form-control" type="search" name="q" value="{{ request.GET.q }}" placeholder="Arşiv no, resmi no, konu, merci, müvekkil"></div>
+  <div class="col-md-3">
+    <select class="form-select" name="type">
+      <option value="">Tüm türler</option>
+      {% for v, l in types %}<option value="{{ v }}" {% if request.GET.type == v %}selected{% endif %}>{{ l }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="col-md-2">
+    <select class="form-select" name="status">
+      <option value="open">Açık dosyalar</option>
+      {% for v, l in statuses %}<option value="{{ v }}" {% if request.GET.status == v %}selected{% endif %}>{{ l }}</option>{% endfor %}
+      <option value="all" {% if request.GET.status == 'all' %}selected{% endif %}>Tümü</option>
+    </select>
+  </div>
+  <div class="col-md-3">
+    <select class="form-select" name="lawyer">
+      <option value="">Tüm avukatlar</option>
+      {% for u in lawyers %}<option value="{{ u.pk }}" {% if request.GET.lawyer == u.pk|stringformat:'s' %}selected{% endif %}>{{ u }}</option>{% endfor %}
+    </select>
+  </div>
+  {% if request.GET.sort %}<input type="hidden" name="sort" value="{{ request.GET.sort }}">{% endif %}
+</form>
+<div id="list-table">{% include "cases/_list_table.html" %}</div>
+{% endblock %}

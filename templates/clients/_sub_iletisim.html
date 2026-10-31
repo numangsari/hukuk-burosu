@@ -1,0 +1,18 @@
+<div id="sub-iletisim">
+  <table class="table table-sm">
+    <thead><tr><th>Tür</th><th>Etiket</th><th>Değer</th><th></th></tr></thead>
+    <tbody>
+    {% for i in items %}
+      <tr><td>{{ i.get_kind_display }}{% if i.is_primary %} <span class="badge text-bg-primary">Birincil</span>{% endif %}</td><td>{{ i.label }}</td><td>{{ i.value|linebreaksbr }}</td>
+        <td class="text-end">{% include "clients/_sub_delete.html" with kind="iletisim" %}</td></tr>
+    {% empty %}<tr><td colspan="4" class="text-body-secondary">Kayıt yok.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+  <form class="row g-2 align-items-end" hx-post="{% url 'clients:sub_add' client.pk 'iletisim' %}" hx-target="#sub-iletisim" hx-swap="outerHTML">
+    <div class="col-md-2">{% include "partials/field.html" with field=form.kind wrap_class="" %}</div>
+    <div class="col-md-2">{% include "partials/field.html" with field=form.label wrap_class="" %}</div>
+    <div class="col-md-5">{% include "partials/field.html" with field=form.value wrap_class="" %}</div>
+    <div class="col-md-1">{% include "partials/field.html" with field=form.is_primary wrap_class="" %}</div>
+    <div class="col-md-2"><button class="btn btn-outline-primary w-100"><i class="bi bi-plus"></i> Ekle</button></div>
+  </form>
+</div>

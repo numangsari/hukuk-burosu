@@ -1,0 +1,12 @@
+{% load ui %}
+{% if page_obj.has_other_pages %}
+<nav class="d-flex justify-content-between align-items-center mt-2">
+  <span class="small text-body-secondary">{{ paginator.count }} kayıt · sayfa {{ page_obj.number }}/{{ paginator.num_pages }}</span>
+  <ul class="pagination pagination-sm mb-0">
+    {% if page_obj.has_previous %}<li class="page-item"><a class="page-link" href="{% query_with page=page_obj.previous_page_number %}">‹</a></li>{% endif %}
+    {% if page_obj.has_next %}<li class="page-item"><a class="page-link" href="{% query_with page=page_obj.next_page_number %}">›</a></li>{% endif %}
+  </ul>
+</nav>
+{% else %}
+<div class="small text-body-secondary mt-2">{{ paginator.count|default:0 }} kayıt</div>
+{% endif %}

@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="h4 mb-3">Hoş geldiniz, {{ request.user.first_name|default:request.user.username }}</h1>
+<p class="text-body-secondary">Günlük özet (bekleyen görevler, yaklaşan tarihler) 2. aşamada eklenecek.</p>
+<div class="d-flex gap-2">
+  <a class="btn btn-primary" href="{% url 'clients:create' %}"><i class="bi bi-person-plus me-1"></i>Yeni müvekkil</a>
+  <a class="btn btn-outline-primary" href="{% url 'cases:create' %}"><i class="bi bi-folder-plus me-1"></i>Yeni dosya</a>
+</div>
+{% endblock %}

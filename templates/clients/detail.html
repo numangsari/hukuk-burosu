@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}{{ client }} — {{ office.name }}{% endblock %}
+{% block content %}
+<div class="d-flex align-items-start mb-3 gap-2">
+  <div>
+    <h1 class="h4 mb-1">{{ client.name }}{% if not client.is_active %} <span class="badge text-bg-secondary">Pasif</span>{% endif %}</h1>
+    <div class="text-body-secondary small">{{ client.get_kind_display }} · Avukat: {{ client.responsible_lawyer }} · Stajyer: {{ client.responsible_intern }}</div>
+  </div>
+  <div class="ms-auto d-flex gap-2">
+    <a class="btn btn-sm btn-primary" href="{% url 'cases:create' %}?client={{ client.pk }}"><i class="bi bi-folder-plus me-1"></i>Yeni dosya</a>
+    <a class="btn btn-sm btn-outline-secondary" href="{% url 'clients:update' client.pk %}"><i class="bi bi-pencil me-1"></i>Düzenle</a>
+    {% if request.user.is_office_admin %}
+    <form method="post" action="{% url 'clients:delete' client.pk %}" onsubmit="return confirm('Müvekkil silinsin mi?')">{% csrf_token %}
+      <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+{% include "clients/_conflicts.html" %}
+
+<ul class="nav nav-tabs mb-3" role="tablist">
+  <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#t-kimlik">Kimlik</button></li>
+  <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-iletisim">İletişim</button></li>
+  <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-iban">IBAN</button></li>
+  {% if client.kind == "company" %}<li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-yetkili">Yetkililer</button></li>{% endif %}
+  <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-vekalet">Vekaletler</button></li>
+  <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-dosyalar">Dosyalar <span class="badge text-bg-light">{{ cases|length }}</span></button></li>
+</ul>
+<div class="tab-content">
+  <div class="tab-pane fade show active" id="t-kimlik">
+    <dl class="dl-grid">
+      {% if client.kind == "person" %}
+        <dt>Ad soyad</dt><dd>{{ client.first_name }} {{ client.last_name }}</dd>
+        <dt>TC kimlik no</dt><dd>{{ client.tckn|default:"—" }}</dd>
+      {% else %}
+        <dt>Unvan</dt><dd>{{ client.title }}</dd>
+        <dt>Vergi dairesi / VKN</dt><dd>{{ client.tax_office|default:"—" }} / {{ client.vkn|default:"—" }}</dd>
+        <dt>MERSİS no</dt><dd>{{ client.mersis_no|default:"—" }}</dd>
+      {% endif %}
+      <dt>Sorumlu avukat</dt><dd>{{ client.responsible_lawyer }}</dd>
+      <dt>Sorumlu stajyer</dt><dd>{{ client.responsible_intern }}</dd>
+      <dt>Notlar</dt><dd>{{ client.notes|linebreaksbr|default:"—" }}</dd>
+      <dt>Kayıt</dt><dd class="small text-body-secondary">{{ client.created_at|date:"d.m.Y H:i" }}{% if client.created_by %} · {{ client.created_by }}{% endif %}</dd>
+    </dl>
+  </div>
+  <div class="tab-pane fade" id="t-iletisim">{% include "clients/_sub_iletisim.html" with items=client.contacts.all form=subforms.iletisim %}</div>
+  <div class="tab-pane fade" id="t-iban">{% include "clients/_sub_iban.html" with items=client.ibans.all form=subforms.iban %}</div>
+  {% if client.kind == "company" %}<div class="tab-pane fade" id="t-yetkili">{% include "clients/_sub_yetkili.html" with items=client.representatives.all form=subforms.yetkili %}</div>{% endif %}
+  <div class="tab-pane fade" id="t-vekalet">{% include "clients/_sub_vekalet.html" with items=client.powers_of_attorney.all form=subforms.vekalet %}</div>
+  <div class="tab-pane fade" id="t-dosyalar">
+    <table class="table table-sm table-hover">
+      <thead><tr><th>Arşiv no</th><th>Tür</th><th>Konu</th><th>Merci / Resmi no</th><th>Durum</th><th>Avukat</th></tr></thead>
+      <tbody>
+      {% for k in cases %}
+        <tr><td><a href="{{ k.get_absolute_url }}">{{ k.archive_no }}</a></td><td>{{ k.get_case_type_display }}</td><td>{{ k.subject }}</td>
+          <td>{{ k.authority }} {{ k.official_no }}</td><td>{{ k.get_status_display }}</td><td>{{ k.responsible_lawyer }}</td></tr>
+      {% empty %}<tr><td colspan="6" class="text-body-secondary">Dosya yok.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,18 @@
+<div id="sub-iban">
+  <table class="table table-sm">
+    <thead><tr><th>IBAN</th><th>Banka</th><th>Hesap sahibi</th><th></th></tr></thead>
+    <tbody>
+    {% for i in items %}
+      <tr><td class="font-monospace">{{ i.formatted }}{% if i.is_primary %} <span class="badge text-bg-primary">Birincil</span>{% endif %}</td><td>{{ i.bank }}</td><td>{{ i.holder }}</td>
+        <td class="text-end">{% include "clients/_sub_delete.html" with kind="iban" %}</td></tr>
+    {% empty %}<tr><td colspan="4" class="text-body-secondary">Kayıt yok.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+  <form class="row g-2 align-items-end" hx-post="{% url 'clients:sub_add' client.pk 'iban' %}" hx-target="#sub-iban" hx-swap="outerHTML">
+    <div class="col-md-4">{% include "partials/field.html" with field=form.iban wrap_class="" %}</div>
+    <div class="col-md-2">{% include "partials/field.html" with field=form.bank wrap_class="" %}</div>
+    <div class="col-md-3">{% include "partials/field.html" with field=form.holder wrap_class="" %}</div>
+    <div class="col-md-1">{% include "partials/field.html" with field=form.is_primary wrap_class="" %}</div>
+    <div class="col-md-2"><button class="btn btn-outline-primary w-100"><i class="bi bi-plus"></i> Ekle</button></div>
+  </form>
+</div>

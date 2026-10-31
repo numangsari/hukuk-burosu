@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Giriş — {{ office.name }}{% endblock %}
+{% block anonymous %}
+<div class="min-vh-100 d-flex align-items-center justify-content-center bg-body-tertiary">
+  <div class="card shadow-sm" style="width: 360px">
+    <div class="card-body p-4">
+      <h1 class="h5 mb-4 text-center">{{ office.name }}</h1>
+      {% if form.errors %}
+        <div class="alert alert-danger py-2 small">Kullanıcı adı veya şifre hatalı. 5 hatalı denemeden sonra hesap 15 dakika kilitlenir.</div>
+      {% endif %}
+      <form method="post">{% csrf_token %}
+        <div class="mb-3">
+          <label class="form-label" for="id_username">Kullanıcı adı</label>
+          <input class="form-control" id="id_username" name="username" autofocus required value="{{ form.username.value|default:'' }}">
+        </div>
+        <div class="mb-3">
+          <label class="form-label" for="id_password">Şifre</label>
+          <input class="form-control" id="id_password" name="password" type="password" required>
+        </div>
+        <input type="hidden" name="next" value="{{ next }}">
+        <button class="btn btn-primary w-100">Giriş</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
