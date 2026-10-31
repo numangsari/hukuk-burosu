@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}WhatsApp mesajları — {{ office.name }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div><h1 class="page-title">WhatsApp mesajları</h1><p class="page-subtitle">Ofis numarasından gönderilen ve gelen mesajlar.</p></div>
+  {% if request.user.is_office_admin %}<a class="btn btn-light" href="{% url 'clients:messaging:settings' %}"><i class="bi bi-gear"></i>Bağlantı ve hatırlatmalar</a>{% endif %}
+</div>
+{% if not connection_ready or not whatsapp_settings.enabled %}<div class="alert alert-info">WhatsApp bağlantısı henüz gönderime açılmadı. Müvekkillerin numaralarını ve mesaj tercihlerini şimdiden hazırlayabilirsiniz.</div>{% endif %}
+<div class="card table-card">
+  <form class="filter-bar" method="get"><input class="form-control" name="q" value="{{ request.GET.q }}" placeholder="Müvekkil adı veya telefon ara" aria-label="Mesajlarda ara"><button class="btn btn-light">Ara</button></form>
+  <div class="table-responsive"><table class="table">
+    <thead><tr><th>Müvekkil / Telefon</th><th>Son mesaj</th><th>Tarih</th><th>Durum</th></tr></thead><tbody>
+    {% for item in conversations %}<tr>
+      <td class="cell-main"><a href="{% if item.client_id %}{% url 'clients:messaging:client' item.client_id %}{% else %}{% url 'clients:messaging:unknown' item.phone_number %}{% endif %}">{{ item.client|default:"Müvekkille eşleştirilmemiş" }}</a><div class="cell-sub">+{{ item.phone_number }}</div></td>
+      <td>{{ item.body|truncatechars:100 }}{% if item.template_name %}<div class="cell-sub">Onaylı hazır mesaj</div>{% endif %}</td>
+      <td class="tabular text-nowrap">{{ item.occurred_at|date:"d.m.Y H:i" }}</td><td>{{ item.get_status_display }}</td>
+    </tr>{% empty %}<tr><td colspan="4"><div class="empty-state"><i class="bi bi-whatsapp"></i><strong>Henüz mesaj yok</strong>Başlamak için müvekkilin sayfasındaki WhatsApp düğmesini kullanın.</div></td></tr>{% endfor %}
+    </tbody></table></div>
+  {% include "partials/pagination.html" %}
+</div>
+{% endblock %}

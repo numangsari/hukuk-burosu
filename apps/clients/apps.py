@@ -17,5 +17,10 @@ class ClientsConfig(AppConfig):
             models.ClientRepresentative,
             models.PowerOfAttorney,
             models.Party,
+            models.WhatsAppSettings,
+            models.WhatsAppContact,
+            models.ClientAppointment,
         ):
             auditlog.register(m)
+        auditlog.register(models.WhatsAppMessage, exclude_fields=["body", "template_parameters"])
+        auditlog.register(models.WhatsAppReceipt)

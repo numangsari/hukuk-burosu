@@ -185,7 +185,7 @@ class ClientDeleteView(AdminRequiredMixin, View):
         try:
             client.delete()
         except ProtectedError:
-            messages.error(request, "Bu müvekkile bağlı dosyalar var. Önce pasife alın.")
+            messages.error(request, "Bu müvekkile bağlı dosya veya randevu var. Önce pasife alın.")
             return redirect(client)
         messages.success(request, "Müvekkil silindi.")
         return redirect("clients:list")

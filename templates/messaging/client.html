@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}{{ client }} · WhatsApp — {{ office.name }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div><div class="eyebrow"><a href="{{ client.get_absolute_url }}">{{ client }}</a></div><h1 class="page-title">WhatsApp yazışması</h1></div>
+  <a class="btn btn-light" href="{% url 'clients:messaging:inbox' %}"><i class="bi bi-inbox"></i>Tüm mesajlar</a>
+</div>
+{% if not connection_ready or not whatsapp_settings.enabled %}<div class="alert alert-info">Mesajlaşma ekranı hazır. Gönderim için ofisin resmî WhatsApp bağlantısı tamamlanmalı.</div>{% endif %}
+<div class="row g-4">
+  <div class="col-xl-8">
+    <div class="card mb-4">
+      <div class="card-header"><h2 class="card-title">Yazışmalar</h2>{% if contact %}<span class="small text-body-secondary ms-auto">+{{ contact.phone_number }}</span>{% endif %}</div>
+      {% include "messaging/_messages.html" %}
+      {% if message_page.has_other_pages %}{% include "partials/pagination.html" with page_obj=message_page paginator=message_page.paginator %}{% endif %}
+      <form method="post" action="{% url 'clients:messaging:send' client.pk %}" class="inline-form">{% csrf_token %}
+        {{ compose_form.request_id }}
+        {% if compose_form.errors %}<div class="alert alert-danger" role="alert">{{ compose_form.non_field_errors }}{{ compose_form.request_id.errors }}{{ compose_form.body.errors }}</div>{% endif %}
+        <label for="{{ compose_form.body.id_for_label }}" class="form-label">Mesajınız</label>
+        <fieldset {% if not can_reply %}disabled{% endif %}>{{ compose_form.body }}<button class="btn btn-primary mt-2"><i class="bi bi-send"></i>Gönder</button></fieldset>
+        {% if not can_reply %}<div class="form-text mt-2">Yanıt yazmak için numara ve mesaj izni kayıtlı olmalı; müvekkilin son mesajının üzerinden 24 saatten az geçmiş olmalı.</div>{% endif %}
+      </form>
+      <form method="post" action="{% url 'clients:messaging:send' client.pk %}" class="inline-form pt-0">{% csrf_token %}
+        <input type="hidden" name="request_id" value="{{ start_request_id }}"><input type="hidden" name="kind" value="start">
+        <button class="btn btn-light" {% if not can_start %}disabled{% endif %}><i class="bi bi-chat-left-text"></i>Onaylı sohbet başlatma mesajı gönder</button>
+      </form>
+    </div>
+    <div class="card" id="appointments">
+      <div class="card-header"><h2 class="card-title">Randevular</h2></div>
+      <div class="table-responsive"><table class="table"><thead><tr><th>Tarih</th><th>Konu / Yer</th><th>Durum</th><th></th></tr></thead><tbody>
+        {% for item in appointments %}<tr><td class="tabular">{{ item.starts_at|date:"d.m.Y H:i" }}</td><td>{{ item.title }}<div class="cell-sub">{{ item.location }}</div></td><td>{{ item.get_status_display }}</td><td class="text-end text-nowrap">
+          <a class="btn btn-light btn-sm" href="?appointment={{ item.pk }}#appointment-form">Düzenle</a>
+          {% if item.status == "planned" %}<form method="post" class="d-inline" action="{% url 'clients:messaging:appointment_cancel' client.pk item.pk %}">{% csrf_token %}<button class="btn btn-light btn-sm">İptal et</button></form>{% endif %}
+        </td></tr>{% empty %}<tr><td colspan="4" class="text-body-secondary p-3">Henüz randevu yok.</td></tr>{% endfor %}
+      </tbody></table></div>
+      <form id="appointment-form" method="post" class="inline-form" action="{% if appointment_form.instance.pk %}{% url 'clients:messaging:appointment_edit' client.pk appointment_form.instance.pk %}{% else %}{% url 'clients:messaging:appointment_add' client.pk %}{% endif %}">{% csrf_token %}
+        <h3 class="h6 mb-3">{% if appointment_form.instance.pk %}Randevuyu düzenle{% else %}Yeni randevu{% endif %}</h3>
+        {{ appointment_form.non_field_errors }}
+        <div class="row"><div class="col-md-6">{% include "partials/field.html" with field=appointment_form.title %}</div><div class="col-md-6">{% include "partials/field.html" with field=appointment_form.starts_at %}</div><div class="col-md-8">{% include "partials/field.html" with field=appointment_form.location %}</div><div class="col-md-4">{% include "partials/field.html" with field=appointment_form.status %}</div></div>
+        <button class="btn btn-primary">Randevuyu kaydet</button>
+      </form>
+    </div>
+  </div>
+  <div class="col-xl-4">
+    <form method="post" action="{% url 'clients:messaging:contact_settings' client.pk %}" class="card">{% csrf_token %}
+      <div class="card-header"><h2 class="card-title">Numara ve mesaj tercihi</h2></div>
+      <div class="card-body">
+        {% if phone_form.non_field_errors %}<div class="alert alert-danger" role="alert">{{ phone_form.non_field_errors }}</div>{% endif %}
+        {% include "partials/field.html" with field=phone_form.phone %}
+        {% include "partials/field.html" with field=phone_form.opted_in %}
+        {% include "partials/field.html" with field=phone_form.reminders_enabled %}
+        <p class="form-text">Hatırlatma, kayıtlı duruşma veya randevudan {{ whatsapp_settings.reminder_hours }} saat önceki süre içinde bir kez gönderilir. Tarih veya yer değişirse güncel hatırlatma hazırlanır.</p>
+        <p class="form-text">Müvekkil “Hatırlatmaları durdur” yazarak mesajları kapatabilir.</p>
+        <button class="btn btn-primary">Tercihleri kaydet</button>
+      </div>
+    </form>
+  </div>
+</div>
+<script>
+  // Yenilemede, eski mesajları okuyan kişinin bulunduğu yeri koru.
+  let chatScroll = { top: 0, stick: true };
+  document.body.addEventListener("htmx:beforeSwap", event => {
+    const node = event.detail.target;
+    if (node.id === "whatsapp-messages") chatScroll = { top: node.scrollTop, stick: node.scrollHeight - node.scrollTop - node.clientHeight < 40 };
+  });
+  document.body.addEventListener("htmx:afterSwap", event => {
+    const node = document.getElementById("whatsapp-messages");
+    if (node && event.detail.target.id === "whatsapp-messages") node.scrollTop = chatScroll.stick ? node.scrollHeight : chatScroll.top;
+  });
+  document.addEventListener("DOMContentLoaded", () => {
+    const node = document.getElementById("whatsapp-messages");
+    if (node) node.scrollTop = node.scrollHeight;
+  });
+</script>
+{% endblock %}

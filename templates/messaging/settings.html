@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}WhatsApp ayarları — {{ office.name }}{% endblock %}
+{% block content %}
+<div class="page-header"><div><div class="eyebrow"><a href="{% url 'clients:messaging:inbox' %}">WhatsApp mesajları</a></div><h1 class="page-title">Bağlantı ve hatırlatmalar</h1></div></div>
+<div class="alert {% if connection_ready and form.instance.webhook_verified_at %}alert-success{% else %}alert-info{% endif %}">{% if connection_ready and form.instance.webhook_verified_at %}Resmî bağlantı bilgileri ve gelen mesaj bağlantısı hazır.{% else %}Ofis numarasının resmî WhatsApp bağlantısı henüz tamamlanmadı. Hazırlık bitmeden gönderim açılmaz.{% endif %}</div>
+<form method="post" class="card wa-settings">{% csrf_token %}
+  <div class="form-section">
+    {{ form.non_field_errors }}
+    {% include "partials/field.html" with field=form.enabled %}
+    {% include "partials/field.html" with field=form.reminder_hours %}
+    {% include "partials/field.html" with field=form.language %}
+    <h2 class="h6 mt-4">Onaylı hazır mesajlar</h2>
+    <p class="form-text">Duruşma ve randevu mesajlarında sırasıyla müvekkil adı, tarih, saat ve yer kullanılır. Sohbet başlatma mesajı sabit metindir. Bu adlar, resmî hizmette onaylanan mesajlarla aynı olmalı.</p>
+    {% include "partials/field.html" with field=form.hearing_template %}
+    {% include "partials/field.html" with field=form.appointment_template %}
+    {% include "partials/field.html" with field=form.start_template %}
+  </div>
+  <div class="form-footer"><a class="btn btn-light" href="{% url 'clients:messaging:inbox' %}">Mesajlara dön</a><button class="btn btn-primary">Ayarları kaydet</button></div>
+</form>
+{% endblock %}

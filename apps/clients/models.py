@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.core.exceptions import ValidationError
+from django.core.validators import MaxValueValidator, MinValueValidator, RegexValidator
 from django.db import models
 from django.db.models import Q
 from django.urls import reverse
@@ -211,3 +212,158 @@ class Party(TimeStampedModel):
     def save(self, *args, **kwargs):
         self.search_key = fold(self.name)
         super().save(*args, **kwargs)
+
+
+class WhatsAppSettings(models.Model):
+    enabled = models.BooleanField("WhatsApp gönderimini aç", default=False)
+    reminder_hours = models.PositiveSmallIntegerField(
+        "kaç saat önce hatırlatılsın",
+        default=24,
+        validators=[MinValueValidator(1), MaxValueValidator(168)],
+    )
+    language = models.CharField("hazır mesaj dili", max_length=10, default="tr")
+    hearing_template = models.CharField("onaylı duruşma mesajının adı", max_length=120, blank=True)
+    appointment_template = models.CharField(
+        "onaylı randevu mesajının adı", max_length=120, blank=True
+    )
+    start_template = models.CharField(
+        "onaylı sohbet başlatma mesajının adı", max_length=120, blank=True
+    )
+    webhook_verified_at = models.DateTimeField(null=True, blank=True, editable=False)
+
+    class Meta:
+        verbose_name = "WhatsApp ofis ayarı"
+        verbose_name_plural = "WhatsApp ofis ayarı"
+
+    def __str__(self):
+        return "WhatsApp ofis ayarı"
+
+    def save(self, *args, **kwargs):
+        self.pk = 1
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def load(cls):
+        return cls.objects.get_or_create(pk=1)[0]
+
+
+class WhatsAppContact(TimeStampedModel):
+    client = models.OneToOneField(Client, on_delete=models.CASCADE, related_name="whatsapp_contact")
+    contact = models.ForeignKey(ClientContact, on_delete=models.SET_NULL, null=True, blank=True)
+    phone_number = models.CharField(
+        "WhatsApp numarası",
+        max_length=15,
+        unique=True,
+        validators=[
+            RegexValidator(r"^[1-9][0-9]{7,14}$", "Geçerli bir uluslararası numara seçin.")
+        ],
+    )
+    opted_in = models.BooleanField("müvekkil WhatsApp mesajlarını kabul etti", default=False)
+    reminders_enabled = models.BooleanField("duruşma ve randevu hatırlatması gönder", default=False)
+    consent_recorded_at = models.DateTimeField(null=True, blank=True)
+    consent_recorded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True, related_name="+"
+    )
+
+    class Meta:
+        verbose_name = "müvekkil WhatsApp tercihi"
+        verbose_name_plural = "müvekkil WhatsApp tercihleri"
+
+    def __str__(self):
+        return str(self.client)
+
+
+class ClientAppointment(TimeStampedModel):
+    class Status(models.TextChoices):
+        PLANNED = "planned", "Planlandı"
+        DONE = "done", "Yapıldı"
+        CANCELLED = "cancelled", "İptal edildi"
+
+    client = models.ForeignKey(Client, on_delete=models.PROTECT, related_name="appointments")
+    title = models.CharField("randevu konusu", max_length=200)
+    starts_at = models.DateTimeField("tarih ve saat")
+    location = models.CharField("yer", max_length=200, blank=True)
+    status = models.CharField(
+        "durum", max_length=20, choices=Status.choices, default=Status.PLANNED
+    )
+
+    class Meta:
+        ordering = ["-starts_at", "-pk"]
+        verbose_name = "müvekkil randevusu"
+        verbose_name_plural = "müvekkil randevuları"
+
+    def __str__(self):
+        return self.title
+
+
+class WhatsAppMessage(models.Model):
+    class Direction(models.TextChoices):
+        INCOMING = "incoming", "Gelen"
+        OUTGOING = "outgoing", "Giden"
+
+    class Status(models.TextChoices):
+        RECEIVED = "received", "Alındı"
+        QUEUED = "queued", "Gönderilmeyi bekliyor"
+        SENDING = "sending", "Gönderiliyor"
+        SENT = "sent", "WhatsApp'a iletildi"
+        DELIVERED = "delivered", "Ulaştı"
+        READ = "read", "Okundu"
+        FAILED = "failed", "Gönderilemedi"
+        UNCERTAIN = "uncertain", "Gönderim sonucu kontrol edilmeli"
+        CANCELLED = "cancelled", "Gönderimden kaldırıldı"
+
+    client = models.ForeignKey(
+        Client, on_delete=models.SET_NULL, null=True, blank=True, related_name="whatsapp_messages"
+    )
+    phone_number = models.CharField(max_length=15, db_index=True)
+    direction = models.CharField(max_length=10, choices=Direction.choices)
+    status = models.CharField(max_length=12, choices=Status.choices)
+    body = models.TextField("mesaj", max_length=4096, blank=True)
+    message_type = models.CharField(max_length=20, default="text")
+    external_id = models.CharField(max_length=200, blank=True)
+    template_name = models.CharField(max_length=120, blank=True)
+    template_parameters = models.JSONField(default=list, blank=True)
+    dedup_key = models.CharField(max_length=200, blank=True)
+    hearing = models.ForeignKey("cases.Hearing", on_delete=models.SET_NULL, null=True, blank=True)
+    appointment = models.ForeignKey(
+        ClientAppointment, on_delete=models.SET_NULL, null=True, blank=True
+    )
+    occurred_at = models.DateTimeField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    attempted_at = models.DateTimeField(null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True, related_name="+"
+    )
+    error = models.CharField(max_length=300, blank=True)
+
+    class Meta:
+        ordering = ["-occurred_at", "-pk"]
+        verbose_name = "WhatsApp mesajı"
+        verbose_name_plural = "WhatsApp mesajları"
+        indexes = [models.Index(fields=["phone_number", "direction", "occurred_at"])]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["external_id"], condition=~Q(external_id=""), name="unique_whatsapp_message"
+            ),
+            models.UniqueConstraint(
+                fields=["dedup_key"], condition=~Q(dedup_key=""), name="unique_whatsapp_dispatch"
+            ),
+        ]
+
+    def __str__(self):
+        return f"WhatsApp mesajı {self.pk}"
+
+
+class WhatsAppReceipt(models.Model):
+    external_id = models.CharField(max_length=200, unique=True)
+    status = models.CharField(max_length=12)
+    occurred_at = models.DateTimeField()
+    error_code = models.CharField(max_length=30, blank=True)
+
+    class Meta:
+        verbose_name = "WhatsApp teslim bilgisi"
+        verbose_name_plural = "WhatsApp teslim bilgileri"
+
+    def __str__(self):
+        return f"Teslim bilgisi {self.pk}"

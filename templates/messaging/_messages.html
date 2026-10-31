@@ -1,0 +1,15 @@
+<div id="whatsapp-messages" class="wa-messages" aria-live="polite"
+     {% if client and message_page.number == 1 %}hx-get="{% url 'clients:messaging:client' client.pk %}?messages_only=1" hx-trigger="every 15s" hx-swap="outerHTML"{% endif %}>
+  {% for item in chat_messages %}
+  <article class="wa-message {% if item.direction == 'outgoing' %}wa-message-outgoing{% endif %}">
+    <div class="small text-body-secondary mb-1">{% if item.direction == "incoming" %}Gelen mesaj{% else %}{{ item.created_by|default:"Otomatik hatırlatma" }}{% endif %} · +{{ item.phone_number }}</div>
+    {% if item.template_name %}<div class="small fw-semibold mb-1">Onaylı hazır mesaj · {{ item.template_name }}</div>{% endif %}
+    <div class="wa-message-body">{{ item.body|linebreaksbr }}</div>
+    <div class="small text-body-secondary mt-2">{{ item.occurred_at|date:"d.m.Y H:i" }} · {{ item.get_status_display }}</div>
+    {% if item.error %}<div class="small text-danger mt-1" role="alert">{{ item.error }}</div>{% endif %}
+    {% if client and item.status == "failed" and item.direction == "outgoing" %}
+    <form method="post" action="{% url 'clients:messaging:retry' client.pk item.pk %}" class="mt-2">{% csrf_token %}<button class="btn btn-light btn-sm">Tekrar dene</button></form>
+    {% endif %}
+  </article>
+  {% empty %}<div class="empty-state"><i class="bi bi-chat-dots"></i><strong>Henüz yazışma yok</strong>Gelen ve gönderilen mesajlar burada görünecek.</div>{% endfor %}
+</div>

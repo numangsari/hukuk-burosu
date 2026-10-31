@@ -12,7 +12,7 @@ import pytest
 def test_reminder_runner_checks_service_and_reports_command_result(tmp_path, status, result):
     command = tmp_path / "manage.cmd"
     command.write_text(
-        '@echo off\n> "%~dp0called.txt" echo %*\n' + f"exit /b {result}\n", encoding="ascii"
+        '@echo off\n>> "%~dp0called.txt" echo %*\n' + f"exit /b {result}\n", encoding="ascii"
     )
     runner = Path(__file__).resolve().parents[1] / "installer/scripts/check-reminders.ps1"
 
@@ -34,4 +34,6 @@ def test_reminder_runner_checks_service_and_reports_command_result(tmp_path, sta
     marker = tmp_path / "called.txt"
     assert marker.exists() == (status == "Running")
     if marker.exists():
-        assert marker.read_text().strip() == "send_reminders"
+        assert marker.read_text().splitlines() == (
+            ["send_reminders"] if result else ["send_reminders", "send_whatsapp"]
+        )

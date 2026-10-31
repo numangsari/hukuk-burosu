@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block title %}Eşleştirilmemiş WhatsApp mesajı — {{ office.name }}{% endblock %}
+{% block content %}
+<div class="page-header"><div><h1 class="page-title">+{{ phone_number }}</h1><p class="page-subtitle">Bu numara henüz bir müvekkille eşleştirilmemiş.</p></div><a class="btn btn-light" href="{% url 'clients:messaging:inbox' %}">Tüm mesajlar</a></div>
+<div class="alert alert-info">Numarayı ilgili müvekkilin İletişim bölümüne ekleyin, ardından WhatsApp bölümünde bu numarayı seçin. Yazışma müvekkile bağlanacaktır.</div>
+<div class="card">{% include "messaging/_messages.html" %}</div>
+{% include "partials/pagination.html" with page_obj=message_page paginator=message_page.paginator %}
+{% endblock %}

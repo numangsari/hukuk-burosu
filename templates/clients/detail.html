@@ -32,6 +32,7 @@
       </form>
       {% endif %}
       <a class="btn btn-light" href="{% url 'clients:update' client.pk %}"><i class="bi bi-pencil"></i>Düzenle</a>
+      <a class="btn btn-light" href="{% url 'clients:messaging:client' client.pk %}"><i class="bi bi-whatsapp"></i>WhatsApp</a>
       <a class="btn btn-primary" href="{% url 'cases:create' %}?client={{ client.pk }}"><i class="bi bi-folder-plus"></i>Yeni dosya</a>
     </div>
   </div>

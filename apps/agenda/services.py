@@ -167,6 +167,7 @@ def events_between(start: dt.date, end: dt.date) -> AgendaResult:
 def system_events(start: dt.date, end: dt.date) -> list[Event]:
     """Planlı duruşmalar, açık görevlerin ve bekleyen tebligatların son günleri."""
     from apps.cases.models import Hearing, HearingStatus, Service
+    from apps.clients.models import ClientAppointment
     from apps.tasks.models import OPEN_STATUSES, Task
 
     events = []
@@ -218,6 +219,23 @@ def system_events(start: dt.date, end: dt.date) -> list[Event]:
                 days=[task.due_date],
                 source="task",
                 url=task.get_absolute_url(),
+            )
+        )
+    appointments = ClientAppointment.objects.filter(
+        status="planned", starts_at__date__gte=start, starts_at__date__lt=end
+    ).select_related("client")
+    for appointment in appointments:
+        starts_at = timezone.localtime(appointment.starts_at)
+        events.append(
+            Event(
+                title=f"Randevu: {appointment.title}",
+                start=starts_at,
+                end=None,
+                all_day=False,
+                location=appointment.location,
+                days=[starts_at.date()],
+                source="appointment",
+                url=appointment.client.get_absolute_url(),
             )
         )
     return events
