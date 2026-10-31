@@ -19,6 +19,7 @@ class CaseType(models.TextChoices):
     CONSULTANCY = "consultancy", "Danışmanlık / Sözleşme"
     MEDIATION = "mediation", "Arabuluculuk"
     NOTICE = "notice", "İhtarname"
+    OTHER = "other", "Diğer"
 
 
 LITIGATION_TYPES = {CaseType.CIVIL, CaseType.CRIMINAL, CaseType.ADMINISTRATIVE}
@@ -49,6 +50,7 @@ TYPE_LABELS = {
         "value": "Uyuşmazlık Tutarı",
     },
     CaseType.NOTICE: {"official_no": "Yevmiye No", "authority": "Noter", "value": ""},
+    CaseType.OTHER: {"official_no": "Referans No", "authority": "Merci", "value": "Değer"},
 }
 
 

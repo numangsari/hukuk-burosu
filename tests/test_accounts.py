@@ -99,7 +99,7 @@ def test_office_and_calendar_settings_admin_only(client, pin_user):
 
 def test_setup_office_users():
     call_command("setup_office_users", pin=TEST_PIN)
-    assert User.objects.count() == 5
+    assert User.objects.count() == 6
     admin = User.objects.get(username="ali.samet.ozkurt")
     assert admin.is_office_admin and admin.is_superuser
     assert admin.check_password(TEST_PIN)
