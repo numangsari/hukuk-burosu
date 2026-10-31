@@ -26,7 +26,7 @@ class Command(BaseCommand):
     help = "Ofis kullanıcılarını oluşturur. Yeni kullanıcılara --pin ile verilen PIN atanır."
 
     def add_arguments(self, parser):
-        parser.add_argument("--pin", required=True, help="Varsayılan PIN (4-8 rakam)")
+        parser.add_argument("--pin", required=True, help="Varsayılan PIN (4 rakam)")
         parser.add_argument(
             "--reset-pin", action="store_true", help="Mevcut kullanıcıların PIN'ini de sıfırla"
         )

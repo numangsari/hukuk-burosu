@@ -48,10 +48,10 @@ def test_pin_change_in_settings(client, pin_user):
     data = {"section": "pin", "old_pin": TEST_PIN}
     r = client.post(url, {**data, "new_pin": "12a4", "new_pin2": "12a4"})
     assert "new_pin" in r.context["forms"]["pin"].errors
-    r = client.post(url, {**data, "new_pin": "135790", "new_pin2": "135790"})
+    r = client.post(url, {**data, "new_pin": "1357", "new_pin2": "1357"})
     assert r.status_code == 302
     pin_user.refresh_from_db()
-    assert pin_user.check_password("135790")
+    assert pin_user.check_password("1357")
     # Eski PIN adresi ayarlara yönlenir.
     assert client.get(reverse("accounts:pin_change")).url == "/hesap/ayarlar/?bolum=pin"
 
@@ -116,6 +116,8 @@ def test_setup_office_users():
     assert admin.check_password("999999")
 
 
-def test_setup_rejects_invalid_pin():
+@pytest.mark.parametrize("pin", ["12", "12345", "12a4"])
+def test_setup_rejects_invalid_pin(pin):
+    # PIN tam 4 rakam olmalı (giriş ekranı 4. rakamda otomatik gönderir).
     with pytest.raises(CommandError):
-        call_command("setup_office_users", pin="12")
+        call_command("setup_office_users", pin=pin)

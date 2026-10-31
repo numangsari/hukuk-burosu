@@ -46,7 +46,7 @@
     {% with form=forms.pin %}
     <form method="post" class="card" style="max-width: 480px">{% csrf_token %}<input type="hidden" name="section" value="pin">
       <div class="form-section">
-        <div class="form-section-head"><h2>PIN değiştir</h2><p>Giriş ekranında kullandığınız PIN. 4-8 haneli, yalnızca rakam.</p></div>
+        <div class="form-section-head"><h2>PIN değiştir</h2><p>Giriş ekranında kullandığınız PIN. 4 haneli, yalnızca rakam.</p></div>
         {% include "partials/field.html" with field=form.old_pin %}
         {% include "partials/field.html" with field=form.new_pin %}
         {% include "partials/field.html" with field=form.new_pin2 wrap_class="" %}

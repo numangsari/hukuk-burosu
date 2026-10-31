@@ -29,14 +29,14 @@
     <div class="fw-semibold mt-3" x-text="name"></div>
     <div class="small text-body-secondary" x-text="title"></div>
 
-    <form method="post" x-ref="form" @submit="if (pin.length < 4) { $event.preventDefault(); nudge(); }">
+    <form method="post" x-ref="form">
       {% csrf_token %}
       <input type="hidden" name="username" :value="selected">
       <input type="hidden" name="next" value="{{ next }}">
       <input class="pin-hidden" type="password" name="password" inputmode="numeric" autocomplete="off"
-             maxlength="8" x-model="pin" x-ref="pin" @input="pin = pin.replace(/\D/g, '')" aria-label="PIN">
+             maxlength="4" x-model="pin" x-ref="pin" @input="pin = pin.replace(/\D/g, '').slice(0, 4); submitIfComplete()" aria-label="PIN">
       <div class="pin-dots" @click="$refs.pin.focus()">
-        <template x-for="i in Math.max(4, pin.length)"><span :class="i <= pin.length && 'on'"></span></template>
+        <template x-for="i in 4"><span :class="i <= pin.length && 'on'"></span></template>
       </div>
       {% if form.errors %}
         <div class="small mb-3" style="color: var(--danger-ink)" x-show="error">{{ form.non_field_errors|join:" " }}</div>
@@ -45,9 +45,9 @@
         <template x-for="d in ['1','2','3','4','5','6','7','8','9']">
           <button type="button" @click="add(d)" x-text="d"></button>
         </template>
-        <button type="button" @click="pin = pin.slice(0, -1)" aria-label="Sil"><i class="bi bi-backspace"></i></button>
+        <span></span>
         <button type="button" @click="add('0')">0</button>
-        <button class="go" aria-label="Giriş"><i class="bi bi-arrow-right"></i></button>
+        <button type="button" @click="pin = pin.slice(0, -1)" aria-label="Sil"><i class="bi bi-backspace"></i></button>
       </div>
     </form>
     <button type="button" class="btn btn-link btn-sm mt-3 text-body-secondary" @click="back()">
@@ -72,14 +72,24 @@
         this.$nextTick(() => this.$refs.pin.focus());
       },
       back() { this.selected = ""; this.pin = ""; this.error = false; },
-      add(d) { if (this.pin.length < 8) this.pin += d; this.$refs.pin.focus(); },
-      nudge() { this.error = false; this.$nextTick(() => (this.error = true)); },
+      submitting: false,
+      add(d) {
+        if (this.pin.length < 4) this.pin += d;
+        this.$refs.pin.focus();
+        this.submitIfComplete();
+      },
+      // 4. rakam girilince Enter beklemeden gönder.
+      submitIfComplete() {
+        if (this.pin.length === 4 && !this.submitting) {
+          this.submitting = true;
+          this.$nextTick(() => this.$refs.form.submit());
+        }
+      },
       key(e) {
         if (!this.selected) return;
         if (e.key === "Escape") this.back();
         else if (document.activeElement !== this.$refs.pin && /^\d$/.test(e.key)) this.add(e.key);
         else if (document.activeElement !== this.$refs.pin && e.key === "Backspace") this.pin = this.pin.slice(0, -1);
-        else if (document.activeElement !== this.$refs.pin && e.key === "Enter") this.$refs.form.requestSubmit();
       },
     };
   }

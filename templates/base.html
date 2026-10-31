@@ -15,15 +15,16 @@
 {% if request.user.is_authenticated %}
 <div class="app-shell" x-data="{ nav: false }">
   <aside class="sidebar" :class="nav && 'open'">
-    <a href="{% url 'core:home' %}" class="sidebar-brand">
+    <div class="sidebar-head">
+    <a href="{% url 'core:home' %}" class="head-row">
       <span class="brand-mark">{% if office.logo %}<img src="{{ office.logo.url }}" alt="">{% else %}ÖH{% endif %}</span>
-      <span class="brand-text"><strong class="text-truncate">{{ office.name }}</strong><small>Büro Yönetimi</small></span>
+      <span class="head-text"><strong>{{ office.name }}</strong><small>Büro Yönetimi</small></span>
     </a>
-    <div class="dropdown sidebar-user-wrap">
-      <button class="sidebar-user" data-bs-toggle="dropdown" aria-expanded="false">
-        <span class="avatar avatar-sm" style="--h: {{ request.user.avatar_hue }}">{{ request.user.initials }}</span>
-        <span class="who"><strong>{{ request.user }}</strong><small>{{ request.user.display_title }}</small></span>
-        <i class="bi bi-chevron-expand opacity-50"></i>
+    <div class="dropdown">
+      <button class="head-row head-user" data-bs-toggle="dropdown" aria-expanded="false">
+        <span class="avatar" style="--h: {{ request.user.avatar_hue }}">{{ request.user.initials }}</span>
+        <span class="head-text"><strong>{{ request.user }}</strong><small>{{ request.user.display_title }}</small></span>
+        <i class="bi bi-chevron-down head-caret"></i>
       </button>
       <ul class="dropdown-menu w-100">
         <li><a class="dropdown-item" href="{% url 'accounts:settings' %}"><i class="bi bi-gear"></i>Ayarlar</a></li>
@@ -34,6 +35,7 @@
           </form>
         </li>
       </ul>
+    </div>
     </div>
     {% with ns=request.resolver_match.namespace %}
     <nav class="sidebar-nav">

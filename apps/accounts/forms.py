@@ -25,7 +25,7 @@ class PinChangeForm(BootstrapMixin, forms.Form):
         self.user = user
         super().__init__(*args, **kwargs)
         for f in self.fields.values():
-            f.widget.attrs.update(inputmode="numeric", autocomplete="off", maxlength=8)
+            f.widget.attrs.update(inputmode="numeric", autocomplete="off", maxlength=4)
 
     def clean_old_pin(self):
         pin = self.cleaned_data["old_pin"]
