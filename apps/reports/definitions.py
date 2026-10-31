@@ -4,12 +4,14 @@ from collections import defaultdict
 from decimal import Decimal
 
 from django import forms
-from django.db.models import Count, Min, Q
+from django.db.models import Count, IntegerField, OuterRef, Q, Subquery, Sum, Value
+from django.db.models.functions import Coalesce
 from django.utils import timezone
 
-from apps.accounting.models import EntryKind, LedgerEntry
+from apps.accounting.models import _MONEY as MONEY
+from apps.accounting.models import TRUST_EXPR, EntryKind, LedgerEntry
 from apps.accounts.models import User
-from apps.cases.models import Case, CaseStatus, CaseType, HearingStatus
+from apps.cases.models import Case, CaseEvent, CaseStatus, CaseType, Hearing, HearingStatus
 from apps.clients.models import Client
 from apps.core.forms import BootstrapMixin, DateInput
 from apps.tasks.models import OPEN_STATUSES, Task, TaskStatus
@@ -119,8 +121,15 @@ def build_debtors(d, user):
     if not d.get("include_zero"):
         qs = qs.filter(balance__gt=0)
     rows, total = [], ZERO
+    trust_sq = (
+        LedgerEntry.objects.filter(client=OuterRef("pk"), is_cancelled=False)
+        .order_by().values("client").annotate(t=Sum(TRUST_EXPR)).values("t")
+    )  # fmt: skip
+    qs = qs.annotate(
+        trust=Coalesce(Subquery(trust_sq, output_field=MONEY), Value(ZERO), output_field=MONEY)
+    )
     for c in qs.order_by("-balance", "name"):
-        trust = c.ledger_entries.balances()["trust"]
+        trust = c.trust
         rows.append(
             [c.name, c.responsible_lawyer, c.case_count, c.balance, trust, c.balance - trust]
         )
@@ -285,7 +294,8 @@ def build_period_accounting(d, user):
         rows=rows,
         totals=["Toplam", *[totals[k] for k in kinds]],
         summary=[
-            ("Ofis geliri (müvekkilden tahsilat + mahsup)", _tl(t["collection"] + t["offset"])),
+            ("Müvekkilden tahsilat (ücret ve masraf karşılığı)", _tl(t["collection"])),
+            ("Emanetten mahsup edilen", _tl(t["offset"])),
             ("Tahakkuk eden vekalet ücreti", _tl(t["fee"])),
             ("Müvekkil adına masraf", _tl(t["expense"])),
             ("Emanet hareketi (giren / çıkan)", f"{_tl(t['trust_in'])} / {_tl(t['trust_out'])}"),
@@ -307,26 +317,38 @@ class ClientCasesForm(BootstrapMixin, forms.Form):
 
 
 def build_client_cases(d, user):
-    clients = (
-        [d["client"]] if d.get("client") else Client.objects.filter(is_active=True).order_by("name")
-    )
     now = timezone.now()
-    rows = []
-    for c in clients:
-        cases = c.cases.all()
-        if not d.get("include_closed"):
-            cases = cases.exclude(status=CaseStatus.CLOSED)
-        cases = cases.annotate(
-            next_hearing=Min("hearings__starts_at", filter=Q(hearings__status=HearingStatus.PLANNED, hearings__starts_at__gte=now)),
-            open_tasks=Count("tasks", filter=Q(tasks__status__in=OPEN_STATUSES), distinct=True),
-        ).order_by("archive_no")  # fmt: skip
-        for k in cases:
-            last = k.events.order_by("-date", "-created_at").first()
-            rows.append([
-                c.name, k.archive_no, k.subject, k.get_status_display() + (f" / {k.get_stage_display()}" if k.stage else ""),
-                f"{timezone.localtime(k.next_hearing):%d.%m.%Y %H:%M}" if k.next_hearing else "",
-                k.open_tasks, f"{last.date:%d.%m.%Y} {last.title}" if last else "",
-            ])  # fmt: skip
+    cases = Case.objects.select_related("client")
+    if d.get("client"):
+        cases = cases.filter(client=d["client"])
+    else:
+        cases = cases.filter(client__is_active=True)
+    if not d.get("include_closed"):
+        cases = cases.exclude(status=CaseStatus.CLOSED)
+    hearing_sq = (
+        Hearing.objects.filter(
+            case=OuterRef("pk"), status=HearingStatus.PLANNED, starts_at__gte=now
+        )
+        .order_by("starts_at")
+        .values("starts_at")[:1]
+    )
+    tasks_sq = (
+        Task.objects.filter(case=OuterRef("pk"), status__in=OPEN_STATUSES)
+        .order_by().values("case").annotate(n=Count("pk")).values("n")
+    )  # fmt: skip
+    last_sq = CaseEvent.objects.filter(case=OuterRef("pk")).order_by("-date", "-created_at")
+    cases = cases.annotate(
+        next_hearing=Subquery(hearing_sq),
+        open_tasks=Coalesce(Subquery(tasks_sq, output_field=IntegerField()), Value(0)),
+        last_date=Subquery(last_sq.values("date")[:1]),
+        last_title=Subquery(last_sq.values("title")[:1]),
+    ).order_by("client__name", "archive_no")
+    rows = [
+        [k.client.name, k.archive_no, k.subject, k.get_status_display() + (f" / {k.get_stage_display()}" if k.stage else ""),
+         f"{timezone.localtime(k.next_hearing):%d.%m.%Y %H:%M}" if k.next_hearing else "",
+         k.open_tasks, f"{k.last_date:%d.%m.%Y} {k.last_title}" if k.last_date else ""]
+        for k in cases
+    ]  # fmt: skip
     return ReportResult(
         title="Dosyaların Son Durumu",
         subtitle=(d["client"].name if d.get("client") else "Tüm aktif müvekkiller")

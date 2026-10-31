@@ -199,10 +199,19 @@ class TaskCommentView(View):
 
 
 def case_options(request):
-    """Görev formunda müvekkile göre dosya listesi ve dosya seçilince varsayılanlar."""
+    """Görev ve muhasebe formlarında dosya seçimi yardımcısı.
+
+    ?id=<dosya>      : tek dosyanın müvekkil ve sorumluları (seçim sonrası doldurma)
+    ?client=<müvekkil>: o müvekkilin bütün dosyaları (sınır yok)
+    Müvekkil seçilmemişken liste sunucunun çizdiği tam seçenek listesinden geri yüklenir.
+    """
     qs = Case.objects.select_related("client").order_by("-created_at")
-    if client := request.GET.get("client"):
-        qs = qs.filter(client_id=client)
+    if case_id := request.GET.get("id"):
+        qs = qs.filter(pk=case_id if case_id.isdigit() else 0)
+    elif client := request.GET.get("client"):
+        qs = qs.filter(client_id=client if client.isdigit() else 0)
+    else:
+        qs = qs.none()
     if not request.GET.get("all"):
         qs = qs.exclude(status="closed")
     return JsonResponse(
@@ -215,7 +224,7 @@ def case_options(request):
                     "lawyer": c.responsible_lawyer_id,
                     "intern": c.responsible_intern_id,
                 }
-                for c in qs[:500]
+                for c in qs
             ]
         }
     )

@@ -156,3 +156,39 @@ def test_financial_reports_hidden_without_permission(intern, report_data):
     keys = set(c.get(reverse("reports:index")).context["reports"])
     assert keys == {"gorevler", "dosya-listesi", "dosya-son-durum"}
     assert c.get(reverse("reports:report", args=["donem-muhasebe"])).status_code == 403
+
+
+def test_reports_do_not_query_per_row(
+    admin_user, case_factory, client_factory, django_assert_max_num_queries
+):
+    """Kayıt sayısı artınca sorgu sayısı artmamalı (borçlular ve dosya son durumu)."""
+    for i in range(12):
+        c = client_factory(first_name=f"Kişi{i}")
+        k = case_factory(client=c)
+        LedgerEntry.objects.create(
+            client=c, case=k, kind="fee", amount=Decimal("100"), date=dt.date(2026, 10, 1)
+        )
+        LedgerEntry.objects.create(
+            client=c, case=k, kind="trust_in", amount=Decimal("40"), date=dt.date(2026, 10, 2)
+        )
+    from apps.reports.definitions import build_client_cases, build_debtors
+
+    with django_assert_max_num_queries(4):
+        res = build_debtors({}, admin_user)
+    assert len(res.rows) == 12 and res.rows[0][4] == Decimal("40")
+    with django_assert_max_num_queries(3):
+        res = build_client_cases({}, admin_user)
+    assert len(res.rows) == 12
+
+
+def test_case_options_endpoint(lawyer_client, case_factory, client_factory):
+    a = client_factory(first_name="A")
+    k1 = case_factory(client=a)
+    case_factory(client=a, status="closed")
+    url = reverse("tasks:case_options")
+    assert lawyer_client.get(url).json()["cases"] == []  # müvekkilsiz liste sunucudan gelir
+    assert [c["id"] for c in lawyer_client.get(url, {"client": a.pk}).json()["cases"]] == [k1.pk]
+    assert len(lawyer_client.get(url, {"client": a.pk, "all": 1}).json()["cases"]) == 2
+    one = lawyer_client.get(url, {"id": k1.pk}).json()["cases"][0]
+    assert one["client"] == a.pk and one["lawyer"] == k1.responsible_lawyer_id
+    assert lawyer_client.get(url, {"id": "x"}).json()["cases"] == []

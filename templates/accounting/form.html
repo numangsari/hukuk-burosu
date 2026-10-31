@@ -58,22 +58,32 @@
     return {
       kind: initial,
       help: JSON.parse(document.getElementById("kind-help").textContent),
-      cases: {},
-      async init() {
-        const r = await fetch(url + "?all=1");
-        for (const c of (await r.json()).cases) this.cases[c.id] = c;
+      allOptions: "",
+      async load(params) {
+        const r = await fetch(url + "?" + new URLSearchParams(params));
+        return (await r.json()).cases;
+      },
+      init() {
+        // Müvekkil seçimi temizlenince sunucunun çizdiği tam liste geri konur.
+        this.allOptions = this.$refs.case.innerHTML;
       },
       async filterCases() {
         const sel = this.$refs.case, client = this.$refs.client.value, keep = sel.value;
-        const r = await fetch(url + "?all=1" + (client ? "&client=" + client : ""));
-        const list = (await r.json()).cases;
+        if (!client) {
+          sel.innerHTML = this.allOptions;
+          sel.value = keep;
+          return;
+        }
+        const list = await this.load({ client, all: 1 });
         sel.innerHTML = '<option value="">Seçiniz…</option>' +
           list.map(c => `<option value="${c.id}">${c.label.replace(/</g, "&lt;")}</option>`).join("");
         if (list.some(c => String(c.id) === keep)) sel.value = keep;
       },
-      caseChanged() {
-        const c = this.cases[this.$refs.case.value];
-        if (c) this.$refs.client.value = c.client;
+      async caseChanged() {
+        if (!this.$refs.case.value) return;
+        const [c] = await this.load({ id: this.$refs.case.value, all: 1 });
+        if (!c) return;
+        this.$refs.client.value = c.client;
       },
     };
   }

@@ -42,25 +42,30 @@
   function taskForm() {
     const url = "{% url 'tasks:case_options' %}";
     return {
-      cases: {},
+      allOptions: "",
       async load(params) {
         const r = await fetch(url + "?" + new URLSearchParams(params));
         return (await r.json()).cases;
       },
-      async init() {
-        // Dosya seçeneklerinin müvekkil/sorumlu bilgileri (varsayılanları doldurmak için)
-        for (const c of await this.load({ all: 1 })) this.cases[c.id] = c;
+      init() {
+        // Müvekkil seçimi temizlenince sunucunun çizdiği tam liste geri konur.
+        this.allOptions = this.$refs.case.innerHTML;
       },
       async filterCases() {
-        const sel = this.$refs.case, client = this.$refs.client.value;
-        const keep = sel.value;
-        const list = await this.load(client ? { client } : {});
+        const sel = this.$refs.case, client = this.$refs.client.value, keep = sel.value;
+        if (!client) {
+          sel.innerHTML = this.allOptions;
+          sel.value = keep;
+          return;
+        }
+        const list = await this.load({ client });
         sel.innerHTML = '<option value="">Seçiniz…</option>' +
           list.map(c => `<option value="${c.id}">${c.label.replace(/</g, "&lt;")}</option>`).join("");
         if (list.some(c => String(c.id) === keep)) sel.value = keep;
       },
-      caseChanged() {
-        const c = this.cases[this.$refs.case.value];
+      async caseChanged() {
+        if (!this.$refs.case.value) return;
+        const [c] = await this.load({ id: this.$refs.case.value, all: 1 });
         if (!c) return;
         this.$refs.client.value = c.client;
         const a = document.getElementById("id_assignee"), r = document.getElementById("id_reviewer");
