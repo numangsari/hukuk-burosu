@@ -1,7 +1,7 @@
 """Ofis klasörüne belge kopyalama.
 
-Yapı:  <Ofis klasörü>\\Müvekkiller\\<Müvekkil>\\<Arşiv no - Konu>\\<belge>
-       <Ofis klasörü>\\Müvekkiller\\<Müvekkil>\\Vekaletler\\<belge>
+Yapı:  <Ofis klasörü>\\Müvekkiller\\<M000142 - Müvekkil>\\<D000041 - Arşiv no - Konu>\\<belge>
+       <Ofis klasörü>\\Müvekkiller\\<M000142 - Müvekkil>\\Vekaletler\\<belge>
 
 Sistem belgenin asıl kopyasını kendi deposunda (MEDIA_ROOT) tutar; ofis klasörüne
 yazılan kopya personelin Windows Gezgini'nden erişimi içindir. Klasör yazılamazsa
@@ -12,6 +12,8 @@ import logging
 import re
 import shutil
 from pathlib import Path
+
+from django.db import transaction
 
 from apps.core.text import fold
 
@@ -52,13 +54,19 @@ def root() -> Path | None:
 
 
 def _match_existing(parent: Path, wanted: str) -> str:
-    """Aynı adlı (büyük/küçük harf ve Türkçe aksan farkı gözetmeksizin) klasör varsa onun adı."""
+    """Kaydedilmiş klasör adını diskte bulur; birden fazla eşleşmede seçim yapmaz."""
     key = fold(wanted)
-    if parent.is_dir():
-        for child in parent.iterdir():
-            if child.is_dir() and fold(child.name) == key:
-                return child.name
-    return wanted
+    try:
+        matches = (
+            [child.name for child in parent.iterdir() if child.is_dir() and fold(child.name) == key]
+            if parent.is_dir()
+            else []
+        )
+    except OSError as e:
+        raise FolderError("Belge klasörü okunamadı.") from e
+    if len(matches) > 1:
+        raise FolderError("Benzer adla birden fazla klasör var. Kayıttaki klasör adını ayırın.")
+    return matches[0] if matches else wanted
 
 
 def _ensure(path: Path) -> Path:
@@ -69,24 +77,47 @@ def _ensure(path: Path) -> Path:
     return path
 
 
+def _record_dir(record, parent, default_name, others, label) -> Path:
+    wanted = sanitize(record.folder_name or default_name)
+    key = fold(wanted)
+    if any(fold(sanitize(name)) == key for name in others.values_list("folder_name", flat=True)):
+        raise FolderError(
+            f"Bu klasör başka bir {label} kaydına da bağlı. "
+            "Belge kaydedildi; klasöre kopyalamak için kayıtlardaki klasör adlarını ayırın."
+        )
+    name = _match_existing(parent, wanted)
+    path = _ensure(parent / name)
+    if record.folder_name != name:
+        type(record).objects.filter(pk=record.pk).update(folder_name=name)
+        record.folder_name = name
+    return path
+
+
+@transaction.atomic
 def client_dir(client) -> Path:
     base = root()
     if base is None:
         raise FolderError("Ofis klasörü ayarlanmamış (Ayarlar > Belge klasörü).")
     parent = base / CLIENTS_DIR
-    if not client.folder_name:
-        client.folder_name = _match_existing(parent, sanitize(client.name))
-        type(client).objects.filter(pk=client.pk).update(folder_name=client.folder_name)
-    return _ensure(parent / sanitize(client.folder_name))
+    stored = type(client).objects.select_for_update().get(pk=client.pk)
+    others = type(client).objects.exclude(pk=client.pk).exclude(folder_name="")
+    path = _record_dir(stored, parent, f"M{stored.pk:06d} - {stored.name}", others, "müvekkil")
+    client.folder_name = stored.folder_name
+    return path
 
 
+@transaction.atomic
 def case_dir(case) -> Path:
-    parent = client_dir(case.client)
-    if not case.folder_name:
-        wanted = sanitize(f"{case.archive_no} - {case.subject}")
-        case.folder_name = _match_existing(parent, wanted)
-        type(case).objects.filter(pk=case.pk).update(folder_name=case.folder_name)
-    return _ensure(parent / sanitize(case.folder_name))
+    stored = type(case).objects.select_for_update().get(pk=case.pk)
+    parent = client_dir(stored.client)
+    others = type(case).objects.filter(client_id=stored.client_id).exclude(pk=case.pk)
+    others = others.exclude(folder_name="")
+    if stored.folder_name and fold(sanitize(stored.folder_name)) == fold(POA_DIR):
+        raise FolderError("Dosya klasörü için Vekaletler adı kullanılamaz. Farklı bir ad seçin.")
+    wanted = f"D{stored.pk:06d} - {stored.archive_no} - {stored.subject}"
+    path = _record_dir(stored, parent, wanted, others, "dosya")
+    case.folder_name = stored.folder_name
+    return path
 
 
 def poa_dir(client) -> Path:
@@ -104,13 +135,18 @@ def unique_path(directory: Path, filename: str) -> Path:
 
 def copy_file(field_file, directory: Path, filename: str) -> Path:
     """Django FieldFile'ı klasöre kopyalar; aynı ad varsa sonuna (2), (3)... ekler."""
-    target = unique_path(
-        directory, sanitize(Path(filename).stem, 120) + Path(filename).suffix.lower()
-    )
+    filename = sanitize(Path(filename).stem, 120) + Path(filename).suffix.lower()
+    target = directory / filename
     try:
         field_file.open("rb")
-        with open(target, "wb") as out:
-            shutil.copyfileobj(field_file, out)
+        while True:
+            target = unique_path(directory, filename)
+            try:
+                with open(target, "xb") as out:
+                    shutil.copyfileobj(field_file, out)
+                break
+            except FileExistsError:
+                continue
     except OSError as e:
         raise FolderError(f"Belge klasöre yazılamadı: {target} ({e.strerror or e})") from e
     finally:

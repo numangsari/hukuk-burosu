@@ -595,15 +595,18 @@ a.stat-card:hover { box-shadow: var(--shadow); border-color: color-mix(in srgb, 
 a.cal-ev:hover { text-decoration: none; filter: brightness(.95); }
 .cal-ev.src-hearing { background: var(--accent-soft); color: #8a6a3c; }
 .cal-ev.src-deadline { background: var(--danger-soft); color: var(--danger-ink); }
+.cal-ev.src-task { background: var(--info-soft); color: var(--info-ink); }
 [data-bs-theme="dark"] .cal-ev.src-hearing { color: #e2c08f; }
 .legend { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: .35rem; vertical-align: -1px; }
 .legend.src-google { background: var(--brand); }
 .legend.src-hearing { background: var(--accent); }
 .legend.src-deadline { background: var(--danger-ink); }
+.legend.src-task { background: var(--info-ink); }
 a.agenda-item { color: var(--ink); }
 a.agenda-item:hover { background: var(--surface-2); text-decoration: none; color: var(--ink); }
 .agenda-item.src-hearing .t { color: var(--accent); }
 .agenda-item.src-deadline .t { color: var(--danger-ink); }
+.agenda-item.src-task .t { color: var(--info-ink); }
 
 /* ---------- Bildirimler ---------- */
 .bell-badge { position: absolute; top: 4px; right: 4px; min-width: 17px; height: 17px; padding: 0 4px; border-radius: 999px; background: var(--danger-ink); color: #fff; font-size: .65rem; font-weight: 700; display: grid; place-items: center; border: 2px solid var(--surface); }

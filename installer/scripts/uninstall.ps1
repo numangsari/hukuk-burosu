@@ -12,4 +12,5 @@ if (Get-Service "OzkurtHukukDB" -ErrorAction SilentlyContinue) {
     if (Test-Path $pg) { & $pg unregister -N OzkurtHukukDB }
 }
 Unregister-ScheduledTask -TaskName "Ozkurt Hukuk Yedek" -Confirm:$false -ErrorAction SilentlyContinue
+Unregister-ScheduledTask -TaskName "Ozkurt Hukuk Hatirlatma" -Confirm:$false -ErrorAction SilentlyContinue
 Remove-NetFirewallRule -DisplayName "Ozkurt Hukuk" -ErrorAction SilentlyContinue

@@ -3,7 +3,7 @@
   - İlk kurulumda: .env (gizli anahtarlar), PostgreSQL veri klasörü ve servisi, veritabanı,
     ofis kullanıcıları, yedek parolası dosyası.
   - Her çalıştırmada: migrate, collectstatic, uygulama servisi, güvenlik duvarı kuralı,
-    zamanlanmış yedek görevi, istemci kısayolu, sağlık kontrolü.
+    zamanlanmış yedek ve hatırlatma görevleri, istemci kısayolu, sağlık kontrolü.
 #>
 param(
     [Parameter(Mandatory = $true)][string]$InstallDir,
@@ -123,6 +123,19 @@ $triggers = @(
 $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit (New-TimeSpan -Hours 2)
 Register-ScheduledTask -TaskName "Ozkurt Hukuk Yedek" -Action $action -Trigger $triggers -Settings $settings `
     -User "SYSTEM" -RunLevel Highest -Force | Out-Null
+
+# Hatırlatmalar, hiçbir sayfa açık değilken de beş dakikada bir kontrol edilir.
+$reminderScript = Join-Path $InstallDir "tools\check-reminders.ps1"
+$reminderArguments = "-NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$reminderScript`""
+$reminderAction = New-ScheduledTaskAction -Execute "powershell.exe" -Argument $reminderArguments
+$reminderTriggers = @(
+    (New-ScheduledTaskTrigger -AtStartup),
+    (New-ScheduledTaskTrigger -Once -At (Get-Date).Date -RepetitionInterval (New-TimeSpan -Minutes 5))
+)
+$reminderSettings = New-ScheduledTaskSettingsSet -StartWhenAvailable -AllowStartIfOnBatteries `
+    -DontStopIfGoingOnBatteries -ExecutionTimeLimit (New-TimeSpan -Minutes 4) -MultipleInstances IgnoreNew
+Register-ScheduledTask -TaskName "Ozkurt Hukuk Hatirlatma" -Action $reminderAction `
+    -Trigger $reminderTriggers -Settings $reminderSettings -User "SYSTEM" -RunLevel Highest -Force | Out-Null
 
 # 7) İstemci kısayolu (diğer PC'lerin masaüstüne kopyalanacak)
 $url = "http://$($env:COMPUTERNAME)/"

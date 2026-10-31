@@ -37,7 +37,7 @@ class Event:
     location: str = ""
     description: str = ""
     days: list[dt.date] = field(default_factory=list)
-    source: str = "google"  # google / hearing / deadline
+    source: str = "google"  # Google takvimi, duruşma, tebligat veya görev
     url: str = ""
 
     @property
@@ -165,8 +165,9 @@ def events_between(start: dt.date, end: dt.date) -> AgendaResult:
 
 
 def system_events(start: dt.date, end: dt.date) -> list[Event]:
-    """Sistemdeki planlı duruşmalar ve gereği yapılmamış tebligat son günleri."""
+    """Planlı duruşmalar, açık görevlerin ve bekleyen tebligatların son günleri."""
     from apps.cases.models import Hearing, HearingStatus, Service
+    from apps.tasks.models import OPEN_STATUSES, Task
 
     events = []
     hearings = Hearing.objects.filter(
@@ -200,6 +201,23 @@ def system_events(start: dt.date, end: dt.date) -> list[Event]:
                 days=[sv.deadline],
                 source="deadline",
                 url=sv.case.get_absolute_url(),
+            )
+        )
+    tasks = Task.objects.filter(
+        status__in=OPEN_STATUSES, due_date__gte=start, due_date__lt=end
+    ).select_related("case", "assignee", "reviewer")
+    for task in tasks:
+        responsible = task.reviewer if task.status == "review" else task.assignee
+        events.append(
+            Event(
+                title=f"Görev son günü: {task.title}",
+                start=task.due_date,
+                end=None,
+                all_day=True,
+                location=f"{task.case.archive_no} · {responsible}",
+                days=[task.due_date],
+                source="task",
+                url=task.get_absolute_url(),
             )
         )
     return events

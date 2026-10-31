@@ -91,7 +91,12 @@ def test_approve_publishes_to_case_and_folder(task, intern, lawyer, office_root)
     assert task.warnings == []
     doc = Document.objects.get(case=task.case)
     assert doc.category == "petition" and doc.title == "Cevap dilekçesi"
-    folder = office_root / "Müvekkiller" / "Deneme Kişi" / "2026-0041 - Alacak davası"
+    folder = (
+        office_root
+        / "Müvekkiller"
+        / f"M{task.case.client_id:06d} - Deneme Kişi"
+        / f"D{task.case_id:06d} - 2026-0041 - Alacak davası"
+    )
     files = list(folder.iterdir())
     assert len(files) == 1 and files[0].read_bytes() == b"son hal"
     assert files[0].name == f"{timezone.localdate():%Y-%m-%d} Cevap dilekçesi.docx"
@@ -104,6 +109,10 @@ def test_existing_client_folder_is_reused_and_names_not_overwritten(
     existing = office_root / "Müvekkiller" / "DENEME KİŞİ"
     existing.mkdir(parents=True)
     case = case_factory(archive_no="7", subject="İhtar")
+    case.client.folder_name = "DENEME KİŞİ"
+    case.client.save(update_fields=["folder_name"])
+    case.folder_name = "7 - İhtar"
+    case.save(update_fields=["folder_name"])
     url = reverse("cases:document_upload", args=[case.pk])
     for _ in range(2):
         lawyer_client.post(

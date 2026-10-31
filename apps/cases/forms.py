@@ -35,6 +35,10 @@ class CaseForm(BootstrapMixin, forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields["case_type"].widget.attrs["x-model"] = "caseType"
         self.fields["authority"].widget.attrs["list"] = "authority-options"
+        self.fields["folder_name"].help_text = (
+            "Boşsa dosya numarası, arşiv numarası ve konusuyla ayrı bir klasör oluşturulur. "
+            "Kaydedilmiş klasörler taşınmaz."
+        )
         self.fields["client"].queryset = self.fields["client"].queryset.filter(is_active=True)
         if self.instance.pk:
             # Pasif müvekkilin mevcut dosyası düzenlenebilsin.

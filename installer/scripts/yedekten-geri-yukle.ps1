@@ -24,6 +24,7 @@ if ($LASTEXITCODE -ne 0) {
     [System.Windows.Forms.MessageBox]::Show("Uygulama durdurulamadı. Geri yükleme başlatılmadı.", "Yedekten geri yükle", "OK", "Error") | Out-Null
     exit 1
 }
+Stop-ScheduledTask -TaskName "Ozkurt Hukuk Hatirlatma" -ErrorAction SilentlyContinue
 try {
     & (Join-Path $tools "manage.cmd") restore $dlg.FileName --yes
     if ($LASTEXITCODE -ne 0) { throw "Geri yükleme başarısız." }

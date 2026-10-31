@@ -42,6 +42,10 @@ class ClientForm(BootstrapMixin, forms.ModelForm):
         self.fields["kind"].choices = PersonKind.choices  # boş seçenek olmasın
         self.fields["kind"].widget.attrs["class"] = "form-check-input"
         self.fields["kind"].widget.attrs["x-model"] = "kind"
+        self.fields["folder_name"].help_text = (
+            "Boşsa müvekkil numarası ve adıyla ayrı bir klasör oluşturulur. "
+            "Kaydedilmiş klasörler taşınmaz."
+        )
         self.conflicts = []
 
 

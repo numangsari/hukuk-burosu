@@ -23,6 +23,7 @@ indirir, `installer\cache\` altında saklar ve SHA256 değerlerini `build\indiri
 - Servisler: `OzkurtHukukDB` (PostgreSQL, yalnızca 127.0.0.1) ve `OzkurtHukukApp` (port 80). PC açılınca kendiliğinden başlar.
 - Güvenlik duvarı: port 80 yalnızca Özel/Etki alanı ağ profili için açılır. Ofis ağının Windows'ta "Özel ağ" olarak işaretli olması gerekir.
 - Görev Zamanlayıcı: "Ozkurt Hukuk Yedek" 30 dakikada bir çalışır, Ayarlar'daki saatte günde bir yedek alır.
+- "Ozkurt Hukuk Hatirlatma" beş dakikada bir görev, duruşma ve tebligat uyarılarını oluşturur. Sayfa açık olması gerekmez. Bu görev yeni kurulumda veya kurulum paketiyle güncellemede eklenir; geliştirme ortamında `uv run python manage.py send_reminders` elle çalıştırılabilir.
 - İlk kurulumda masaüstüne **YEDEK PAROLASI** dosyası bırakılır: parola güvenli yerde saklanıp dosya silinmelidir.
 
 ## Güncelleme
