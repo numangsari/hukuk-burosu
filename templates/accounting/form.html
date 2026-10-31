@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}Yeni gelir / gider — {{ office.name }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="eyebrow"><a href="{% url 'accounting:list' %}"><i class="bi bi-chevron-left"></i> Muhasebe</a></div>
+    <h1 class="page-title">Yeni gelir / gider</h1>
+  </div>
+</div>
+{{ kind_help|json_script:"kind-help" }}
+<form method="post" enctype="multipart/form-data" class="card" style="max-width: 900px"
+      x-data="entryForm('{{ form.kind.value|default:'fee' }}')">
+  {% csrf_token %}
+  <input type="hidden" name="next" value="{{ request.GET.next }}">
+  {% if form.non_field_errors %}<div class="alert alert-danger m-3 mb-0">{{ form.non_field_errors }}</div>{% endif %}
+  <div class="form-section">
+    <div class="form-section-head"><h2>Hareket türü</h2></div>
+    <div class="kind-grid">
+      {% for radio in form.kind %}
+        <label class="kind-option" :class="kind === '{{ radio.data.value }}' && 'on'">
+          {{ radio.tag }}<span>{{ radio.choice_label }}</span>
+        </label>
+      {% endfor %}
+    </div>
+    <div class="form-text mt-2"><i class="bi bi-info-circle"></i> <span x-text="help[kind]"></span></div>
+    {% for e in form.kind.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}
+  </div>
+  <div class="form-section">
+    <div class="form-section-head"><h2>Müvekkil ve dosya</h2><p>Dosya seçmek isteğe bağlı; seçilirse müvekkil dosyadan gelir.</p></div>
+    <div class="row">
+      <div class="col-md-5">{% include "partials/field.html" with field=form.client %}</div>
+      <div class="col-md-7">{% include "partials/field.html" with field=form.case %}</div>
+    </div>
+  </div>
+  <div class="form-section">
+    <div class="form-section-head"><h2>Tutar</h2></div>
+    <div class="row">
+      <div class="col-md-4">
+        <div class="mb-3">
+          <label class="form-label fw-semibold" for="{{ form.amount.id_for_label }}">Tutar</label>
+          <div class="input-group">{{ form.amount }}<span class="input-group-text">₺</span></div>
+          {% for e in form.amount.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}
+        </div>
+      </div>
+      <div class="col-md-3">{% include "partials/field.html" with field=form.date %}</div>
+      <div class="col-md-5">{% include "partials/field.html" with field=form.receipt %}</div>
+      <div class="col-12">{% include "partials/field.html" with field=form.description wrap_class="" %}</div>
+    </div>
+  </div>
+  <div class="form-footer">
+    <a class="btn btn-light" href="{% url 'accounting:list' %}">Vazgeç</a>
+    <button class="btn btn-primary"><i class="bi bi-check2"></i>Kaydet</button>
+  </div>
+</form>
+<script>
+  function entryForm(initial) {
+    const url = "{% url 'tasks:case_options' %}";
+    return {
+      kind: initial,
+      help: JSON.parse(document.getElementById("kind-help").textContent),
+      cases: {},
+      async init() {
+        const r = await fetch(url + "?all=1");
+        for (const c of (await r.json()).cases) this.cases[c.id] = c;
+      },
+      async filterCases() {
+        const sel = this.$refs.case, client = this.$refs.client.value, keep = sel.value;
+        const r = await fetch(url + "?all=1" + (client ? "&client=" + client : ""));
+        const list = (await r.json()).cases;
+        sel.innerHTML = '<option value="">Seçiniz…</option>' +
+          list.map(c => `<option value="${c.id}">${c.label.replace(/</g, "&lt;")}</option>`).join("");
+        if (list.some(c => String(c.id) === keep)) sel.value = keep;
+      },
+      caseChanged() {
+        const c = this.cases[this.$refs.case.value];
+        if (c) this.$refs.client.value = c.client;
+      },
+    };
+  }
+</script>
+{% endblock %}

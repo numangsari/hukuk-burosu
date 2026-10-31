@@ -36,6 +36,8 @@ Dev ayarları `config/settings/dev.py`, varsayılan DB bağlantısı dev compose
 - `apps/clients`: `Client` (gerçek/tüzel), iletişim, IBAN, yetkili, vekalet (`PowerOfAttorney`), karşı taraf (`Party`), çıkar çatışması (`conflicts.py`).
 - `apps/cases`: `Case` (8 tür, arşiv no unique, türe göre etiketler `TYPE_LABELS`), `CaseParty`, `Document`, `Hearing` (duruşma/keşif/bilirkişi; sonuç girilince zaman çizelgesine düşer), `Service` (tebligat; son gün elle, "gereği yapıldı" işareti), `CaseEvent` (zaman çizelgesi: elle not + otomatik kayıtlar). Duruşma/tebligat/not HTMX işlemleri `views_records.py`.
 - `apps/tasks`: `Task` (tür, ad, dosya, müvekkil = dosyanın müvekkili, sorumlu, kontrolcü ≠ sorumlu, son gün, notlar), `TaskEvent` (geçmiş + yorumlar). Onay döngüsü ve yetkiler `services.py` (`ACTIONS`, `perform`, `available_actions`, `can_edit`). Görev formu müvekkile göre dosya süzer, dosya seçilince müvekkil ve varsayılan sorumlu (dosyanın stajyeri) / kontrolcü (dosyanın avukatı) dolar (`tasks:case_options`).
+- `apps/accounting`: `LedgerEntry` (müvekkil, isteğe bağlı dosya — dosya seçilirse müvekkil dosyadan gelir; tür, tutar, tarih, açıklama, makbuz; iptal alanları). Bakiye ifadeleri `CARI_EXPR`/`TRUST_EXPR`, `LedgerEntry.objects.balances()` ve `totals_by_kind()`. Ekstre `views.statement()`. Müvekkile ödeme ve mahsup emanet bakiyesini aşamaz. Yetki `accounting/permissions.py` (`can_view`, `can_edit`; rol bayrakları `OfficeSettings.<rol>_can_view/edit_accounting`, Ayarlar > Muhasebe yetkileri). Görme yetkisi olmayan kullanıcı müvekkil listesindeki bakiye sütununu/filtresini, cari hesap ve dosya muhasebe sekmelerini görmez.
+- Müvekkil listesi `annotate_list_values()`: dosya sayısı, açık görev sayısı, cari bakiye alt sorgularla; filtreler tip, vekalet, avukat, stajyer, açık görev, borçlu, aktiflik; tüm sayısal sütunlar sıralanır.
 - `apps/notifications`: `Notification` (zil). `notify()` kişinin kendi işlemi için bildirim üretmez; `key` ile tekrarı önler. `send_daily_reminders()` (son günü bugün/yarın/geçmiş açık görevler, yarınki duruşmalar) günde bir kez ilk sayfa açılışında context processor'dan tetiklenir (`run_daily_reminders_once`, önbellek anahtarı).
 - Tüm kullanıcı view'ları `LoginRequiredMiddleware` ile korunur. `/media/` de giriş ister.
 - Aktivite kaydı `django-auditlog`; her app `ready()` içinde kendi modellerini kaydeder.
@@ -62,7 +64,8 @@ Dev ayarları `config/settings/dev.py`, varsayılan DB bağlantısı dev compose
 ## Yol haritası
 1. ✅ İskelet, giriş/roller, müvekkil, karşı taraf + çıkar çatışması, dosya, belgeler.
 2. ✅ Görev + onay döngüsü, duruşma (ayrı kayıt), tebligat, dosya zaman çizelgesi, ana sayfa özeti, sistem içi bildirim, Google Takvim.
-3. Muhasebe: hareketler, cari/emanet, mahsup, yetki matrisi; müvekkil listesine bakiye, borçlu ve açık görev filtreleri.
+3. ✅ Muhasebe: hareketler, cari/emanet, mahsup, yetki matrisi; müvekkil listesine bakiye, borçlu ve açık görev filtreleri.
+3b. Görev belgeleri ve ofis klasörü: görevde belge yükleme/sürüm, kontrolcü inceler, onayda belge dosyanın Belgeler'ine ve `<Ofis klasörü>\Müvekkiller\<Müvekkil>\<Arşiv no - Konu>\` klasörüne kopyalanır; vekaletler `<Müvekkil>\Vekaletler\`. Görev türüne göre belge zorunluluğu.
 4. Global arama (`unaccent` + `pg_trgm`, eklentiler `core/0001` migration'ında kurulu), aktivite ekranları, 6 rapor (Excel `openpyxl`, PDF `reportlab` + gömülü Noto Sans).
 5. Ayarlar ekranları, yedek (`pg_dump` + media → AES ZIP → bulut senkron klasörü, 30 günlük + 12 aylık), Windows kurulum/güncelleme `.exe`.
 6. Excel'den içe aktarım (ofisin mevcut dosyaları görüldükten sonra).

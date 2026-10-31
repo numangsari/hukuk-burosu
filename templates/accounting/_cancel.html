@@ -1,0 +1,10 @@
+{# Satır içi iptal: e = hareket, next = dönüş adresi #}
+<div class="cancel-pop" x-data="{ open: false }" @click.outside="open = false">
+  <button type="button" class="btn-ghost-danger" title="İptal et" @click="open = !open"><i class="bi bi-x-circle"></i></button>
+  <form method="post" action="{% url 'accounting:cancel' e.pk %}" class="cancel-panel" x-show="open" x-cloak x-transition>{% csrf_token %}
+    <input type="hidden" name="next" value="{{ next }}">
+    <label class="form-label">İptal nedeni</label>
+    <input class="form-control form-control-sm mb-2" name="reason" required maxlength="300" x-ref="r" x-effect="open && $nextTick(() => $refs.r.focus())">
+    <button class="btn btn-sm btn-outline-danger w-100">Hareketi iptal et</button>
+  </form>
+</div>

@@ -8,7 +8,7 @@ from django.urls import reverse
 from django.views import View
 
 from apps.core.permissions import is_admin
-from apps.office.forms import CalendarForm, OfficeForm
+from apps.office.forms import AccountingPermissionsForm, CalendarForm, OfficeForm
 from apps.office.models import OfficeSettings
 
 from .forms import PinChangeForm, PinLoginForm, ProfileForm
@@ -30,7 +30,7 @@ class SettingsView(View):
     """Kullanıcı ayarları (profil, görünüm, PIN) ve yöneticiye ofis/takvim ayarları."""
 
     template_name = "accounts/settings.html"
-    ADMIN_SECTIONS = {"ofis", "takvim"}
+    ADMIN_SECTIONS = {"ofis", "takvim", "yetkiler"}
 
     def _forms(self, request, section=None, data=None, files=None):
         user, office = request.user, OfficeSettings.load()
@@ -45,6 +45,7 @@ class SettingsView(View):
         if is_admin(user):
             forms["ofis"] = OfficeForm(*bound("ofis"), instance=office)
             forms["takvim"] = CalendarForm(*bound("takvim"), instance=office)
+            forms["yetkiler"] = AccountingPermissionsForm(*bound("yetkiler"), instance=office)
         return forms
 
     def _render(self, request, forms, active):

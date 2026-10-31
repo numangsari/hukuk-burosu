@@ -60,10 +60,15 @@
       <a class="quick-action" href="{% url 'clients:create' %}">
         <span class="qa-icon" style="background: var(--success-soft); color: var(--success-ink)"><i class="bi bi-person-plus"></i></span>Yeni müvekkil
       </a>
-      <span class="quick-action disabled">
-        <span class="soon">Yakında</span>
+      {% if can_edit_accounting %}
+      <a class="quick-action" href="{% url 'accounting:create' %}">
+        <span class="qa-icon" style="background: var(--warning-soft); color: var(--warning-ink)"><i class="bi bi-cash-coin"></i></span>Yeni gelir / gider
+      </a>
+      {% else %}
+      <span class="quick-action disabled" title="Muhasebe yetkiniz yok">
         <span class="qa-icon" style="background: var(--warning-soft); color: var(--warning-ink)"><i class="bi bi-cash-coin"></i></span>Yeni gelir / gider
       </span>
+      {% endif %}
     </div>
 
     <div class="card flex-grow-1">

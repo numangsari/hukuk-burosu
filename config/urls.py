@@ -11,6 +11,7 @@ urlpatterns = [
     path("takvim/", include("apps.agenda.urls")),
     path("gorevler/", include("apps.tasks.urls")),
     path("bildirimler/", include("apps.notifications.urls")),
+    path("muhasebe/", include("apps.accounting.urls")),
     path("", include("apps.core.urls")),
     # Yüklenen belgeler yalnızca giriş yapmış kullanıcıya sunulur
     # (LoginRequiredMiddleware tüm view'ları korur).

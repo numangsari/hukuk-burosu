@@ -1,0 +1,19 @@
+{% load ui %}
+{# Kullanım: include with b=balances #}
+<div class="balance-strip">
+  <div class="bal">
+    <span class="bal-label">Cari bakiye</span>
+    <span class="bal-value {% if b.cari > 0 %}neg{% elif b.cari < 0 %}pos{% endif %}">{{ b.cari|tl }}</span>
+    <span class="bal-hint">{% if b.cari > 0 %}Müvekkil borçlu{% elif b.cari < 0 %}Müvekkil alacaklı{% else %}Borç yok{% endif %}</span>
+  </div>
+  <div class="bal">
+    <span class="bal-label">Emanet</span>
+    <span class="bal-value">{{ b.trust|tl }}</span>
+    <span class="bal-hint">Ofiste duran müvekkil parası</span>
+  </div>
+  <div class="bal">
+    <span class="bal-label">Net durum</span>
+    <span class="bal-value {% if b.net > 0 %}neg{% elif b.net < 0 %}pos{% endif %}">{{ b.net|tl }}</span>
+    <span class="bal-hint">Cari − emanet</span>
+  </div>
+</div>

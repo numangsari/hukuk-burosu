@@ -12,6 +12,7 @@
       {% if forms.ofis %}
       <div class="nav-group">Ofis</div>
       <a class="{% if active == 'ofis' %}active{% endif %}" href="?bolum=ofis"><i class="bi bi-building"></i>Ofis bilgileri</a>
+      <a class="{% if active == 'yetkiler' %}active{% endif %}" href="?bolum=yetkiler"><i class="bi bi-shield-check"></i>Muhasebe yetkileri</a>
       <a class="{% if active == 'takvim' %}active{% endif %}" href="?bolum=takvim"><i class="bi bi-calendar3"></i>Google Takvim
         {% if calendar_connected %}<span class="chip chip-success ms-auto">Bağlı</span>{% endif %}</a>
       {% endif %}
@@ -69,6 +70,23 @@
           <div class="col-md-4">{% include "partials/field.html" with field=form.tax_number %}</div>
           <div class="col-12">{% include "partials/field.html" with field=form.logo wrap_class="" %}</div>
         </div>
+      </div>
+      <div class="form-footer"><button class="btn btn-primary"><i class="bi bi-check2"></i>Kaydet</button></div>
+    </form>
+    {% endwith %}
+
+  {% elif active == "yetkiler" %}
+    {% with form=forms.yetkiler %}
+    <form method="post" class="card" style="max-width: 640px">{% csrf_token %}<input type="hidden" name="section" value="yetkiler">
+      <div class="form-section">
+        <div class="form-section-head"><h2>Muhasebe yetkileri</h2><p>Yönetici her zaman tam yetkilidir. Görme yetkisi olmayan rol, bakiye sütununu ve cari hesabı da göremez.</p></div>
+        <table class="table perm-table mb-0">
+          <thead><tr><th>Rol</th><th class="text-center">Görebilir</th><th class="text-center">Hareket girebilir / iptal edebilir</th></tr></thead>
+          <tbody>
+            <tr><td class="fw-medium">Avukat</td><td class="text-center">{{ form.lawyer_can_view_accounting }}</td><td class="text-center">{{ form.lawyer_can_edit_accounting }}</td></tr>
+            <tr><td class="fw-medium">Stajyer</td><td class="text-center">{{ form.intern_can_view_accounting }}</td><td class="text-center">{{ form.intern_can_edit_accounting }}</td></tr>
+          </tbody>
+        </table>
       </div>
       <div class="form-footer"><button class="btn btn-primary"><i class="bi bi-check2"></i>Kaydet</button></div>
     </form>

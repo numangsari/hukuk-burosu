@@ -4,6 +4,8 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.generic import CreateView, DetailView, ListView, UpdateView, View
 
+from apps.accounting.permissions import can_view as can_view_accounting
+from apps.accounting.views import statement
 from apps.accounts.models import User
 from apps.clients.conflicts import clients_matching
 from apps.clients.models import Client, Party
@@ -139,6 +141,10 @@ class CaseDetailView(DetailView):
             now=timezone.now(),
             today=timezone.localdate(),
         )
+        if can_view_accounting(self.request.user):
+            entries = case.ledger_entries.select_related("cancelled_by")
+            ctx["ledger_rows"] = statement(entries)
+            ctx["ledger_balances"] = entries.balances()
         return ctx
 
 

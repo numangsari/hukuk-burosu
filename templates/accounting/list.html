@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% load ui %}
+{% block title %}Muhasebe — {{ office.name }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Muhasebe</h1>
+    <p class="page-subtitle">Vekalet ücreti, masraf, tahsilat ve emanet hareketleri.</p>
+  </div>
+  {% if can_edit_accounting %}
+  <div class="page-actions"><a class="btn btn-primary" href="{% url 'accounting:create' %}"><i class="bi bi-plus-lg"></i>Yeni gelir / gider</a></div>
+  {% endif %}
+</div>
+
+<div id="acc-summary">{% include "accounting/_summary.html" %}</div>
+
+<div class="card table-card mt-3" id="list-card">
+  <form class="filter-bar" hx-get="{% url 'accounting:list' %}" hx-target="#list-table" hx-push-url="true" hx-trigger="change" hx-indicator="#list-card">
+    <select class="form-select" name="musteri">
+      <option value="">Tüm müvekkiller</option>
+      {% for c in clients %}<option value="{{ c.pk }}" {% if request.GET.musteri == c.pk|stringformat:'s' %}selected{% endif %}>{{ c }}</option>{% endfor %}
+    </select>
+    <select class="form-select" name="tur">
+      <option value="">Tüm hareketler</option>
+      {% for v, l in kinds %}<option value="{{ v }}" {% if request.GET.tur == v %}selected{% endif %}>{{ l }}</option>{% endfor %}
+    </select>
+    <input class="form-control" type="date" name="baslangic" value="{{ request.GET.baslangic }}" style="width: auto" title="Başlangıç">
+    <input class="form-control" type="date" name="bitis" value="{{ request.GET.bitis }}" style="width: auto" title="Bitiş">
+    <div class="form-check ms-1"><input class="form-check-input" type="checkbox" name="iptal" value="1" id="f-iptal" {% if request.GET.iptal %}checked{% endif %}><label class="form-check-label small" for="f-iptal">İptalleri göster</label></div>
+  </form>
+  <div id="list-table">{% include "accounting/_list_table.html" %}</div>
+</div>
+{% endblock %}

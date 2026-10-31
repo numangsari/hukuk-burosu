@@ -33,6 +33,7 @@ INSTALLED_APPS = [
     "apps.agenda",
     "apps.tasks",
     "apps.notifications",
+    "apps.accounting",
 ]
 
 MIDDLEWARE = [
