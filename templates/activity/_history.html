@@ -1,0 +1,7 @@
+<div class="card">
+  <div class="card-header"><h2 class="card-title">Kayıt geçmişi</h2><span class="small text-body-secondary ms-auto">Bu kayıtta kim, ne zaman, neyi değiştirdi</span></div>
+  <ul class="timeline">
+    {% for e in history %}{% include "activity/_entry.html" with show_actor=True %}
+    {% empty %}<li class="empty-state">Geçmiş kaydı yok.</li>{% endfor %}
+  </ul>
+</div>

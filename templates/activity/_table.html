@@ -1,0 +1,5 @@
+<ul class="timeline">
+  {% for e in entries %}{% include "activity/_entry.html" with show_actor=True %}
+  {% empty %}<li class="empty-state"><i class="bi bi-clock-history"></i><strong>Kayıt yok</strong>Seçili filtrelere uyan işlem bulunamadı.</li>{% endfor %}
+</ul>
+{% include "partials/pagination.html" %}

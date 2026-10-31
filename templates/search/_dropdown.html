@@ -1,0 +1,8 @@
+{% if r %}
+  {% if r.clients or r.cases or r.tasks or r.parties or r.documents %}
+    {% include "search/_items.html" %}
+    <a class="sr-all" href="{% url 'search:search' %}?q={{ q|urlencode }}">Tüm sonuçları gör <i class="bi bi-arrow-right"></i></a>
+  {% else %}
+    <div class="sr-empty">"{{ q }}" için sonuç yok.</div>
+  {% endif %}
+{% endif %}

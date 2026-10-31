@@ -167,6 +167,9 @@ class ClientDetailView(DetailView):
         ctx["cases"] = c.cases.select_related("responsible_lawyer").order_by("-created_at")
         ctx["subforms"] = {key: spec[0]() for key, spec in SUBRECORDS.items()}
         ctx["conflicts"] = parties_matching(c.name, c.identity_no)
+        from apps.activity.views import history_for
+
+        ctx["history"] = history_for(c)
         if can_view_accounting(self.request.user):
             from apps.accounting.views import statement
 

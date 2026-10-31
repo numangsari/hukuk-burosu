@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Arama: {{ q }} — {{ office.name }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Arama sonuçları</h1>
+    <p class="page-subtitle">{% if q %}"{{ q }}" için {{ total }} sonuç{% else %}Aramak için en az 2 karakter yazın.{% endif %}</p>
+  </div>
+</div>
+<form class="mb-3" style="max-width: 560px">
+  <div class="search-box" style="max-width: none"><i class="bi bi-search"></i><input class="form-control" name="q" value="{{ q }}" autofocus placeholder="Müvekkil, dosya, görev, karşı taraf, belge…"></div>
+</form>
+{% if total %}
+<div class="card sr-page">{% include "search/_items.html" %}</div>
+{% elif q|length >= 2 %}
+<div class="card"><div class="empty-state"><i class="bi bi-search"></i><strong>Sonuç bulunamadı</strong>Farklı bir kelime deneyin. Türkçe karakter ve büyük/küçük harf fark etmez.</div></div>
+{% endif %}
+{% endblock %}

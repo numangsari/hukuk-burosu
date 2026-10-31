@@ -12,6 +12,9 @@ urlpatterns = [
     path("gorevler/", include("apps.tasks.urls")),
     path("bildirimler/", include("apps.notifications.urls")),
     path("muhasebe/", include("apps.accounting.urls")),
+    path("ara/", include("apps.search.urls")),
+    path("aktivite/", include("apps.activity.urls")),
+    path("raporlar/", include("apps.reports.urls")),
     path("", include("apps.core.urls")),
     # Yüklenen belgeler yalnızca giriş yapmış kullanıcıya sunulur
     # (LoginRequiredMiddleware tüm view'ları korur).

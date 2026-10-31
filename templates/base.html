@@ -46,8 +46,9 @@
       <a class="side-link {% if ns == 'cases' %}active{% endif %}" href="{% url 'cases:list' %}"><i class="bi bi-folder2-open"></i>Dosyalar</a>
       <div class="nav-section">Finans ve Rapor</div>
       {% if can_view_accounting %}<a class="side-link {% if ns == 'accounting' %}active{% endif %}" href="{% url 'accounting:list' %}"><i class="bi bi-wallet2"></i>Muhasebe</a>{% endif %}
-      <span class="side-link disabled"><i class="bi bi-bar-chart-line"></i>Raporlar<span class="soon">Yakında</span></span>
+      <a class="side-link {% if ns == 'reports' %}active{% endif %}" href="{% url 'reports:index' %}"><i class="bi bi-bar-chart-line"></i>Raporlar</a>
       <div class="nav-section">Sistem</div>
+      <a class="side-link {% if ns == 'activity' %}active{% endif %}" href="{% url 'activity:list' %}"><i class="bi bi-clock-history"></i>Aktivite kaydı</a>
       <a class="side-link {% if ns == 'accounts' %}active{% endif %}" href="{% url 'accounts:settings' %}"><i class="bi bi-gear"></i>Ayarlar</a>
       {% if request.user.is_office_admin %}
       <a class="side-link" href="{% url 'admin:index' %}"><i class="bi bi-sliders"></i>Yönetim paneli</a>
@@ -68,11 +69,15 @@
   <div class="main">
     <header class="topbar">
       <button class="icon-btn d-lg-none" @click="nav = true" aria-label="Menü"><i class="bi bi-list"></i></button>
-      <div class="search-box">
+      <form class="search-box" action="{% url 'search:search' %}" x-data="{ open: false }" @click.outside="open = false" @keydown.escape="open = false">
         <i class="bi bi-search"></i>
-        <input class="form-control" type="search" placeholder="Müvekkil, dosya, görev ara…" disabled title="Global arama yakında">
-        <kbd>Yakında</kbd>
-      </div>
+        <input class="form-control" type="search" name="q" placeholder="Müvekkil, dosya, görev, karşı taraf ara…" autocomplete="off"
+               hx-get="{% url 'search:search' %}?canli=1" hx-trigger="input changed delay:250ms" hx-target="#search-dd"
+               @input="open = $event.target.value.length >= 2" @focus="open = $event.target.value.length >= 2" x-ref="q"
+               @keydown.window.ctrl.k.prevent="$refs.q.focus()">
+        <kbd>Ctrl K</kbd>
+        <div class="search-dd" id="search-dd" x-show="open" x-cloak></div>
+      </form>
       <div class="ms-auto d-flex align-items-center gap-1">
         <span class="text-body-secondary small d-none d-md-inline me-2">{% now "j F Y, l" %}</span>
         <button class="icon-btn" title="Tema" hx-post="{% url 'accounts:theme_toggle' %}" hx-swap="none"

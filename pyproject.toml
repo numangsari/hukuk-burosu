@@ -43,3 +43,8 @@ dev = [
     "pytest-django>=4.14.0",
     "ruff>=0.17.3",
 ]
+
+[tool.ruff.lint.per-file-ignores]
+# Rapor tanımları tablo düzeninde okunması için uzun satır içerir.
+"apps/reports/*.py" = ["E501"]
+"tests/*.py" = ["E501"]

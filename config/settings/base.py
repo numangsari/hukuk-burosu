@@ -34,6 +34,9 @@ INSTALLED_APPS = [
     "apps.tasks",
     "apps.notifications",
     "apps.accounting",
+    "apps.search",
+    "apps.activity",
+    "apps.reports",
 ]
 
 MIDDLEWARE = [

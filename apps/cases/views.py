@@ -142,6 +142,9 @@ class CaseDetailView(DetailView):
             now=timezone.now(),
             today=timezone.localdate(),
         )
+        from apps.activity.views import history_for
+
+        ctx["history"] = history_for(case)
         if can_view_accounting(self.request.user):
             entries = case.ledger_entries.select_related("cancelled_by")
             ctx["ledger_rows"] = statement(entries)

@@ -43,6 +43,7 @@
     <li><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-taraflar">Karşı taraflar<span class="count">{{ party_links|length }}</span></button></li>
     <li><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-belgeler">Belgeler<span class="count">{{ documents|length }}</span></button></li>
     {% if can_view_accounting %}<li><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-muhasebe">Muhasebe</button></li>{% endif %}
+    <li><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-gecmis">Geçmiş</button></li>
   </ul>
 </div>
 
@@ -89,6 +90,7 @@
   <div class="tab-pane fade" id="t-zaman">{% include "cases/_timeline.html" %}</div>
   <div class="tab-pane fade" id="t-taraflar">{% include "cases/_parties.html" %}</div>
   <div class="tab-pane fade" id="t-belgeler">{% include "cases/_documents.html" %}</div>
+  <div class="tab-pane fade" id="t-gecmis">{% include "activity/_history.html" %}</div>
   {% if can_view_accounting %}
   <div class="tab-pane fade" id="t-muhasebe">
     <div class="card table-card">

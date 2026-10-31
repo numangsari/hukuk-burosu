@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}{{ spec.title }} — {{ office.name }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="eyebrow"><a href="{% url 'reports:index' %}"><i class="bi bi-chevron-left"></i> Raporlar</a></div>
+    <h1 class="page-title">{{ spec.title }}</h1>
+    <p class="page-subtitle">{{ spec.desc }}</p>
+  </div>
+</div>
+
+<form method="get" class="card mb-3" id="report-form">
+  <div class="filter-bar align-items-end" style="border-bottom: 0">
+    {% for field in form %}
+      <div style="min-width: 180px">{% include "partials/field.html" with field=field wrap_class="" %}</div>
+    {% endfor %}
+    <div class="ms-auto d-flex gap-2">
+      <button class="btn btn-primary" name="goster" value="1"><i class="bi bi-eye"></i>Önizle</button>
+      <button class="btn btn-light" name="format" value="xlsx"><i class="bi bi-file-earmark-excel" style="color: var(--success-ink)"></i>Excel</button>
+      <button class="btn btn-light" name="format" value="pdf"><i class="bi bi-file-earmark-pdf" style="color: var(--danger-ink)"></i>PDF</button>
+    </div>
+  </div>
+</form>
+
+{% if result %}
+<div class="card table-card">
+  <div class="card-header">
+    <div><h2 class="card-title">{{ result.title }}</h2><div class="small text-body-secondary">{{ result.subtitle }}</div></div>
+  </div>
+  {% if result.summary %}
+  <div class="report-summary">
+    {% for label, value in result.summary %}<div><span>{{ label }}</span><strong>{{ value }}</strong></div>{% endfor %}
+  </div>
+  {% endif %}
+  <div class="table-responsive">
+    <table class="table">
+      <thead><tr>{% for c in result.columns %}<th class="{% if c.kind == 'money' or c.kind == 'int' %}text-end{% endif %}">{{ c.label }}</th>{% endfor %}</tr></thead>
+      <tbody>
+        {% for row in rows %}
+          <tr>{% for value, kind in row %}<td class="{% if kind == 'money' or kind == 'int' %}text-end tabular{% endif %}{% if kind == 'date' %} tabular text-nowrap{% endif %}">{{ value }}</td>{% endfor %}</tr>
+        {% empty %}
+          <tr><td colspan="{{ result.columns|length }}"><div class="empty-state py-3"><strong>Kayıt yok</strong>Seçili ölçütlere uyan veri bulunamadı.</div></td></tr>
+        {% endfor %}
+        {% if totals %}<tr class="report-total">{% for value, kind in totals %}<td class="{% if kind == 'money' or kind == 'int' %}text-end tabular{% endif %}">{{ value }}</td>{% endfor %}</tr>{% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% elif form.is_bound and form.errors %}
+<div class="alert alert-danger">Lütfen rapor ölçütlerini kontrol edin.</div>
+{% endif %}
+{% endblock %}

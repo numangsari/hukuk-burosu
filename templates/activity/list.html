@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Aktivite kaydı — {{ office.name }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Aktivite kaydı</h1>
+    <p class="page-subtitle">{% if request.user.is_office_admin %}Tüm kullanıcıların işlemleri ve oturumları.{% else %}Yaptığınız işlemler ve oturumlarınız.{% endif %}</p>
+  </div>
+</div>
+<div class="card" id="list-card">
+  <form class="filter-bar" hx-get="{% url 'activity:list' %}" hx-target="#list-table" hx-push-url="true" hx-trigger="change" hx-indicator="#list-card">
+    {% if users %}
+    <select class="form-select" name="kullanici">
+      <option value="">Tüm kullanıcılar</option>
+      {% for u in users %}<option value="{{ u.pk }}" {% if request.GET.kullanici == u.pk|stringformat:'s' %}selected{% endif %}>{{ u }}</option>{% endfor %}
+    </select>
+    {% endif %}
+    <select class="form-select" name="tur">
+      <option value="">Tüm kayıt türleri</option>
+      {% for pk, name in types %}<option value="{{ pk }}" {% if request.GET.tur == pk|stringformat:'s' %}selected{% endif %}>{{ name|capfirst }}</option>{% endfor %}
+    </select>
+    <select class="form-select" name="islem">
+      <option value="">Tüm işlemler</option>
+      {% for k, l in actions %}<option value="{{ k }}" {% if request.GET.islem == k|stringformat:'s' %}selected{% endif %}>{{ l|capfirst }}</option>{% endfor %}
+    </select>
+    <input class="form-control" type="date" name="baslangic" value="{{ request.GET.baslangic }}" style="width: auto">
+    <input class="form-control" type="date" name="bitis" value="{{ request.GET.bitis }}" style="width: auto">
+  </form>
+  <div id="list-table">{% include "activity/_table.html" %}</div>
+</div>
+{% endblock %}

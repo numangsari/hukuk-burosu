@@ -1,0 +1,24 @@
+{# e: decorate() ile süslenmiş LogEntry; show_actor: kişi adını göster #}
+<li class="timeline-item tl-act-{{ e.tone }}">
+  <span class="tl-dot"></span>
+  <div class="tl-body">
+    <div>
+      {% if show_actor %}<strong>{{ e.actor|default:"Sistem" }}</strong>{% endif %}
+      {% if e.action == 3 %}
+        sisteme {{ e.event|default:"giriş" }} yaptı
+      {% else %}
+        <span class="text-body-secondary">{{ e.type_name }}</span>
+        {% if e.link %}<a href="{{ e.link }}" class="fw-medium">{{ e.object_repr }}</a>{% else %}<span class="fw-medium">{{ e.object_repr }}</span>{% endif %}
+        <span class="chip chip-{{ e.tone }} no-dot ms-1">{{ e.label }}</span>
+      {% endif %}
+      <span class="tl-time">{{ e.timestamp|date:"d.m.Y H:i" }}{% if e.remote_addr %} · {{ e.remote_addr }}{% endif %}</span>
+    </div>
+    {% if e.display_changes %}
+      <div class="tl-comment change-list">
+        {% for field, values in e.display_changes.items %}
+          <div><span class="text-body-secondary">{{ field|capfirst }}:</span> <del>{{ values.0|default:"—"|truncatechars:80 }}</del> <i class="bi bi-arrow-right"></i> <ins>{{ values.1|default:"—"|truncatechars:80 }}</ins></div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  </div>
+</li>

@@ -1,0 +1,16 @@
+{# r: arama sonuçları, compact: açılır menü için kısa görünüm #}
+{% if r.clients %}<div class="sr-group">Müvekkiller</div>
+  {% for c in r.clients %}<a class="sr-item" href="{{ c.get_absolute_url }}"><i class="bi {% if c.kind == 'company' %}bi-building{% else %}bi-person{% endif %}"></i><span><strong>{{ c.name }}</strong><small>{{ c.identity_no|default:c.get_kind_display }}{% if not c.is_active %} · Pasif{% endif %}</small></span></a>{% endfor %}
+{% endif %}
+{% if r.cases %}<div class="sr-group">Dosyalar</div>
+  {% for k in r.cases %}<a class="sr-item" href="{{ k.get_absolute_url }}"><i class="bi bi-folder2-open"></i><span><strong>{{ k.archive_no }} · {{ k.subject }}</strong><small>{{ k.client }} · {{ k.get_case_type_display }}{% if k.official_no %} · {{ k.official_no }}{% endif %}</small></span></a>{% endfor %}
+{% endif %}
+{% if r.tasks %}<div class="sr-group">Görevler</div>
+  {% for t in r.tasks %}<a class="sr-item" href="{{ t.get_absolute_url }}"><i class="bi bi-check2-square"></i><span><strong>{{ t.title }}</strong><small>{{ t.case.archive_no }} · {{ t.assignee }} · {{ t.get_status_display }}</small></span></a>{% endfor %}
+{% endif %}
+{% if r.parties %}<div class="sr-group">Karşı taraflar</div>
+  {% for p in r.parties %}{% with link=p.case_links.all.0 %}<a class="sr-item" href="{% if link %}{{ link.case.get_absolute_url }}{% else %}#{% endif %}"><i class="bi bi-person-x"></i><span><strong>{{ p.name }}</strong><small>{% for l in p.case_links.all %}{{ l.case.archive_no }} ({{ l.get_role_display }}){% if not forloop.last %}, {% endif %}{% empty %}Dosyaya bağlı değil{% endfor %}</small></span></a>{% endwith %}{% endfor %}
+{% endif %}
+{% if r.documents %}<div class="sr-group">Belgeler</div>
+  {% for d in r.documents %}<a class="sr-item" href="{{ d.file.url }}" target="_blank"><i class="bi bi-file-earmark-text"></i><span><strong>{{ d.title }}</strong><small>{{ d.case.archive_no }} · {{ d.original_name }}</small></span></a>{% endfor %}
+{% endif %}

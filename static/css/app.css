@@ -650,3 +650,31 @@ a.agenda-item:hover { background: var(--surface-2); text-decoration: none; color
 .doc-row details summary { cursor: pointer; }
 .folder-tree { padding: .75rem 1rem; border: 1px dashed var(--line); border-radius: var(--radius-sm); background: var(--surface-2); line-height: 1.9; }
 .folder-tree i { color: var(--accent); }
+
+/* ---------- Arama ---------- */
+.search-dd { position: absolute; left: 0; right: 0; top: calc(100% + 6px); max-height: 70vh; overflow-y: auto; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow-lg); z-index: 1050; padding: .35rem; }
+.search-dd:empty { display: none; }
+.sr-group { font-size: .68rem; font-weight: 650; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); padding: .6rem .6rem .25rem; }
+.sr-item { display: flex; gap: .7rem; align-items: flex-start; padding: .45rem .6rem; border-radius: var(--radius-sm); color: var(--ink); }
+.sr-item:hover { background: var(--surface-2); text-decoration: none; color: var(--ink); }
+.sr-item i { color: var(--muted); margin-top: .15rem; }
+.sr-item strong { display: block; font-weight: 600; font-size: .875rem; }
+.sr-item small { display: block; color: var(--muted); font-size: .76rem; }
+.sr-all { display: block; text-align: center; padding: .55rem; margin-top: .25rem; border-top: 1px solid var(--line); font-size: .82rem; }
+.sr-empty { padding: .9rem; text-align: center; color: var(--muted); font-size: .85rem; }
+.sr-page { padding: .5rem; }
+.tl-act-success .tl-dot { border-color: var(--success-ink); background: var(--success-soft); }
+.tl-act-primary .tl-dot { border-color: var(--brand); background: var(--brand-soft); }
+.tl-act-danger .tl-dot { border-color: var(--danger-ink); background: var(--danger-soft); }
+.tl-act-info .tl-dot { border-color: var(--info-ink); }
+.change-list del { color: var(--danger-ink); text-decoration: line-through; opacity: .8; }
+.change-list ins { color: var(--success-ink); text-decoration: none; font-weight: 550; }
+.change-list i { font-size: .7rem; color: var(--muted); }
+
+/* ---------- Raporlar ---------- */
+.report-card { color: var(--ink); }
+.report-card:hover { color: var(--ink); }
+.report-summary { display: flex; flex-wrap: wrap; gap: .5rem 2rem; padding: .9rem 1.25rem; border-bottom: 1px solid var(--line); background: var(--surface-2); }
+.report-summary span { display: block; font-size: .74rem; color: var(--muted); }
+.report-summary strong { font-variant-numeric: tabular-nums; }
+.report-total td { font-weight: 700; background: var(--surface-2); border-top: 2px solid var(--line) !important; }
