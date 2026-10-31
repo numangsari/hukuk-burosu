@@ -1,0 +1,46 @@
+<div id="hearings" class="card table-card">
+  <div class="card-header"><h2 class="card-title">Duruşmalar</h2></div>
+  <div class="table-responsive">
+  <table class="table">
+    <thead><tr><th>Tarih</th><th>Tür / Yer</th><th>Durum</th><th>Sonuç</th><th></th></tr></thead>
+    <tbody>
+    {% for h in hearings %}
+      <tr x-data="{ open: false }">
+        <td class="tabular"><div class="cell-main">{{ h.starts_at|date:"d.m.Y" }}</div><div class="cell-sub">{{ h.starts_at|date:"l, H:i" }}</div></td>
+        <td>{{ h.get_kind_display }}<div class="cell-sub">{{ h.authority|default:"—" }}{% if h.room %} · Salon {{ h.room }}{% endif %}</div>{% if h.notes %}<div class="cell-sub">{{ h.notes }}</div>{% endif %}</td>
+        <td>
+          {% if h.status == "planned" %}{% if h.starts_at < now %}<span class="chip chip-warning">Sonuç bekliyor</span>{% else %}<span class="chip chip-primary">{{ h.get_status_display }}</span>{% endif %}
+          {% elif h.status == "held" %}<span class="chip chip-success">{{ h.get_status_display }}</span>
+          {% elif h.status == "postponed" %}<span class="chip chip-info">{{ h.get_status_display }}</span>
+          {% else %}<span class="chip no-dot">{{ h.get_status_display }}</span>{% endif %}
+        </td>
+        <td class="small" style="max-width: 360px">{{ h.result|linebreaksbr|default:"—" }}
+          <form class="mt-2" x-show="open" x-cloak hx-post="{% url 'cases:hearing_result' case.pk h.pk %}" hx-target="#hearings" hx-swap="outerHTML">
+            <select name="status" class="form-select form-select-sm mb-2">
+              <option value="held" {% if h.status == 'held' %}selected{% endif %}>Yapıldı</option>
+              <option value="postponed" {% if h.status == 'postponed' %}selected{% endif %}>Ertelendi</option>
+              <option value="cancelled" {% if h.status == 'cancelled' %}selected{% endif %}>İptal</option>
+              <option value="planned" {% if h.status == 'planned' %}selected{% endif %}>Planlandı</option>
+            </select>
+            <textarea name="result" class="form-control form-control-sm mb-2" rows="2" placeholder="Sonuç / ara karar">{{ h.result }}</textarea>
+            <button class="btn btn-primary btn-sm"><i class="bi bi-check2"></i>Kaydet</button>
+          </form>
+        </td>
+        <td class="text-end text-nowrap">
+          <button class="btn btn-light btn-sm" @click="open = !open"><i class="bi bi-journal-text"></i>Sonuç</button>
+          <button class="btn-ghost-danger" title="Sil" hx-post="{% url 'cases:hearing_delete' case.pk h.pk %}" hx-target="#hearings" hx-swap="outerHTML" hx-confirm="Duruşma kaydı silinsin mi?"><i class="bi bi-trash"></i></button>
+        </td>
+      </tr>
+    {% empty %}<tr><td colspan="5"><div class="empty-state py-3"><strong>Duruşma kaydı yok</strong>Duruşma, keşif, bilirkişi incelemesi gibi tarihleri aşağıdan ekleyin.</div></td></tr>{% endfor %}
+    </tbody>
+  </table>
+  </div>
+  <form class="inline-form row g-2 align-items-end" hx-post="{% url 'cases:hearing_add' case.pk %}" hx-target="#hearings" hx-swap="outerHTML">
+    <div class="col-md-2">{% include "partials/field.html" with field=hearing_form.kind wrap_class="" %}</div>
+    <div class="col-md-3">{% include "partials/field.html" with field=hearing_form.starts_at wrap_class="" %}</div>
+    <div class="col-md-3">{% include "partials/field.html" with field=hearing_form.authority wrap_class="" %}</div>
+    <div class="col-md-2">{% include "partials/field.html" with field=hearing_form.room wrap_class="" %}</div>
+    <div class="col-md-2"><button class="btn btn-primary w-100"><i class="bi bi-plus-lg"></i>Ekle</button></div>
+    <div class="col-12">{% include "partials/field.html" with field=hearing_form.notes wrap_class="" %}</div>
+  </form>
+</div>

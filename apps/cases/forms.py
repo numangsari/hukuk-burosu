@@ -1,9 +1,9 @@
 from django import forms
 
 from apps.clients.models import Party
-from apps.core.forms import BootstrapMixin, DateInput
+from apps.core.forms import BootstrapMixin, DateInput, DateTimeInput
 
-from .models import Case, CaseParty, Document, PartyRole
+from .models import Case, CaseEvent, CaseParty, Document, Hearing, PartyRole, Service
 
 
 class CaseForm(BootstrapMixin, forms.ModelForm):
@@ -95,3 +95,41 @@ class DocumentForm(BootstrapMixin, forms.ModelForm):
         if f and f.size > 50 * 1024 * 1024:
             raise forms.ValidationError("Belge 50 MB'tan büyük olamaz.")
         return f
+
+
+class HearingForm(BootstrapMixin, forms.ModelForm):
+    class Meta:
+        model = Hearing
+        fields = ["kind", "starts_at", "authority", "room", "notes"]
+        widgets = {"starts_at": DateTimeInput(), "notes": forms.Textarea(attrs={"rows": 1})}
+
+
+class HearingResultForm(BootstrapMixin, forms.ModelForm):
+    class Meta:
+        model = Hearing
+        fields = ["status", "result"]
+        widgets = {"result": forms.Textarea(attrs={"rows": 2})}
+
+
+class ServiceForm(BootstrapMixin, forms.ModelForm):
+    class Meta:
+        model = Service
+        fields = ["kind", "subject", "served_on", "deadline", "notes"]
+        widgets = {
+            "served_on": DateInput(),
+            "deadline": DateInput(),
+            "notes": forms.Textarea(attrs={"rows": 1}),
+        }
+
+    def clean(self):
+        data = super().clean()
+        if data.get("deadline") and data.get("served_on") and data["deadline"] < data["served_on"]:
+            self.add_error("deadline", "Son gün, tebliğ tarihinden önce olamaz.")
+        return data
+
+
+class CaseEventForm(BootstrapMixin, forms.ModelForm):
+    class Meta:
+        model = CaseEvent
+        fields = ["date", "title", "description"]
+        widgets = {"date": DateInput(), "description": forms.Textarea(attrs={"rows": 1})}

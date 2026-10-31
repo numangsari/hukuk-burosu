@@ -226,3 +226,98 @@ class Document(TimeStampedModel):
         if self.file:
             self.size = self.file.size
         super().save(*args, **kwargs)
+
+
+class HearingKind(models.TextChoices):
+    HEARING = "hearing", "Duruşma"
+    PRELIMINARY = "preliminary", "Ön inceleme"
+    DISCOVERY = "discovery", "Keşif"
+    EXPERT = "expert", "Bilirkişi incelemesi"
+    MEDIATION = "mediation", "Arabuluculuk toplantısı"
+    OTHER = "other", "Diğer"
+
+
+class HearingStatus(models.TextChoices):
+    PLANNED = "planned", "Planlandı"
+    HELD = "held", "Yapıldı"
+    POSTPONED = "postponed", "Ertelendi"
+    CANCELLED = "cancelled", "İptal"
+
+
+class Hearing(TimeStampedModel):
+    case = models.ForeignKey(Case, on_delete=models.CASCADE, related_name="hearings")
+    kind = models.CharField(
+        "tür", max_length=20, choices=HearingKind.choices, default=HearingKind.HEARING
+    )
+    starts_at = models.DateTimeField("tarih ve saat")
+    authority = models.CharField("mahkeme / yer", max_length=200, blank=True)
+    room = models.CharField("salon", max_length=100, blank=True)
+    notes = models.TextField("notlar", blank=True)
+    status = models.CharField(
+        "durum", max_length=20, choices=HearingStatus.choices, default=HearingStatus.PLANNED
+    )
+    result = models.TextField("sonuç / ara karar", blank=True)
+
+    class Meta:
+        verbose_name = "duruşma"
+        verbose_name_plural = "duruşmalar"
+        ordering = ["starts_at"]
+
+    def __str__(self):
+        return f"{self.get_kind_display()} — {self.starts_at:%d.%m.%Y %H:%M}"
+
+
+class ServiceKind(models.TextChoices):
+    UYAP = "uyap", "UYAP"
+    E_SERVICE = "e_service", "E-tebligat"
+    POST = "post", "Posta"
+    HAND = "hand", "Elden"
+
+
+class Service(TimeStampedModel):
+    """Tebligat. Son gün elle girilir (otomatik süre hesabı yok)."""
+
+    case = models.ForeignKey(Case, on_delete=models.CASCADE, related_name="services")
+    kind = models.CharField("tür", max_length=20, choices=ServiceKind.choices)
+    subject = models.CharField("konu", max_length=300)
+    served_on = models.DateField("tebliğ tarihi")
+    deadline = models.DateField("son gün", null=True, blank=True)
+    notes = models.TextField("notlar", blank=True)
+    is_done = models.BooleanField("gereği yapıldı", default=False)
+
+    class Meta:
+        verbose_name = "tebligat"
+        verbose_name_plural = "tebligatlar"
+        ordering = ["-served_on", "-pk"]
+
+    def __str__(self):
+        return self.subject
+
+
+class CaseEvent(models.Model):
+    """Dosya zaman çizelgesi."""
+
+    class Kind(models.TextChoices):
+        NOTE = "note", "Not"
+        HEARING = "hearing", "Duruşma"
+        SERVICE = "service", "Tebligat"
+        TASK = "task", "Görev"
+        DOCUMENT = "document", "Belge"
+
+    case = models.ForeignKey(Case, on_delete=models.CASCADE, related_name="events")
+    date = models.DateField("tarih")
+    kind = models.CharField("tür", max_length=20, choices=Kind.choices, default=Kind.NOTE)
+    title = models.CharField("başlık", max_length=300)
+    description = models.TextField("açıklama", blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, related_name="+"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "zaman çizelgesi kaydı"
+        verbose_name_plural = "zaman çizelgesi"
+        ordering = ["-date", "-created_at"]
+
+    def __str__(self):
+        return self.title

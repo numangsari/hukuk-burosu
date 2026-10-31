@@ -39,7 +39,7 @@
     <nav class="sidebar-nav">
       <div class="nav-section">Genel</div>
       <a class="side-link {% if ns == 'core' %}active{% endif %}" href="{% url 'core:home' %}"><i class="bi bi-grid-1x2"></i>Ana sayfa</a>
-      <span class="side-link disabled"><i class="bi bi-check2-square"></i>Görevler<span class="soon">Yakında</span></span>
+      <a class="side-link {% if ns == 'tasks' %}active{% endif %}" href="{% url 'tasks:list' %}"><i class="bi bi-check2-square"></i>Görevler</a>
       <a class="side-link {% if ns == 'agenda' %}active{% endif %}" href="{% url 'agenda:calendar' %}"><i class="bi bi-calendar3"></i>Takvim</a>
       <div class="nav-section">Kayıtlar</div>
       <a class="side-link {% if ns == 'clients' %}active{% endif %}" href="{% url 'clients:list' %}"><i class="bi bi-people"></i>Müvekkiller</a>
@@ -79,7 +79,16 @@
                 onclick="const h=document.documentElement; h.dataset.bsTheme = h.dataset.bsTheme === 'dark' ? 'light' : 'dark'">
           <i class="bi bi-moon-stars"></i>
         </button>
-        <button class="icon-btn" title="Bildirimler (yakında)" disabled><i class="bi bi-bell"></i></button>
+        <div class="dropdown">
+          <button class="icon-btn position-relative" title="Bildirimler" data-bs-toggle="dropdown" data-bs-auto-close="outside"
+                  hx-get="{% url 'notifications:list' %}" hx-target="#notif-menu" hx-trigger="click">
+            <i class="bi bi-bell"></i>
+            {% if unread_notifications %}<span class="bell-badge">{{ unread_notifications|stringformat:"d" }}</span>{% endif %}
+          </button>
+          <div class="dropdown-menu dropdown-menu-end notif-menu" id="notif-menu">
+            <div class="text-center text-body-secondary small p-3">Yükleniyor…</div>
+          </div>
+        </div>
       </div>
     </header>
 

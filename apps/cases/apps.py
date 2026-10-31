@@ -10,5 +10,12 @@ class CasesConfig(AppConfig):
 
         from . import models
 
-        for m in (models.Case, models.CaseParty, models.Document):
+        for m in (
+            models.Case,
+            models.CaseParty,
+            models.Document,
+            models.Hearing,
+            models.Service,
+            models.CaseEvent,
+        ):
             auditlog.register(m)

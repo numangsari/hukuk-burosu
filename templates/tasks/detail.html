@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title %}{{ task.title }} — {{ office.name }}{% endblock %}
+{% block content %}
+<div class="page-header mb-3">
+  <div class="eyebrow"><a href="{% url 'tasks:list' %}"><i class="bi bi-chevron-left"></i> Görevler</a></div>
+</div>
+
+<div class="card mb-3">
+  <div class="detail-hero">
+    <div class="hero-icon"><i class="bi bi-check2-square"></i></div>
+    <div class="min-w-0">
+      <div class="small text-body-secondary fw-medium">{{ task.task_type }}</div>
+      <div class="d-flex align-items-center gap-2 flex-wrap">
+        <h1 class="page-title">{{ task.title }}</h1>
+        {% include "tasks/_chips.html" with t=task part="status" %}
+        {% include "tasks/_chips.html" with t=task part="due" %}
+      </div>
+      <div class="meta">
+        <span><i class="bi bi-folder2"></i><a class="fw-medium" href="{{ task.case.get_absolute_url }}">{{ task.case.archive_no }} — {{ task.case.subject }}</a></span>
+        <span><i class="bi bi-person"></i><a href="{{ task.client.get_absolute_url }}">{{ task.client }}</a></span>
+        <span><i class="bi bi-calendar-event"></i>Son gün <strong class="tabular">{{ task.due_date|date:"d.m.Y" }}</strong></span>
+      </div>
+    </div>
+    <div class="page-actions">
+      {% if can_edit %}<a class="btn btn-light" href="{% url 'tasks:update' task.pk %}"><i class="bi bi-pencil"></i>Düzenle</a>{% endif %}
+    </div>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-8 d-flex flex-column gap-3">
+    {% if actions %}
+    <div class="card" x-data="{ revise: false }">
+      <div class="card-body d-flex flex-wrap gap-2 align-items-center">
+        <span class="text-body-secondary small me-2">İşlemler:</span>
+        {% for a in actions %}
+          {% if a.needs_comment %}
+            <button type="button" class="btn btn-{{ a.style }}" @click="revise = !revise"><i class="bi bi-arrow-counterclockwise"></i>{{ a.label }}</button>
+          {% else %}
+            <form method="post" action="{% url 'tasks:action' task.pk %}" {% if a.key == 'cancel' %}onsubmit="return confirm('Görev iptal edilsin mi?')"{% endif %}>{% csrf_token %}
+              <input type="hidden" name="action" value="{{ a.key }}">
+              <button class="btn btn-{% if a.key == 'cancel' %}outline-danger{% else %}{{ a.style }}{% endif %}">
+                <i class="bi {% if a.key == 'start' %}bi-play{% elif a.key == 'submit' %}bi-send{% elif a.key == 'approve' %}bi-check2-circle{% elif a.key == 'cancel' %}bi-x-circle{% else %}bi-arrow-repeat{% endif %}"></i>{{ a.label }}
+              </button>
+            </form>
+          {% endif %}
+        {% endfor %}
+      </div>
+      {% for a in actions %}{% if a.needs_comment %}
+      <form method="post" action="{% url 'tasks:action' task.pk %}" class="inline-form" x-show="revise" x-cloak>{% csrf_token %}
+        <input type="hidden" name="action" value="{{ a.key }}">
+        <label class="form-label">Sorumluya iletilecek revizyon açıklaması</label>
+        <textarea class="form-control mb-2" name="comment" rows="3" required></textarea>
+        <button class="btn btn-primary"><i class="bi bi-send"></i>Revizyon iste</button>
+      </form>
+      {% endif %}{% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="card" id="gecmis">
+      <div class="card-header"><h2 class="card-title">Geçmiş ve yorumlar</h2></div>
+      <form method="post" action="{% url 'tasks:comment' task.pk %}" class="card-body border-bottom">{% csrf_token %}
+        {{ comment_form.comment }}
+        <div class="d-flex justify-content-end mt-2"><button class="btn btn-light btn-sm"><i class="bi bi-chat-left-text"></i>Yorum ekle</button></div>
+      </form>
+      <ul class="timeline">
+        {% for e in events %}
+          <li class="timeline-item tl-{{ e.kind }}">
+            <span class="tl-dot"></span>
+            <div class="tl-body">
+              <div><strong>{{ e.actor }}</strong> {{ e.get_kind_display }}
+                {% if e.to_status and e.kind != 'created' %}<span class="text-body-secondary">→ {{ e.get_to_status_display }}</span>{% endif %}
+                <span class="tl-time">{{ e.created_at|date:"d.m.Y H:i" }}</span></div>
+              {% if e.comment %}<div class="tl-comment">{{ e.comment|linebreaksbr }}</div>{% endif %}
+            </div>
+          </li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+
+  <div class="col-lg-4">
+    <div class="card"><div class="card-body">
+      <h2 class="section-title">Ekip</h2>
+      <div class="d-flex align-items-center gap-2 mb-3">
+        <span class="avatar avatar-sm" style="--h: {{ task.assignee.avatar_hue }}">{{ task.assignee.initials }}</span>
+        <div><div class="fw-medium">{{ task.assignee }}</div><div class="small text-body-secondary">Sorumlu</div></div>
+      </div>
+      <div class="d-flex align-items-center gap-2 mb-3">
+        <span class="avatar avatar-sm" style="--h: {{ task.reviewer.avatar_hue }}">{{ task.reviewer.initials }}</span>
+        <div><div class="fw-medium">{{ task.reviewer }}</div><div class="small text-body-secondary">Kontrolcü</div></div>
+      </div>
+      <h2 class="section-title mt-4">Notlar</h2>
+      <div class="small">{{ task.notes|linebreaksbr|default:"—" }}</div>
+      <h2 class="section-title mt-4">Kayıt</h2>
+      <div class="small text-body-secondary">{{ task.created_at|date:"d.m.Y H:i" }} · {{ task.created_by|default:"—" }}{% if task.completed_at %}<br>Tamamlandı: {{ task.completed_at|date:"d.m.Y H:i" }}{% endif %}</div>
+    </div></div>
+  </div>
+</div>
+{% endblock %}

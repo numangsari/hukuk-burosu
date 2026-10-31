@@ -1,0 +1,33 @@
+<div id="timeline" class="card">
+  <div class="card-header"><h2 class="card-title">Zaman çizelgesi</h2></div>
+  <form class="inline-form row g-2 align-items-end" style="border-top: 0; border-bottom: 1px solid var(--line); border-radius: 0"
+        hx-post="{% url 'cases:event_add' case.pk %}" hx-target="#timeline" hx-swap="outerHTML">
+    <div class="col-md-2">{% include "partials/field.html" with field=event_form.date wrap_class="" %}</div>
+    <div class="col-md-4">{% include "partials/field.html" with field=event_form.title wrap_class="" label="Not başlığı" %}</div>
+    <div class="col-md-4">{% include "partials/field.html" with field=event_form.description wrap_class="" %}</div>
+    <div class="col-md-2"><button class="btn btn-primary w-100"><i class="bi bi-plus-lg"></i>Not ekle</button></div>
+  </form>
+  <ul class="timeline">
+    {% for e in timeline %}
+      <li class="timeline-item tl-{{ e.kind }}">
+        <span class="tl-dot"></span>
+        <div class="tl-body">
+          <div class="d-flex gap-2 align-items-start">
+            <div>
+              <span class="tl-date tabular">{{ e.date|date:"d.m.Y" }}</span>
+              <span class="chip no-dot ms-1">{{ e.get_kind_display }}</span>
+              <strong class="ms-1">{{ e.title }}</strong>
+            </div>
+            {% if e.kind == "note" %}{% if e.created_by_id == request.user.pk or request.user.is_office_admin %}
+              <button class="btn-ghost-danger ms-auto" title="Sil" hx-post="{% url 'cases:event_delete' case.pk e.pk %}" hx-target="#timeline" hx-swap="outerHTML" hx-confirm="Not silinsin mi?"><i class="bi bi-trash"></i></button>
+            {% endif %}{% endif %}
+          </div>
+          {% if e.description %}<div class="tl-comment">{{ e.description|linebreaksbr }}</div>{% endif %}
+          <div class="tl-time">{{ e.created_by|default:"Sistem" }}</div>
+        </div>
+      </li>
+    {% empty %}
+      <li class="empty-state">Henüz kayıt yok. Tebligatlar, duruşma sonuçları ve tamamlanan görevler buraya otomatik düşer.</li>
+    {% endfor %}
+  </ul>
+</div>

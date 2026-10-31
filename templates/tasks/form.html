@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}{% if object %}Görevi düzenle{% else %}Yeni görev{% endif %} — {{ office.name }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="eyebrow"><a href="{% if object %}{{ object.get_absolute_url }}{% else %}{% url 'tasks:list' %}{% endif %}"><i class="bi bi-chevron-left"></i> {% if object %}{{ object.title }}{% else %}Görevler{% endif %}</a></div>
+    <h1 class="page-title">{% if object %}Görevi düzenle{% else %}Yeni görev{% endif %}</h1>
+  </div>
+</div>
+<form method="post" class="card" style="max-width: 900px" x-data="taskForm()">
+  {% csrf_token %}
+  {% if form.non_field_errors %}<div class="alert alert-danger m-3 mb-0">{{ form.non_field_errors }}</div>{% endif %}
+  <div class="form-section">
+    <div class="form-section-head"><h2>Görev</h2></div>
+    <div class="row">
+      <div class="col-md-4">{% include "partials/field.html" with field=form.task_type %}</div>
+      <div class="col-md-8">{% include "partials/field.html" with field=form.title %}</div>
+    </div>
+  </div>
+  <div class="form-section">
+    <div class="form-section-head"><h2>İlgili dosya</h2><p>Müvekkil seçerseniz dosya listesi o müvekkile göre süzülür; dosya seçilince müvekkil otomatik gelir.</p></div>
+    <div class="row">
+      <div class="col-md-5">{% include "partials/field.html" with field=form.client %}</div>
+      <div class="col-md-7">{% include "partials/field.html" with field=form.case %}</div>
+    </div>
+  </div>
+  <div class="form-section">
+    <div class="form-section-head"><h2>Sorumlu ve kontrolcü</h2><p>Sorumlu işi yapar ve kontrole gönderir; kontrolcü onaylar ya da revizyon ister.</p></div>
+    <div class="row">
+      <div class="col-md-4">{% include "partials/field.html" with field=form.assignee %}</div>
+      <div class="col-md-4">{% include "partials/field.html" with field=form.reviewer %}</div>
+      <div class="col-md-4">{% include "partials/field.html" with field=form.due_date %}</div>
+    </div>
+    {% include "partials/field.html" with field=form.notes wrap_class="" %}
+  </div>
+  <div class="form-footer">
+    <a class="btn btn-light" href="{% if object %}{{ object.get_absolute_url }}{% else %}{% url 'tasks:list' %}{% endif %}">Vazgeç</a>
+    <button class="btn btn-primary"><i class="bi bi-check2"></i>Kaydet</button>
+  </div>
+</form>
+<script>
+  function taskForm() {
+    const url = "{% url 'tasks:case_options' %}";
+    return {
+      cases: {},
+      async load(params) {
+        const r = await fetch(url + "?" + new URLSearchParams(params));
+        return (await r.json()).cases;
+      },
+      async init() {
+        // Dosya seçeneklerinin müvekkil/sorumlu bilgileri (varsayılanları doldurmak için)
+        for (const c of await this.load({ all: 1 })) this.cases[c.id] = c;
+      },
+      async filterCases() {
+        const sel = this.$refs.case, client = this.$refs.client.value;
+        const keep = sel.value;
+        const list = await this.load(client ? { client } : {});
+        sel.innerHTML = '<option value="">Seçiniz…</option>' +
+          list.map(c => `<option value="${c.id}">${c.label.replace(/</g, "&lt;")}</option>`).join("");
+        if (list.some(c => String(c.id) === keep)) sel.value = keep;
+      },
+      caseChanged() {
+        const c = this.cases[this.$refs.case.value];
+        if (!c) return;
+        this.$refs.client.value = c.client;
+        const a = document.getElementById("id_assignee"), r = document.getElementById("id_reviewer");
+        if (!a.value && c.intern) a.value = c.intern;
+        if (!r.value && c.lawyer) r.value = c.lawyer;
+      },
+    };
+  }
+</script>
+{% endblock %}

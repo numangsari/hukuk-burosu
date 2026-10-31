@@ -31,6 +31,8 @@ INSTALLED_APPS = [
     "apps.clients",
     "apps.cases",
     "apps.agenda",
+    "apps.tasks",
+    "apps.notifications",
 ]
 
 MIDDLEWARE = [

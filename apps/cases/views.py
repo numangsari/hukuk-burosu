@@ -1,6 +1,7 @@
 from django.contrib import messages
 from django.db.models import ProtectedError, Q
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 from django.views.generic import CreateView, DetailView, ListView, UpdateView, View
 
 from apps.accounts.models import User
@@ -10,7 +11,14 @@ from apps.core.permissions import AdminRequiredMixin, is_admin
 from apps.core.text import fold
 from apps.office.models import Court
 
-from .forms import CaseForm, CasePartyForm, DocumentForm
+from .forms import (
+    CaseEventForm,
+    CaseForm,
+    CasePartyForm,
+    DocumentForm,
+    HearingForm,
+    ServiceForm,
+)
 from .models import TYPE_LABELS, Case, CaseParty, CaseStatus, CaseType, Document
 
 SORT_FIELDS = {"archive_no", "subject", "client__name", "case_type", "status", "created_at"}
@@ -117,6 +125,20 @@ class CaseDetailView(DetailView):
         ctx["document_form"] = DocumentForm()
         ctx["party_links"] = self.object.party_links.select_related("party")
         ctx["documents"] = self.object.documents.select_related("created_by")
+        case = self.object
+        ctx.update(
+            hearing_form=HearingForm(initial={"authority": case.authority}),
+            hearings=case.hearings.order_by("-starts_at"),
+            service_form=ServiceForm(initial={"served_on": timezone.localdate()}),
+            services=case.services.all(),
+            event_form=CaseEventForm(initial={"date": timezone.localdate()}),
+            timeline=case.events.select_related("created_by"),
+            tasks=case.tasks.select_related("task_type", "assignee", "reviewer").order_by(
+                "status", "due_date"
+            ),
+            now=timezone.now(),
+            today=timezone.localdate(),
+        )
         return ctx
 
 

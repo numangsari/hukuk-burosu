@@ -9,6 +9,8 @@ urlpatterns = [
     path("muvekkiller/", include("apps.clients.urls")),
     path("dosyalar/", include("apps.cases.urls")),
     path("takvim/", include("apps.agenda.urls")),
+    path("gorevler/", include("apps.tasks.urls")),
+    path("bildirimler/", include("apps.notifications.urls")),
     path("", include("apps.core.urls")),
     # Yüklenen belgeler yalnızca giriş yapmış kullanıcıya sunulur
     # (LoginRequiredMiddleware tüm view'ları korur).

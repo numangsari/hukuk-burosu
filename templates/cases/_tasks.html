@@ -1,0 +1,19 @@
+<div class="card table-card">
+  <div class="card-header"><h2 class="card-title">Görevler</h2>
+    <a class="btn btn-sm btn-light ms-auto" href="{% url 'tasks:create' %}?dosya={{ case.pk }}"><i class="bi bi-plus-lg"></i>Yeni görev</a></div>
+  <div class="table-responsive">
+  <table class="table table-hover">
+    <thead><tr><th>Görev</th><th>Sorumlu → Kontrolcü</th><th>Durum</th><th>Son gün</th></tr></thead>
+    <tbody>
+    {% for t in tasks %}
+      <tr data-href="{{ t.get_absolute_url }}" onclick="location.href=this.dataset.href">
+        <td><a class="cell-main text-reset" href="{{ t.get_absolute_url }}">{{ t.title }}</a><div class="cell-sub">{{ t.task_type }}</div></td>
+        <td>{{ t.assignee }}<div class="cell-sub">{{ t.reviewer }}</div></td>
+        <td>{% include "tasks/_chips.html" with part="status" %}</td>
+        <td>{% include "tasks/_chips.html" with part="due" %}</td>
+      </tr>
+    {% empty %}<tr><td colspan="4"><div class="empty-state py-3"><strong>Görev yok</strong>Bu dosya için henüz görev oluşturulmamış.</div></td></tr>{% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>

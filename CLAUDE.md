@@ -34,16 +34,18 @@ Dev ayarları `config/settings/dev.py`, varsayılan DB bağlantısı dev compose
 - Ofis kullanıcıları `apps/accounts/management/commands/setup_office_users.py` içindeki listedir. Yeni kullanıcı eklemek için listeyi güncelleyip komutu çalıştırın; komut mevcut PIN'leri yalnızca `--reset-pin` ile değiştirir. Unvan ≠ rol: "Koordinatör Avukat" rolü `lawyer`, "Yönetici Avukat" rolü `admin`.
 - `apps/office`: `OfficeSettings` (singleton, `OfficeSettings.load()`), `TaskType`, `Court` (merci listesi).
 - `apps/clients`: `Client` (gerçek/tüzel), iletişim, IBAN, yetkili, vekalet (`PowerOfAttorney`), karşı taraf (`Party`), çıkar çatışması (`conflicts.py`).
-- `apps/cases`: `Case` (8 tür, arşiv no unique, türe göre etiketler `TYPE_LABELS`), `CaseParty`, `Document`.
+- `apps/cases`: `Case` (8 tür, arşiv no unique, türe göre etiketler `TYPE_LABELS`), `CaseParty`, `Document`, `Hearing` (duruşma/keşif/bilirkişi; sonuç girilince zaman çizelgesine düşer), `Service` (tebligat; son gün elle, "gereği yapıldı" işareti), `CaseEvent` (zaman çizelgesi: elle not + otomatik kayıtlar). Duruşma/tebligat/not HTMX işlemleri `views_records.py`.
+- `apps/tasks`: `Task` (tür, ad, dosya, müvekkil = dosyanın müvekkili, sorumlu, kontrolcü ≠ sorumlu, son gün, notlar), `TaskEvent` (geçmiş + yorumlar). Onay döngüsü ve yetkiler `services.py` (`ACTIONS`, `perform`, `available_actions`, `can_edit`). Görev formu müvekkile göre dosya süzer, dosya seçilince müvekkil ve varsayılan sorumlu (dosyanın stajyeri) / kontrolcü (dosyanın avukatı) dolar (`tasks:case_options`).
+- `apps/notifications`: `Notification` (zil). `notify()` kişinin kendi işlemi için bildirim üretmez; `key` ile tekrarı önler. `send_daily_reminders()` (son günü bugün/yarın/geçmiş açık görevler, yarınki duruşmalar) günde bir kez ilk sayfa açılışında context processor'dan tetiklenir (`run_daily_reminders_once`, önbellek anahtarı).
 - Tüm kullanıcı view'ları `LoginRequiredMiddleware` ile korunur. `/media/` de giriş ister.
 - Aktivite kaydı `django-auditlog`; her app `ready()` içinde kendi modellerini kaydeder.
-- `apps/agenda`: ofisin Google Takvim'i salt okunur. Yönetici Ayarlar > Google Takvim'e "iCal biçiminde gizli adres"i girer (`OfficeSettings.calendar_ics_url`, ekranda gösterilmez, repoya/log'a yazılmaz). `services.py` ICS'i çeker (5 dk önbellek, erişilemezse 1 güne kadar son kopya), `icalendar` + `recurring-ical-events` ile tekrar eden etkinlikleri açar. Ana sayfada önümüzdeki 7 gün, `/takvim/` sayfasında ay/hafta görünümü. Sunucunun internet erişimi gerekir.
+- `apps/agenda`: takvim = Google Takvim (salt okunur) + sistemdeki planlı duruşmalar ve gereği yapılmamış tebligat son günleri (`combined_events`, `Event.source` google/hearing/deadline). Google kısmı: Yönetici Ayarlar > Google Takvim'e "iCal biçiminde gizli adres"i girer (`OfficeSettings.calendar_ics_url`, ekranda gösterilmez, repoya/log'a yazılmaz). `services.py` ICS'i çeker (5 dk önbellek, erişilemezse 1 güne kadar son kopya), `icalendar` + `recurring-ical-events` ile tekrar eden etkinlikleri açar. Ana sayfada önümüzdeki 7 gün, `/takvim/` sayfasında ay/hafta görünümü. Sunucunun internet erişimi gerekir.
 - Ayarlar sayfası `/hesap/ayarlar/?bolum=profil|pin|ofis|takvim` (`accounts.views.SettingsView`); ofis ve takvim bölümleri yalnızca yönetici.
 
 ## Arayüz
 - Tasarım sistemi `static/css/app.css`: tokenlar `:root` ve `[data-bs-theme=dark]` altında (lacivert yan menü, bronz vurgu `--accent`, marka mavisi `--brand`). Font Inter, `static/vendor/inter/` altında gömülü.
 - Bileşenler: `.page-header` (eyebrow/başlık/alt başlık/aksiyonlar), `.card.table-card` + `.filter-bar` + tablo + `partials/pagination.html` (`.table-footer`), `.detail-hero` + `.nav-underline-tabs`, form `.form-section` + `.form-footer`, durum rozeti `.chip` (`chip-primary/success/warning/danger/info/accent`), `.stat-card`, `.empty-state`, `.avatar` (`--h` = `User.avatar_hue`). Dosya durumu rozeti: `cases/_status_chip.html`.
-- Yan menü: üstte ofis adı, altında kullanıcı bloğu (tıklayınca Ayarlar / Çıkış yap). Ana sayfa: yalnızca selamlama başlığı; solda "Aktif görevlerim" (son güne göre, görev modülü gelince dolacak), sağda 4 hızlı işlem (Yeni görev, Yeni dosya, Yeni müvekkil, Yeni gelir/gider) ve takvim.
+- Yan menü: üstte ofis adı, altında kullanıcı bloğu (tıklayınca Ayarlar / Çıkış yap). Ana sayfa: yalnızca selamlama başlığı; solda "Aktif görevlerim" (sorumlu olduğu açık görevler + kontrolünü bekleyenler, son güne göre, gecikmiş üstte), sağda 4 hızlı işlem (Yeni görev, Yeni dosya, Yeni müvekkil, Yeni gelir/gider — muhasebe gelene kadar pasif) ve "Yaklaşan tarihler" (süresi geçmiş tebligatlar + 7 gün).
 - Bildirim mesajları sağ altta toast olarak çıkar. Tema düğmesi `accounts:theme_toggle` ile kullanıcı tercihine yazılır.
 - Yeni sayfalar bu bileşenlerle yazılır; satır içi stil yerine token kullanılır.
 
@@ -54,12 +56,12 @@ Dev ayarları `config/settings/dev.py`, varsayılan DB bağlantısı dev compose
 - Arşiv no elle girilir, büyük/küçük harf duyarsız unique; form son numarayı artırarak öneri sunar.
 - Çıkar çatışması: müvekkil adı (aksansız) veya TCKN/VKN bir karşı tarafla eşleşirse uyarı çıkar; kayıt için onay kutusu gerekir. Tersi de geçerli.
 - Tebligat son günü elle girilir (otomatik süre hesabı yok).
-- Görev durumları: Bekliyor → Devam ediyor → Kontrolde → Tamamlandı; kontrolcü "Revizyon istendi" ile sorumluya döndürebilir; İptal ayrıdır.
+- Görev durumları: Bekliyor → Devam ediyor → Kontrolde → Tamamlandı; kontrolcü "Revizyon istendi" (açıklama zorunlu) ile sorumluya döndürür; İptal ayrıdır; tamamlanan/iptal yeniden açılabilir. Sorumlu: başla/kontrole gönder. Kontrolcü: onayla/revizyon. Oluşturan veya kontrolcü: iptal/yeniden aç. Yönetici: hepsi. Onaylanan görev dosya zaman çizelgesine düşer.
 - Muhasebe (TL, vergi yok): **Cari** = vekalet ücreti + masraf − tahsilat − mahsup. **Emanet** = karşı taraftan tahsilat − müvekkile ödeme − mahsup. **Net** = cari − emanet. Hareket silinmez, iptal edilir.
 
 ## Yol haritası
 1. ✅ İskelet, giriş/roller, müvekkil, karşı taraf + çıkar çatışması, dosya, belgeler.
-2. Görev + onay döngüsü, duruşma (ayrı kayıt), tebligat, dosya zaman çizelgesi, ana sayfa özeti, sistem içi bildirim.
+2. ✅ Görev + onay döngüsü, duruşma (ayrı kayıt), tebligat, dosya zaman çizelgesi, ana sayfa özeti, sistem içi bildirim, Google Takvim.
 3. Muhasebe: hareketler, cari/emanet, mahsup, yetki matrisi; müvekkil listesine bakiye, borçlu ve açık görev filtreleri.
 4. Global arama (`unaccent` + `pg_trgm`, eklentiler `core/0001` migration'ında kurulu), aktivite ekranları, 6 rapor (Excel `openpyxl`, PDF `reportlab` + gömülü Noto Sans).
 5. Ayarlar ekranları, yedek (`pg_dump` + media → AES ZIP → bulut senkron klasörü, 30 günlük + 12 aylık), Windows kurulum/güncelleme `.exe`.

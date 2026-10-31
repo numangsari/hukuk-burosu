@@ -37,6 +37,8 @@ class Event:
     location: str = ""
     description: str = ""
     days: list[dt.date] = field(default_factory=list)
+    source: str = "google"  # google / hearing / deadline
+    url: str = ""
 
     @property
     def start_date(self) -> dt.date:
@@ -159,4 +161,55 @@ def events_between(start: dt.date, end: dt.date) -> AgendaResult:
     result = AgendaResult(configured=True, events=events, stale=stale)
     if stale:
         result.error = "Google Takvim'e şu an ulaşılamıyor; son alınan veri gösteriliyor."
+    return result
+
+
+def system_events(start: dt.date, end: dt.date) -> list[Event]:
+    """Sistemdeki planlı duruşmalar ve gereği yapılmamış tebligat son günleri."""
+    from apps.cases.models import Hearing, HearingStatus, Service
+
+    events = []
+    hearings = Hearing.objects.filter(
+        status=HearingStatus.PLANNED, starts_at__date__gte=start, starts_at__date__lt=end
+    ).select_related("case")
+    for h in hearings:
+        s = timezone.localtime(h.starts_at)
+        events.append(
+            Event(
+                title=f"{h.get_kind_display()}: {h.case.subject}",
+                start=s,
+                end=None,
+                all_day=False,
+                location=" · ".join(x for x in (h.authority, h.room and f"Salon {h.room}") if x),
+                days=[s.date()],
+                source="hearing",
+                url=h.case.get_absolute_url(),
+            )
+        )
+    services_qs = Service.objects.filter(
+        is_done=False, deadline__gte=start, deadline__lt=end
+    ).select_related("case")
+    for sv in services_qs:
+        events.append(
+            Event(
+                title=f"Tebligat son günü: {sv.subject}",
+                start=sv.deadline,
+                end=None,
+                all_day=True,
+                location=f"{sv.case.archive_no} · {sv.case.subject}",
+                days=[sv.deadline],
+                source="deadline",
+                url=sv.case.get_absolute_url(),
+            )
+        )
+    return events
+
+
+def combined_events(start: dt.date, end: dt.date) -> AgendaResult:
+    """Google Takvim + sistem kayıtları, tarih/saat sırasıyla."""
+    result = events_between(start, end)
+    result.events = sorted(
+        result.events + system_events(start, end),
+        key=lambda x: (x.start_date, not x.all_day, x.start if not x.all_day else dt.time()),
+    )
     return result

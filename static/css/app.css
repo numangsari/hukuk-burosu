@@ -552,3 +552,68 @@ a.stat-card:hover { box-shadow: var(--shadow); border-color: color-mix(in srgb, 
 .quick-action.disabled { opacity: .55; pointer-events: none; box-shadow: none; }
 .quick-action .soon { position: absolute; top: .6rem; right: .6rem; font-size: .62rem; font-weight: 650; padding: .1rem .45rem; border-radius: 999px; background: var(--neutral-soft); color: var(--muted); }
 .task-panel { min-height: 520px; }
+
+/* ---------- Görevler ---------- */
+.due { display: inline-flex; align-items: center; gap: .3rem; font-size: .76rem; font-weight: 600; white-space: nowrap; color: var(--ink-2); }
+.due i { font-size: .8rem; }
+.due-overdue { color: var(--danger-ink); }
+.due-today { color: var(--warning-ink); }
+.due-soon { color: var(--info-ink); }
+.due-normal, .due-closed { color: var(--muted); font-weight: 500; }
+.count-pill { font-size: .72rem; font-weight: 650; padding: .1rem .5rem; border-radius: 999px; background: var(--brand-soft); color: var(--brand); }
+.task-panel { display: flex; flex-direction: column; }
+.task-list { list-style: none; margin: 0; padding: 0; }
+.task-row { border-bottom: 1px solid var(--line); position: relative; }
+.task-row:last-child { border-bottom: 0; }
+.task-row::before { content: ""; position: absolute; left: 0; top: 10px; bottom: 10px; width: 3px; border-radius: 0 3px 3px 0; background: transparent; }
+.task-row.urg-overdue::before { background: var(--danger-ink); }
+.task-row.urg-today::before { background: var(--warning-ink); }
+.task-row.urg-soon::before { background: var(--info-ink); }
+.task-link { display: flex; gap: 1rem; align-items: center; padding: .85rem 1.25rem; color: var(--ink); }
+.task-link:hover { background: var(--surface-2); text-decoration: none; color: var(--ink); }
+.task-title { font-weight: 600; font-size: .92rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.task-meta { display: flex; flex-wrap: wrap; gap: .2rem .9rem; font-size: .78rem; color: var(--muted); margin-top: .15rem; }
+.task-side { display: flex; flex-direction: column; align-items: flex-end; gap: .35rem; flex-shrink: 0; }
+
+/* ---------- Zaman çizelgesi / görev geçmişi ---------- */
+.timeline { list-style: none; margin: 0; padding: 1rem 1.25rem 1.25rem 1.25rem; }
+.timeline-item { position: relative; padding: 0 0 1rem 1.6rem; }
+.timeline-item::before { content: ""; position: absolute; left: 5px; top: 14px; bottom: -2px; width: 2px; background: var(--line); }
+.timeline-item:last-child::before { display: none; }
+.tl-dot { position: absolute; left: 0; top: 5px; width: 12px; height: 12px; border-radius: 50%; background: var(--surface); border: 2px solid var(--muted); }
+.tl-approved .tl-dot, .tl-task .tl-dot { border-color: var(--success-ink); background: var(--success-soft); }
+.tl-revision .tl-dot, .tl-service .tl-dot { border-color: var(--warning-ink); background: var(--warning-soft); }
+.tl-submitted .tl-dot, .tl-hearing .tl-dot { border-color: var(--brand); background: var(--brand-soft); }
+.tl-cancelled .tl-dot { border-color: var(--danger-ink); }
+.tl-body { font-size: .875rem; }
+.tl-time { font-size: .75rem; color: var(--muted); margin-left: .35rem; }
+.tl-body > .tl-time { margin-left: 0; display: block; margin-top: .15rem; }
+.tl-date { font-weight: 600; color: var(--ink-2); }
+.tl-comment { margin-top: .35rem; padding: .55rem .75rem; background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--radius-sm); font-size: .85rem; }
+
+/* ---------- Takvim kaynak renkleri ---------- */
+a.cal-ev:hover { text-decoration: none; filter: brightness(.95); }
+.cal-ev.src-hearing { background: var(--accent-soft); color: #8a6a3c; }
+.cal-ev.src-deadline { background: var(--danger-soft); color: var(--danger-ink); }
+[data-bs-theme="dark"] .cal-ev.src-hearing { color: #e2c08f; }
+.legend { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: .35rem; vertical-align: -1px; }
+.legend.src-google { background: var(--brand); }
+.legend.src-hearing { background: var(--accent); }
+.legend.src-deadline { background: var(--danger-ink); }
+a.agenda-item { color: var(--ink); }
+a.agenda-item:hover { background: var(--surface-2); text-decoration: none; color: var(--ink); }
+.agenda-item.src-hearing .t { color: var(--accent); }
+.agenda-item.src-deadline .t { color: var(--danger-ink); }
+
+/* ---------- Bildirimler ---------- */
+.bell-badge { position: absolute; top: 4px; right: 4px; min-width: 17px; height: 17px; padding: 0 4px; border-radius: 999px; background: var(--danger-ink); color: #fff; font-size: .65rem; font-weight: 700; display: grid; place-items: center; border: 2px solid var(--surface); }
+.notif-menu { width: 360px; padding: 0; overflow: hidden; }
+.notif-head { display: flex; align-items: center; padding: .75rem 1rem; border-bottom: 1px solid var(--line); font-size: .875rem; }
+.notif-items { max-height: 420px; overflow-y: auto; }
+.notif-item { display: flex; gap: .75rem; padding: .7rem 1rem; color: var(--ink); font-size: .84rem; border-bottom: 1px solid var(--line); }
+.notif-item:last-child { border-bottom: 0; }
+.notif-item:hover { background: var(--surface-2); text-decoration: none; color: var(--ink); }
+.notif-item i { color: var(--muted); margin-top: .1rem; }
+.notif-item small { color: var(--muted); font-size: .74rem; }
+.notif-item.unread { background: var(--brand-soft); }
+.notif-item.unread i { color: var(--brand); }

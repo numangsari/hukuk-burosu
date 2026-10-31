@@ -10,21 +10,50 @@
       <div class="card-header">
         <i class="bi bi-check2-square text-body-secondary"></i>
         <h2 class="card-title">Aktif görevlerim</h2>
+        {% if my_task_count %}<span class="count-pill">{{ my_task_count }}</span>{% endif %}
+        <a class="ms-auto small" href="{% url 'tasks:list' %}">Tüm görevler <i class="bi bi-arrow-right"></i></a>
       </div>
+      {% if my_tasks %}
+      <ul class="task-list">
+        {% for t in my_tasks %}
+          <li class="task-row urg-{{ t.urgency }}">
+            <a href="{{ t.get_absolute_url }}" class="task-link">
+              <div class="min-w-0 flex-grow-1">
+                <div class="task-title">{{ t.title }}</div>
+                <div class="task-meta">
+                  <span>{{ t.task_type }}</span>
+                  <span class="tabular">{{ t.case.archive_no }} · {{ t.case.subject }}</span>
+                  <span>{{ t.client }}</span>
+                </div>
+              </div>
+              <div class="task-side">
+                {% if t.reviewer_id == request.user.pk and t.status == "review" %}
+                  <span class="chip chip-info">Kontrolünüzde · {{ t.assignee.first_name }}</span>
+                {% else %}
+                  {% include "tasks/_chips.html" with part="status" %}
+                {% endif %}
+                {% include "tasks/_chips.html" with part="due" %}
+              </div>
+            </a>
+          </li>
+        {% endfor %}
+      </ul>
+      {% if my_task_count > my_tasks|length %}<a class="d-block text-center small py-3 border-top" href="{% url 'tasks:list' %}">{{ my_task_count }} görevin tamamını gör</a>{% endif %}
+      {% else %}
       <div class="empty-state my-auto">
-        <i class="bi bi-list-check"></i>
-        <strong>Görev modülü yakında</strong>
-        Size atanan ve kontrolünüzü bekleyen görevler son günü en yakın olandan başlayarak burada listelenecek.
+        <i class="bi bi-check2-circle"></i>
+        <strong>Bekleyen göreviniz yok</strong>
+        Size atanan veya kontrolünüzü bekleyen görevler burada en acil olandan başlayarak listelenir.
       </div>
+      {% endif %}
     </div>
   </div>
 
   <div class="col-xl-4 d-flex flex-column gap-4">
     <div class="quick-actions">
-      <span class="quick-action disabled">
-        <span class="soon">Yakında</span>
+      <a class="quick-action" href="{% url 'tasks:create' %}">
         <span class="qa-icon" style="background: var(--brand-soft); color: var(--brand)"><i class="bi bi-check2-square"></i></span>Yeni görev
-      </span>
+      </a>
       <a class="quick-action" href="{% url 'cases:create' %}">
         <span class="qa-icon" style="background: var(--accent-soft); color: var(--accent)"><i class="bi bi-folder-plus"></i></span>Yeni dosya
       </a>
@@ -40,30 +69,34 @@
     <div class="card flex-grow-1">
       <div class="card-header">
         <i class="bi bi-calendar3 text-body-secondary"></i>
-        <h2 class="card-title">Takvim</h2>
+        <h2 class="card-title">Yaklaşan tarihler</h2>
         <a class="ms-auto small" href="{% url 'agenda:calendar' %}">Takvimi aç <i class="bi bi-arrow-right"></i></a>
       </div>
-      {% if not agenda.configured %}
-        <div class="empty-state">
-          <i class="bi bi-calendar-plus"></i>
-          <strong>Google Takvim bağlı değil</strong>
-          {% if request.user.is_office_admin %}<a href="{% url 'accounts:settings' %}?bolum=takvim">Ayarlar'dan bağlayın</a>{% else %}Yönetici Ayarlar'dan bağlayabilir.{% endif %}
-        </div>
-      {% else %}
-        {% if agenda.error %}<div class="alert alert-warning small m-3 mb-0 py-2"><i class="bi bi-exclamation-triangle me-1"></i>{{ agenda.error }}</div>{% endif %}
-        {% for day in agenda_days %}
-          <div class="agenda-day">{% if day.date == today %}Bugün{% elif day.date == tomorrow %}Yarın{% else %}{{ day.date|date:"j F, l" }}{% endif %}</div>
-          {% for ev in day.events %}
-            <div class="agenda-item">
-              <span class="t">{{ ev.time_label }}</span>
-              <span class="x">{{ ev.title }}{% if ev.location %}<small><i class="bi bi-geo-alt"></i> {{ ev.location }}</small>{% endif %}</span>
-            </div>
-          {% endfor %}
-        {% empty %}
-          {% if not agenda.error %}<div class="empty-state"><i class="bi bi-calendar-check"></i><strong>Önümüzdeki 7 günde etkinlik yok</strong></div>{% endif %}
+      {% if agenda.error %}<div class="alert alert-warning small m-3 mb-0 py-2"><i class="bi bi-exclamation-triangle me-1"></i>{{ agenda.error }}</div>{% endif %}
+      {% if overdue_services %}
+        <div class="agenda-day" style="color: var(--danger-ink)">Süresi geçmiş tebligatlar</div>
+        {% for s in overdue_services %}
+          <a class="agenda-item src-deadline" href="{{ s.case.get_absolute_url }}">
+            <span class="t" style="color: var(--danger-ink)">{{ s.deadline|date:"d.m" }}</span>
+            <span class="x">{{ s.subject }}<small>{{ s.case.archive_no }} · {{ s.case.subject }}</small></span>
+          </a>
         {% endfor %}
-        <div class="pb-2"></div>
       {% endif %}
+      {% for day in agenda_days %}
+        <div class="agenda-day">{% if day.date == today %}Bugün{% elif day.date == tomorrow %}Yarın{% else %}{{ day.date|date:"j F, l" }}{% endif %}</div>
+        {% for ev in day.events %}
+          {% if ev.url %}<a class="agenda-item src-{{ ev.source }}" href="{{ ev.url }}">{% else %}<div class="agenda-item src-{{ ev.source }}">{% endif %}
+            <span class="t">{{ ev.time_label }}</span>
+            <span class="x">{{ ev.title }}{% if ev.location %}<small><i class="bi bi-geo-alt"></i> {{ ev.location }}</small>{% endif %}</span>
+          {% if ev.url %}</a>{% else %}</div>{% endif %}
+        {% endfor %}
+      {% empty %}
+        {% if not overdue_services %}<div class="empty-state"><i class="bi bi-calendar-check"></i><strong>Önümüzdeki 7 günde kayıt yok</strong></div>{% endif %}
+      {% endfor %}
+      {% if not agenda.configured %}
+        <div class="small text-body-secondary px-3 pb-3 pt-2"><i class="bi bi-info-circle"></i> Google Takvim bağlı değil{% if request.user.is_office_admin %} — <a href="{% url 'accounts:settings' %}?bolum=takvim">bağla</a>{% endif %}.</div>
+      {% endif %}
+      <div class="pb-2"></div>
     </div>
   </div>
 </div>

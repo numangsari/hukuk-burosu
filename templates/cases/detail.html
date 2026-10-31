@@ -31,14 +31,17 @@
       </form>
       {% endif %}
       <a class="btn btn-light" href="{% url 'cases:update' case.pk %}"><i class="bi bi-pencil"></i>Düzenle</a>
+      <a class="btn btn-primary" href="{% url 'tasks:create' %}?dosya={{ case.pk }}"><i class="bi bi-plus-lg"></i>Yeni görev</a>
     </div>
   </div>
   <ul class="nav nav-underline-tabs">
     <li><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#t-ozet">Özet</button></li>
+    <li><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-gorevler">Görevler<span class="count">{{ tasks|length }}</span></button></li>
+    <li><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-durusmalar">Duruşmalar<span class="count">{{ hearings|length }}</span></button></li>
+    <li><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-tebligatlar">Tebligatlar<span class="count">{{ services|length }}</span></button></li>
+    <li><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-zaman">Zaman çizelgesi</button></li>
     <li><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-taraflar">Karşı taraflar<span class="count">{{ party_links|length }}</span></button></li>
     <li><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-belgeler">Belgeler<span class="count">{{ documents|length }}</span></button></li>
-    <li><button class="nav-link" disabled>Görevler<span class="count">Yakında</span></button></li>
-    <li><button class="nav-link" disabled>Duruşmalar<span class="count">Yakında</span></button></li>
     <li><button class="nav-link" disabled>Muhasebe<span class="count">Yakında</span></button></li>
   </ul>
 </div>
@@ -80,6 +83,10 @@
       </div>
     </div>
   </div>
+  <div class="tab-pane fade" id="t-gorevler">{% include "cases/_tasks.html" %}</div>
+  <div class="tab-pane fade" id="t-durusmalar">{% include "cases/_hearings.html" %}</div>
+  <div class="tab-pane fade" id="t-tebligatlar">{% include "cases/_services.html" %}</div>
+  <div class="tab-pane fade" id="t-zaman">{% include "cases/_timeline.html" %}</div>
   <div class="tab-pane fade" id="t-taraflar">{% include "cases/_parties.html" %}</div>
   <div class="tab-pane fade" id="t-belgeler">{% include "cases/_documents.html" %}</div>
 </div>
