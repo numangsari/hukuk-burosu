@@ -11,20 +11,12 @@ from apps.office.models import TaskType
 
 
 class TaskStatus(models.TextChoices):
-    PENDING = "pending", "Bekliyor"
-    IN_PROGRESS = "in_progress", "Devam ediyor"
+    ACTIVE = "active", "Aktif"
     REVIEW = "review", "Kontrolde"
-    REVISION = "revision", "Revizyon istendi"
     DONE = "done", "Tamamlandı"
-    CANCELLED = "cancelled", "İptal"
 
 
-OPEN_STATUSES = [
-    TaskStatus.PENDING,
-    TaskStatus.IN_PROGRESS,
-    TaskStatus.REVIEW,
-    TaskStatus.REVISION,
-]
+OPEN_STATUSES = [TaskStatus.ACTIVE, TaskStatus.REVIEW]
 
 
 class Task(TimeStampedModel):
@@ -57,8 +49,10 @@ class Task(TimeStampedModel):
     due_date = models.DateField("son gün")
     notes = models.TextField("notlar", blank=True)
     status = models.CharField(
-        "durum", max_length=20, choices=TaskStatus.choices, default=TaskStatus.PENDING
+        "durum", max_length=20, choices=TaskStatus.choices, default=TaskStatus.ACTIVE
     )
+    # Kontrolcü revizyon istediğinde işaretlenir, sorumlu tekrar kontrole gönderince kalkar.
+    revision_requested = models.BooleanField("revizyon istendi", default=False)
     completed_at = models.DateTimeField("tamamlanma", null=True, blank=True)
 
     class Meta:
@@ -123,11 +117,9 @@ class TaskEvent(models.Model):
 
     class Kind(models.TextChoices):
         CREATED = "created", "oluşturdu"
-        STARTED = "started", "işe başladı"
         SUBMITTED = "submitted", "kontrole gönderdi"
         APPROVED = "approved", "onayladı"
         REVISION = "revision", "revizyon istedi"
-        CANCELLED = "cancelled", "iptal etti"
         REOPENED = "reopened", "yeniden açtı"
         UPDATED = "updated", "güncelledi"
         COMMENT = "comment", "yorum yaptı"

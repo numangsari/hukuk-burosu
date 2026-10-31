@@ -56,7 +56,7 @@ Dev ayarları `config/settings/dev.py`, varsayılan DB bağlantısı dev compose
 - Arşiv no elle girilir, büyük/küçük harf duyarsız unique; form son numarayı artırarak öneri sunar.
 - Çıkar çatışması: müvekkil adı (aksansız) veya TCKN/VKN bir karşı tarafla eşleşirse uyarı çıkar; kayıt için onay kutusu gerekir. Tersi de geçerli.
 - Tebligat son günü elle girilir (otomatik süre hesabı yok).
-- Görev durumları: Bekliyor → Devam ediyor → Kontrolde → Tamamlandı; kontrolcü "Revizyon istendi" (açıklama zorunlu) ile sorumluya döndürür; İptal ayrıdır; tamamlanan/iptal yeniden açılabilir. Sorumlu: başla/kontrole gönder. Kontrolcü: onayla/revizyon. Oluşturan veya kontrolcü: iptal/yeniden aç. Yönetici: hepsi. Onaylanan görev dosya zaman çizelgesine düşer.
+- Görev durumları yalnızca üç: Aktif → Kontrolde → Tamamlandı ("işe başla" ve "iptal" yok). Kontrolcü revizyon isterse (açıklama zorunlu) görev Aktif'e döner ve `revision_requested` işareti alır; sorumlu tekrar kontrole gönderince kalkar. Tamamlanan görev yeniden açılabilir (oluşturan/kontrolcü). Sorumlu: kontrole gönder. Kontrolcü: onayla/revizyon. Yanlış açılan görevi oluşturan veya yönetici siler. Yönetici: hepsi. Onaylanan görev dosya zaman çizelgesine düşer.
 - Muhasebe (TL, vergi yok): **Cari** = vekalet ücreti + masraf − tahsilat − mahsup. **Emanet** = karşı taraftan tahsilat − müvekkile ödeme − mahsup. **Net** = cari − emanet. Hareket silinmez, iptal edilir.
 
 ## Yol haritası

@@ -1,11 +1,8 @@
 {# Kullanım: include with t=task ; part="status" veya "due" #}
 {% if part == "status" %}
-  {% if t.status == "pending" %}<span class="chip">{{ t.get_status_display }}</span>
-  {% elif t.status == "in_progress" %}<span class="chip chip-primary">{{ t.get_status_display }}</span>
+  {% if t.status == "active" %}{% if t.revision_requested %}<span class="chip chip-warning">Revizyon istendi</span>{% else %}<span class="chip chip-primary">{{ t.get_status_display }}</span>{% endif %}
   {% elif t.status == "review" %}<span class="chip chip-info">{{ t.get_status_display }}</span>
-  {% elif t.status == "revision" %}<span class="chip chip-warning">{{ t.get_status_display }}</span>
-  {% elif t.status == "done" %}<span class="chip chip-success">{{ t.get_status_display }}</span>
-  {% else %}<span class="chip no-dot">{{ t.get_status_display }}</span>{% endif %}
+  {% else %}<span class="chip chip-success">{{ t.get_status_display }}</span>{% endif %}
 {% else %}
   <span class="due due-{{ t.urgency }}"><i class="bi {% if t.urgency == 'overdue' %}bi-exclamation-circle-fill{% else %}bi-calendar-event{% endif %}"></i>{{ t.due_label }}</span>
 {% endif %}

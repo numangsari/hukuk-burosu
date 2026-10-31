@@ -22,6 +22,11 @@
       </div>
     </div>
     <div class="page-actions">
+      {% if can_delete %}
+      <form method="post" action="{% url 'tasks:delete' task.pk %}" onsubmit="return confirm('Görev ve geçmişi silinsin mi?')">{% csrf_token %}
+        <button class="btn btn-outline-danger btn-icon" title="Sil"><i class="bi bi-trash"></i></button>
+      </form>
+      {% endif %}
       {% if can_edit %}<a class="btn btn-light" href="{% url 'tasks:update' task.pk %}"><i class="bi bi-pencil"></i>Düzenle</a>{% endif %}
     </div>
   </div>
@@ -37,10 +42,10 @@
           {% if a.needs_comment %}
             <button type="button" class="btn btn-{{ a.style }}" @click="revise = !revise"><i class="bi bi-arrow-counterclockwise"></i>{{ a.label }}</button>
           {% else %}
-            <form method="post" action="{% url 'tasks:action' task.pk %}" {% if a.key == 'cancel' %}onsubmit="return confirm('Görev iptal edilsin mi?')"{% endif %}>{% csrf_token %}
+            <form method="post" action="{% url 'tasks:action' task.pk %}">{% csrf_token %}
               <input type="hidden" name="action" value="{{ a.key }}">
-              <button class="btn btn-{% if a.key == 'cancel' %}outline-danger{% else %}{{ a.style }}{% endif %}">
-                <i class="bi {% if a.key == 'start' %}bi-play{% elif a.key == 'submit' %}bi-send{% elif a.key == 'approve' %}bi-check2-circle{% elif a.key == 'cancel' %}bi-x-circle{% else %}bi-arrow-repeat{% endif %}"></i>{{ a.label }}
+              <button class="btn btn-{{ a.style }}">
+                <i class="bi {% if a.key == 'submit' %}bi-send{% elif a.key == 'approve' %}bi-check2-circle{% else %}bi-arrow-repeat{% endif %}"></i>{{ a.label }}
               </button>
             </form>
           {% endif %}

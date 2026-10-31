@@ -13,8 +13,6 @@ from apps.office.models import TaskType
 from apps.tasks import services
 from apps.tasks.models import Task, TaskStatus
 
-from .conftest import make_user
-
 pytestmark = pytest.mark.django_db
 
 
@@ -92,8 +90,7 @@ def test_form_rejects_same_assignee_reviewer_and_wrong_client(lawyer, case_facto
 
 def test_full_approval_cycle(task_factory, lawyer, intern):
     t = task_factory()
-    services.perform(t, "start", intern)
-    assert t.status == TaskStatus.IN_PROGRESS
+    assert t.status == TaskStatus.ACTIVE  # oluşturulunca doğrudan aktif
     services.perform(t, "submit", intern)
     assert t.status == TaskStatus.REVIEW
     assert Notification.objects.filter(user=lawyer, title__startswith="Kontrolünüzü").exists()
@@ -101,16 +98,20 @@ def test_full_approval_cycle(task_factory, lawyer, intern):
     with pytest.raises(ValidationError):
         services.perform(t, "revise", lawyer, "")  # açıklama zorunlu
     services.perform(t, "revise", lawyer, "Emsal kararları ekle")
-    assert t.status == TaskStatus.REVISION
+    assert t.status == TaskStatus.ACTIVE and t.revision_requested
     assert Notification.objects.filter(user=intern, title__startswith="Revizyon").exists()
 
     services.perform(t, "submit", intern)
+    assert not t.revision_requested
     services.perform(t, "approve", lawyer)
     t.refresh_from_db()
     assert t.status == TaskStatus.DONE and t.completed_at
     assert CaseEvent.objects.filter(case=t.case, kind="task").exists()
     kinds = list(t.events.order_by("created_at", "pk").values_list("kind", flat=True))
-    assert kinds == ["started", "submitted", "revision", "submitted", "approved"]
+    assert kinds == ["submitted", "revision", "submitted", "approved"]
+
+    services.perform(t, "reopen", lawyer)
+    assert t.status == TaskStatus.ACTIVE and t.completed_at is None
 
 
 def test_permissions(task_factory, lawyer, intern, admin_user):
@@ -120,20 +121,27 @@ def test_permissions(task_factory, lawyer, intern, admin_user):
     services.perform(t, "submit", intern)
     with pytest.raises(PermissionDenied):
         services.perform(t, "approve", intern)  # sorumlu kendi işini onaylayamaz
-    third = make_user("ucuncu", "lawyer")
-    with pytest.raises(PermissionDenied):
-        services.perform(t, "cancel", third)
+    with pytest.raises(ValidationError):
+        services.perform(t, "cancel", lawyer)  # iptal işlemi yok
     services.perform(t, "approve", admin_user)  # yönetici her işlemi yapabilir
     assert t.status == TaskStatus.DONE
     assert [a.key for a in services.available_actions(t, lawyer)] == ["reopen"]
     assert services.available_actions(t, intern) == []
 
 
+def test_delete_only_creator_or_admin(task_factory, lawyer, intern):
+    t = task_factory()  # oluşturan: lawyer
+    assert login(intern).post(reverse("tasks:delete", args=[t.pk])).status_code == 403
+    r = login(lawyer).post(reverse("tasks:delete", args=[t.pk]))
+    assert r.status_code == 302 and not Task.objects.exists()
+
+
 def test_action_endpoint_and_detail(task_factory, intern):
     t = task_factory()
     c = login(intern)
     r = c.get(t.get_absolute_url())
-    assert [a.key for a in r.context["actions"]] == ["start", "submit"]
+    assert [a.key for a in r.context["actions"]] == ["submit"]
+    assert "İşe başla" not in r.content.decode()
     c.post(reverse("tasks:action", args=[t.pk]), {"action": "submit"})
     t.refresh_from_db()
     assert t.status == TaskStatus.REVIEW

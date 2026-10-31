@@ -137,6 +137,7 @@ class TaskDetailView(DetailView):
         ctx.update(
             actions=services.available_actions(t, u),
             can_edit=services.can_edit(t, u),
+            can_delete=services.can_delete(t, u),
             events=t.events.select_related("actor"),
             comment_form=CommentForm(),
         )
@@ -155,6 +156,19 @@ class TaskActionView(View):
         else:
             messages.success(request, f"Görev durumu: {task.get_status_display()}")
         return redirect(task)
+
+
+class TaskDeleteView(View):
+    """Yanlış açılan görevi oluşturan veya yönetici siler (aktivite kaydına düşer)."""
+
+    def post(self, request, pk):
+        task = get_object_or_404(Task, pk=pk)
+        if not services.can_delete(task, request.user):
+            raise PermissionDenied
+        case = task.case
+        task.delete()
+        messages.success(request, "Görev silindi.")
+        return redirect(case)
 
 
 class TaskCommentView(View):
