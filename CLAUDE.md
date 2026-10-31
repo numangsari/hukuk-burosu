@@ -53,7 +53,7 @@ Dev ayarları `config/settings/dev.py`, varsayılan DB bağlantısı dev compose
 
 ### Kayıt bütünlüğü
 - Duruşma, tebligat, dosyadaki karşı taraf bağlantısı ve müvekkil alt kayıtlarını yalnızca yönetici silebilir; düğmeler de aynı kurala bağlıdır.
-- Ekrandan muhasebe hareketi oluşturma/iptal işlemleri `apps/accounting/services.py` üzerinden yürür. Müvekkil satırı işlem boyunca kilitlenir; bakiye kayıttan hemen önce yeniden hesaplanır. Emaneti eksiye düşüren ödeme/mahsup ve tahsilat iptali reddedilir. Yeni para işlemleri bu yardımcıları kullanmalıdır; tamamlanmamış `apps/imports` bu kapsama henüz alınmamıştır.
+- Ekrandan muhasebe hareketi oluşturma/iptal işlemleri `apps/accounting/services.py` üzerinden yürür. Müvekkil satırı işlem boyunca kilitlenir; bakiye kayıttan hemen önce yeniden hesaplanır. Emaneti eksiye düşüren ödeme/mahsup ve tahsilat iptali reddedilir. Yeni para işlemleri bu yardımcıları kullanmalıdır; `apps/imports` açılış bakiyelerini de `create_entry` ile yazar.
 - Bağlı görev veya muhasebe hareketi olan dosyanın müvekkili düzenleme formunda değiştirilemez. Dosya düzenleme ve ekrandan görev/para hareketi ekleme, aynı dosya kilidini kullanır.
 - Görev ve belgeleri yalnızca `active` durumunda değiştirilebilir. Kontroldeki belge için önce revizyon istenir; onayda belge zorunluluğu yeniden denetlenir. Durum geçişleri ve belge değişiklikleri görev satırını kilitler; eski durumla gelen ikinci onay yeniden kayıt üretmez.
 - Excel raporlarındaki bütün metinler açıkça metin hücresi olarak yazılır. Uyarı ve hata mesajları kullanıcı kapatana kadar görünür kalır; başarı mesajı kısa sürede kapanır.
@@ -97,7 +97,7 @@ Dev ayarları `config/settings/dev.py`, varsayılan DB bağlantısı dev compose
 3b. ✅ Görev belgeleri ve ofis klasörü (aşağıdaki "Belgeler ve ofis klasörü" maddesi).
 4. ✅ Global arama, aktivite ekranları, 6 rapor (Excel + PDF).
 5. ✅ Ayarlar ekranları (kullanıcılar, yedekleme), şifreli yedek/geri yükleme, Windows kurulum betikleri (`installer/`, ayrıntı `installer/README.md`). `Setup.exe` derlemesi Inno Setup 6 ister; henüz derlenip temiz Windows'ta denenmedi.
-6. Excel'den içe aktarım (ofisin mevcut dosyaları görüldükten sonra).
+6. ✅ Excel'den içe aktarım (`apps/imports`, `/aktar/`, yalnızca yönetici): sistemin kendi şablonu (Müvekkiller, Dosyalar, Açılış bakiyeleri sayfaları); yükle → satır satır önizleme → onayla (tek transaction). Var olan müvekkil (TCKN/VKN/ad) ve dosya (arşiv no) atlanır; hatalı satır varsa hiçbir şey yazılmaz. Ofisin kendi Excel formatı görülünce şablon ona göre uyarlanabilir.
 
 ## Çalışma kuralları
 - Kod/tanımlayıcı İngilizce; arayüz metni, yorum, commit mesajı Türkçe.

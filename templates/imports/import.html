@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}Veri aktarımı — {{ office.name }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="eyebrow"><a href="{% url 'accounts:settings' %}"><i class="bi bi-chevron-left"></i> Ayarlar</a></div>
+    <h1 class="page-title">Excel'den veri aktarımı</h1>
+    <p class="page-subtitle">Mevcut müvekkil, dosya ve açılış bakiyelerini toplu olarak sisteme aktarın.</p>
+  </div>
+  <div class="page-actions"><a class="btn btn-light" href="{% url 'imports:template' %}"><i class="bi bi-file-earmark-excel" style="color: var(--success-ink)"></i>Şablonu indir</a></div>
+</div>
+
+{% if not plan %}
+<form method="post" enctype="multipart/form-data" class="card" style="max-width: 760px">{% csrf_token %}
+  <div class="form-section">
+    <div class="form-section-head"><h2>1. Dosyayı yükleyin</h2><p>Şablonu indirip doldurun ve yükleyin. Önce önizleme gösterilir; onaylamadan hiçbir şey kaydedilmez.</p></div>
+    {% include "partials/field.html" with field=form.file %}
+    <div class="row">
+      <div class="col-md-6">{% include "partials/field.html" with field=form.default_lawyer %}</div>
+      <div class="col-md-6">{% include "partials/field.html" with field=form.default_intern %}</div>
+    </div>
+    <div class="form-text">Varsayılan sorumlular, şablonda sorumlusu boş bırakılan müvekkillere atanır.</div>
+  </div>
+  <div class="form-footer"><button class="btn btn-primary"><i class="bi bi-eye"></i>Önizle</button></div>
+</form>
+{% else %}
+<div class="row g-3 mb-3">
+  {% for sheet, create, skip, error in summary %}
+  <div class="col-md-4"><div class="card card-body">
+    <div class="fw-semibold mb-2">{{ sheet }}</div>
+    <div class="d-flex gap-2 flex-wrap">
+      <span class="chip chip-success">{{ create }} eklenecek</span>
+      <span class="chip">{{ skip }} atlanacak</span>
+      <span class="chip {% if error %}chip-danger{% endif %}">{{ error }} hatalı</span>
+    </div>
+  </div></div>
+  {% endfor %}
+</div>
+
+<div class="card table-card mb-3">
+  <div class="card-header"><h2 class="card-title">Satır satır önizleme</h2></div>
+  <div class="table-responsive">
+  <table class="table">
+    <thead><tr><th>Sayfa</th><th>Satır</th><th>Kayıt</th><th>Sonuç</th><th>Açıklama</th></tr></thead>
+    <tbody>
+    {% for r in plan.rows %}
+      <tr><td>{{ r.sheet }}</td><td class="tabular">{{ r.row }}</td><td class="fw-medium">{{ r.label|default:"—" }}</td>
+        <td>{% if r.status == "create" %}<span class="chip chip-success">Eklenecek</span>{% elif r.status == "skip" %}<span class="chip">Atlanacak</span>{% else %}<span class="chip chip-danger">Hatalı</span>{% endif %}</td>
+        <td class="small">{{ r.messages|join:" · " }}</td></tr>
+    {% empty %}<tr><td colspan="5"><div class="empty-state py-3"><strong>Dosyada aktarılacak satır yok</strong></div></td></tr>{% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+
+<div class="d-flex gap-2">
+  <a class="btn btn-light" href="{% url 'imports:import' %}">Başka dosya yükle</a>
+  {% if plan.errors %}
+    <span class="alert alert-danger py-2 mb-0">Hatalı satırları düzeltip dosyayı yeniden yükleyin.</span>
+  {% else %}
+  <form method="post">{% csrf_token %}
+    <input type="hidden" name="token" value="{{ token }}">
+    <input type="hidden" name="default_lawyer" value="{{ default_lawyer }}">
+    <input type="hidden" name="default_intern" value="{{ default_intern }}">
+    <button class="btn btn-primary"><i class="bi bi-check2-all"></i>Aktarımı onayla</button>
+  </form>
+  {% endif %}
+</div>
+{% endif %}
+{% endblock %}

@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     "apps.activity",
     "apps.reports",
     "apps.backups",
+    "apps.imports",
 ]
 
 MIDDLEWARE = [

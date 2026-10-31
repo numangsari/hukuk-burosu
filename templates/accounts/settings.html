@@ -18,6 +18,7 @@
       <a class="{% if active == 'klasor' %}active{% endif %}" href="?bolum=klasor"><i class="bi bi-folder2"></i>Belge klasörü
         {% if office.documents_root %}<span class="chip chip-success ms-auto">Ayarlı</span>{% endif %}</a>
       <a class="{% if active == 'gorev_turleri' %}active{% endif %}" href="?bolum=gorev_turleri"><i class="bi bi-list-check"></i>Görev türleri</a>
+      <a href="{% url 'imports:import' %}"><i class="bi bi-file-earmark-arrow-up"></i>Excel'den veri aktarımı</a>
       <a class="{% if active == 'yetkiler' %}active{% endif %}" href="?bolum=yetkiler"><i class="bi bi-shield-check"></i>Muhasebe yetkileri</a>
       <a class="{% if active == 'takvim' %}active{% endif %}" href="?bolum=takvim"><i class="bi bi-calendar3"></i>Google Takvim
         {% if calendar_connected %}<span class="chip chip-success ms-auto">Bağlı</span>{% endif %}</a>
