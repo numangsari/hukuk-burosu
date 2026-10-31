@@ -75,14 +75,8 @@ AUTHENTICATION_BACKENDS = [
     "axes.backends.AxesStandaloneBackend",
     "django.contrib.auth.backends.ModelBackend",
 ]
-AUTH_PASSWORD_VALIDATORS = [
-    {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
-    {
-        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
-        "OPTIONS": {"min_length": 8},
-    },
-    {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
-]
+# Giriş PIN ile yapılır; PIN kullanıcının parolası olarak hash'li saklanır.
+AUTH_PASSWORD_VALIDATORS = [{"NAME": "apps.accounts.validators.PinValidator"}]
 LOGIN_URL = "accounts:login"
 LOGIN_REDIRECT_URL = "core:home"
 LOGOUT_REDIRECT_URL = "accounts:login"
@@ -96,6 +90,7 @@ AXES_FAILURE_LIMIT = 5
 AXES_COOLOFF_TIME = 0.25
 AXES_RESET_ON_SUCCESS = True
 AXES_LOCKOUT_PARAMETERS = ["username", "ip_address"]
+AXES_LOCKOUT_TEMPLATE = "accounts/locked.html"
 
 LANGUAGE_CODE = "tr"
 TIME_ZONE = "Europe/Istanbul"

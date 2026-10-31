@@ -39,9 +39,10 @@
       </form>
       <div class="ms-auto dropdown">
         <button class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
-          <i class="bi bi-person-circle me-1"></i>{{ request.user }} <span class="badge text-bg-secondary ms-1">{{ request.user.get_role_display }}</span>
+          <i class="bi bi-person-circle me-1"></i>{{ request.user }} <span class="badge text-bg-secondary ms-1">{{ request.user.display_title }}</span>
         </button>
         <ul class="dropdown-menu dropdown-menu-end">
+          <li><a class="dropdown-item" href="{% url 'accounts:pin_change' %}"><i class="bi bi-key me-2"></i>PIN değiştir</a></li>
           <li>
             <form method="post" action="{% url 'accounts:logout' %}">{% csrf_token %}
               <button class="dropdown-item"><i class="bi bi-box-arrow-right me-2"></i>Çıkış</button>

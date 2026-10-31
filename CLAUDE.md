@@ -15,7 +15,8 @@ Python 3.13, Django 5.2 LTS, PostgreSQL 17, HTMX 2 + Alpine.js 3, Bootstrap 5.3.
 docker compose -f docker-compose.dev.yml up -d   # dev PostgreSQL, host portu 5434
 uv sync                                          # bağımlılıklar
 uv run python manage.py migrate
-uv run python manage.py seed_dev                 # örnek kullanıcılar; şifreyi ekrana yazar
+uv run python manage.py setup_office_users --pin <PIN>   # ofis kullanıcıları (PIN repoya yazılmaz)
+uv run python manage.py seed_dev                 # örnek müvekkil/dosya (kullanıcılar önceden olmalı)
 uv run python manage.py runserver
 uv run pytest                                    # testler (dev DB'de test_ veritabanı açar)
 uv run ruff check . && uv run ruff format --check .
@@ -28,7 +29,9 @@ Dev ayarları `config/settings/dev.py`, varsayılan DB bağlantısı dev compose
 ## Mimari
 - `config/settings/{base,dev,test,prod}.py`, `config/urls.py`.
 - `apps/core`: ortak model (`TimeStampedModel`), validator'lar (TCKN, VKN, IBAN), Türkçe metin yardımcıları (`fold`, `tr_lower`), form mixin'i, template tag'leri (`tl` para formatı, `sort_link`, `query_with`), `seed_dev`.
-- `apps/accounts`: özel `User` (rol: admin/lawyer/intern, tema, sayfa boyutu). Giriş kilidi `django-axes`.
+- `apps/accounts`: özel `User` (rol: admin/lawyer/intern, unvan, giriş ekranı sırası, tema, sayfa boyutu). Giriş kilidi `django-axes` (5 hata, 15 dk).
+- Giriş: kullanıcı adı/şifre yok. Giriş ekranında aktif kullanıcıların kartları listelenir, kullanıcı kartına tıklayıp PIN girer. PIN, Django parolası olarak hash'li saklanır (`set_password`); `PinValidator` 4-8 rakam ister. Kullanıcı PIN'ini menüden değiştirir (`/hesap/pin/`). Yönetici `/yonetim/` panelinden başkasının PIN'ini sıfırlayabilir.
+- Ofis kullanıcıları `apps/accounts/management/commands/setup_office_users.py` içindeki listedir. Yeni kullanıcı eklemek için listeyi güncelleyip komutu çalıştırın; komut mevcut PIN'leri yalnızca `--reset-pin` ile değiştirir. Unvan ≠ rol: "Koordinatör Avukat" rolü `lawyer`, "Yönetici Avukat" rolü `admin`.
 - `apps/office`: `OfficeSettings` (singleton, `OfficeSettings.load()`), `TaskType`, `Court` (merci listesi).
 - `apps/clients`: `Client` (gerçek/tüzel), iletişim, IBAN, yetkili, vekalet (`PowerOfAttorney`), karşı taraf (`Party`), çıkar çatışması (`conflicts.py`).
 - `apps/cases`: `Case` (8 tür, arşiv no unique, türe göre etiketler `TYPE_LABELS`), `CaseParty`, `Document`.

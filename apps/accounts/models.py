@@ -13,6 +13,10 @@ class User(AbstractUser):
         DARK = "dark", "Koyu"
 
     role = models.CharField("rol", max_length=10, choices=Role.choices, default=Role.LAWYER)
+    title = models.CharField(
+        "unvan", max_length=100, blank=True, help_text="Ör. Koordinatör Avukat"
+    )
+    order = models.PositiveSmallIntegerField("giriş ekranı sırası", default=0)
     phone = models.CharField("telefon", max_length=30, blank=True)
     avatar = models.ImageField("fotoğraf", upload_to="avatars/", blank=True)
     theme = models.CharField("tema", max_length=10, choices=Theme.choices, default=Theme.LIGHT)
@@ -23,7 +27,7 @@ class User(AbstractUser):
     class Meta:
         verbose_name = "kullanıcı"
         verbose_name_plural = "kullanıcılar"
-        ordering = ["first_name", "last_name"]
+        ordering = ["order", "first_name", "last_name"]
 
     def __str__(self):
         return self.get_full_name() or self.username
@@ -33,6 +37,11 @@ class User(AbstractUser):
         return self.is_superuser or self.role == self.Role.ADMIN
 
     @property
+    def display_title(self) -> str:
+        return self.title or self.get_role_display()
+
+    @property
     def initials(self) -> str:
-        name = self.get_full_name() or self.username
-        return "".join(p[0] for p in name.split()[:2]).upper()
+        if self.first_name and self.last_name:
+            return (self.first_name[0] + self.last_name[0]).upper()
+        return (self.get_full_name() or self.username)[:2].upper()

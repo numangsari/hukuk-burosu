@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Giriş kilitlendi — {{ office.name }}{% endblock %}
+{% block anonymous %}
+<div class="min-vh-100 d-flex align-items-center justify-content-center bg-body-tertiary">
+  <div class="card shadow-sm" style="width: 360px">
+    <div class="card-body p-4 text-center">
+      <i class="bi bi-lock fs-1 text-danger"></i>
+      <h1 class="h5 mt-2">Giriş geçici olarak kilitlendi</h1>
+      <p class="text-body-secondary small">Çok sayıda hatalı PIN girildi. 15 dakika sonra tekrar deneyin veya yöneticiye başvurun.</p>
+      <a class="btn btn-outline-secondary" href="{% url 'accounts:login' %}">Giriş ekranı</a>
+    </div>
+  </div>
+</div>
+{% endblock %}
