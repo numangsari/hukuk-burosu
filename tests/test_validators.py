@@ -38,3 +38,11 @@ def test_turkish_lower_and_fold():
     assert tr_lower("İSTANBUL") == "istanbul"
     assert fold("IŞIK") == fold("ışık") == fold("Isik") == "isik"
     assert fold("Çağlayan Ünlü") == "caglayan unlu"
+
+
+def test_phone_tr_filter():
+    from apps.core.templatetags.ui import phone_tr
+
+    assert phone_tr("05330430023") == "0533 043 00 23"
+    assert phone_tr("533 043 00 23") == "0533 043 00 23"
+    assert phone_tr("+90 212 000") == "+90 212 000"

@@ -161,6 +161,17 @@ a.head-row:hover { color: #fff; text-decoration: none; }
 .head-user strong { font-size: .92rem; }
 .head-user:hover, .head-user[aria-expanded="true"] { background: rgba(255, 255, 255, .06); }
 .head-caret { font-size: .75rem; color: rgba(255, 255, 255, .45); }
+/* Yan menü altı: ofis bilgileri */
+.sidebar-foot { position: relative; padding: 1rem 1.5rem 1.25rem; font-size: .75rem; line-height: 1.45; color: rgba(255, 255, 255, .5); }
+.sidebar-foot::before {
+  content: ""; position: absolute; left: 1.5rem; right: 1.5rem; top: 0; height: 1px;
+  background: linear-gradient(90deg, rgba(214, 179, 124, .28), rgba(255, 255, 255, .04));
+}
+.sidebar-foot .foot-title { font-weight: 600; font-style: italic; color: rgba(214, 179, 124, .85); margin-bottom: .45rem; }
+.sidebar-foot .foot-line { display: flex; gap: .55rem; margin-bottom: .3rem; }
+.sidebar-foot .foot-line i { color: rgba(255, 255, 255, .35); font-size: .8rem; margin-top: .05rem; }
+.sidebar-foot a { color: rgba(255, 255, 255, .6); }
+.sidebar-foot a:hover { color: #fff; text-decoration: none; }
 .sidebar-head .dropdown-menu { width: 100%; margin-top: .25rem !important; }
 /* Giriş ekranındaki logo */
 .brand-mark {

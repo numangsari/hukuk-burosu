@@ -1,4 +1,4 @@
-{% load static %}<!doctype html>
+{% load static ui %}<!doctype html>
 <html lang="tr" data-bs-theme="{{ request.user.theme|default:'light' }}">
 <head>
   <meta charset="utf-8">
@@ -54,6 +54,14 @@
       {% endif %}
     </nav>
     {% endwith %}
+    {% if office.address or office.phone or office.email or office.tax_number %}
+    <div class="sidebar-foot">
+      {% if office.address %}<div class="foot-line"><i class="bi bi-geo-alt"></i><span>{{ office.address|linebreaksbr }}</span></div>{% endif %}
+      {% if office.phone %}<div class="foot-line"><i class="bi bi-telephone"></i><a href="tel:{{ office.phone|cut:' ' }}">{{ office.phone|phone_tr }}</a></div>{% endif %}
+      {% if office.email %}<div class="foot-line"><i class="bi bi-envelope"></i><a href="mailto:{{ office.email }}">{{ office.email }}</a></div>{% endif %}
+      {% if office.tax_number %}<div class="foot-line"><i class="bi bi-receipt"></i><span>{% if office.tax_office %}{{ office.tax_office }} V.D. · {% endif %}{{ office.tax_number }}</span></div>{% endif %}
+    </div>
+    {% endif %}
   </aside>
   <div class="sidebar-backdrop" :class="nav && 'open'" @click="nav = false"></div>
 

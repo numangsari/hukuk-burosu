@@ -18,6 +18,17 @@ def tl(value):
     return f"{sign}{whole},{frac} ₺"
 
 
+@register.filter
+def phone_tr(value):
+    """05330430023 -> 0533 043 00 23. Tanınmayan biçim olduğu gibi döner."""
+    digits = "".join(c for c in str(value or "") if c.isdigit())
+    if len(digits) == 10 and not digits.startswith("0"):
+        digits = "0" + digits
+    if len(digits) == 11 and digits.startswith("0"):
+        return f"{digits[:4]} {digits[4:7]} {digits[7:9]} {digits[9:]}"
+    return value
+
+
 @register.simple_tag(takes_context=True)
 def query_with(context, **kwargs):
     """Mevcut GET parametrelerini koruyarak bazılarını değiştirir."""
