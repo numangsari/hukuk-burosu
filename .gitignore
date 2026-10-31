@@ -30,3 +30,4 @@ installer/dist/
 .idea/
 .DS_Store
 Thumbs.db
+installer/cache/

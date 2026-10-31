@@ -5,7 +5,9 @@ DEBUG = False
 SECRET_KEY = env("DJANGO_SECRET_KEY")
 DATABASES = {"default": env.db("DATABASE_URL")}
 DATABASES["default"]["CONN_MAX_AGE"] = 60
-# Ofis içi ağda HTTP ile çalışır; HTTPS zorunlu tutulmaz.
+# Ofis içi ağda HTTP ile çalışır; HTTPS zorunlu tutulmaz. Sistem dışarıya açılırsa
+# (ör. VPN dışında internet) önce HTTPS kurulmalı ve bu susturmalar kaldırılmalıdır.
+SILENCED_SYSTEM_CHECKS = ["security.W004", "security.W008", "security.W012", "security.W016"]
 STORAGES = {
     "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
     "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"},

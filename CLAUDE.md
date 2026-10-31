@@ -57,6 +57,12 @@ Dev ayarları `config/settings/dev.py`, varsayılan DB bağlantısı dev compose
 - Bildirim mesajları sağ altta toast olarak çıkar. Tema düğmesi `accounts:theme_toggle` ile kullanıcı tercihine yazılır.
 - Yeni sayfalar bu bileşenlerle yazılır; satır içi stil yerine token kullanılır.
 
+## Kurulum (production)
+- `installer/build.ps1` → gömülü Python 3.13 + PostgreSQL 17 binary + WinSW + uygulama → Inno Setup ile `installer/dist/OzkurtHukuk-Kurulum-<sürüm>.exe`.
+- `installer/scripts/postinstall.ps1` (tekrar çalıştırılabilir): `.env` (yalnızca ilk kurulum; SECRET_KEY, DB ve yedek parolası rastgele), initdb (ICU tr-TR, yalnızca 127.0.0.1), servisler `OzkurtHukukDB` + `OzkurtHukukApp` (Waitress :80), migrate/collectstatic/setup_office_users, güvenlik duvarı (Özel ağ), "Ozkurt Hukuk Yedek" zamanlanmış görevi, istemci `.url` kısayolu, sağlık kontrolü. Güncellemede Inno `PrepareToInstall` önce `backup --update` alır ve servisi durdurur.
+- Production'da `manage.py` her zaman `tools\manage.cmd` ile çalışır (DJANGO_SETTINGS_MODULE=prod).
+- Vendored JS/CSS dosyalarına `sourceMappingURL` satırı bırakmayın: `CompressedManifestStaticFilesStorage` eksik `.map` dosyası yüzünden collectstatic'i durdurur.
+
 ## İş kuralları
 - Her görev bir dosyaya, her dosya bir müvekkile bağlıdır. Görevde müvekkil dosyadan otomatik gelir.
 - Her müvekkilin bir sorumlu avukatı (rol admin veya lawyer) ve bir sorumlu stajyeri (rol intern) vardır. Dosyada bunlar müvekkilden varsayılan gelir, değiştirilebilir.
@@ -73,7 +79,7 @@ Dev ayarları `config/settings/dev.py`, varsayılan DB bağlantısı dev compose
 3. ✅ Muhasebe: hareketler, cari/emanet, mahsup, yetki matrisi; müvekkil listesine bakiye, borçlu ve açık görev filtreleri.
 3b. ✅ Görev belgeleri ve ofis klasörü (aşağıdaki "Belgeler ve ofis klasörü" maddesi).
 4. ✅ Global arama, aktivite ekranları, 6 rapor (Excel + PDF).
-5. Ayarlar ekranları, yedek (`pg_dump` + media → AES ZIP → bulut senkron klasörü, 30 günlük + 12 aylık), Windows kurulum/güncelleme `.exe`.
+5. ✅ Ayarlar ekranları (kullanıcılar, yedekleme), şifreli yedek/geri yükleme, Windows kurulum betikleri (`installer/`, ayrıntı `installer/README.md`). `Setup.exe` derlemesi Inno Setup 6 ister; henüz derlenip temiz Windows'ta denenmedi.
 6. Excel'den içe aktarım (ofisin mevcut dosyaları görüldükten sonra).
 
 ## Çalışma kuralları
