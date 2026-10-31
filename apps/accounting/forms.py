@@ -4,6 +4,7 @@ from apps.cases.models import Case
 from apps.clients.models import Client
 from apps.core.forms import BootstrapMixin, DateInput
 from apps.core.templatetags.ui import tl
+from apps.core.uploads import PDF_OR_IMAGE, validate_upload
 
 from .models import EntryKind, LedgerEntry
 
@@ -33,6 +34,11 @@ class LedgerEntryForm(BootstrapMixin, forms.ModelForm):
         self.fields["amount"].widget.attrs.update(
             {"step": "0.01", "min": "0.01", "inputmode": "decimal"}
         )
+
+    def clean_receipt(self):
+        f = self.cleaned_data.get("receipt")
+        validate_upload(f, PDF_OR_IMAGE, 20 * 1024 * 1024)
+        return f
 
     def clean(self):
         data = super().clean()

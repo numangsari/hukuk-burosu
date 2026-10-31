@@ -9,6 +9,7 @@ from django.views.generic import CreateView, DetailView, ListView, UpdateView, V
 from apps.cases.models import Case
 from apps.core.permissions import is_admin
 from apps.core.text import fold
+from apps.core.uploads import validate_upload
 from apps.office.models import TaskType
 
 from . import services
@@ -220,9 +221,6 @@ def case_options(request):
     )
 
 
-MAX_UPLOAD = 50 * 1024 * 1024
-
-
 def documents_context(task, user, error=""):
     docs = list(task.documents.select_related("uploaded_by").order_by("-created_at"))
     current = [d for d in docs if d.is_current]
@@ -261,8 +259,10 @@ class TaskDocumentUploadView(View):
         f = request.FILES.get("file")
         if not f:
             return _docs_partial(request, task, "Yüklenecek belgeyi seçin.")
-        if f.size > MAX_UPLOAD:
-            return _docs_partial(request, task, "Belge 50 MB'tan büyük olamaz.")
+        try:
+            validate_upload(f)
+        except ValidationError as e:
+            return _docs_partial(request, task, " ".join(e.messages))
         previous = task.documents.filter(
             pk=request.POST.get("replaces") or 0, is_current=True
         ).first()

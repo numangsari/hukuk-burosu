@@ -1,7 +1,7 @@
-from django.conf import settings
 from django.contrib import admin
 from django.urls import include, path, re_path
-from django.views.static import serve
+
+from apps.core.media import protected_media
 
 urlpatterns = [
     path("yonetim/", admin.site.urls),
@@ -18,7 +18,6 @@ urlpatterns = [
     path("yedek/", include("apps.backups.urls")),
     path("aktar/", include("apps.imports.urls")),
     path("", include("apps.core.urls")),
-    # Yüklenen belgeler yalnızca giriş yapmış kullanıcıya sunulur
-    # (LoginRequiredMiddleware tüm view'ları korur).
-    re_path(r"^media/(?P<path>.*)$", serve, {"document_root": settings.MEDIA_ROOT}),
+    # Yüklenen belgeler kayıt bazında yetki kontrolüyle sunulur (apps/core/media.py).
+    re_path(r"^media/(?P<path>.*)$", protected_media),
 ]

@@ -2,6 +2,7 @@ from django import forms
 
 from apps.clients.models import Party
 from apps.core.forms import BootstrapMixin, DateInput, DateTimeInput
+from apps.core.uploads import validate_upload
 
 from .models import Case, CaseEvent, CaseParty, Document, Hearing, PartyRole, Service
 
@@ -109,8 +110,7 @@ class DocumentForm(BootstrapMixin, forms.ModelForm):
 
     def clean_file(self):
         f = self.cleaned_data["file"]
-        if f and f.size > 50 * 1024 * 1024:
-            raise forms.ValidationError("Belge 50 MB'tan büyük olamaz.")
+        validate_upload(f)
         return f
 
 

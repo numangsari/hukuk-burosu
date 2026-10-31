@@ -1,6 +1,7 @@
 from django import forms
 
 from apps.core.forms import BootstrapMixin, DateInput
+from apps.core.uploads import PDF_OR_IMAGE, validate_upload
 
 from .models import (
     Client,
@@ -73,6 +74,11 @@ class PowerOfAttorneyForm(BootstrapMixin, forms.ModelForm):
         model = PowerOfAttorney
         fields = ["notary", "date", "journal_no", "archive_no", "pdf", "notes"]
         widgets = {"date": DateInput(), "notes": forms.Textarea(attrs={"rows": 1})}
+
+    def clean_pdf(self):
+        f = self.cleaned_data.get("pdf")
+        validate_upload(f, PDF_OR_IMAGE, 20 * 1024 * 1024)
+        return f
 
 
 class PartyForm(BootstrapMixin, forms.ModelForm):
