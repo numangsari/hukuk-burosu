@@ -13,6 +13,12 @@ class OfficeSettings(models.Model):
     tax_office = models.CharField("vergi dairesi", max_length=100, blank=True)
     tax_number = models.CharField("vergi no", max_length=20, blank=True)
     logo = models.ImageField("logo", upload_to="office/", blank=True)
+    calendar_ics_url = models.URLField(
+        "Google Takvim gizli iCal adresi",
+        max_length=1000,
+        blank=True,
+        help_text="Google Takvim > Ayarlar > Takvimi entegre et > iCal biçiminde gizli adres",
+    )
     upcoming_days = models.PositiveSmallIntegerField("yaklaşan tarih penceresi (gün)", default=7)
     backup_time = models.TimeField("yedek saati", default=datetime.time(12, 30))
     backup_dir = models.CharField("yedek hedef klasörü", max_length=500, blank=True)

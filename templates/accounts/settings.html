@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block title %}Ayarlar — {{ office.name }}{% endblock %}
+{% block content %}
+<div class="page-header"><h1 class="page-title">Ayarlar</h1></div>
+
+<div class="row g-4">
+  <div class="col-lg-3">
+    <nav class="settings-nav card">
+      <div class="nav-group">Hesabım</div>
+      <a class="{% if active == 'profil' %}active{% endif %}" href="?bolum=profil"><i class="bi bi-person"></i>Profil ve görünüm</a>
+      <a class="{% if active == 'pin' %}active{% endif %}" href="?bolum=pin"><i class="bi bi-key"></i>PIN değiştir</a>
+      {% if forms.ofis %}
+      <div class="nav-group">Ofis</div>
+      <a class="{% if active == 'ofis' %}active{% endif %}" href="?bolum=ofis"><i class="bi bi-building"></i>Ofis bilgileri</a>
+      <a class="{% if active == 'takvim' %}active{% endif %}" href="?bolum=takvim"><i class="bi bi-calendar3"></i>Google Takvim
+        {% if calendar_connected %}<span class="chip chip-success ms-auto">Bağlı</span>{% endif %}</a>
+      {% endif %}
+    </nav>
+  </div>
+
+  <div class="col-lg-9">
+  {% if active == "profil" %}
+    {% with form=forms.profil %}
+    <form method="post" class="card" style="max-width: 760px">{% csrf_token %}<input type="hidden" name="section" value="profil">
+      <div class="form-section">
+        <div class="form-section-head"><h2>Profil</h2><p>Adınız giriş ekranında ve kayıtlarda bu şekilde görünür.</p></div>
+        <div class="row">
+          <div class="col-md-6">{% include "partials/field.html" with field=form.first_name %}</div>
+          <div class="col-md-6">{% include "partials/field.html" with field=form.last_name %}</div>
+          <div class="col-md-6">{% include "partials/field.html" with field=form.email %}</div>
+          <div class="col-md-6">{% include "partials/field.html" with field=form.phone %}</div>
+        </div>
+      </div>
+      <div class="form-section">
+        <div class="form-section-head"><h2>Görünüm</h2></div>
+        <div class="row">
+          <div class="col-md-6">{% include "partials/field.html" with field=form.theme %}</div>
+          <div class="col-md-6">{% include "partials/field.html" with field=form.page_size %}</div>
+        </div>
+      </div>
+      <div class="form-footer"><button class="btn btn-primary"><i class="bi bi-check2"></i>Kaydet</button></div>
+    </form>
+    {% endwith %}
+
+  {% elif active == "pin" %}
+    {% with form=forms.pin %}
+    <form method="post" class="card" style="max-width: 480px">{% csrf_token %}<input type="hidden" name="section" value="pin">
+      <div class="form-section">
+        <div class="form-section-head"><h2>PIN değiştir</h2><p>Giriş ekranında kullandığınız PIN. 4-8 haneli, yalnızca rakam.</p></div>
+        {% include "partials/field.html" with field=form.old_pin %}
+        {% include "partials/field.html" with field=form.new_pin %}
+        {% include "partials/field.html" with field=form.new_pin2 wrap_class="" %}
+      </div>
+      <div class="form-footer"><button class="btn btn-primary"><i class="bi bi-check2"></i>PIN'i değiştir</button></div>
+    </form>
+    {% endwith %}
+
+  {% elif active == "ofis" %}
+    {% with form=forms.ofis %}
+    <form method="post" enctype="multipart/form-data" class="card" style="max-width: 760px">{% csrf_token %}<input type="hidden" name="section" value="ofis">
+      <div class="form-section">
+        <div class="form-section-head"><h2>Ofis bilgileri</h2><p>Ofis adı ve logosu giriş ekranında, yan menüde ve raporlarda kullanılır.</p></div>
+        <div class="row">
+          <div class="col-md-8">{% include "partials/field.html" with field=form.name %}</div>
+          <div class="col-md-4">{% include "partials/field.html" with field=form.phone %}</div>
+          <div class="col-12">{% include "partials/field.html" with field=form.address %}</div>
+          <div class="col-md-4">{% include "partials/field.html" with field=form.email %}</div>
+          <div class="col-md-4">{% include "partials/field.html" with field=form.tax_office %}</div>
+          <div class="col-md-4">{% include "partials/field.html" with field=form.tax_number %}</div>
+          <div class="col-12">{% include "partials/field.html" with field=form.logo wrap_class="" %}</div>
+        </div>
+      </div>
+      <div class="form-footer"><button class="btn btn-primary"><i class="bi bi-check2"></i>Kaydet</button></div>
+    </form>
+    {% endwith %}
+
+  {% elif active == "takvim" %}
+    {% with form=forms.takvim %}
+    <form method="post" class="card" style="max-width: 760px">{% csrf_token %}<input type="hidden" name="section" value="takvim">
+      <div class="form-section">
+        <div class="form-section-head"><h2>Google Takvim</h2><p>Ofis takvimi salt okunur olarak ana sayfada ve Takvim sayfasında gösterilir.</p></div>
+        <div class="alert {% if calendar_connected %}alert-success{% else %}alert-warning{% endif %} d-flex gap-2">
+          <i class="bi {% if calendar_connected %}bi-check-circle-fill{% else %}bi-info-circle-fill{% endif %}"></i>
+          <div>{% if calendar_connected %}Takvim bağlı. Adresi değiştirmek için yenisini girin; boş bırakırsanız mevcut adres korunur.{% else %}Henüz takvim bağlanmadı.{% endif %}</div>
+        </div>
+        <ol class="small text-body-secondary mb-3 ps-3">
+          <li>Ofisin Google hesabıyla <b>calendar.google.com</b> adresini açın.</li>
+          <li>Sol taraftaki takvimin yanındaki <b>⋮ &gt; Ayarlar ve paylaşım</b>'a tıklayın.</li>
+          <li><b>Takvimi entegre et</b> bölümündeki <b>iCal biçiminde gizli adres</b>'i kopyalayıp aşağıya yapıştırın.</li>
+        </ol>
+        {% include "partials/field.html" with field=form.calendar_ics_url %}
+        {% if calendar_connected %}{% include "partials/field.html" with field=form.clear wrap_class="" %}{% endif %}
+        <div class="form-text mt-2"><i class="bi bi-shield-lock"></i> Bu adres takvime erişim anahtarıdır; kimseyle paylaşmayın. Sistemde yalnızca sunucuda saklanır ve ekranda gösterilmez.</div>
+      </div>
+      <div class="form-footer"><button class="btn btn-primary"><i class="bi bi-check2"></i>Kaydet</button></div>
+    </form>
+    {% endwith %}
+  {% endif %}
+  </div>
+</div>
+{% endblock %}

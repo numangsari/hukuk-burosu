@@ -1,123 +1,70 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="page-header">
-  <div>
-    <div class="eyebrow">{% now "j F Y, l" %}</div>
-    <h1 class="page-title">{{ greeting }}, {{ request.user.first_name|default:request.user.username }}</h1>
-    <p class="page-subtitle">Büronun bugünkü durumu ve size ait kayıtlar.</p>
-  </div>
-  <div class="page-actions">
-    <a class="btn btn-light" href="{% url 'clients:create' %}"><i class="bi bi-person-plus"></i>Yeni müvekkil</a>
-    <a class="btn btn-primary" href="{% url 'cases:create' %}"><i class="bi bi-folder-plus"></i>Yeni dosya</a>
-  </div>
+  <h1 class="page-title">{{ greeting }}, {{ request.user.first_name|default:request.user.username }}</h1>
 </div>
 
-<div class="row g-3 mb-4">
-  <div class="col-sm-6 col-xl-3">
-    <a class="card stat-card" href="{% url 'clients:list' %}">
-      <div class="stat-icon"><i class="bi bi-people"></i></div>
-      <div><div class="stat-label">Aktif müvekkil</div><div class="stat-value">{{ stats.clients }}</div><div class="stat-hint">Tüm müvekkiller</div></div>
-    </a>
-  </div>
-  <div class="col-sm-6 col-xl-3">
-    <a class="card stat-card" href="{% url 'cases:list' %}">
-      <div class="stat-icon accent"><i class="bi bi-folder2-open"></i></div>
-      <div><div class="stat-label">Açık dosya</div><div class="stat-value">{{ stats.open_cases }}</div><div class="stat-hint">Kapanmamış tüm dosyalar</div></div>
-    </a>
-  </div>
-  <div class="col-sm-6 col-xl-3">
-    <a class="card stat-card" href="{% url 'cases:list' %}?mine=1">
-      <div class="stat-icon success"><i class="bi bi-person-check"></i></div>
-      <div><div class="stat-label">Sorumlu olduğum</div><div class="stat-value">{{ stats.my_cases }}</div><div class="stat-hint">Açık dosya</div></div>
-    </a>
-  </div>
-  <div class="col-sm-6 col-xl-3">
-    <div class="card stat-card">
-      <div class="stat-icon warning"><i class="bi bi-calendar-plus"></i></div>
-      <div><div class="stat-label">Bu ay açılan</div><div class="stat-value">{{ stats.month_cases }}</div><div class="stat-hint">{% now "F Y" %}</div></div>
-    </div>
-  </div>
-</div>
-
-<div class="row g-3">
-  <div class="col-xl-8 d-flex flex-column gap-3">
-    <div class="card">
+<div class="row g-4">
+  <div class="col-xl-8">
+    <div class="card task-panel h-100">
       <div class="card-header">
-        <i class="bi bi-calendar-event text-body-secondary"></i>
-        <h2 class="card-title">Bekleyen görevler ve yaklaşan tarihler</h2>
+        <i class="bi bi-check2-square text-body-secondary"></i>
+        <h2 class="card-title">Aktif görevlerim</h2>
+        <span class="small text-body-secondary ms-auto">Son güne göre, en acil olan üstte</span>
       </div>
-      <div class="empty-state">
-        <i class="bi bi-check2-circle"></i>
+      <div class="empty-state my-auto">
+        <i class="bi bi-list-check"></i>
         <strong>Görev modülü yakında</strong>
-        Görevler, duruşmalar ve tebligat son günleri burada listelenecek.
+        Size atanan ve kontrolünüzü bekleyen görevler son günü en yakın olandan başlayarak burada listelenecek.
       </div>
-    </div>
-
-    <div class="card table-card">
-      <div class="card-header">
-        <i class="bi bi-clock-history text-body-secondary"></i>
-        <h2 class="card-title">Son eklenen dosyalar</h2>
-        <a class="ms-auto small" href="{% url 'cases:list' %}?status=all">Tümünü gör <i class="bi bi-arrow-right"></i></a>
-      </div>
-      {% if recent_cases %}
-      <div class="table-responsive">
-        <table class="table table-hover">
-          <thead><tr><th>Dosya</th><th>Müvekkil</th><th>Tür</th><th>Durum</th></tr></thead>
-          <tbody>
-          {% for k in recent_cases %}
-            <tr data-href="{{ k.get_absolute_url }}" onclick="location.href=this.dataset.href">
-              <td><div class="cell-main">{{ k.subject }}</div><div class="cell-sub">Arşiv {{ k.archive_no }}{% if k.official_no %} · {{ k.official_no }}{% endif %}</div></td>
-              <td>{{ k.client }}</td>
-              <td class="text-body-secondary">{{ k.get_case_type_display }}</td>
-              <td>{% include "cases/_status_chip.html" %}</td>
-            </tr>
-          {% endfor %}
-          </tbody>
-        </table>
-      </div>
-      {% else %}
-      <div class="empty-state"><i class="bi bi-folder"></i><strong>Henüz dosya yok</strong>İlk dosyayı oluşturarak başlayın.</div>
-      {% endif %}
     </div>
   </div>
 
-  <div class="col-xl-4 d-flex flex-column gap-3">
-    <div class="card">
-      <div class="card-header"><h2 class="card-title">Hızlı işlemler</h2></div>
-      <div class="card-body d-grid gap-2">
-        <a class="action-tile" href="{% url 'cases:create' %}"><i class="bi bi-folder-plus"></i><span>Yeni dosya aç<small>Dava, icra, danışmanlık…</small></span></a>
-        <a class="action-tile" href="{% url 'clients:create' %}"><i class="bi bi-person-plus"></i><span>Müvekkil ekle<small>Gerçek veya tüzel kişi</small></span></a>
-        <a class="action-tile" href="{% url 'clients:list' %}?poa=no"><i class="bi bi-file-earmark-x"></i><span>Vekaleti eksik müvekkiller<small>Vekalet kaydı olmayanlar</small></span></a>
-      </div>
+  <div class="col-xl-4 d-flex flex-column gap-4">
+    <div class="quick-actions">
+      <span class="quick-action disabled">
+        <span class="soon">Yakında</span>
+        <span class="qa-icon" style="background: var(--brand-soft); color: var(--brand)"><i class="bi bi-check2-square"></i></span>Yeni görev
+      </span>
+      <a class="quick-action" href="{% url 'cases:create' %}">
+        <span class="qa-icon" style="background: var(--accent-soft); color: var(--accent)"><i class="bi bi-folder-plus"></i></span>Yeni dosya
+      </a>
+      <a class="quick-action" href="{% url 'clients:create' %}">
+        <span class="qa-icon" style="background: var(--success-soft); color: var(--success-ink)"><i class="bi bi-person-plus"></i></span>Yeni müvekkil
+      </a>
+      <span class="quick-action disabled">
+        <span class="soon">Yakında</span>
+        <span class="qa-icon" style="background: var(--warning-soft); color: var(--warning-ink)"><i class="bi bi-cash-coin"></i></span>Yeni gelir / gider
+      </span>
     </div>
 
-    <div class="card">
-      <div class="card-header"><h2 class="card-title">Açık dosya dağılımı</h2></div>
-      <div class="card-body">
-        {% for t in type_breakdown %}
-          <a class="d-block text-reset mb-3" href="{% url 'cases:list' %}?type={{ t.value }}">
-            <div class="d-flex justify-content-between small mb-1"><span class="fw-medium">{{ t.label }}</span><span class="text-body-secondary tabular">{{ t.count }}</span></div>
-            <div class="progress" style="height: 6px"><div class="progress-bar" style="width: {{ t.pct }}%; background: var(--brand)"></div></div>
-          </a>
-        {% empty %}
-          <div class="text-body-secondary small">Açık dosya yok.</div>
-        {% endfor %}
+    <div class="card flex-grow-1">
+      <div class="card-header">
+        <i class="bi bi-calendar3 text-body-secondary"></i>
+        <h2 class="card-title">Takvim</h2>
+        <a class="ms-auto small" href="{% url 'agenda:calendar' %}">Takvimi aç <i class="bi bi-arrow-right"></i></a>
       </div>
-    </div>
-
-    <div class="card">
-      <div class="card-header"><h2 class="card-title">Müvekkillerim</h2></div>
-      <div class="list-group list-group-flush">
-        {% for c in my_clients %}
-          <a class="list-group-item list-group-item-action d-flex align-items-center gap-2 py-2" href="{{ c.get_absolute_url }}" style="background: transparent">
-            <i class="bi {% if c.kind == 'company' %}bi-building{% else %}bi-person{% endif %} text-body-secondary"></i>
-            <span class="text-truncate">{{ c.name }}</span>
-            <span class="ms-auto small text-body-secondary">{{ c.case_count }} dosya</span>
-          </a>
+      {% if not agenda.configured %}
+        <div class="empty-state">
+          <i class="bi bi-calendar-plus"></i>
+          <strong>Google Takvim bağlı değil</strong>
+          {% if request.user.is_office_admin %}<a href="{% url 'accounts:settings' %}?bolum=takvim">Ayarlar'dan bağlayın</a>{% else %}Yönetici Ayarlar'dan bağlayabilir.{% endif %}
+        </div>
+      {% else %}
+        {% if agenda.error %}<div class="alert alert-warning small m-3 mb-0 py-2"><i class="bi bi-exclamation-triangle me-1"></i>{{ agenda.error }}</div>{% endif %}
+        {% for day in agenda_days %}
+          <div class="agenda-day">{% if day.date == today %}Bugün{% elif day.date == tomorrow %}Yarın{% else %}{{ day.date|date:"j F, l" }}{% endif %}</div>
+          {% for ev in day.events %}
+            <div class="agenda-item">
+              <span class="t">{{ ev.time_label }}</span>
+              <span class="x">{{ ev.title }}{% if ev.location %}<small><i class="bi bi-geo-alt"></i> {{ ev.location }}</small>{% endif %}</span>
+            </div>
+          {% endfor %}
         {% empty %}
-          <div class="card-body text-body-secondary small">Sorumlu olduğunuz müvekkil yok.</div>
+          {% if not agenda.error %}<div class="empty-state"><i class="bi bi-calendar-check"></i><strong>Önümüzdeki 7 günde etkinlik yok</strong></div>{% endif %}
         {% endfor %}
-      </div>
+        <div class="pb-2"></div>
+      {% endif %}
     </div>
   </div>
 </div>

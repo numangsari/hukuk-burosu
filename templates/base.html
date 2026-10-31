@@ -19,31 +19,14 @@
       <span class="brand-mark">{% if office.logo %}<img src="{{ office.logo.url }}" alt="">{% else %}ÖH{% endif %}</span>
       <span class="brand-text"><strong class="text-truncate">{{ office.name }}</strong><small>Büro Yönetimi</small></span>
     </a>
-    {% with ns=request.resolver_match.namespace %}
-    <nav class="sidebar-nav">
-      <div class="nav-section">Genel</div>
-      <a class="side-link {% if ns == 'core' %}active{% endif %}" href="{% url 'core:home' %}"><i class="bi bi-grid-1x2"></i>Ana sayfa</a>
-      <span class="side-link disabled"><i class="bi bi-check2-square"></i>Görevler<span class="soon">Yakında</span></span>
-      <div class="nav-section">Kayıtlar</div>
-      <a class="side-link {% if ns == 'clients' %}active{% endif %}" href="{% url 'clients:list' %}"><i class="bi bi-people"></i>Müvekkiller</a>
-      <a class="side-link {% if ns == 'cases' %}active{% endif %}" href="{% url 'cases:list' %}"><i class="bi bi-folder2-open"></i>Dosyalar</a>
-      <div class="nav-section">Finans ve Rapor</div>
-      <span class="side-link disabled"><i class="bi bi-wallet2"></i>Muhasebe<span class="soon">Yakında</span></span>
-      <span class="side-link disabled"><i class="bi bi-bar-chart-line"></i>Raporlar<span class="soon">Yakında</span></span>
-      {% if request.user.is_office_admin %}
-      <div class="nav-section">Yönetim</div>
-      <a class="side-link" href="{% url 'admin:index' %}"><i class="bi bi-sliders"></i>Yönetim paneli</a>
-      {% endif %}
-    </nav>
-    {% endwith %}
-    <div class="dropup">
+    <div class="dropdown sidebar-user-wrap">
       <button class="sidebar-user" data-bs-toggle="dropdown" aria-expanded="false">
         <span class="avatar avatar-sm" style="--h: {{ request.user.avatar_hue }}">{{ request.user.initials }}</span>
         <span class="who"><strong>{{ request.user }}</strong><small>{{ request.user.display_title }}</small></span>
         <i class="bi bi-chevron-expand opacity-50"></i>
       </button>
-      <ul class="dropdown-menu">
-        <li><a class="dropdown-item" href="{% url 'accounts:pin_change' %}"><i class="bi bi-key"></i>PIN değiştir</a></li>
+      <ul class="dropdown-menu w-100">
+        <li><a class="dropdown-item" href="{% url 'accounts:settings' %}"><i class="bi bi-gear"></i>Ayarlar</a></li>
         <li><hr class="dropdown-divider"></li>
         <li>
           <form method="post" action="{% url 'accounts:logout' %}">{% csrf_token %}
@@ -52,6 +35,25 @@
         </li>
       </ul>
     </div>
+    {% with ns=request.resolver_match.namespace %}
+    <nav class="sidebar-nav">
+      <div class="nav-section">Genel</div>
+      <a class="side-link {% if ns == 'core' %}active{% endif %}" href="{% url 'core:home' %}"><i class="bi bi-grid-1x2"></i>Ana sayfa</a>
+      <span class="side-link disabled"><i class="bi bi-check2-square"></i>Görevler<span class="soon">Yakında</span></span>
+      <a class="side-link {% if ns == 'agenda' %}active{% endif %}" href="{% url 'agenda:calendar' %}"><i class="bi bi-calendar3"></i>Takvim</a>
+      <div class="nav-section">Kayıtlar</div>
+      <a class="side-link {% if ns == 'clients' %}active{% endif %}" href="{% url 'clients:list' %}"><i class="bi bi-people"></i>Müvekkiller</a>
+      <a class="side-link {% if ns == 'cases' %}active{% endif %}" href="{% url 'cases:list' %}"><i class="bi bi-folder2-open"></i>Dosyalar</a>
+      <div class="nav-section">Finans ve Rapor</div>
+      <span class="side-link disabled"><i class="bi bi-wallet2"></i>Muhasebe<span class="soon">Yakında</span></span>
+      <span class="side-link disabled"><i class="bi bi-bar-chart-line"></i>Raporlar<span class="soon">Yakında</span></span>
+      <div class="nav-section">Sistem</div>
+      <a class="side-link {% if ns == 'accounts' %}active{% endif %}" href="{% url 'accounts:settings' %}"><i class="bi bi-gear"></i>Ayarlar</a>
+      {% if request.user.is_office_admin %}
+      <a class="side-link" href="{% url 'admin:index' %}"><i class="bi bi-sliders"></i>Yönetim paneli</a>
+      {% endif %}
+    </nav>
+    {% endwith %}
   </aside>
   <div class="sidebar-backdrop" :class="nav && 'open'" @click="nav = false"></div>
 

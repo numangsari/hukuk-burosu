@@ -37,10 +37,13 @@ Dev ayarları `config/settings/dev.py`, varsayılan DB bağlantısı dev compose
 - `apps/cases`: `Case` (8 tür, arşiv no unique, türe göre etiketler `TYPE_LABELS`), `CaseParty`, `Document`.
 - Tüm kullanıcı view'ları `LoginRequiredMiddleware` ile korunur. `/media/` de giriş ister.
 - Aktivite kaydı `django-auditlog`; her app `ready()` içinde kendi modellerini kaydeder.
+- `apps/agenda`: ofisin Google Takvim'i salt okunur. Yönetici Ayarlar > Google Takvim'e "iCal biçiminde gizli adres"i girer (`OfficeSettings.calendar_ics_url`, ekranda gösterilmez, repoya/log'a yazılmaz). `services.py` ICS'i çeker (5 dk önbellek, erişilemezse 1 güne kadar son kopya), `icalendar` + `recurring-ical-events` ile tekrar eden etkinlikleri açar. Ana sayfada önümüzdeki 7 gün, `/takvim/` sayfasında ay/hafta görünümü. Sunucunun internet erişimi gerekir.
+- Ayarlar sayfası `/hesap/ayarlar/?bolum=profil|pin|ofis|takvim` (`accounts.views.SettingsView`); ofis ve takvim bölümleri yalnızca yönetici.
 
 ## Arayüz
 - Tasarım sistemi `static/css/app.css`: tokenlar `:root` ve `[data-bs-theme=dark]` altında (lacivert yan menü, bronz vurgu `--accent`, marka mavisi `--brand`). Font Inter, `static/vendor/inter/` altında gömülü.
 - Bileşenler: `.page-header` (eyebrow/başlık/alt başlık/aksiyonlar), `.card.table-card` + `.filter-bar` + tablo + `partials/pagination.html` (`.table-footer`), `.detail-hero` + `.nav-underline-tabs`, form `.form-section` + `.form-footer`, durum rozeti `.chip` (`chip-primary/success/warning/danger/info/accent`), `.stat-card`, `.empty-state`, `.avatar` (`--h` = `User.avatar_hue`). Dosya durumu rozeti: `cases/_status_chip.html`.
+- Yan menü: üstte ofis adı, altında kullanıcı bloğu (tıklayınca Ayarlar / Çıkış yap). Ana sayfa: yalnızca selamlama başlığı; solda "Aktif görevlerim" (son güne göre, görev modülü gelince dolacak), sağda 4 hızlı işlem (Yeni görev, Yeni dosya, Yeni müvekkil, Yeni gelir/gider) ve takvim.
 - Bildirim mesajları sağ altta toast olarak çıkar. Tema düğmesi `accounts:theme_toggle` ile kullanıcı tercihine yazılır.
 - Yeni sayfalar bu bileşenlerle yazılır; satır içi stil yerine token kullanılır.
 

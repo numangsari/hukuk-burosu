@@ -140,7 +140,7 @@ a:hover { text-decoration: underline; }
   color: #fff;
   border-bottom: 1px solid rgba(255, 255, 255, .06);
 }
-.sidebar-brand:hover { color: #fff; }
+.sidebar-brand:hover { color: #fff; text-decoration: none; }
 .brand-mark {
   width: 36px; height: 36px; border-radius: 10px;
   display: grid; place-items: center;
@@ -154,7 +154,7 @@ a:hover { text-decoration: underline; }
 .brand-text strong { display: block; font-weight: 650; font-size: .98rem; letter-spacing: -.01em; }
 .brand-text small { color: rgba(255, 255, 255, .5); font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; }
 
-.sidebar-nav { padding: 1rem .75rem; overflow-y: auto; flex: 1; }
+.sidebar-nav { padding: .75rem .75rem 1rem; overflow-y: auto; flex: 1; }
 .nav-section {
   font-size: .68rem; font-weight: 600; letter-spacing: .1em; text-transform: uppercase;
   color: rgba(255, 255, 255, .38);
@@ -187,14 +187,15 @@ a:hover { text-decoration: underline; }
   background: rgba(255, 255, 255, .07); color: rgba(255, 255, 255, .45);
 }
 
+.sidebar-user-wrap { padding: .75rem .75rem 0; }
 .sidebar-user {
-  margin: .75rem; padding: .6rem;
+  margin: 0; padding: .6rem;
   border-radius: var(--radius);
   background: rgba(255, 255, 255, .05);
   display: flex; align-items: center; gap: .65rem;
   color: #fff;
-  width: calc(100% - 1.5rem);
-  border: 0; text-align: left;
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, .06); text-align: left;
 }
 .sidebar-user:hover { background: rgba(255, 255, 255, .09); }
 .sidebar-user .who { min-width: 0; flex: 1; line-height: 1.2; }
@@ -430,7 +431,7 @@ a.stat-card:hover { box-shadow: var(--shadow); border-color: color-mix(in srgb, 
 
 .dropdown-menu { --bs-dropdown-border-color: var(--line); --bs-dropdown-border-radius: var(--radius); --bs-dropdown-bg: var(--surface); box-shadow: var(--shadow-lg); padding: .4rem; font-size: .875rem; }
 .dropdown-item { border-radius: 6px; padding: .45rem .7rem; }
-.dropdown-item i { width: 1.25rem; color: var(--muted); }
+.dropdown-item i { display: inline-block; width: 1.5rem; color: var(--muted); }
 
 .htmx-indicator { opacity: 0; transition: opacity .2s; }
 .htmx-request .htmx-indicator, .htmx-request.htmx-indicator { opacity: 1; }
@@ -495,3 +496,48 @@ a.stat-card:hover { box-shadow: var(--shadow); border-color: color-mix(in srgb, 
   .dl-grid { grid-template-columns: 1fr; gap: .15rem; }
   .dl-grid dd { margin-bottom: .6rem; }
 }
+
+/* ---------- Ayarlar ---------- */
+.settings-nav { padding: .5rem; }
+.settings-nav .nav-group { font-size: .7rem; font-weight: 650; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); padding: .75rem .75rem .35rem; }
+.settings-nav a { display: flex; align-items: center; gap: .65rem; padding: .55rem .75rem; border-radius: var(--radius-sm); color: var(--ink-2); font-weight: 500; font-size: .875rem; }
+.settings-nav a i { color: var(--muted); }
+.settings-nav a:hover { background: var(--surface-2); text-decoration: none; color: var(--ink); }
+.settings-nav a.active { background: var(--brand-soft); color: var(--brand); }
+.settings-nav a.active i { color: var(--brand); }
+
+/* ---------- Takvim ---------- */
+.cal-toolbar { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; padding: 1rem 1.25rem; border-bottom: 1px solid var(--line); }
+.cal-toolbar h2 { font-size: 1.1rem; font-weight: 700; margin: 0 .5rem; min-width: 200px; }
+.cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
+.cal-head { font-size: .72rem; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); padding: .6rem .75rem; background: var(--surface-2); border-bottom: 1px solid var(--line); }
+.cal-cell { min-height: 118px; padding: .4rem .45rem .5rem; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); min-width: 0; }
+.cal-cell:nth-child(7n) { border-right: 0; }
+.cal-cell.out { background: var(--surface-2); }
+.cal-cell.out .cal-day { color: color-mix(in srgb, var(--muted) 60%, transparent); }
+.cal-day { font-size: .8rem; font-weight: 600; color: var(--ink-2); margin-bottom: .25rem; display: inline-grid; place-items: center; min-width: 26px; height: 26px; border-radius: 50%; }
+.cal-cell.today .cal-day { background: var(--brand); color: #fff; }
+.cal-week .cal-cell { min-height: 420px; }
+.cal-ev { display: block; font-size: .75rem; line-height: 1.3; padding: .2rem .4rem; border-radius: 6px; margin-bottom: 3px; background: var(--brand-soft); color: var(--brand); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cal-ev.all-day { background: var(--brand); color: #fff; }
+.cal-ev b { font-weight: 650; margin-right: .25rem; }
+.cal-week .cal-ev { white-space: normal; padding: .4rem .5rem; margin-bottom: 6px; }
+.agenda-day { font-size: .72rem; font-weight: 650; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); padding: .75rem 1.25rem .35rem; }
+.agenda-item { display: flex; gap: .75rem; padding: .5rem 1.25rem; align-items: flex-start; }
+.agenda-item .t { flex: 0 0 92px; white-space: nowrap; font-size: .78rem; font-weight: 600; color: var(--brand); font-variant-numeric: tabular-nums; padding-top: .1rem; }
+.agenda-item .x { min-width: 0; font-size: .875rem; }
+.agenda-item .x small { display: block; color: var(--muted); font-size: .76rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ---------- Ana sayfa ---------- */
+.quick-actions { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
+.quick-action {
+  display: flex; flex-direction: column; align-items: flex-start; gap: .6rem;
+  padding: 1rem; border-radius: var(--radius); border: 1px solid var(--line); background: var(--surface);
+  color: var(--ink); font-weight: 600; font-size: .9rem; box-shadow: var(--shadow-sm);
+  transition: border-color .15s, transform .15s, box-shadow .15s; position: relative;
+}
+.quick-action:hover { border-color: var(--brand); transform: translateY(-2px); box-shadow: var(--shadow-lg); color: var(--ink); text-decoration: none; }
+.quick-action .qa-icon { width: 40px; height: 40px; border-radius: 10px; display: grid; place-items: center; font-size: 1.15rem; }
+.quick-action.disabled { opacity: .55; pointer-events: none; box-shadow: none; }
+.quick-action .soon { position: absolute; top: .6rem; right: .6rem; font-size: .62rem; font-weight: 650; padding: .1rem .45rem; border-radius: 999px; background: var(--neutral-soft); color: var(--muted); }
+.task-panel { min-height: 520px; }

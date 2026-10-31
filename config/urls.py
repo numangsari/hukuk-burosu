@@ -8,6 +8,7 @@ urlpatterns = [
     path("hesap/", include("apps.accounts.urls")),
     path("muvekkiller/", include("apps.clients.urls")),
     path("dosyalar/", include("apps.cases.urls")),
+    path("takvim/", include("apps.agenda.urls")),
     path("", include("apps.core.urls")),
     # Yüklenen belgeler yalnızca giriş yapmış kullanıcıya sunulur
     # (LoginRequiredMiddleware tüm view'ları korur).

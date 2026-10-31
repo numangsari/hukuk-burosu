@@ -42,15 +42,59 @@ def test_wrong_pin_keeps_user_selected(client, pin_user):
     assert r.context["form"]["username"].value() == pin_user.username
 
 
-def test_pin_change(client, pin_user):
+def test_pin_change_in_settings(client, pin_user):
     client.force_login(pin_user)
-    url = reverse("accounts:pin_change")
-    r = client.post(url, {"old_pin": TEST_PIN, "new_pin": "12a4", "new_pin2": "12a4"})
-    assert "new_pin" in r.context["form"].errors
-    r = client.post(url, {"old_pin": TEST_PIN, "new_pin": "135790", "new_pin2": "135790"})
+    url = reverse("accounts:settings")
+    data = {"section": "pin", "old_pin": TEST_PIN}
+    r = client.post(url, {**data, "new_pin": "12a4", "new_pin2": "12a4"})
+    assert "new_pin" in r.context["forms"]["pin"].errors
+    r = client.post(url, {**data, "new_pin": "135790", "new_pin2": "135790"})
     assert r.status_code == 302
     pin_user.refresh_from_db()
     assert pin_user.check_password("135790")
+    # Eski PIN adresi ayarlara yönlenir.
+    assert client.get(reverse("accounts:pin_change")).url == "/hesap/ayarlar/?bolum=pin"
+
+
+def test_profile_settings(client, pin_user):
+    client.force_login(pin_user)
+    r = client.post(
+        reverse("accounts:settings"),
+        {
+            "section": "profil",
+            "first_name": "Yeni",
+            "last_name": "AD",
+            "email": "",
+            "phone": "",
+            "theme": "dark",
+            "page_size": 50,
+        },
+    )
+    assert r.status_code == 302
+    pin_user.refresh_from_db()
+    assert (pin_user.first_name, pin_user.theme, pin_user.page_size) == ("Yeni", "dark", 50)
+
+
+def test_office_and_calendar_settings_admin_only(client, pin_user):
+    from apps.office.models import OfficeSettings
+
+    client.force_login(pin_user)  # avukat rolü
+    url = reverse("accounts:settings")
+    assert "ofis" not in client.get(url).context["forms"]
+    r = client.post(url, {"section": "takvim", "calendar_ics_url": "https://x.test/a.ics"})
+    assert r.status_code == 403
+
+    pin_user.role = User.Role.ADMIN
+    pin_user.save()
+    secret = "https://calendar.google.com/calendar/ical/x/private-abc/basic.ics"
+    client.post(url, {"section": "takvim", "calendar_ics_url": secret})
+    assert OfficeSettings.load().calendar_ics_url == secret
+    # Boş gönderim mevcut adresi korur, adres sayfada görünmez.
+    client.post(url, {"section": "takvim", "calendar_ics_url": ""})
+    assert OfficeSettings.load().calendar_ics_url == secret
+    assert secret not in client.get(url, {"bolum": "takvim"}).content.decode()
+    client.post(url, {"section": "takvim", "calendar_ics_url": "", "clear": "on"})
+    assert OfficeSettings.load().calendar_ics_url == ""
 
 
 def test_setup_office_users():

@@ -4,6 +4,8 @@ from django.contrib.auth.forms import AuthenticationForm
 
 from apps.core.forms import BootstrapMixin
 
+from .models import User
+
 
 class PinLoginForm(AuthenticationForm):
     """Kullanıcı kartı seçilir (gizli username), PIN password alanında gelir."""
@@ -47,3 +49,10 @@ class PinChangeForm(BootstrapMixin, forms.Form):
         self.user.set_password(self.cleaned_data["new_pin"])
         self.user.save(update_fields=["password"])
         return self.user
+
+
+class ProfileForm(BootstrapMixin, forms.ModelForm):
+    class Meta:
+        model = User
+        fields = ["first_name", "last_name", "email", "phone", "theme", "page_size"]
+        labels = {"first_name": "Ad", "last_name": "Soyad", "email": "E-posta"}

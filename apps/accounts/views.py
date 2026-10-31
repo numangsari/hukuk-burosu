@@ -1,11 +1,17 @@
 from django.contrib import messages
 from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.views import LoginView
-from django.http import HttpResponse
+from django.core.cache import cache
+from django.http import HttpResponse, HttpResponseForbidden
 from django.shortcuts import redirect, render
+from django.urls import reverse
 from django.views import View
 
-from .forms import PinChangeForm, PinLoginForm
+from apps.core.permissions import is_admin
+from apps.office.forms import CalendarForm, OfficeForm
+from apps.office.models import OfficeSettings
+
+from .forms import PinChangeForm, PinLoginForm, ProfileForm
 from .models import User
 
 
@@ -20,20 +26,59 @@ class PinLoginView(LoginView):
         return ctx
 
 
-class PinChangeView(View):
-    template_name = "accounts/pin_change.html"
+class SettingsView(View):
+    """Kullanıcı ayarları (profil, görünüm, PIN) ve yöneticiye ofis/takvim ayarları."""
+
+    template_name = "accounts/settings.html"
+    ADMIN_SECTIONS = {"ofis", "takvim"}
+
+    def _forms(self, request, section=None, data=None, files=None):
+        user, office = request.user, OfficeSettings.load()
+
+        def bound(name):
+            return (data, files) if section == name else (None, None)
+
+        forms = {
+            "profil": ProfileForm(*bound("profil"), instance=user),
+            "pin": PinChangeForm(user, bound("pin")[0]),
+        }
+        if is_admin(user):
+            forms["ofis"] = OfficeForm(*bound("ofis"), instance=office)
+            forms["takvim"] = CalendarForm(*bound("takvim"), instance=office)
+        return forms
+
+    def _render(self, request, forms, active):
+        office = OfficeSettings.load()
+        return render(
+            request,
+            self.template_name,
+            {"forms": forms, "active": active, "calendar_connected": bool(office.calendar_ics_url)},
+        )
 
     def get(self, request):
-        return render(request, self.template_name, {"form": PinChangeForm(request.user)})
+        active = request.GET.get("bolum", "profil")
+        forms = self._forms(request)
+        if active not in forms:
+            active = "profil"
+        return self._render(request, forms, active)
 
     def post(self, request):
-        form = PinChangeForm(request.user, request.POST)
-        if form.is_valid():
-            user = form.save()
-            update_session_auth_hash(request, user)
-            messages.success(request, "PIN değiştirildi.")
-            return redirect("core:home")
-        return render(request, self.template_name, {"form": form})
+        section = request.POST.get("section", "")
+        if section in self.ADMIN_SECTIONS and not is_admin(request.user):
+            return HttpResponseForbidden()
+        forms = self._forms(request, section, request.POST, request.FILES)
+        form = forms.get(section)
+        if form is None:
+            return redirect("accounts:settings")
+        if not form.is_valid():
+            return self._render(request, forms, section)
+        saved = form.save()
+        if section == "pin":
+            update_session_auth_hash(request, saved)
+        if section == "takvim":
+            cache.clear()  # yeni adresle takvim hemen yeniden çekilsin
+        messages.success(request, "Ayarlar kaydedildi.")
+        return redirect(f"{reverse('accounts:settings')}?bolum={section}")
 
 
 class ThemeToggleView(View):

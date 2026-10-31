@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Takvim — {{ office.name }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Takvim</h1>
+    <p class="page-subtitle">Ofisin Google Takvim'i (salt okunur). Etkinlikler Google Takvim'den eklenir veya düzenlenir.</p>
+  </div>
+</div>
+
+{% if not agenda.configured %}
+<div class="card">
+  <div class="empty-state">
+    <i class="bi bi-calendar-plus"></i>
+    <strong>Google Takvim bağlı değil</strong>
+    {% if request.user.is_office_admin %}<a href="{% url 'accounts:settings' %}?bolum=takvim">Ayarlar'dan takvimi bağlayın</a>{% else %}Yönetici Ayarlar'dan takvimi bağlayabilir.{% endif %}
+  </div>
+</div>
+{% else %}
+{% if agenda.error %}<div class="alert alert-warning d-flex gap-2"><i class="bi bi-exclamation-triangle-fill"></i>{{ agenda.error }}</div>{% endif %}
+<div class="card table-card">
+  <div class="cal-toolbar">
+    <div class="btn-group">
+      <a class="btn btn-light btn-icon" href="?view={{ view }}&date={{ prev|date:'Y-m-d' }}" title="Önceki"><i class="bi bi-chevron-left"></i></a>
+      <a class="btn btn-light btn-icon" href="?view={{ view }}&date={{ next|date:'Y-m-d' }}" title="Sonraki"><i class="bi bi-chevron-right"></i></a>
+    </div>
+    <a class="btn btn-light" href="?view={{ view }}">Bugün</a>
+    <h2>{{ title }}</h2>
+    <div class="segmented ms-auto">
+      <input type="radio" id="v-month" {% if view == 'month' %}checked{% endif %} onclick="location.href='?view=month&date={{ anchor|date:'Y-m-d' }}'"><label for="v-month">Ay</label>
+      <input type="radio" id="v-week" {% if view == 'week' %}checked{% endif %} onclick="location.href='?view=week&date={{ anchor|date:'Y-m-d' }}'"><label for="v-week">Hafta</label>
+    </div>
+  </div>
+  <div class="cal-grid {% if view == 'week' %}cal-week{% endif %}">
+    {% for w in weekdays %}<div class="cal-head">{{ w }}</div>{% endfor %}
+    {% for week in weeks %}{% for cell in week %}
+      <div class="cal-cell{% if view == 'month' and not cell.in_month %} out{% endif %}{% if cell.date == today %} today{% endif %}">
+        <span class="cal-day">{{ cell.date.day }}</span>
+        {% for ev in cell.events %}
+          <span class="cal-ev{% if ev.all_day %} all-day{% endif %}" title="{{ ev.time_label }} · {{ ev.title }}{% if ev.location %} · {{ ev.location }}{% endif %}">
+            {% if not ev.all_day %}<b>{{ ev.start|time:"H:i" }}</b>{% endif %}{{ ev.title }}
+            {% if view == 'week' and ev.location %}<small class="d-block opacity-75"><i class="bi bi-geo-alt"></i> {{ ev.location }}</small>{% endif %}
+          </span>
+        {% endfor %}
+      </div>
+    {% endfor %}{% endfor %}
+  </div>
+</div>
+{% endif %}
+{% endblock %}

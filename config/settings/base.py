@@ -30,6 +30,7 @@ INSTALLED_APPS = [
     "apps.office",
     "apps.clients",
     "apps.cases",
+    "apps.agenda",
 ]
 
 MIDDLEWARE = [
@@ -109,3 +110,6 @@ DATA_UPLOAD_MAX_MEMORY_SIZE = 50 * 1024 * 1024
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 AUDITLOG_INCLUDE_ALL_MODELS = False
+
+# Django 6 davranışı: şemasız URL https kabul edilir.
+FORMS_URLFIELD_ASSUME_HTTPS = True
