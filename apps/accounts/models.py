@@ -41,6 +41,11 @@ class User(AbstractUser):
         return self.title or self.get_role_display()
 
     @property
+    def avatar_hue(self) -> int:
+        """Kullanıcıya sabit bir avatar rengi (HSL ton açısı)."""
+        return (self.order * 67 + 210) % 360
+
+    @property
     def initials(self) -> str:
         if self.first_name and self.last_name:
             return (self.first_name[0] + self.last_name[0]).upper()

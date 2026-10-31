@@ -1,15 +1,23 @@
 {% extends "base.html" %}
 {% block title %}PIN değiştir — {{ office.name }}{% endblock %}
 {% block content %}
-<h1 class="h4 mb-3">PIN değiştir</h1>
-<form method="post" class="card card-body" style="max-width: 360px">{% csrf_token %}
-  {% include "partials/field.html" with field=form.old_pin %}
-  {% include "partials/field.html" with field=form.new_pin %}
-  {% include "partials/field.html" with field=form.new_pin2 %}
-  <div class="form-text mb-3">PIN 4-8 haneli ve yalnızca rakam olmalı.</div>
-  <div class="d-flex gap-2">
-    <button class="btn btn-primary">Kaydet</button>
-    <a class="btn btn-outline-secondary" href="{% url 'core:home' %}">Vazgeç</a>
+<div class="page-header">
+  <div>
+    <div class="eyebrow">Hesabım</div>
+    <h1 class="page-title">PIN değiştir</h1>
+    <p class="page-subtitle">Giriş ekranında kullandığınız PIN kodunu güncelleyin.</p>
+  </div>
+</div>
+<form method="post" class="card" style="max-width: 440px">{% csrf_token %}
+  <div class="form-section">
+    {% include "partials/field.html" with field=form.old_pin %}
+    {% include "partials/field.html" with field=form.new_pin %}
+    {% include "partials/field.html" with field=form.new_pin2 wrap_class="mb-1" %}
+    <div class="form-text">PIN 4-8 haneli olmalı ve yalnızca rakamdan oluşmalı.</div>
+  </div>
+  <div class="form-footer">
+    <a class="btn btn-light" href="{% url 'core:home' %}">Vazgeç</a>
+    <button class="btn btn-primary"><i class="bi bi-check2"></i>Kaydet</button>
   </div>
 </form>
 {% endblock %}

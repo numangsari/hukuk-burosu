@@ -2,42 +2,83 @@
 {% load ui %}
 {% block title %}{{ case.archive_no }} — {{ office.name }}{% endblock %}
 {% block content %}
-<div class="d-flex align-items-start mb-3 gap-2">
-  <div>
-    <div class="small text-body-secondary">{{ case.get_case_type_display }} · Arşiv no {{ case.archive_no }}</div>
-    <h1 class="h4 mb-1">{{ case.subject }}</h1>
-    <div class="small">Müvekkil: <a href="{{ case.client.get_absolute_url }}">{{ case.client }}</a>
-      · <span class="badge text-bg-primary">{{ case.get_status_display }}</span>{% if case.stage %} <span class="badge text-bg-light">{{ case.get_stage_display }}</span>{% endif %}</div>
-  </div>
-  <div class="ms-auto d-flex gap-2">
-    <a class="btn btn-sm btn-outline-secondary" href="{% url 'cases:update' case.pk %}"><i class="bi bi-pencil me-1"></i>Düzenle</a>
-    {% if request.user.is_office_admin %}
-    <form method="post" action="{% url 'cases:delete' case.pk %}" onsubmit="return confirm('Dosya ve belgeleri silinsin mi?')">{% csrf_token %}
-      <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
-    </form>
-    {% endif %}
-  </div>
+<div class="page-header mb-3">
+  <div class="eyebrow"><a href="{% url 'cases:list' %}"><i class="bi bi-chevron-left"></i> Dosyalar</a></div>
 </div>
 
-<ul class="nav nav-tabs mb-3">
-  <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#t-ozet">Özet</button></li>
-  <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-taraflar">Karşı taraflar <span class="badge text-bg-light">{{ party_links|length }}</span></button></li>
-  <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-belgeler">Belgeler <span class="badge text-bg-light">{{ documents|length }}</span></button></li>
-</ul>
+<div class="card mb-3">
+  <div class="detail-hero">
+    <div class="hero-icon"><i class="bi bi-folder2-open"></i></div>
+    <div class="min-w-0">
+      <div class="small text-body-secondary fw-medium">{{ case.get_case_type_display }} · Arşiv no <span class="tabular">{{ case.archive_no }}</span></div>
+      <div class="d-flex align-items-center gap-2 flex-wrap">
+        <h1 class="page-title">{{ case.subject }}</h1>
+        {% with k=case %}{% include "cases/_status_chip.html" %}{% endwith %}
+        {% if case.stage %}<span class="chip no-dot">{{ case.get_stage_display }}</span>{% endif %}
+      </div>
+      <div class="meta">
+        <span><i class="bi bi-person"></i>Müvekkil <a class="fw-medium" href="{{ case.client.get_absolute_url }}">{{ case.client }}</a></span>
+        {% if case.authority %}<span><i class="bi bi-bank2"></i>{{ case.authority }}</span>{% endif %}
+        {% if case.official_no %}<span><i class="bi bi-hash"></i>{{ case.labels.official_no }} <strong class="tabular">{{ case.official_no }}</strong></span>{% endif %}
+        <span><i class="bi bi-briefcase"></i>{{ case.responsible_lawyer }}</span>
+        <span><i class="bi bi-mortarboard"></i>{{ case.responsible_intern }}</span>
+      </div>
+    </div>
+    <div class="page-actions">
+      {% if request.user.is_office_admin %}
+      <form method="post" action="{% url 'cases:delete' case.pk %}" onsubmit="return confirm('Dosya ve belgeleri silinsin mi?')">{% csrf_token %}
+        <button class="btn btn-outline-danger btn-icon" title="Sil"><i class="bi bi-trash"></i></button>
+      </form>
+      {% endif %}
+      <a class="btn btn-light" href="{% url 'cases:update' case.pk %}"><i class="bi bi-pencil"></i>Düzenle</a>
+    </div>
+  </div>
+  <ul class="nav nav-underline-tabs">
+    <li><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#t-ozet">Özet</button></li>
+    <li><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-taraflar">Karşı taraflar<span class="count">{{ party_links|length }}</span></button></li>
+    <li><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-belgeler">Belgeler<span class="count">{{ documents|length }}</span></button></li>
+    <li><button class="nav-link" disabled>Görevler<span class="count">Yakında</span></button></li>
+    <li><button class="nav-link" disabled>Duruşmalar<span class="count">Yakında</span></button></li>
+    <li><button class="nav-link" disabled>Muhasebe<span class="count">Yakında</span></button></li>
+  </ul>
+</div>
+
 <div class="tab-content">
   <div class="tab-pane fade show active" id="t-ozet">
-    <dl class="dl-grid">
-      <dt>{{ case.labels.official_no }}</dt><dd>{{ case.official_no|default:"—" }}</dd>
-      {% if case.labels.authority %}<dt>{{ case.labels.authority }}</dt><dd>{{ case.authority|default:"—" }}</dd>{% endif %}
-      {% if case.labels.value %}<dt>{{ case.labels.value }}</dt><dd>{{ case.value|tl }}</dd>{% endif %}
-      {% if case.enforcement_type %}<dt>Takip türü</dt><dd>{{ case.get_enforcement_type_display }}</dd>{% endif %}
-      {% if case.crime %}<dt>Suç</dt><dd>{{ case.crime }}</dd>{% endif %}
-      {% if case.mediator %}<dt>Arabulucu</dt><dd>{{ case.mediator }}</dd>{% endif %}
-      <dt>Sorumlu avukat</dt><dd>{{ case.responsible_lawyer }}</dd>
-      <dt>Sorumlu stajyer</dt><dd>{{ case.responsible_intern }}</dd>
-      <dt>Açılış / kapanış</dt><dd>{{ case.opened_on|date:"d.m.Y"|default:"—" }} / {{ case.closed_on|date:"d.m.Y"|default:"—" }}</dd>
-      <dt>Notlar</dt><dd>{{ case.notes|linebreaksbr|default:"—" }}</dd>
-    </dl>
+    <div class="row g-3">
+      <div class="col-lg-8">
+        <div class="card h-100"><div class="card-body">
+          <h2 class="section-title">Dosya bilgileri</h2>
+          <dl class="dl-grid">
+            <dt>{{ case.labels.official_no }}</dt><dd class="tabular">{{ case.official_no|default:"—" }}</dd>
+            {% if case.labels.authority %}<dt>{{ case.labels.authority }}</dt><dd>{{ case.authority|default:"—" }}</dd>{% endif %}
+            {% if case.labels.value %}<dt>{{ case.labels.value }}</dt><dd class="tabular">{{ case.value|tl }}</dd>{% endif %}
+            {% if case.enforcement_type %}<dt>Takip türü</dt><dd>{{ case.get_enforcement_type_display }}</dd>{% endif %}
+            {% if case.crime %}<dt>Suç</dt><dd>{{ case.crime }}</dd>{% endif %}
+            {% if case.mediator %}<dt>Arabulucu</dt><dd>{{ case.mediator }}</dd>{% endif %}
+            <dt>Notlar</dt><dd>{{ case.notes|linebreaksbr|default:"—" }}</dd>
+          </dl>
+        </div></div>
+      </div>
+      <div class="col-lg-4">
+        <div class="card h-100"><div class="card-body">
+          <h2 class="section-title">Ekip ve tarihler</h2>
+          <div class="d-flex align-items-center gap-2 mb-3">
+            <span class="avatar avatar-sm" style="--h: {{ case.responsible_lawyer.avatar_hue }}">{{ case.responsible_lawyer.initials }}</span>
+            <div><div class="fw-medium">{{ case.responsible_lawyer }}</div><div class="small text-body-secondary">Sorumlu avukat</div></div>
+          </div>
+          <div class="d-flex align-items-center gap-2 mb-3">
+            <span class="avatar avatar-sm" style="--h: {{ case.responsible_intern.avatar_hue }}">{{ case.responsible_intern.initials }}</span>
+            <div><div class="fw-medium">{{ case.responsible_intern }}</div><div class="small text-body-secondary">Sorumlu stajyer</div></div>
+          </div>
+          <dl class="dl-grid" style="grid-template-columns: 110px 1fr">
+            <dt>Açılış</dt><dd class="tabular">{{ case.opened_on|date:"d.m.Y"|default:"—" }}</dd>
+            <dt>Kapanış</dt><dd class="tabular">{{ case.closed_on|date:"d.m.Y"|default:"—" }}</dd>
+            <dt>Kayıt</dt><dd class="small text-body-secondary">{{ case.created_at|date:"d.m.Y" }}{% if case.created_by %} · {{ case.created_by }}{% endif %}</dd>
+          </dl>
+        </div></div>
+      </div>
+    </div>
   </div>
   <div class="tab-pane fade" id="t-taraflar">{% include "cases/_parties.html" %}</div>
   <div class="tab-pane fade" id="t-belgeler">{% include "cases/_documents.html" %}</div>

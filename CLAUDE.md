@@ -38,6 +38,12 @@ Dev ayarları `config/settings/dev.py`, varsayılan DB bağlantısı dev compose
 - Tüm kullanıcı view'ları `LoginRequiredMiddleware` ile korunur. `/media/` de giriş ister.
 - Aktivite kaydı `django-auditlog`; her app `ready()` içinde kendi modellerini kaydeder.
 
+## Arayüz
+- Tasarım sistemi `static/css/app.css`: tokenlar `:root` ve `[data-bs-theme=dark]` altında (lacivert yan menü, bronz vurgu `--accent`, marka mavisi `--brand`). Font Inter, `static/vendor/inter/` altında gömülü.
+- Bileşenler: `.page-header` (eyebrow/başlık/alt başlık/aksiyonlar), `.card.table-card` + `.filter-bar` + tablo + `partials/pagination.html` (`.table-footer`), `.detail-hero` + `.nav-underline-tabs`, form `.form-section` + `.form-footer`, durum rozeti `.chip` (`chip-primary/success/warning/danger/info/accent`), `.stat-card`, `.empty-state`, `.avatar` (`--h` = `User.avatar_hue`). Dosya durumu rozeti: `cases/_status_chip.html`.
+- Bildirim mesajları sağ altta toast olarak çıkar. Tema düğmesi `accounts:theme_toggle` ile kullanıcı tercihine yazılır.
+- Yeni sayfalar bu bileşenlerle yazılır; satır içi stil yerine token kullanılır.
+
 ## İş kuralları
 - Her görev bir dosyaya, her dosya bir müvekkile bağlıdır. Görevde müvekkil dosyadan otomatik gelir.
 - Her müvekkilin bir sorumlu avukatı (rol admin veya lawyer) ve bir sorumlu stajyeri (rol intern) vardır. Dosyada bunlar müvekkilden varsayılan gelir, değiştirilebilir.

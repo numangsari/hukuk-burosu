@@ -1,64 +1,86 @@
 {% extends "base.html" %}
 {% block title %}Giriş — {{ office.name }}{% endblock %}
 {% block anonymous %}
-<div class="min-vh-100 d-flex flex-column align-items-center justify-content-center bg-body-tertiary p-3"
-     x-data="pinLogin('{{ form.username.value|default:'' }}')" @keydown.window="key($event)">
-  <h1 class="h4 mb-4 d-flex align-items-center gap-2">
-    {% if office.logo %}<img src="{{ office.logo.url }}" alt="" height="36">{% else %}<i class="bi bi-bank"></i>{% endif %}
-    {{ office.name }}
-  </h1>
+<div class="login-page" x-data="pinLogin('{{ form.username.value|default:'' }}', {{ form.errors|yesno:'true,false' }})"
+     @keydown.window="key($event)">
+  <div class="login-brand">
+    <div class="brand-mark">{% if office.logo %}<img src="{{ office.logo.url }}" alt="">{% else %}ÖH{% endif %}</div>
+    <h1>{{ office.name }}</h1>
+    <p x-show="!selected">Devam etmek için kullanıcınızı seçin</p>
+    <p x-show="selected" x-cloak>PIN kodunuzu girin</p>
+  </div>
 
   <div class="user-grid" x-show="!selected">
     {% for u in users %}
-      <button type="button" class="user-card card text-center p-3" @click="pick($el.dataset)"
-              data-username="{{ u.username }}" data-name="{{ u }}" data-title="{{ u.display_title }}" data-initials="{{ u.initials }}" data-hue="{% widthratio forloop.counter0 1 67 %}">
-        <div class="avatar mx-auto mb-2" style="--h: {% widthratio forloop.counter0 1 67 %}">{{ u.initials }}</div>
-        <div class="fw-semibold">{{ u }}</div>
-        <div class="small text-body-secondary">{{ u.display_title }}</div>
+      <button type="button" class="user-card" @click="pick($el.dataset)"
+              data-username="{{ u.username }}" data-name="{{ u }}" data-title="{{ u.display_title }}"
+              data-initials="{{ u.initials }}" data-hue="{{ u.avatar_hue }}">
+        <span class="avatar" style="--h: {{ u.avatar_hue }}">{{ u.initials }}</span>
+        <div class="name">{{ u }}</div>
+        <div class="role">{{ u.display_title }}</div>
       </button>
     {% empty %}
-      <div class="text-body-secondary">Tanımlı kullanıcı yok.</div>
+      <div class="text-white-50">Tanımlı kullanıcı yok. Yöneticiye başvurun.</div>
     {% endfor %}
   </div>
 
-  <div class="card shadow-sm" style="width: 320px" x-show="selected" x-cloak>
-    <div class="card-body p-4 text-center">
-      <div class="avatar mx-auto mb-2" :style="`--h: ${hue}`" x-text="initials"></div>
-      <div class="fw-semibold" x-text="name"></div>
-      <div class="small text-body-secondary mb-3" x-text="title"></div>
-      {% if form.errors %}<div class="alert alert-danger py-2 small">{{ form.non_field_errors|join:" " }}</div>{% endif %}
-      <form method="post" x-ref="form">{% csrf_token %}
-        <input type="hidden" name="username" :value="selected">
-        <input type="hidden" name="next" value="{{ next }}">
-        <input class="form-control form-control-lg text-center mb-3 pin-input" type="password" name="password"
-               inputmode="numeric" autocomplete="off" maxlength="8" placeholder="PIN" x-model="pin" x-ref="pin" required>
-        <div class="pin-pad mb-3">
-          <template x-for="d in ['1','2','3','4','5','6','7','8','9']"><button type="button" class="btn btn-outline-secondary" @click="add(d)" x-text="d"></button></template>
-          <button type="button" class="btn btn-outline-secondary" @click="pin = pin.slice(0, -1)"><i class="bi bi-backspace"></i></button>
-          <button type="button" class="btn btn-outline-secondary" @click="add('0')">0</button>
-          <button class="btn btn-primary"><i class="bi bi-arrow-right"></i></button>
-        </div>
-      </form>
-      <button type="button" class="btn btn-link btn-sm" @click="back()"><i class="bi bi-arrow-left me-1"></i>Başka kullanıcı</button>
-    </div>
+  <div class="pin-card" x-show="selected" x-cloak :class="error && 'shake'">
+    <span class="avatar avatar-lg" :style="`--h: ${hue}`" x-text="initials"></span>
+    <div class="fw-semibold mt-3" x-text="name"></div>
+    <div class="small text-body-secondary" x-text="title"></div>
+
+    <form method="post" x-ref="form" @submit="if (pin.length < 4) { $event.preventDefault(); nudge(); }">
+      {% csrf_token %}
+      <input type="hidden" name="username" :value="selected">
+      <input type="hidden" name="next" value="{{ next }}">
+      <input class="pin-hidden" type="password" name="password" inputmode="numeric" autocomplete="off"
+             maxlength="8" x-model="pin" x-ref="pin" @input="pin = pin.replace(/\D/g, '')" aria-label="PIN">
+      <div class="pin-dots" @click="$refs.pin.focus()">
+        <template x-for="i in Math.max(4, pin.length)"><span :class="i <= pin.length && 'on'"></span></template>
+      </div>
+      {% if form.errors %}
+        <div class="small mb-3" style="color: var(--danger-ink)" x-show="error">{{ form.non_field_errors|join:" " }}</div>
+      {% endif %}
+      <div class="pin-pad">
+        <template x-for="d in ['1','2','3','4','5','6','7','8','9']">
+          <button type="button" @click="add(d)" x-text="d"></button>
+        </template>
+        <button type="button" @click="pin = pin.slice(0, -1)" aria-label="Sil"><i class="bi bi-backspace"></i></button>
+        <button type="button" @click="add('0')">0</button>
+        <button class="go" aria-label="Giriş"><i class="bi bi-arrow-right"></i></button>
+      </div>
+    </form>
+    <button type="button" class="btn btn-link btn-sm mt-3 text-body-secondary" @click="back()">
+      <i class="bi bi-arrow-left"></i> Başka kullanıcı
+    </button>
   </div>
+
+  <div class="login-foot">{% now "Y" %} © {{ office.name }}</div>
 </div>
 <script>
-  function pinLogin(initial) {
+  function pinLogin(initial, hasError) {
     return {
-      selected: "", name: "", title: "", initials: "", hue: 0, pin: "",
+      selected: "", name: "", title: "", initials: "", hue: 210, pin: "", error: hasError,
       init() {
         // Hatalı PIN sonrası aynı kullanıcının PIN ekranı açık kalsın.
         const card = initial && document.querySelector(`.user-card[data-username="${CSS.escape(initial)}"]`);
-        if (card) this.pick(card.dataset);
+        if (card) this.pick(card.dataset, true);
       },
-      pick(d) {
+      pick(d, keepError = false) {
         Object.assign(this, { selected: d.username, name: d.name, title: d.title, initials: d.initials, hue: d.hue, pin: "" });
+        if (!keepError) this.error = false;
         this.$nextTick(() => this.$refs.pin.focus());
       },
-      back() { this.selected = ""; this.pin = ""; },
+      back() { this.selected = ""; this.pin = ""; this.error = false; },
       add(d) { if (this.pin.length < 8) this.pin += d; this.$refs.pin.focus(); },
-      key(e) { if (e.key === "Escape" && this.selected) this.back(); },
+      nudge() { this.error = false; this.$nextTick(() => (this.error = true)); },
+      key(e) {
+        if (!this.selected) return;
+        if (e.key === "Escape") this.back();
+        else if (document.activeElement !== this.$refs.pin && /^\d$/.test(e.key)) this.add(e.key);
+        else if (document.activeElement !== this.$refs.pin && e.key === "Backspace") this.pin = this.pin.slice(0, -1);
+        else if (document.activeElement !== this.$refs.pin && e.key === "Enter") this.$refs.form.requestSubmit();
+      },
     };
   }
 </script>

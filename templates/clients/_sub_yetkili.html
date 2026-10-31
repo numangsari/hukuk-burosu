@@ -1,18 +1,21 @@
-<div id="sub-yetkili">
-  <table class="table table-sm">
+<div id="sub-yetkili" class="card table-card">
+  <div class="card-header"><h2 class="card-title">Yetkili ve irtibat kişileri</h2></div>
+  <div class="table-responsive">
+  <table class="table">
     <thead><tr><th>Ad soyad</th><th>Görev</th><th>Telefon</th><th>E-posta</th><th></th></tr></thead>
     <tbody>
     {% for i in items %}
-      <tr><td>{{ i.name }}</td><td>{{ i.position }}</td><td>{{ i.phone }}</td><td>{{ i.email }}</td>
+      <tr><td class="cell-main">{{ i.name }}</td><td>{{ i.position|default:"—" }}</td><td>{{ i.phone|default:"—" }}</td><td>{{ i.email|default:"—" }}</td>
         <td class="text-end">{% include "clients/_sub_delete.html" with kind="yetkili" %}</td></tr>
-    {% empty %}<tr><td colspan="5" class="text-body-secondary">Kayıt yok.</td></tr>{% endfor %}
+    {% empty %}<tr><td colspan="5"><div class="empty-state py-3"><strong>Kayıt yok</strong>Aşağıdan yetkili kişi ekleyin.</div></td></tr>{% endfor %}
     </tbody>
   </table>
-  <form class="row g-2 align-items-end" hx-post="{% url 'clients:sub_add' client.pk 'yetkili' %}" hx-target="#sub-yetkili" hx-swap="outerHTML">
+  </div>
+  <form class="inline-form row g-2 align-items-end" hx-post="{% url 'clients:sub_add' client.pk 'yetkili' %}" hx-target="#sub-yetkili" hx-swap="outerHTML">
     <div class="col-md-3">{% include "partials/field.html" with field=form.name wrap_class="" %}</div>
     <div class="col-md-2">{% include "partials/field.html" with field=form.position wrap_class="" %}</div>
     <div class="col-md-2">{% include "partials/field.html" with field=form.phone wrap_class="" %}</div>
     <div class="col-md-3">{% include "partials/field.html" with field=form.email wrap_class="" %}</div>
-    <div class="col-md-2"><button class="btn btn-outline-primary w-100"><i class="bi bi-plus"></i> Ekle</button></div>
+    <div class="col-md-2"><button class="btn btn-primary w-100"><i class="bi bi-plus-lg"></i>Ekle</button></div>
   </form>
 </div>

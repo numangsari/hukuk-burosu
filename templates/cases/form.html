@@ -1,58 +1,79 @@
 {% extends "base.html" %}
 {% block title %}{% if object %}{{ object.archive_no }} — düzenle{% else %}Yeni dosya{% endif %}{% endblock %}
 {% block content %}
-<h1 class="h4 mb-3">{% if object %}{{ object.archive_no }} — düzenle{% else %}Yeni dosya{% endif %}</h1>
-{{ type_labels_json|json_script:"type-labels" }}
+<div class="page-header">
+  <div>
+    <div class="eyebrow"><a href="{% if object %}{{ object.get_absolute_url }}{% else %}{% url 'cases:list' %}{% endif %}"><i class="bi bi-chevron-left"></i> {% if object %}{{ object.archive_no }}{% else %}Dosyalar{% endif %}</a></div>
+    <h1 class="page-title">{% if object %}Dosyayı düzenle{% else %}Yeni dosya{% endif %}</h1>
+    {% if not object %}<p class="page-subtitle">Karşı taraflar ve belgeler kayıttan sonra dosya sayfasından eklenir.</p>{% endif %}
+  </div>
+</div>
+{{ type_labels|json_script:"type-labels" }}
 <datalist id="authority-options">{% for a in authorities %}<option value="{{ a }}">{% endfor %}</datalist>
-<form method="post" class="card card-body" style="max-width: 960px"
-      x-data="caseForm('{{ form.case_type.value|default:'civil' }}')">
+<form method="post" class="card" style="max-width: 980px" x-data="caseForm('{{ form.case_type.value|default:'civil' }}')">
   {% csrf_token %}
-  {% if form.non_field_errors %}<div class="alert alert-danger py-2">{{ form.non_field_errors }}</div>{% endif %}
-  <div class="row">
-    <div class="col-md-6">
-      {% include "partials/field.html" with field=form.client %}
+  {% if form.non_field_errors %}<div class="alert alert-danger m-3 mb-0">{{ form.non_field_errors }}</div>{% endif %}
+
+  <div class="form-section">
+    <div class="form-section-head"><h2>Dosya</h2><p>Müvekkil seçildiğinde sorumlular müvekkil kartından gelir.</p></div>
+    <div class="row">
+      <div class="col-md-6">{% include "partials/field.html" with field=form.client %}</div>
+      <div class="col-md-3">{% include "partials/field.html" with field=form.case_type %}</div>
+      <div class="col-md-3">{% include "partials/field.html" with field=form.archive_no %}</div>
     </div>
-    <div class="col-md-3">{% include "partials/field.html" with field=form.case_type %}</div>
-    <div class="col-md-3">{% include "partials/field.html" with field=form.archive_no %}</div>
+    {% include "partials/field.html" with field=form.subject %}
   </div>
-  <div class="row">
-    <div class="col-md-3">
-      <div class="mb-3">
-        <label class="form-label" for="{{ form.official_no.id_for_label }}" x-text="labels.official_no"></label>
-        {{ form.official_no }}{% for e in form.official_no.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}
+
+  <div class="form-section">
+    <div class="form-section-head"><h2>Merci ve numaralar</h2><p>Alan adları dosya türüne göre değişir.</p></div>
+    <div class="row">
+      <div class="col-md-3">
+        <div class="mb-3">
+          <label class="form-label" for="{{ form.official_no.id_for_label }}" x-text="labels.official_no"></label>
+          {{ form.official_no }}{% for e in form.official_no.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}
+        </div>
       </div>
-    </div>
-    <div class="col-md-5" x-show="labels.authority">
-      <div class="mb-3">
-        <label class="form-label" for="{{ form.authority.id_for_label }}" x-text="labels.authority"></label>
-        {{ form.authority }}
+      <div class="col-md-5" x-show="labels.authority">
+        <div class="mb-3">
+          <label class="form-label" for="{{ form.authority.id_for_label }}" x-text="labels.authority"></label>
+          {{ form.authority }}
+        </div>
       </div>
-    </div>
-    <div class="col-md-4" x-show="labels.value">
-      <div class="mb-3">
-        <label class="form-label" for="{{ form.value.id_for_label }}" x-text="labels.value"></label>
-        {{ form.value }}{% for e in form.value.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}
+      <div class="col-md-4" x-show="labels.value">
+        <div class="mb-3">
+          <label class="form-label" for="{{ form.value.id_for_label }}" x-text="labels.value"></label>
+          <div class="input-group">{{ form.value }}<span class="input-group-text">₺</span></div>
+          {% for e in form.value.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}
+        </div>
       </div>
+      <div class="col-md-4" x-show="caseType === 'enforcement'" x-cloak>{% include "partials/field.html" with field=form.enforcement_type %}</div>
+      <div class="col-md-6" x-show="['criminal','investigation'].includes(caseType)" x-cloak>{% include "partials/field.html" with field=form.crime %}</div>
+      <div class="col-md-6" x-show="caseType === 'mediation'" x-cloak>{% include "partials/field.html" with field=form.mediator %}</div>
     </div>
   </div>
-  {% include "partials/field.html" with field=form.subject %}
-  <div class="row">
-    <div class="col-md-3">{% include "partials/field.html" with field=form.status %}</div>
-    <div class="col-md-3" x-show="['civil','criminal','administrative'].includes(caseType)">{% include "partials/field.html" with field=form.stage %}</div>
-    <div class="col-md-3" x-show="caseType === 'enforcement'" x-cloak>{% include "partials/field.html" with field=form.enforcement_type %}</div>
-    <div class="col-md-6" x-show="['criminal','investigation'].includes(caseType)" x-cloak>{% include "partials/field.html" with field=form.crime %}</div>
-    <div class="col-md-6" x-show="caseType === 'mediation'" x-cloak>{% include "partials/field.html" with field=form.mediator %}</div>
+
+  <div class="form-section">
+    <div class="form-section-head"><h2>Durum ve tarihler</h2></div>
+    <div class="row">
+      <div class="col-md-3">{% include "partials/field.html" with field=form.status %}</div>
+      <div class="col-md-3" x-show="['civil','criminal','administrative'].includes(caseType)">{% include "partials/field.html" with field=form.stage %}</div>
+      <div class="col-md-3">{% include "partials/field.html" with field=form.opened_on %}</div>
+      <div class="col-md-3">{% include "partials/field.html" with field=form.closed_on %}</div>
+    </div>
   </div>
-  <div class="row">
-    <div class="col-md-3">{% include "partials/field.html" with field=form.responsible_lawyer %}</div>
-    <div class="col-md-3">{% include "partials/field.html" with field=form.responsible_intern %}</div>
-    <div class="col-md-3">{% include "partials/field.html" with field=form.opened_on %}</div>
-    <div class="col-md-3">{% include "partials/field.html" with field=form.closed_on %}</div>
+
+  <div class="form-section">
+    <div class="form-section-head"><h2>Sorumlular</h2></div>
+    <div class="row">
+      <div class="col-md-6">{% include "partials/field.html" with field=form.responsible_lawyer %}</div>
+      <div class="col-md-6">{% include "partials/field.html" with field=form.responsible_intern %}</div>
+    </div>
+    {% include "partials/field.html" with field=form.notes wrap_class="" %}
   </div>
-  {% include "partials/field.html" with field=form.notes %}
-  <div class="d-flex gap-2">
-    <button class="btn btn-primary">Kaydet</button>
-    <a class="btn btn-outline-secondary" href="{% if object %}{{ object.get_absolute_url }}{% else %}{% url 'cases:list' %}{% endif %}">Vazgeç</a>
+
+  <div class="form-footer">
+    <a class="btn btn-light" href="{% if object %}{{ object.get_absolute_url }}{% else %}{% url 'cases:list' %}{% endif %}">Vazgeç</a>
+    <button class="btn btn-primary"><i class="bi bi-check2"></i>Kaydet</button>
   </div>
 </form>
 <script>

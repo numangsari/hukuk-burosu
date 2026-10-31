@@ -1,5 +1,3 @@
-import json
-
 from django.contrib import messages
 from django.db.models import ProtectedError, Q
 from django.shortcuts import get_object_or_404, redirect, render
@@ -46,6 +44,9 @@ class CaseListView(ListView):
             qs = qs.filter(status=status)
         if lawyer := g.get("lawyer"):
             qs = qs.filter(responsible_lawyer_id=lawyer)
+        if g.get("mine"):
+            u = self.request.user
+            qs = qs.filter(Q(responsible_lawyer=u) | Q(responsible_intern=u))
         if client := g.get("client"):
             qs = qs.filter(client_id=client)
         sort = g.get("sort", "-created_at")
@@ -73,7 +74,7 @@ class CaseFormMixin:
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        ctx["type_labels_json"] = json.dumps({str(k): v for k, v in TYPE_LABELS.items()})
+        ctx["type_labels"] = {str(k): v for k, v in TYPE_LABELS.items()}
         ctx["authorities"] = Court.objects.filter(is_active=True).values_list("name", flat=True)
         return ctx
 

@@ -115,3 +115,9 @@ def test_detail_pages_render(lawyer_client, case_factory):
     assert lawyer_client.get(case.get_absolute_url()).status_code == 200
     assert lawyer_client.get(case.client.get_absolute_url()).status_code == 200
     assert lawyer_client.get(reverse("core:home")).status_code == 200
+
+
+def test_case_form_type_labels_are_json_object(lawyer_client):
+    r = lawyer_client.get(reverse("cases:create"))
+    # json_script ile tek seferde kodlanmış nesne olmalı (çift kodlanmış string değil)
+    assert '<script id="type-labels" type="application/json">{"civil"' in r.content.decode()

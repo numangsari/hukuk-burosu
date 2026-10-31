@@ -1,46 +1,43 @@
 {% extends "base.html" %}
 {% block title %}Müvekkiller — {{ office.name }}{% endblock %}
 {% block content %}
-<div class="d-flex align-items-center mb-3">
-  <h1 class="h4 mb-0">Müvekkiller</h1>
-  <a class="btn btn-primary ms-auto" href="{% url 'clients:create' %}"><i class="bi bi-person-plus me-1"></i>Yeni müvekkil</a>
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Müvekkiller</h1>
+    <p class="page-subtitle">Gerçek ve tüzel kişi müvekkil kartları.</p>
+  </div>
+  <div class="page-actions">
+    <a class="btn btn-primary" href="{% url 'clients:create' %}"><i class="bi bi-person-plus"></i>Yeni müvekkil</a>
+  </div>
 </div>
-<form class="row g-2 mb-3" hx-get="{% url 'clients:list' %}" hx-target="#list-table" hx-push-url="true"
-      hx-trigger="input changed delay:300ms from:input[name=q], change">
-  <div class="col-md-3"><input class="form-control" type="search" name="q" value="{{ request.GET.q }}" placeholder="Ad, unvan, TCKN, VKN"></div>
-  <div class="col-md-2">
+<div class="card table-card" id="list-card">
+  <form class="filter-bar" hx-get="{% url 'clients:list' %}" hx-target="#list-table" hx-push-url="true"
+        hx-trigger="input changed delay:300ms from:input[name=q], change" hx-indicator="#list-card">
+    <div class="grow"><i class="bi bi-search"></i><input class="form-control" type="search" name="q" value="{{ request.GET.q }}" placeholder="Ad, unvan, TCKN veya VKN ara"></div>
     <select class="form-select" name="kind">
       <option value="">Tüm tipler</option>
       {% for v, l in kinds %}<option value="{{ v }}" {% if request.GET.kind == v %}selected{% endif %}>{{ l }}</option>{% endfor %}
     </select>
-  </div>
-  <div class="col-md-2">
     <select class="form-select" name="poa">
       <option value="">Vekalet: tümü</option>
       <option value="yes" {% if request.GET.poa == 'yes' %}selected{% endif %}>Vekaleti var</option>
       <option value="no" {% if request.GET.poa == 'no' %}selected{% endif %}>Vekaleti yok</option>
     </select>
-  </div>
-  <div class="col-md-2">
     <select class="form-select" name="lawyer">
       <option value="">Tüm avukatlar</option>
       {% for u in lawyers %}<option value="{{ u.pk }}" {% if request.GET.lawyer == u.pk|stringformat:'s' %}selected{% endif %}>{{ u }}</option>{% endfor %}
     </select>
-  </div>
-  <div class="col-md-2">
     <select class="form-select" name="intern">
       <option value="">Tüm stajyerler</option>
       {% for u in interns %}<option value="{{ u.pk }}" {% if request.GET.intern == u.pk|stringformat:'s' %}selected{% endif %}>{{ u }}</option>{% endfor %}
     </select>
-  </div>
-  <div class="col-md-1">
-    <select class="form-select" name="active">
+    <select class="form-select" name="active" style="min-width: 110px">
       <option value="1">Aktif</option>
       <option value="0" {% if request.GET.active == '0' %}selected{% endif %}>Pasif</option>
       <option value="all" {% if request.GET.active == 'all' %}selected{% endif %}>Tümü</option>
     </select>
-  </div>
-  {% if request.GET.sort %}<input type="hidden" name="sort" value="{{ request.GET.sort }}">{% endif %}
-</form>
-<div id="list-table">{% include "clients/_list_table.html" %}</div>
+    {% if request.GET.sort %}<input type="hidden" name="sort" value="{{ request.GET.sort }}">{% endif %}
+  </form>
+  <div id="list-table">{% include "clients/_list_table.html" %}</div>
+</div>
 {% endblock %}

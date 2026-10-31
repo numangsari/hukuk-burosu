@@ -1,21 +1,25 @@
-<div id="sub-vekalet">
-  <table class="table table-sm">
-    <thead><tr><th>Noter</th><th>Tarih</th><th>Yevmiye no</th><th>Arşiv no</th><th>PDF</th><th></th></tr></thead>
+<div id="sub-vekalet" class="card table-card">
+  <div class="card-header"><h2 class="card-title">Vekaletnameler</h2></div>
+  <div class="table-responsive">
+  <table class="table">
+    <thead><tr><th>Noter</th><th>Tarih</th><th>Yevmiye no</th><th>Arşiv no</th><th>Belge</th><th></th></tr></thead>
     <tbody>
     {% for i in items %}
-      <tr><td>{{ i.notary }}</td><td>{{ i.date|date:"d.m.Y" }}</td><td>{{ i.journal_no }}</td><td>{{ i.archive_no }}</td>
-        <td>{% if i.pdf %}<a href="{{ i.pdf.url }}" target="_blank"><i class="bi bi-file-earmark-pdf"></i> Aç</a>{% endif %}</td>
+      <tr><td class="cell-main">{{ i.notary }}{% if i.notes %}<div class="cell-sub fw-normal">{{ i.notes }}</div>{% endif %}</td>
+        <td class="tabular">{{ i.date|date:"d.m.Y" }}</td><td class="tabular">{{ i.journal_no }}</td><td class="tabular">{{ i.archive_no|default:"—" }}</td>
+        <td>{% if i.pdf %}<a href="{{ i.pdf.url }}" target="_blank" class="chip chip-danger no-dot"><i class="bi bi-file-earmark-pdf"></i>PDF</a>{% else %}<span class="text-body-secondary">—</span>{% endif %}</td>
         <td class="text-end">{% include "clients/_sub_delete.html" with kind="vekalet" %}</td></tr>
-    {% empty %}<tr><td colspan="6" class="text-body-secondary">Vekalet kaydı yok.</td></tr>{% endfor %}
+    {% empty %}<tr><td colspan="6"><div class="empty-state py-3"><strong>Vekalet kaydı yok</strong>Aşağıdan vekaletname bilgilerini ve PDF'ini ekleyin.</div></td></tr>{% endfor %}
     </tbody>
   </table>
-  <form class="row g-2 align-items-end" hx-post="{% url 'clients:sub_add' client.pk 'vekalet' %}" hx-target="#sub-vekalet" hx-swap="outerHTML" hx-encoding="multipart/form-data">
+  </div>
+  <form class="inline-form row g-2 align-items-end" hx-post="{% url 'clients:sub_add' client.pk 'vekalet' %}" hx-target="#sub-vekalet" hx-swap="outerHTML" hx-encoding="multipart/form-data">
     <div class="col-md-3">{% include "partials/field.html" with field=form.notary wrap_class="" %}</div>
     <div class="col-md-2">{% include "partials/field.html" with field=form.date wrap_class="" %}</div>
     <div class="col-md-2">{% include "partials/field.html" with field=form.journal_no wrap_class="" %}</div>
     <div class="col-md-2">{% include "partials/field.html" with field=form.archive_no wrap_class="" %}</div>
     <div class="col-md-3">{% include "partials/field.html" with field=form.pdf wrap_class="" %}</div>
     <div class="col-md-10">{% include "partials/field.html" with field=form.notes wrap_class="" %}</div>
-    <div class="col-md-2"><button class="btn btn-outline-primary w-100"><i class="bi bi-plus"></i> Ekle</button></div>
+    <div class="col-md-2"><button class="btn btn-primary w-100"><i class="bi bi-plus-lg"></i>Ekle</button></div>
   </form>
 </div>

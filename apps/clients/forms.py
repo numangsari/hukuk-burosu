@@ -8,6 +8,7 @@ from .models import (
     ClientIban,
     ClientRepresentative,
     Party,
+    PersonKind,
     PowerOfAttorney,
 )
 
@@ -37,6 +38,7 @@ class ClientForm(BootstrapMixin, forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields["kind"].choices = PersonKind.choices  # boş seçenek olmasın
         self.fields["kind"].widget.attrs["class"] = "form-check-input"
         self.fields["kind"].widget.attrs["x-model"] = "kind"
         self.conflicts = []

@@ -1,31 +1,28 @@
 {% load ui %}
-<div class="table-responsive border rounded">
-<table class="table table-hover mb-0">
-  <thead class="table-light">
+<div class="table-responsive">
+<table class="table table-hover">
+  <thead>
     <tr>
       <th>{% sort_link "archive_no" "Arşiv no" %}</th>
-      <th>{% sort_link "case_type" "Tür" %}</th>
-      <th>{% sort_link "subject" "Konu" %}</th>
+      <th>{% sort_link "subject" "Dosya" %}</th>
       <th>{% sort_link "client__name" "Müvekkil" %}</th>
       <th>Merci / Resmi no</th>
       <th>{% sort_link "status" "Durum" %}</th>
-      <th>Sorumlu</th>
+      <th>Sorumlular</th>
     </tr>
   </thead>
   <tbody>
   {% for k in cases %}
     <tr data-href="{{ k.get_absolute_url }}" onclick="location.href=this.dataset.href">
-      <td><a href="{{ k.get_absolute_url }}" class="fw-medium">{{ k.archive_no }}</a></td>
-      <td>{{ k.get_case_type_display }}</td>
-      <td>{{ k.subject }}</td>
+      <td><a href="{{ k.get_absolute_url }}" class="fw-semibold tabular">{{ k.archive_no }}</a></td>
+      <td><div class="cell-main">{{ k.subject }}</div><div class="cell-sub">{{ k.get_case_type_display }}</div></td>
       <td>{{ k.client }}</td>
-      <td>{{ k.authority }}<div class="small text-body-secondary">{{ k.official_no }}</div></td>
-      <td><span class="badge {% if k.status == 'closed' %}text-bg-secondary{% elif k.status == 'pending' %}text-bg-primary{% else %}text-bg-info{% endif %}">{{ k.get_status_display }}</span>
-        {% if k.stage %}<div class="small text-body-secondary">{{ k.get_stage_display }}</div>{% endif %}</td>
-      <td class="small">{{ k.responsible_lawyer }}<div class="text-body-secondary">{{ k.responsible_intern }}</div></td>
+      <td>{{ k.authority|default:"—" }}<div class="cell-sub tabular">{{ k.official_no }}</div></td>
+      <td>{% include "cases/_status_chip.html" %}{% if k.stage %}<div class="cell-sub mt-1">{{ k.get_stage_display }}</div>{% endif %}</td>
+      <td><div>{{ k.responsible_lawyer }}</div><div class="cell-sub">{{ k.responsible_intern }}</div></td>
     </tr>
   {% empty %}
-    <tr><td colspan="7" class="text-center text-body-secondary py-4">Kayıt bulunamadı.</td></tr>
+    <tr><td colspan="6"><div class="empty-state"><i class="bi bi-folder2"></i><strong>Dosya bulunamadı</strong>Filtreleri değiştirin veya yeni dosya açın.</div></td></tr>
   {% endfor %}
   </tbody>
 </table>

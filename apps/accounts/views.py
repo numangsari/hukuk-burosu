@@ -1,6 +1,7 @@
 from django.contrib import messages
 from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.views import LoginView
+from django.http import HttpResponse
 from django.shortcuts import redirect, render
 from django.views import View
 
@@ -33,3 +34,13 @@ class PinChangeView(View):
             messages.success(request, "PIN değiştirildi.")
             return redirect("core:home")
         return render(request, self.template_name, {"form": form})
+
+
+class ThemeToggleView(View):
+    """Açık/koyu tema tercihini kaydeder; sayfa tarafında tema anında değişir."""
+
+    def post(self, request):
+        user = request.user
+        user.theme = User.Theme.LIGHT if user.theme == User.Theme.DARK else User.Theme.DARK
+        user.save(update_fields=["theme"])
+        return HttpResponse(status=204)
