@@ -73,23 +73,84 @@ def test_plan_and_execute(lawyer, intern, admin_user):
     assert (b["cari"], b["trust"]) == (Decimal("25000"), Decimal("1000"))
 
 
-def test_duplicates_skipped_and_errors_reported(lawyer, intern, client_factory, case_factory):
-    existing = client_factory(first_name="Mevcut", last_name="KİŞİ")
+def test_duplicates_and_errors_reported(lawyer, intern, client_factory, case_factory):
+    existing = client_factory(first_name="Mevcut", last_name="KİŞİ", tckn=VALID_TCKN)
     case_factory(client=existing, archive_no="2026/0001")
     f = workbook(
-        clients=[client_row(first="mevcut", last="kişi"), client_row(tckn="12345678901"), client_row(first="", last="")],
+        clients=[
+            client_row(first="mevcut", last="kişi"),  # kimliksiz aynı ad: karar kullanıcıya bırakılır
+            client_row(first="Başka", last="BİRİ", tckn=VALID_TCKN),  # aynı TCKN: atlanır
+            client_row(tckn="12345678901"),  # geçersiz TCKN
+            client_row(first="", last=""),
+        ],
         cases=[case_row(client="Mevcut KİŞİ", archive="2026/0001"), case_row(client="Olmayan Kişi", archive="X1"),
-               case_row(client="Mevcut KİŞİ", archive="X2", type="Uzay Davası")],
+               case_row(client=VALID_TCKN, archive="X2", type="Uzay Davası")],
     )  # fmt: skip
     plan = services.build_plan(f, lawyer, intern)
     statuses = [(r.sheet, r.status) for r in plan.rows]
     assert statuses == [
-        ("Müvekkiller", "skip"), ("Müvekkiller", "error"), ("Müvekkiller", "error"),
+        ("Müvekkiller", "error"), ("Müvekkiller", "skip"), ("Müvekkiller", "error"), ("Müvekkiller", "error"),
         ("Dosyalar", "skip"), ("Dosyalar", "error"), ("Dosyalar", "error"),
     ]  # fmt: skip
+    assert "TCKN/VKN yazın" in plan.rows[0].messages[0]
     with pytest.raises(ValueError):
         services.execute(plan, lawyer)
     assert Client.objects.count() == 1  # hiçbir şey yazılmadı
+
+
+def test_same_name_different_identity_is_created(lawyer, intern, client_factory):
+    from .conftest import VALID_TCKN as T1
+
+    client_factory(first_name="Ali", last_name="VELİ")  # kimliksiz mevcut kayıt
+    plan = services.build_plan(
+        workbook(clients=[client_row(first="Ali", last="VELİ", tckn=T1)]), lawyer, intern
+    )
+    assert plan.rows[0].status == "create" and "aynı adlı" in plan.rows[0].messages[0]
+
+
+def test_ambiguous_client_name_in_cases(lawyer, intern, client_factory):
+    client_factory(first_name="Ali", last_name="VELİ")
+    client_factory(first_name="Ali", last_name="VELİ", tckn=VALID_TCKN)
+    plan = services.build_plan(workbook(cases=[case_row(client="Ali VELİ")]), lawyer, intern)
+    assert plan.rows[0].status == "error" and "birden fazla" in plan.rows[0].messages[0]
+    plan = services.build_plan(workbook(cases=[case_row(client=VALID_TCKN)]), lawyer, intern)
+    assert plan.rows[0].status == "create"  # TCKN ile kesin eşleşir
+
+
+def test_same_file_and_same_balance_not_imported_twice(admin_user, lawyer, intern, client_factory):
+    import hashlib
+
+    c = client_factory(first_name="Ayşe", last_name="DENEME")
+    data = workbook(balances=[["Ayşe DENEME", "31.12.2025", "1000", "0", ""]]).read()
+    digest = hashlib.sha256(data).hexdigest()
+    plan = services.build_plan(io.BytesIO(data), lawyer, intern, file_hash=digest)
+    services.execute(plan, admin_user, file_hash=digest, file_name="veri.xlsx")
+    again = services.build_plan(io.BytesIO(data), lawyer, intern, file_hash=digest)
+    assert again.errors and "zaten aktarıldı" in again.errors[0].messages[0]
+    # Farklı dosyada aynı devir satırı: atlanır
+    other = services.build_plan(
+        workbook(balances=[["Ayşe DENEME", "31.12.2025", "1000", "0", ""]]), lawyer, intern
+    )
+    assert other.rows[0].status == "skip" and LedgerEntry.objects.filter(client=c).count() == 1
+
+
+def test_conflict_with_party_needs_confirmation(admin_user, lawyer, intern):
+    from apps.clients.models import Party
+
+    Party.objects.create(kind="person", name="Ayşe DENEME")
+    c = HttpClient()
+    c.force_login(admin_user)
+    upload = SimpleUploadedFile("veri.xlsx", workbook(clients=[client_row()]).read())
+    r = c.post(
+        reverse("imports:import"),
+        {"file": upload, "default_lawyer": lawyer.pk, "default_intern": intern.pk},
+    )
+    assert r.context["plan"].conflicts
+    data = {"token": r.context["token"], "default_lawyer": lawyer.pk, "default_intern": intern.pk}
+    c.post(reverse("imports:import"), data)
+    assert not Client.objects.exists()  # onaysız aktarılmaz
+    c.post(reverse("imports:import"), {**data, "confirm_conflicts": "1"})
+    assert Client.objects.count() == 1
 
 
 def test_unknown_responsible_user_is_error(lawyer, intern):

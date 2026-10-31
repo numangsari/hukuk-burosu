@@ -1,3 +1,4 @@
+import hashlib
 import uuid
 from pathlib import Path
 
@@ -56,13 +57,22 @@ class ImportView(AdminRequiredMixin, View):
         if token := request.POST.get("token"):
             try:
                 path = _tmp_path(token)
+                file_hash = hashlib.sha256(path.read_bytes()).hexdigest()
                 with open(path, "rb") as f:
                     plan = services.build_plan(
                         f,
                         User.objects.get(pk=request.POST["default_lawyer"]),
                         User.objects.get(pk=request.POST["default_intern"]),
+                        file_hash=file_hash,
                     )
-                counts = services.execute(plan, request.user)
+                if plan.conflicts and not request.POST.get("confirm_conflicts"):
+                    raise ValueError("Çıkar çatışması uyarılarını onaylamadınız.")
+                counts = services.execute(
+                    plan,
+                    request.user,
+                    file_hash=file_hash,
+                    file_name=request.POST.get("file_name", ""),
+                )
             except (ValueError, OSError, User.DoesNotExist) as e:
                 messages.error(request, f"Aktarım yapılamadı: {e}")
                 return redirect("imports:import")
@@ -86,7 +96,10 @@ class ImportView(AdminRequiredMixin, View):
         try:
             with open(path, "rb") as f:
                 plan = services.build_plan(
-                    f, form.cleaned_data["default_lawyer"], form.cleaned_data["default_intern"]
+                    f,
+                    form.cleaned_data["default_lawyer"],
+                    form.cleaned_data["default_intern"],
+                    file_hash=hashlib.sha256(path.read_bytes()).hexdigest(),
                 )
         except ValueError as e:
             path.unlink(missing_ok=True)
@@ -109,6 +122,7 @@ class ImportView(AdminRequiredMixin, View):
                 "plan": plan,
                 "summary": summary,
                 "token": token,
+                "file_name": form.cleaned_data["file"].name,
                 "default_lawyer": form.cleaned_data["default_lawyer"].pk,
                 "default_intern": form.cleaned_data["default_intern"].pk,
             },

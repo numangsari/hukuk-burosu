@@ -11,6 +11,7 @@ from decimal import Decimal, InvalidOperation
 
 from django.core.exceptions import ValidationError
 from django.db import transaction
+from django.utils import timezone
 from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Font, PatternFill
 from openpyxl.worksheet.datavalidation import DataValidation
@@ -19,6 +20,7 @@ from apps.accounting.models import EntryKind, LedgerEntry
 from apps.accounting.services import create_entry
 from apps.accounts.models import User
 from apps.cases.models import Case, CaseStage, CaseStatus, CaseType
+from apps.clients.conflicts import parties_matching
 from apps.clients.models import Client, ClientContact, ClientIban, PersonKind
 from apps.core.text import fold
 from apps.core.validators import normalize_iban, validate_iban, validate_tckn, validate_vkn
@@ -38,6 +40,8 @@ BALANCE_COLS = [
     "Emanetteki para (₺)",
     "Açıklama",
 ]
+
+OPENING_NOTE = "Açılış bakiyesi (devir)"
 
 SHEETS = {"Müvekkiller": CLIENT_COLS, "Dosyalar": CASE_COLS, "Açılış bakiyeleri": BALANCE_COLS}
 
@@ -108,7 +112,8 @@ class ImportPlan:
     rows: list[RowResult] = field(default_factory=list)
     clients: list = field(default_factory=list)  # (row_result, Client, contacts, iban)
     cases: list = field(default_factory=list)  # (row_result, Case, client_key)
-    balances: list = field(default_factory=list)  # (row_result, client_key, date, fee, trust, desc)
+    balances: list = field(default_factory=list)  # (row_result, client, date, fee, trust, desc)
+    conflicts: bool = False  # karşı taraf kayıtlarıyla eşleşen yeni müvekkil var
 
     @property
     def errors(self):
@@ -175,7 +180,7 @@ def _rows(ws, cols):
             yield idx, dict(zip(cols, values, strict=False))
 
 
-def build_plan(file_obj, default_lawyer, default_intern) -> ImportPlan:
+def build_plan(file_obj, default_lawyer, default_intern, file_hash: str = "") -> ImportPlan:
     try:
         wb = load_workbook(file_obj, data_only=True, read_only=True)
     except Exception as e:  # bozuk/şifreli dosya
@@ -184,11 +189,29 @@ def build_plan(file_obj, default_lawyer, default_intern) -> ImportPlan:
         ) from e
     users = {fold(str(u)): u for u in User.objects.filter(is_active=True)}
     plan = ImportPlan()
-    known = {}  # fold(ad) / tckn / vkn -> Client (mevcut veya yeni)
-    for c in Client.objects.all():
-        for k in (c.search_key, c.tckn, c.vkn):
+    if file_hash:
+        from .models import ImportBatch
+
+        if (
+            batch := ImportBatch.objects.filter(file_sha256=file_hash)
+            .select_related("created_by")
+            .first()
+        ):
+            plan.rows.append(RowResult("Dosya", 0, "Bu Excel dosyası", "error", [
+                f"Bu dosya {timezone.localtime(batch.created_at):%d.%m.%Y %H:%M} tarihinde {batch.created_by} tarafından zaten aktarıldı.",
+            ]))  # fmt: skip
+    # Kimlik numarası kesin eşleşmedir; ad yalnızca kimlik yoksa ve tek kişiye uyuyorsa kullanılır.
+    by_id: dict[str, Client] = {}
+    by_name: dict[str, list[Client]] = {}
+
+    def remember(c, name):
+        for k in (c.tckn, c.vkn):
             if k:
-                known[k] = c
+                by_id[k] = c
+        by_name.setdefault(fold(name), []).append(c)
+
+    for c in Client.objects.all():
+        remember(c, c.name)
 
     def person(value, fallback, role_ok, what):
         if not _s(value):
@@ -202,7 +225,12 @@ def build_plan(file_obj, default_lawyer, default_intern) -> ImportPlan:
 
     def find_client(value):
         key = _s(value)
-        return known.get(key) or known.get(fold(key))
+        if key in by_id:
+            return by_id[key]
+        matches = by_name.get(fold(key), [])
+        if len(matches) > 1:
+            raise ValueError(f"'{key}' adında birden fazla müvekkil var; bu sütuna TCKN/VKN yazın.")
+        return matches[0] if matches else None
 
     if "Müvekkiller" in wb.sheetnames:
         for idx, r in _rows(wb["Müvekkiller"], CLIENT_COLS):
@@ -231,11 +259,27 @@ def build_plan(file_obj, default_lawyer, default_intern) -> ImportPlan:
                     else c.title
                 )
                 res.label = name
-                dup = known.get(c.tckn) or known.get(c.vkn) or known.get(fold(name))
-                if dup:
+                identity = c.tckn or c.vkn
+                same_name = by_name.get(fold(name), [])
+                if identity and identity in by_id:
                     res.status = "skip"
-                    res.messages.append(f"Zaten kayıtlı: {dup}")
+                    res.messages.append(f"Bu kimlik numarasıyla zaten kayıtlı: {by_id[identity]}")
+                elif not identity and same_name:
+                    raise ValueError(
+                        f"Aynı adlı müvekkil zaten var ({same_name[0]}). Aynı kişiyse bu satırı silin; "
+                        "farklı kişiyse TCKN/VKN yazın."
+                    )
                 else:
+                    if same_name:
+                        res.messages.append(
+                            "Uyarı: aynı adlı başka bir müvekkil var (kimlik numarası farklı)."
+                        )
+                    if conflicts := parties_matching(name, identity):
+                        plan.conflicts = True
+                        res.messages.append(
+                            "Çıkar çatışması: karşı taraf olarak kayıtlı — "
+                            + ", ".join(sorted({str(p) for p in conflicts}))
+                        )
                     iban = normalize_iban(_s(r["IBAN"]))
                     if iban:
                         validate_iban(iban)
@@ -249,9 +293,7 @@ def build_plan(file_obj, default_lawyer, default_intern) -> ImportPlan:
                         if _s(r[col])
                     ]
                     plan.clients.append((res, c, contacts, iban))
-                    for k in (fold(name), c.tckn, c.vkn):
-                        if k:
-                            known[k] = c
+                    remember(c, name)
             except (ValueError, ValidationError) as e:
                 res.status = "error"
                 res.messages += e.messages if isinstance(e, ValidationError) else [str(e)]
@@ -307,16 +349,24 @@ def build_plan(file_obj, default_lawyer, default_intern) -> ImportPlan:
                     raise ValueError("Tutarlar negatif olamaz.")
                 if not fee and not trust:
                     raise ValueError("En az bir tutar girilmeli.")
-                plan.balances.append(
-                    (
-                        res,
-                        client,
-                        _date(r["Tarih"]) or dt.date.today(),
-                        fee,
-                        trust,
-                        _s(r["Açıklama"]),
+                date, desc = _date(r["Tarih"]) or dt.date.today(), _s(r["Açıklama"])
+                if client.pk:
+                    same = LedgerEntry.objects.filter(
+                        client=client,
+                        date=date,
+                        description=desc or OPENING_NOTE,
+                        is_cancelled=False,
                     )
-                )
+                    if fee and same.filter(kind=EntryKind.FEE, amount=fee).exists():
+                        fee = 0
+                        res.messages.append("Aynı ücret devri zaten kayıtlı; tekrar eklenmeyecek.")
+                    if trust and same.filter(kind=EntryKind.TRUST_IN, amount=trust).exists():
+                        trust = 0
+                        res.messages.append("Aynı emanet devri zaten kayıtlı; tekrar eklenmeyecek.")
+                if not fee and not trust:
+                    res.status = "skip"
+                else:
+                    plan.balances.append((res, client, date, fee, trust, desc))
             except (ValueError, ValidationError) as e:
                 res.status = "error"
                 res.messages += e.messages if isinstance(e, ValidationError) else [str(e)]
@@ -325,7 +375,7 @@ def build_plan(file_obj, default_lawyer, default_intern) -> ImportPlan:
 
 
 @transaction.atomic
-def execute(plan: ImportPlan, user) -> dict:
+def execute(plan: ImportPlan, user, file_hash: str = "", file_name: str = "") -> dict:
     if plan.errors:
         raise ValueError("Hatalı satırlar düzeltilmeden aktarım yapılamaz.")
     counts = {"clients": 0, "cases": 0, "balances": 0}
@@ -343,7 +393,7 @@ def execute(plan: ImportPlan, user) -> dict:
         k.save()
         counts["cases"] += 1
     for _res, client, date, fee, trust, desc in plan.balances:
-        note = desc or "Açılış bakiyesi (devir)"
+        note = desc or OPENING_NOTE
         client_obj = Client.objects.get(pk=client.pk)
         for kind, amount in ((EntryKind.FEE, fee), (EntryKind.TRUST_IN, trust)):
             if amount:
@@ -359,4 +409,10 @@ def execute(plan: ImportPlan, user) -> dict:
                     )
                 )
         counts["balances"] += 1
+    if file_hash:
+        from .models import ImportBatch
+
+        ImportBatch.objects.create(
+            file_sha256=file_hash, file_name=file_name[:200], created_by=user, counts=counts
+        )
     return counts
