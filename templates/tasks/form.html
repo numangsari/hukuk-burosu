@@ -6,26 +6,28 @@
     <div class="eyebrow"><a href="{% if object %}{{ object.get_absolute_url }}{% else %}{% url 'tasks:list' %}{% endif %}"><i class="bi bi-chevron-left"></i> {% if object %}{{ object.title }}{% else %}Görevler{% endif %}</a></div>
     <h1 class="page-title">{% if object %}Görevi düzenle{% else %}Yeni görev{% endif %}</h1>
   </div>
+  <div class="page-actions"><a class="btn btn-light" href="{% if object %}{{ object.get_absolute_url }}{% else %}{% url 'tasks:list' %}{% endif %}">Vazgeç</a><button type="submit" form="task-form" class="btn btn-primary">Kaydet</button></div>
 </div>
 {{ form.supervisor_map|json_script:"supervisor-map" }}
-<form method="post" class="card" style="max-width: 900px" x-data="taskForm()">
+<form method="post" id="task-form" x-data="taskForm()">
   {% csrf_token %}
   {% if form.non_field_errors %}<div class="alert alert-danger m-3 mb-0">{{ form.non_field_errors }}</div>{% endif %}
-  <div class="form-section">
+  <div class="form-masonry">
+  <div class="form-section card">
     <div class="form-section-head"><h2>Görev</h2></div>
     <div class="row">
       <div class="col-md-4">{% include "partials/field.html" with field=form.task_type %}</div>
       <div class="col-md-8">{% include "partials/field.html" with field=form.title %}</div>
     </div>
   </div>
-  <div class="form-section">
+  <div class="form-section card">
     <div class="form-section-head"><h2>İlgili dosya</h2><p>Müvekkil seçerseniz dosya listesi o müvekkile göre süzülür; dosya seçilince müvekkil otomatik gelir.</p></div>
     <div class="row">
       <div class="col-md-5">{% include "partials/field.html" with field=form.client %}</div>
       <div class="col-md-7">{% include "partials/field.html" with field=form.case %}</div>
     </div>
   </div>
-  <div class="form-section">
+  <div class="form-section card">
     <div class="form-section-head"><h2>Sorumlu ve kontrolcü</h2><p>Sorumlu işi yapar ve kontrole gönderir; kontrolcü onaylar ya da revizyon ister.</p></div>
     <div class="row">
       <div class="col-md-4">{% include "partials/field.html" with field=form.assignee %}</div>
@@ -33,6 +35,7 @@
       <div class="col-md-4">{% include "partials/field.html" with field=form.due_date %}</div>
     </div>
     {% include "partials/field.html" with field=form.notes wrap_class="" %}
+  </div>
   </div>
   <div class="form-footer">
     <a class="btn btn-light" href="{% if object %}{{ object.get_absolute_url }}{% else %}{% url 'tasks:list' %}{% endif %}">Vazgeç</a>

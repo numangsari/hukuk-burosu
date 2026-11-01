@@ -2,17 +2,28 @@ import datetime as dt
 
 from django.contrib import messages
 from django.core.exceptions import ValidationError
+from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect
 from django.utils import timezone
 from django.views.generic import CreateView, ListView, View
 
 from apps.cases.models import Case
 from apps.clients.models import Client
+from apps.core.text import fold
 
 from .forms import LedgerEntryForm
 from .models import KIND_HELP, EntryKind, LedgerEntry
 from .permissions import EditRequiredMixin, ViewRequiredMixin
 from .services import cancel_entry, create_entry
+
+SORT_OPTIONS = [
+    ("-date", "Tarih: yeniden eskiye"),
+    ("date", "Tarih: eskiden yeniye"),
+    ("-amount", "Tutar: büyükten küçüğe"),
+    ("amount", "Tutar: küçükten büyüğe"),
+    ("client__name", "Müvekkile göre"),
+    ("-created_at", "Son kaydedilen"),
+]
 
 
 def _date(value):
@@ -43,10 +54,10 @@ class EntryListView(ViewRequiredMixin, ListView):
 
     def filtered(self):
         g = self.request.GET
-        qs = LedgerEntry.objects.select_related("client", "case", "created_by")
-        if c := g.get("musteri"):
+        qs = LedgerEntry.objects.select_related("client", "case", "created_by", "cancelled_by")
+        if (c := g.get("musteri", "")).isdecimal() and len(c) <= 18:
             qs = qs.filter(client_id=c)
-        if k := g.get("dosya"):
+        if (k := g.get("dosya", "")).isdecimal() and len(k) <= 18:
             qs = qs.filter(case_id=k)
         if (kind := g.get("tur")) in EntryKind.values:
             qs = qs.filter(kind=kind)
@@ -54,12 +65,28 @@ class EntryListView(ViewRequiredMixin, ListView):
             qs = qs.filter(date__gte=start)
         if end := _date(g.get("bitis")):
             qs = qs.filter(date__lte=end)
-        if not g.get("iptal"):
+        if q := g.get("q", "").strip():
+            qs = qs.filter(
+                Q(description__icontains=q)
+                | Q(client__search_key__contains=fold(q))
+                | Q(case__archive_no__icontains=q)
+                | Q(case__archive_folder_no__icontains=q)
+                | Q(case__authority__icontains=q)
+                | Q(case__official_no__icontains=q)
+                | Q(case__subject__icontains=q)
+            )
+        state = g.get("durum", "all" if g.get("iptal") else "active")
+        if state == "cancelled":
+            qs = qs.filter(is_cancelled=True)
+        elif state != "all":
             qs = qs.filter(is_cancelled=False)
         return qs
 
     def get_queryset(self):
-        return self.filtered()
+        sort = self.request.GET.get("sort", "-date")
+        if sort not in dict(SORT_OPTIONS):
+            sort = "-date"
+        return self.filtered().order_by(sort, "-pk")
 
     def get_template_names(self):
         if self.request.htmx and not self.request.htmx.boosted:
@@ -74,6 +101,16 @@ class EntryListView(ViewRequiredMixin, ListView):
             balances=qs.balances(),
             kinds=EntryKind.choices,
             clients=Client.objects.filter(ledger_entries__isnull=False).distinct(),
+            cases=Case.objects.filter(ledger_entries__isnull=False)
+            .select_related("client")
+            .distinct(),
+            sort_options=SORT_OPTIONS,
+            sort=self.request.GET.get("sort")
+            if self.request.GET.get("sort") in dict(SORT_OPTIONS)
+            else "-date",
+            record_state=self.request.GET.get(
+                "durum", "all" if self.request.GET.get("iptal") else "active"
+            ),
         )
         return ctx
 

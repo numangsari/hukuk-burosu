@@ -41,6 +41,7 @@ Kullanıcının henüz tek tek bakmadığı kontrol maddeleri (Adım 4'e geçmed
 - Kullanıcı kararıyla duruşma bölümü kaldırıldı; eski kayıtlar korunur. Tebligat daha önce kaldırılmıştı.
 
 ### 6. Görevler
+- Ortak görünüme geçildi: durum düğmeleri, sorumlu/kontrolcü/son gün süzgeçleri, sıralama, ayrı sütunlar, iki sütun form ve Belgeler/Yorumlar/Geçmiş sekmeleri. Kullanıcıyla görsel inceleme yapılacak.
 - Liste kapsamları (Bana atanan, Kontrolümde, Oluşturduklarım, Tümü), durum/tür süzgeci, arama.
 - Form: müvekkile göre dosya süzme; dosya seçince müvekkil ve varsayılan sorumlu/kontrolcü; stajyer sorumluysa kontrolcü bağlı avukatı; ad büyük harf; kontrolcü ≠ sorumlu.
 - Onay döngüsü: kontrole gönder (sorumlu veya yönetici), onayla/revizyon (açıklama zorunlu), yeniden aç; "Yeni görev", "Revizyon istendi", "Onaylandı" rozetleri.
@@ -54,13 +55,15 @@ Kullanıcının henüz tek tek bakmadığı kontrol maddeleri (Adım 4'e geçmed
 - Google bağlantısı (Ayarlar > Google Takvim), erişilemeyince uyarıyla son kopya.
 
 ### 8. Muhasebe
+- Ortak görünüme geçildi: hareket/durum düğmeleri, açıklama araması, dosya seçimi, sıralama, ayrı müvekkil/dosya sütunları ve açık iptal bilgisi. Hesap/yetki kuralları korunur; kullanıcıyla görsel inceleme yapılacak.
 - Liste: süzgeçler (müvekkil, dosya, tür, tarih, iptaller), toplamlar yalnızca bakiye yetkilisine.
 - Kayıt: müvekkil zorunlu, dosya isteğe bağlı; türler (vekalet ücreti, masraf, tahsilat, karşı taraftan tahsilat, müvekkile ödeme, mahsup); makbuz yükleme; emanet eksiye düşebilir.
 - İptal: neden zorunlu, herkes iptal edebilir; iptal edilen satırın görünümü.
 - Cari/emanet/net hesapları, ekstre; bakiye görme yetkisi (Ayarlar > Bakiye görme yetkisi).
 
 ### 9. Raporlar
-- 6 rapor: önizleme, Excel, PDF (Türkçe karakter); finansal raporlar yalnızca bakiye yetkilisine; parametreler.
+- 7 rapor (haciz ve yenileme takibi dahil); Dosya/Görev/Mali grupları, ortak önizleme/çıktı sütunları ve dosya raporlarında aşama/haciz bilgileri. Kullanıcıyla görsel inceleme yapılacak.
+- Raporlar: önizleme, Excel, PDF (Türkçe karakter); finansal raporlar yalnızca bakiye yetkilisine; parametreler.
 
 ### 10. Hatırlatmalar
 - Sistem içi bildirimler ve WhatsApp hatırlatmaları kullanım dışı. Görevler ana sayfa rozetleriyle izlenir.

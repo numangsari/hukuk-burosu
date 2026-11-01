@@ -1,19 +1,22 @@
+{% load ui %}
 <div class="table-responsive">
 <table class="table table-hover">
   <thead>
-    <tr><th>Görev</th><th>Dosya / Müvekkil</th><th>Sorumlu → Kontrolcü</th><th>Durum</th><th>Son gün</th></tr>
+    <tr><th>Görev</th><th>Tür</th><th>Dosya</th><th>Müvekkil</th><th>Sorumlu</th><th>Kontrolcü</th><th>Durum</th><th>Son gün</th></tr>
   </thead>
   <tbody>
   {% for t in tasks %}
     <tr data-href="{{ t.get_absolute_url }}" onclick="location.href=this.dataset.href">
-      <td><a class="cell-main text-reset" href="{{ t.get_absolute_url }}">{{ t.title }}</a><div class="cell-sub">{{ t.task_type }}</div></td>
-      <td><span class="tabular">{{ t.case.archive_reference }}</span> · {{ t.case.display_name }}<div class="cell-sub">{{ t.client }}</div></td>
-      <td>{{ t.assignee }}<div class="cell-sub">{{ t.reviewer }}</div></td>
+      <td><a class="cell-main text-reset" href="{{ t.get_absolute_url }}">{{ t.title }}</a></td>
+      <td><span class="chip no-dot">{{ t.task_type }}</span></td>
+      <td><span class="tabular">{{ t.case.archive_reference }}</span> · {{ t.case.display_name }}</td>
+      <td><a href="{{ t.client.get_absolute_url }}">{{ t.client }}</a></td>
+      <td>{{ t.assignee }}</td><td>{{ t.reviewer }}</td>
       <td>{% include "tasks/_chips.html" with part="status" %}</td>
       <td>{% include "tasks/_chips.html" with part="due" %}<div class="cell-sub tabular">{{ t.due_date|date:"d.m.Y" }}</div></td>
     </tr>
   {% empty %}
-    <tr><td colspan="5"><div class="empty-state"><i class="bi bi-check2-all"></i><strong>Görev yok</strong>Bu görünümde listelenecek görev bulunamadı.</div></td></tr>
+    <tr><td colspan="8"><div class="empty-state"><i class="bi bi-check2-all"></i><strong>Görev yok</strong>Bu görünümde listelenecek görev bulunamadı.</div></td></tr>
   {% endfor %}
   </tbody>
 </table>

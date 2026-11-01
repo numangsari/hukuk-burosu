@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load ui %}
 {% block title %}Görevler — {{ office.name }}{% endblock %}
 {% block content %}
 <div class="page-header">
@@ -13,22 +14,28 @@
 <div class="card table-card" id="list-card">
   <ul class="nav nav-underline-tabs" style="border-top: 0; border-bottom: 1px solid var(--line)">
     {% for key, label, n in scopes %}
-      <li><a class="nav-link {% if scope == key %}active{% endif %}" href="?kapsam={{ key }}">{{ label }}{% if n %}<span class="count">{{ n }}</span>{% endif %}</a></li>
+      <li><a class="nav-link {% if scope == key %}active{% endif %}" href="{% query_with kapsam=key page=None %}">{{ label }}{% if n %}<span class="count">{{ n }}</span>{% endif %}</a></li>
     {% endfor %}
   </ul>
   <form class="filter-bar" hx-get="{% url 'tasks:list' %}" hx-target="#list-table" hx-push-url="true"
         hx-trigger="input changed delay:300ms from:input[name=q], change" hx-indicator="#list-card">
     <input type="hidden" name="kapsam" value="{{ scope }}">
     <div class="grow"><i class="bi bi-search"></i><input class="form-control" type="search" name="q" value="{{ request.GET.q }}" placeholder="Görev adı, dosya, müvekkil ara"></div>
-    <select class="form-select" name="durum">
-      <option value="acik">Açık görevler</option>
-      {% for v, l in statuses %}<option value="{{ v }}" {% if request.GET.durum == v %}selected{% endif %}>{{ l }}</option>{% endfor %}
-      <option value="tumu" {% if request.GET.durum == 'tumu' %}selected{% endif %}>Tümü</option>
-    </select>
+    <select class="form-select" name="sorumlu" aria-label="Sorumlu"><option value="">Tüm sorumlular</option>{% for u in people %}<option value="{{ u.pk }}" {% if request.GET.sorumlu == u.pk|stringformat:'s' %}selected{% endif %}>{{ u }}</option>{% endfor %}</select>
+    <select class="form-select" name="kontrolcu" aria-label="Kontrolcü"><option value="">Tüm kontrolcüler</option>{% for u in people %}<option value="{{ u.pk }}" {% if request.GET.kontrolcu == u.pk|stringformat:'s' %}selected{% endif %}>{{ u }}</option>{% endfor %}</select>
+    <select class="form-select" name="son_gun" aria-label="Son gün"><option value="">Son gün: tümü</option>{% for value, label in deadline_options %}<option value="{{ value }}" {% if request.GET.son_gun == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
     <select class="form-select" name="tur">
       <option value="">Tüm türler</option>
       {% for t in types %}<option value="{{ t.pk }}" {% if request.GET.tur == t.pk|stringformat:'s' %}selected{% endif %}>{{ t }}</option>{% endfor %}
     </select>
+    <select class="form-select" name="sort" aria-label="Sıralama">{% for value, label in sort_options %}<option value="{{ value }}" {% if sort == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+    <div class="filter-chips w-100"><div class="chip-group" role="radiogroup" aria-label="Görev durumu">
+      {% with current=request.GET.durum|default:"acik" %}
+      <input class="btn-check" type="radio" name="durum" id="task-open" value="acik" {% if current == 'acik' %}checked{% endif %}><label class="chip-btn" for="task-open">Açık görevler</label>
+      {% for value, label in statuses %}<input class="btn-check" type="radio" name="durum" id="task-{{ value }}" value="{{ value }}" {% if current == value %}checked{% endif %}><label class="chip-btn state-{{ value }}" for="task-{{ value }}">{{ label }}</label>{% endfor %}
+      <input class="btn-check" type="radio" name="durum" id="task-all" value="tumu" {% if current == 'tumu' %}checked{% endif %}><label class="chip-btn" for="task-all">Tümü</label>
+      {% endwith %}
+    </div><a class="small ms-auto" href="?kapsam={{ scope }}">Süzgeçleri temizle</a></div>
   </form>
   <div id="list-table">{% include "tasks/_list_table.html" %}</div>
 </div>

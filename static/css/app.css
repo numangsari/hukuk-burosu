@@ -749,7 +749,7 @@ a.agenda-item:hover { background: var(--surface-2); text-decoration: none; color
 .bal-value.neg, .text-debt { color: var(--danger-ink); }
 .bal-value.pos, .text-credit { color: var(--success-ink); }
 .bal-hint { font-size: .76rem; color: var(--muted); }
-.row-cancelled td { opacity: .55; }
+.row-cancelled td { opacity: .8; }
 .row-cancelled td .fw-semibold { text-decoration: line-through; }
 .kind-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .5rem; }
 .kind-option { display: flex; align-items: center; gap: .6rem; padding: .7rem .85rem; border: 1px solid var(--line); border-radius: var(--radius-sm); cursor: pointer; font-size: .875rem; font-weight: 550; background: var(--surface); transition: border-color .15s, background .15s; }
@@ -944,3 +944,16 @@ tr.chain-prev > td:first-child { position: relative; }
 
 .year-seq > .form-control:first-of-type { flex: 0 0 38%; }
 .year-seq > .form-control:last-of-type { flex: 1 1 auto; }
+
+/* Modül listelerinde aynı durum ve hareket renkleri kullanılır. */
+.chip-btn.state-active, .chip-btn.kind-fee { --tc: var(--brand); }
+.chip-btn.state-review, .chip-btn.kind-trust_in { --tc: var(--info-ink); }
+.chip-btn.state-done, .chip-btn.kind-collection { --tc: var(--success-ink); }
+.chip-btn.state-cancelled { --tc: var(--danger-ink); }
+.chip-btn.kind-expense { --tc: var(--accent); }
+.chip-btn.kind-trust_out { --tc: var(--warning-ink); }
+.amount-fee, .amount-expense { color: var(--brand); }
+.amount-collection, .amount-trust_in { color: var(--success-ink); }
+.amount-trust_out { color: var(--warning-ink); }
+.report-preview { min-width: 960px; table-layout: fixed; }
+.report-preview th, .report-preview td { overflow-wrap: anywhere; }

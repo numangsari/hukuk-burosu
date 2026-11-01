@@ -192,7 +192,7 @@ def test_financial_reports_hidden_without_permission(intern, report_data):
     assert not intern.can_view_balances
     c = login(intern)
     keys = set(c.get(reverse("reports:index")).context["reports"])
-    assert keys == {"gorevler", "dosya-listesi", "dosya-son-durum"}
+    assert keys == {"gorevler", "dosya-listesi", "dosya-son-durum", "haciz-takibi"}
     assert c.get(reverse("reports:report", args=["donem-muhasebe"])).status_code == 403
 
 

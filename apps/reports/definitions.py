@@ -11,8 +11,9 @@ from django.utils import timezone
 from apps.accounting.models import _MONEY as MONEY
 from apps.accounting.models import CREDIT_EXPR, EntryKind, LedgerEntry
 from apps.accounts.models import User
+from apps.cases import stages
 from apps.cases.flows import cluster
-from apps.cases.models import Case, CaseEvent, CaseStatus, CaseType
+from apps.cases.models import Case, CaseEvent, CaseStatus, CaseType, Seizure
 from apps.clients.models import Client
 from apps.core.forms import BootstrapMixin, DateInput
 from apps.tasks.models import OPEN_STATUSES, Task, TaskStatus
@@ -37,6 +38,12 @@ def _period(data) -> str:
 class PeriodForm(BootstrapMixin, forms.Form):
     start = forms.DateField(label="Başlangıç", required=False, widget=DateInput())
     end = forms.DateField(label="Bitiş", required=False, widget=DateInput())
+
+    def clean(self):
+        data = super().clean()
+        if data.get("start") and data.get("end") and data["start"] > data["end"]:
+            self.add_error("end", "Bitiş tarihi başlangıçtan önce olamaz.")
+        return data
 
 
 def _date_filter(qs, data, field="date"):
@@ -211,6 +218,29 @@ class CaseListForm(BootstrapMixin, forms.Form):
         required=False,
     )
 
+    stage = forms.ChoiceField(label="Aşama", required=False)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["stage"].choices = [
+            ("", "Tüm aşamalar"),
+            *[
+                (label, [(f"{kind}:{key}", text) for key, text in stages.open_stages(kind)])
+                for kind, label in CaseType.choices
+            ],
+        ]
+
+
+def _seizure_summary(cases):
+    active = Seizure.objects.filter(
+        case_id=OuterRef("pk"), is_active=True, case__case_type=CaseType.ENFORCEMENT
+    )
+    count = active.order_by().values("case_id").annotate(total=Count("pk")).values("total")
+    return cases.annotate(
+        active_seizures=Coalesce(Subquery(count, output_field=IntegerField()), Value(0)),
+        next_renewal=Subquery(active.order_by("renewal_on", "pk").values("renewal_on")[:1]),
+    )
+
 
 def _linked_name(case) -> str:
     """Bağlı dosyalar raporlarda art arda gelir; ad önüne bağ işareti, sonuna bağlı sayısı eklenir."""
@@ -233,12 +263,17 @@ def build_cases(d, user):
         qs = qs.filter(status=st)
     if d.get("lawyer"):
         qs = qs.filter(responsible_lawyer=d["lawyer"])
+    if d.get("stage"):
+        kind, key = d["stage"].split(":", 1)
+        qs = qs.filter(case_type=kind, stage=key, status=CaseStatus.OPEN)
+    qs = _seizure_summary(qs)
     qs = qs.annotate(open_tasks=Count("tasks", filter=Q(tasks__status__in=OPEN_STATUSES))).order_by(
         "archive_no"
     )
     rows = [
         [k.archive_reference, k.get_case_type_display(), _linked_name(k), k.client.name, f"{k.authority} {k.official_no_display}".strip(),
-         k.status_summary, k.responsible_lawyer, k.open_tasks]
+         k.get_status_display(), k.responsible_lawyer, k.open_tasks,
+         k.status_detail, k.active_seizures, k.next_renewal]
         for k in cluster(qs)
     ]  # fmt: skip
     return ReportResult(
@@ -255,12 +290,15 @@ def build_cases(d, user):
         columns=[
             Column("Arşiv no", "text", 0.8),
             Column("Tür", "text", 1),
-            Column("Konu", "text", 2),
+            Column("Dosya", "text", 2),
             Column("Müvekkil", "text", 1.6),
             Column("Merci / Resmi no", "text", 1.8),
             Column("Durum", "text", 1),
             Column("Avukat", "text", 1.2),
             Column("Açık görev", "int", 0.6),
+            Column("Aşama / Kapanma nedeni", "text", 1.4),
+            Column("Aktif haciz", "int", 0.6),
+            Column("Yenileme tarihi", "date", 0.8),
         ],  # fmt: skip
         rows=rows,
         summary=[("Dosya sayısı", str(len(rows)))],
@@ -316,7 +354,7 @@ class ClientCasesForm(BootstrapMixin, forms.Form):
 
 
 def build_client_cases(d, user):
-    cases = Case.objects.select_related("client")
+    cases = _seizure_summary(Case.objects.select_related("client"))
     if d.get("client"):
         cases = cases.filter(client=d["client"])
     if not d.get("include_closed"):
@@ -332,8 +370,9 @@ def build_client_cases(d, user):
         last_title=Subquery(last_sq.values("title")[:1]),
     ).order_by("client__name", "archive_no")
     rows = [
-        [k.client.name, k.archive_reference, _linked_name(k), k.status_summary,
-         k.open_tasks, f"{k.last_date:%d.%m.%Y} {k.last_title}" if k.last_date else ""]
+        [k.client.name, k.archive_reference, _linked_name(k), k.get_status_display(),
+         k.open_tasks, f"{k.last_date:%d.%m.%Y} {k.last_title}" if k.last_date else "",
+         k.status_detail, k.active_seizures, k.next_renewal]
         for k in cluster(cases)
     ]  # fmt: skip
     return ReportResult(
@@ -343,13 +382,100 @@ def build_client_cases(d, user):
         columns=[
             Column("Müvekkil", "text", 1.5),
             Column("Arşiv no", "text", 0.7),
-            Column("Konu", "text", 1.7),
+            Column("Dosya", "text", 1.7),
             Column("Durum", "text", 1),
             Column("Açık görev", "int", 0.6),
             Column("Son gelişme", "text", 2.4),
+            Column("Aşama / Kapanma nedeni", "text", 1.4),
+            Column("Aktif haciz", "int", 0.6),
+            Column("Yenileme tarihi", "date", 0.8),
         ],  # fmt: skip
         rows=rows,
         summary=[("Dosya sayısı", str(len(rows)))],
+    )
+
+
+class SeizureReportForm(PeriodForm):
+    client = forms.ModelChoiceField(label="Müvekkil", queryset=Client.objects.all(), required=False)
+    lawyer = forms.ModelChoiceField(
+        label="Sorumlu avukat",
+        queryset=User.objects.filter(role__in=["admin", "lawyer"]),
+        required=False,
+    )
+    state = forms.ChoiceField(
+        label="Haciz durumu",
+        required=False,
+        initial="active",
+        choices=[("active", "Aktif"), ("inactive", "Pasif"), ("all", "Tümü")],
+    )
+    include_closed = forms.BooleanField(label="Kapalı dosyaları da göster", required=False)
+    field_order = ["client", "lawyer", "state", "start", "end", "include_closed"]
+
+
+def build_seizures(d, user):
+    items = (
+        Seizure.objects.filter(case__case_type=CaseType.ENFORCEMENT)
+        .select_related("case__client", "case__responsible_intern", "case__responsible_lawyer")
+        .prefetch_related("renewals__task__assignee", "renewals__task__reviewer")
+    )
+    if not d.get("include_closed"):
+        items = items.filter(case__status=CaseStatus.OPEN)
+    if d.get("client"):
+        items = items.filter(
+            Q(case__client=d["client"]) | Q(case__co_clients=d["client"])
+        ).distinct()
+    if d.get("lawyer"):
+        items = items.filter(case__responsible_lawyer=d["lawyer"])
+    if d.get("state") != "all":
+        items = items.filter(is_active=d.get("state") != "inactive")
+    items = _date_filter(items, d, "renewal_on").order_by("renewal_on", "pk")
+    rows = []
+    for item in items:
+        cycle = next(
+            (cycle for cycle in item.renewals.all() if cycle.due_date == item.renewal_on), None
+        )
+        task = cycle.task if cycle else None
+        state = (
+            task.get_status_display()
+            if task
+            else ("Görev silinmiş" if cycle else "Görev günü bekleniyor")
+        )
+        if not task and not cycle:
+            if not item.is_active:
+                state = "Takip pasif"
+            elif not item.case.is_open:
+                state = "Dosya kapalı"
+        rows.append(
+            [
+                item.case.display_name,
+                item.case.client.name,
+                item.debtor,
+                item.asset,
+                item.seized_on,
+                item.renewal_on,
+                "Aktif" if item.is_active else "Pasif",
+                task.assignee if task else item.case.responsible_intern,
+                task.reviewer if task else item.case.responsible_lawyer,
+                state,
+            ]
+        )
+    return ReportResult(
+        title="Haciz ve Yenileme Takibi",
+        subtitle=f"Yenileme tarihi: {_period(d)}",
+        columns=[
+            Column("Dosya", "text", 2),
+            Column("Müvekkil", "text", 1.3),
+            Column("Borçlu", "text", 1.2),
+            Column("Mal varlığı", "text", 1.8),
+            Column("Haciz tarihi", "date", 0.8),
+            Column("Yenileme tarihi", "date", 0.8),
+            Column("Haciz durumu", "text", 0.7),
+            Column("Sorumlu", "text", 1),
+            Column("Kontrolcü", "text", 1),
+            Column("Görev durumu", "text", 1.1),
+        ],
+        rows=rows,
+        summary=[("Haciz sayısı", str(len(rows)))],
     )
 
 
@@ -378,6 +504,25 @@ REPORTS = {
     "dosya-son-durum": {
         "title": "Müvekkil bazlı dosya son durumu", "icon": "bi-clipboard-data", "financial": False,
         "form": ClientCasesForm, "build": build_client_cases,
-        "desc": "Her dosyanın durumu, sonraki duruşması, açık görevleri ve son gelişmesi.",
+        "desc": "Dosyaların durumu, aşaması, açık görevleri, hacizleri ve son gelişmesi.",
     },
 }  # fmt: skip
+
+
+REPORTS["haciz-takibi"] = {
+    "title": "Haciz ve yenileme takibi",
+    "icon": "bi-calendar-check",
+    "financial": False,
+    "form": SeizureReportForm,
+    "build": build_seizures,
+    "desc": "Borçlu, mal varlığı, haciz tarihi, yenileme günü ve görev durumu.",
+}
+REPORT_GROUPS = [
+    ("cases", "Dosya raporları"),
+    ("tasks", "Görev raporları"),
+    ("financial", "Mali raporlar"),
+]
+for key, spec in REPORTS.items():
+    spec["group"] = (
+        "financial" if spec["financial"] else ("tasks" if key == "gorevler" else "cases")
+    )

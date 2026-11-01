@@ -63,14 +63,26 @@
     </div>
     {% endif %}
 
-    {% include "tasks/_documents.html" %}
+    <ul class="nav nav-underline-tabs" role="tablist">
+      <li><button class="nav-link active" type="button" data-bs-toggle="tab" data-bs-target="#task-documents" id="task-documents-tab" aria-controls="task-documents" role="tab" aria-selected="true">Belgeler</button></li>
+      <li><button class="nav-link" type="button" data-bs-toggle="tab" data-bs-target="#gecmis" id="task-comments-tab" aria-controls="gecmis" role="tab" aria-selected="false">Yorumlar<span class="count">{{ comments|length }}</span></button></li>
+      <li><button class="nav-link" type="button" data-bs-toggle="tab" data-bs-target="#task-history" id="task-history-tab" aria-controls="task-history" role="tab" aria-selected="false">Geçmiş</button></li>
+    </ul>
+    <div class="tab-content">
+      <div class="tab-pane fade show active" id="task-documents" role="tabpanel" aria-labelledby="task-documents-tab" tabindex="0">{% include "tasks/_documents.html" %}</div>
+      <div class="tab-pane fade" id="gecmis" role="tabpanel" aria-labelledby="task-comments-tab" tabindex="0">
+        <div class="card"><div class="card-header"><h2 class="card-title">Yorumlar</h2></div>
+        <form method="post" action="{% url 'tasks:comment' task.pk %}" class="card-body border-bottom">{% csrf_token %}
+          {{ comment_form.comment }}
+          <div class="d-flex justify-content-end mt-2"><button class="btn btn-light btn-sm">Yorum ekle</button></div>
+        </form>
+        <ul class="timeline">{% for e in comments %}<li class="timeline-item"><span class="tl-dot"></span><div class="tl-body"><strong>{{ e.actor }}</strong><span class="tl-time">{{ e.created_at|date:"d.m.Y H:i" }}</span><div class="tl-comment">{{ e.comment|linebreaksbr }}</div></div></li>{% empty %}<li class="empty-state">Henüz yorum yok.</li>{% endfor %}</ul>
+        </div>
+      </div>
+      <div class="tab-pane fade" id="task-history" role="tabpanel" aria-labelledby="task-history-tab" tabindex="0">
 
-    <div class="card" id="gecmis">
-      <div class="card-header"><h2 class="card-title">Geçmiş ve yorumlar</h2></div>
-      <form method="post" action="{% url 'tasks:comment' task.pk %}" class="card-body border-bottom">{% csrf_token %}
-        {{ comment_form.comment }}
-        <div class="d-flex justify-content-end mt-2"><button class="btn btn-light btn-sm"><i class="bi bi-chat-left-text"></i>Yorum ekle</button></div>
-      </form>
+    <div class="card">
+      <div class="card-header"><h2 class="card-title">Geçmiş</h2></div>
       <ul class="timeline">
         {% for e in events %}
           <li class="timeline-item tl-{{ e.kind }}">
@@ -84,6 +96,8 @@
           </li>
         {% endfor %}
       </ul>
+    </div>
+      </div>
     </div>
   </div>
 
@@ -105,4 +119,12 @@
     </div></div>
   </div>
 </div>
+<script>
+  function openTaskTab() {
+    const button = [...document.querySelectorAll('[data-bs-toggle="tab"]')].find(item => item.dataset.bsTarget === window.location.hash);
+    if (button && window.bootstrap) bootstrap.Tab.getOrCreateInstance(button).show();
+  }
+  document.addEventListener('DOMContentLoaded', openTaskTab);
+  document.addEventListener('htmx:load', openTaskTab);
+</script>
 {% endblock %}

@@ -9,7 +9,7 @@ from apps.accounting.permissions import can_view_balances as can_view_accounting
 from apps.office.models import OfficeSettings
 
 from .base import fmt
-from .definitions import REPORTS
+from .definitions import REPORT_GROUPS, REPORTS
 from .renderers import to_pdf, to_xlsx
 
 
@@ -20,7 +20,12 @@ def visible_reports(user):
 
 class ReportIndexView(View):
     def get(self, request):
-        return render(request, "reports/index.html", {"reports": visible_reports(request.user)})
+        reports = visible_reports(request.user)
+        groups = [
+            {"label": label, "reports": {k: v for k, v in reports.items() if v["group"] == key}}
+            for key, label in REPORT_GROUPS
+        ]
+        return render(request, "reports/index.html", {"reports": reports, "report_groups": groups})
 
 
 class ReportView(View):
@@ -58,6 +63,11 @@ class ReportView(View):
                 "form": form,
                 "result": result,
                 "rows": rows,
+                "column_widths": [
+                    100 * c.width / sum(col.width for col in result.columns) for c in result.columns
+                ]
+                if result
+                else [],
                 "totals": totals,
             },
         )

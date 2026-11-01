@@ -1,23 +1,21 @@
 {% extends "base.html" %}
 {% block title %}Raporlar — {{ office.name }}{% endblock %}
 {% block content %}
-<div class="page-header">
-  <div>
-    <h1 class="page-title">Raporlar</h1>
+<div class="page-header"><div><h1 class="page-title">Raporlar</h1></div></div>
+{% for group in report_groups %}{% if group.reports %}
+<section class="mb-4"><h2 class="section-title">{{ group.label }}</h2>
+  <div class="row g-3">
+    {% for key, r in group.reports.items %}
+    <div class="col-md-6 col-xl-4">
+      <a class="card stat-card report-card" href="{% url 'reports:report' key %}">
+        <div class="stat-icon {% if r.financial %}warning{% endif %}"><i class="bi {{ r.icon }}"></i></div>
+        <div><div class="fw-semibold">{{ r.title }}</div><div class="small text-body-secondary mt-1">{{ r.desc }}</div>
+          <div class="mt-2 d-flex gap-1"><span class="chip chip-success no-dot">Excel</span><span class="chip chip-danger no-dot">PDF</span></div>
+        </div>
+      </a>
+    </div>
+    {% endfor %}
   </div>
-</div>
-<div class="row g-3">
-  {% for key, r in reports.items %}
-  <div class="col-md-6 col-xl-4">
-    <a class="card stat-card report-card" href="{% url 'reports:report' key %}">
-      <div class="stat-icon {% if r.financial %}warning{% endif %}"><i class="bi {{ r.icon }}"></i></div>
-      <div>
-        <div class="fw-semibold">{{ r.title }}</div>
-        <div class="small text-body-secondary mt-1">{{ r.desc }}</div>
-        <div class="mt-2 d-flex gap-1"><span class="chip chip-success no-dot">Excel</span><span class="chip chip-danger no-dot">PDF</span></div>
-      </div>
-    </a>
-  </div>
-  {% endfor %}
-</div>
+</section>
+{% endif %}{% endfor %}
 {% endblock %}

@@ -2,16 +2,16 @@
 {% if request.htmx and can_view_balances %}<div id="acc-summary" hx-swap-oob="true">{% include "accounting/_summary.html" %}</div>{% endif %}
 <div class="table-responsive">
 <table class="table">
-  <thead><tr><th>Tarih</th><th>Hareket</th><th>Müvekkil / Dosya</th><th>Açıklama</th><th class="text-end">Tutar</th><th>Giren</th><th></th></tr></thead>
+  <thead><tr><th>Tarih</th><th>Hareket</th><th>Müvekkil</th><th>Dosya</th><th>Açıklama</th><th class="text-end">Tutar</th><th>Giren</th><th></th></tr></thead>
   <tbody>
   {% for e in entries %}
     <tr class="{% if e.is_cancelled %}row-cancelled{% endif %}">
       <td class="tabular text-nowrap">{{ e.date|date:"d.m.Y" }}</td>
       <td>{% include "accounting/_kind_chip.html" %}{% if e.is_cancelled %} <span class="chip chip-danger no-dot">İptal</span>{% endif %}</td>
-      <td><a href="{{ e.client.get_absolute_url }}#muhasebe">{{ e.client }}</a>{% if e.case %}<div class="cell-sub"><a href="{{ e.case.get_absolute_url }}">{{ e.case.archive_reference }} · {{ e.case.display_name }}</a></div>{% endif %}</td>
+      <td><a href="{{ e.client.get_absolute_url }}#muhasebe">{{ e.client }}</a></td><td>{% if e.case %}<div class="cell-main"><a href="{{ e.case.get_absolute_url }}">{{ e.case.archive_reference }} · {{ e.case.display_name }}</a></div>{% else %}<span class="text-body-secondary">Dosyasız</span>{% endif %}</td>
       <td class="small">{{ e.description|default:"—" }}{% if e.receipt %} <a href="{{ e.receipt.url }}" target="_blank"><i class="bi bi-paperclip"></i></a>{% endif %}
-        {% if e.is_cancelled %}<div class="cell-sub">İptal: {{ e.cancel_reason }}</div>{% endif %}</td>
-      <td class="text-end tabular fw-semibold">{{ e.amount|tl }}</td>
+        {% if e.is_cancelled %}<div class="cell-sub">İptal: {{ e.cancel_reason }}{% if e.cancelled_by %} · {{ e.cancelled_by }}{% endif %} · {{ e.cancelled_at|date:"d.m.Y H:i" }}</div>{% endif %}</td>
+      <td class="text-end tabular fw-semibold amount-{{ e.kind }}">{{ e.amount|tl }}</td>
       <td class="small text-body-secondary">{{ e.created_by|default:"—" }}</td>
       <td class="text-end">
         {% if can_edit_accounting and not e.is_cancelled %}
@@ -20,7 +20,7 @@
       </td>
     </tr>
   {% empty %}
-    <tr><td colspan="7"><div class="empty-state"><i class="bi bi-wallet2"></i><strong>Hareket bulunamadı</strong>Filtreleri değiştirin veya yeni hareket girin.</div></td></tr>
+    <tr><td colspan="8"><div class="empty-state"><i class="bi bi-wallet2"></i><strong>Hareket bulunamadı</strong>Filtreleri değiştirin veya yeni hareket girin.</div></td></tr>
   {% endfor %}
   </tbody>
 </table>

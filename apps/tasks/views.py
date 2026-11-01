@@ -1,11 +1,15 @@
+import datetime as dt
+
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
 from django.db.models import Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 from django.views.generic import CreateView, DetailView, ListView, UpdateView, View
 
+from apps.accounts.models import User
 from apps.cases.models import Case
 from apps.core.permissions import is_admin
 from apps.core.text import fold
@@ -24,6 +28,25 @@ SCOPES = {
 }
 
 
+SORT_OPTIONS = [
+    ("due_date", "Son gün: en yakın"),
+    ("-due_date", "Son gün: en uzak"),
+    ("-created_at", "Yeni eklenen"),
+    ("created_at", "Eski eklenen"),
+    ("title", "Görev adına göre"),
+    ("assignee__first_name", "Sorumluya göre"),
+    ("reviewer__first_name", "Kontrolcüye göre"),
+    ("task_type__name", "Görev türüne göre"),
+]
+DEADLINE_OPTIONS = [
+    ("overdue", "Geciken"),
+    ("today", "Bugün"),
+    ("tomorrow", "Yarın"),
+    ("soon", "2–3 gün kaldı"),
+    ("week", "Önümüzdeki 7 gün"),
+]
+
+
 def task_queryset():
     return Task.objects.select_related("task_type", "case", "client", "assignee", "reviewer")
 
@@ -39,6 +62,8 @@ class TaskListView(ListView):
         g, u = self.request.GET, self.request.user
         qs = task_queryset()
         scope = g.get("kapsam", "bana")
+        if scope not in SCOPES:
+            scope = "bana"
         if scope == "bana":
             qs = qs.filter(assignee=u)
         elif scope == "kontrol":
@@ -50,17 +75,41 @@ class TaskListView(ListView):
             qs = qs.filter(status__in=OPEN_STATUSES)
         elif status in TaskStatus.values:
             qs = qs.filter(status=status)
-        if t := g.get("tur"):
+        if (t := g.get("tur", "")).isdecimal() and len(t) <= 18:
             qs = qs.filter(task_type_id=t)
+        for parameter, field in (("sorumlu", "assignee_id"), ("kontrolcu", "reviewer_id")):
+            if (value := g.get(parameter, "")).isdecimal() and len(value) <= 18:
+                qs = qs.filter(**{field: value})
+        today = timezone.localdate()
+        deadline = g.get("son_gun")
+        if deadline in dict(DEADLINE_OPTIONS):
+            qs = qs.filter(status__in=OPEN_STATUSES)
+            if deadline == "overdue":
+                qs = qs.filter(due_date__lt=today)
+            elif deadline == "today":
+                qs = qs.filter(due_date=today)
+            elif deadline == "tomorrow":
+                qs = qs.filter(due_date=today + dt.timedelta(days=1))
+            elif deadline == "soon":
+                qs = qs.filter(
+                    due_date__range=(today + dt.timedelta(days=2), today + dt.timedelta(days=3))
+                )
+            else:
+                qs = qs.filter(due_date__gte=today, due_date__lt=today + dt.timedelta(days=7))
         if q := g.get("q", "").strip():
             qs = qs.filter(
                 Q(title__icontains=q)
                 | Q(case__archive_no__icontains=q)
                 | Q(case__archive_folder_no__icontains=q)
                 | Q(case__subject__icontains=q)
+                | Q(case__authority__icontains=q)
+                | Q(case__official_no__icontains=q)
                 | Q(client__search_key__contains=fold(q))
             )
-        return qs.order_by("due_date", "pk")
+        sort = g.get("sort", "due_date")
+        if sort not in dict(SORT_OPTIONS):
+            sort = "due_date"
+        return qs.order_by(sort, "pk")
 
     def get_template_names(self):
         if self.request.htmx and not self.request.htmx.boosted:
@@ -76,7 +125,15 @@ class TaskListView(ListView):
         }
         ctx.update(
             scopes=[(k, label, counts.get(k, 0)) for k, label in SCOPES.items()],
-            scope=self.request.GET.get("kapsam", "bana"),
+            scope=self.request.GET.get("kapsam")
+            if self.request.GET.get("kapsam") in SCOPES
+            else "bana",
+            people=User.objects.filter(is_active=True).order_by("first_name", "last_name"),
+            deadline_options=DEADLINE_OPTIONS,
+            sort_options=SORT_OPTIONS,
+            sort=self.request.GET.get("sort")
+            if self.request.GET.get("sort") in dict(SORT_OPTIONS)
+            else "due_date",
             statuses=TaskStatus.choices,
             types=TaskType.objects.filter(is_active=True),
         )
@@ -157,7 +214,8 @@ class TaskDetailView(DetailView):
             can_edit=services.can_edit(t, u),
             can_delete=services.can_delete(t, u),
             **documents_context(t, u),
-            events=t.events.select_related("actor"),
+            events=t.events.exclude(kind=TaskEvent.Kind.COMMENT).select_related("actor"),
+            comments=t.events.filter(kind=TaskEvent.Kind.COMMENT).select_related("actor"),
             comment_form=CommentForm(),
         )
         return ctx

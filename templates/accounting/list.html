@@ -14,18 +14,25 @@
 {% if can_view_balances %}<div id="acc-summary">{% include "accounting/_summary.html" %}</div>{% endif %}
 
 <div class="card table-card mt-3" id="list-card">
-  <form class="filter-bar" hx-get="{% url 'accounting:list' %}" hx-target="#list-table" hx-push-url="true" hx-trigger="change" hx-indicator="#list-card">
-    <select class="form-select" name="musteri">
+  <form class="filter-bar" hx-get="{% url 'accounting:list' %}" hx-target="#list-table" hx-push-url="true" hx-trigger="input changed delay:300ms from:input[name=q], change" hx-indicator="#list-card">
+    <div class="grow"><i class="bi bi-search"></i><input class="form-control" name="q" type="search" value="{{ request.GET.q }}" placeholder="Açıklama, müvekkil, dosya ara"></div>
+    <select class="form-select" name="musteri" aria-label="Müvekkil">
       <option value="">Tüm müvekkiller</option>
       {% for c in clients %}<option value="{{ c.pk }}" {% if request.GET.musteri == c.pk|stringformat:'s' %}selected{% endif %}>{{ c }}</option>{% endfor %}
     </select>
-    <select class="form-select" name="tur">
-      <option value="">Tüm hareketler</option>
-      {% for v, l in kinds %}<option value="{{ v }}" {% if request.GET.tur == v %}selected{% endif %}>{{ l }}</option>{% endfor %}
-    </select>
+    <select class="form-select" name="dosya" aria-label="Dosya"><option value="">Tüm dosyalar</option>{% for c in cases %}<option value="{{ c.pk }}" {% if request.GET.dosya == c.pk|stringformat:'s' %}selected{% endif %}>{{ c.display_name }} · {{ c.client }}</option>{% endfor %}</select>
+    <select class="form-select" name="sort" aria-label="Sıralama">{% for value, label in sort_options %}<option value="{{ value }}" {% if sort == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
     <input class="form-control" type="date" name="baslangic" value="{{ request.GET.baslangic }}" style="width: auto" title="Başlangıç">
     <input class="form-control" type="date" name="bitis" value="{{ request.GET.bitis }}" style="width: auto" title="Bitiş">
-    <div class="form-check ms-1"><input class="form-check-input" type="checkbox" name="iptal" value="1" id="f-iptal" {% if request.GET.iptal %}checked{% endif %}><label class="form-check-label small" for="f-iptal">İptalleri göster</label></div>
+    <div class="filter-chips w-100"><div class="chip-group" role="radiogroup" aria-label="Hareket türü">
+      <input class="btn-check" type="radio" name="tur" value="" id="kind-all" {% if not request.GET.tur %}checked{% endif %}><label class="chip-btn" for="kind-all">Tüm hareketler</label>
+      {% for value, label in kinds %}<input class="btn-check" type="radio" name="tur" value="{{ value }}" id="kind-{{ value }}" {% if request.GET.tur == value %}checked{% endif %}><label class="chip-btn kind-{{ value }}" for="kind-{{ value }}">{{ label }}</label>{% endfor %}
+    </div></div>
+    <div class="filter-chips w-100"><div class="chip-group" role="radiogroup" aria-label="Kayıt durumu">
+      <input class="btn-check" type="radio" name="durum" value="active" id="entry-active" {% if record_state == 'active' %}checked{% endif %}><label class="chip-btn" for="entry-active">Geçerli kayıtlar</label>
+      <input class="btn-check" type="radio" name="durum" value="cancelled" id="entry-cancelled" {% if record_state == 'cancelled' %}checked{% endif %}><label class="chip-btn state-cancelled" for="entry-cancelled">İptal edilenler</label>
+      <input class="btn-check" type="radio" name="durum" value="all" id="entry-all" {% if record_state == 'all' %}checked{% endif %}><label class="chip-btn" for="entry-all">Tümü</label>
+    </div><a class="small ms-auto" href="{% url 'accounting:list' %}">Süzgeçleri temizle</a></div>
   </form>
   <div id="list-table">{% include "accounting/_list_table.html" %}</div>
 </div>

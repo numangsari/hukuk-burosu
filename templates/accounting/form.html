@@ -12,14 +12,13 @@
   </div>
 </div>
 {{ kind_help|json_script:"kind-help" }}
-<form method="post" id="entry-form" enctype="multipart/form-data" class="card"
+<form method="post" id="entry-form" enctype="multipart/form-data"
       x-data="entryForm('{{ form.kind.value|default:'fee' }}')">
   {% csrf_token %}
   <input type="hidden" name="next" value="{{ request.GET.next }}">
   {% if form.non_field_errors %}<div class="alert alert-danger m-3 mb-0">{{ form.non_field_errors }}</div>{% endif %}
-  <div class="form-cols">
-  <div class="form-col">
-  <div class="form-section">
+  <div class="form-masonry">
+  <div class="form-section card">
     <div class="form-section-head"><h2>Hareket türü</h2></div>
     <div class="kind-grid">
       {% for radio in form.kind %}
@@ -31,16 +30,14 @@
     <div class="form-text mt-2"><i class="bi bi-info-circle"></i> <span x-text="help[kind]"></span></div>
     {% for e in form.kind.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}
   </div>
-  <div class="form-section">
+  <div class="form-section card">
     <div class="form-section-head"><h2>Müvekkil ve dosya</h2><p>Dosya seçmek isteğe bağlı; seçilirse müvekkil dosyadan gelir.</p></div>
     <div class="row">
       <div class="col-md-5">{% include "partials/field.html" with field=form.client %}</div>
       <div class="col-md-7">{% include "partials/field.html" with field=form.case %}</div>
     </div>
   </div>
-  </div>
-  <div class="form-col">
-  <div class="form-section">
+  <div class="form-section card">
     <div class="form-section-head"><h2>Tutar</h2></div>
     <div class="row">
       <div class="col-md-6">
@@ -54,7 +51,6 @@
       <div class="col-12">{% include "partials/field.html" with field=form.receipt %}</div>
       <div class="col-12">{% include "partials/field.html" with field=form.description wrap_class="" %}</div>
     </div>
-  </div>
   </div>
   </div>
 </form>

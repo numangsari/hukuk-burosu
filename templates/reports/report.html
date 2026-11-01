@@ -5,20 +5,21 @@
   <div>
     <div class="eyebrow"><a href="{% url 'reports:index' %}"><i class="bi bi-chevron-left"></i> Raporlar</a></div>
     <h1 class="page-title">{{ spec.title }}</h1>
-    <p class="page-subtitle">{{ spec.desc }}</p>
   </div>
 </div>
 
 <form method="get" class="card mb-3" id="report-form">
-  <div class="filter-bar align-items-end" style="border-bottom: 0">
+  <div class="form-section"><h2 class="section-title">Rapor ölçütleri</h2>
+  <div class="row g-3 align-items-end">
     {% for field in form %}
-      <div style="min-width: 180px">{% include "partials/field.html" with field=field wrap_class="" %}</div>
+      <div class="col-md-6 col-xl-4">{% include "partials/field.html" with field=field wrap_class="" %}</div>
     {% endfor %}
-    <div class="ms-auto d-flex gap-2">
+    <div class="col-12 d-flex gap-2 justify-content-end">
       <button class="btn btn-primary" name="goster" value="1"><i class="bi bi-eye"></i>Önizle</button>
       <button class="btn btn-light" name="format" value="xlsx"><i class="bi bi-file-earmark-excel" style="color: var(--success-ink)"></i>Excel</button>
       <button class="btn btn-light" name="format" value="pdf"><i class="bi bi-file-earmark-pdf" style="color: var(--danger-ink)"></i>PDF</button>
     </div>
+  </div>
   </div>
 </form>
 
@@ -33,8 +34,9 @@
   </div>
   {% endif %}
   <div class="table-responsive">
-    <table class="table">
-      <thead><tr>{% for c in result.columns %}<th class="{% if c.kind == 'money' or c.kind == 'int' %}text-end{% endif %}">{{ c.label }}</th>{% endfor %}</tr></thead>
+    <table class="table table-hover report-preview">
+      <colgroup>{% for width in column_widths %}<col style="width: {{ width|floatformat:'2u' }}%">{% endfor %}</colgroup>
+      <thead><tr>{% for c in result.columns %}<th scope="col" class="{% if c.kind == 'money' or c.kind == 'int' %}text-end{% endif %}">{{ c.label }}</th>{% endfor %}</tr></thead>
       <tbody>
         {% for row in rows %}
           <tr>{% for value, kind in row %}<td class="{% if kind == 'money' or kind == 'int' %}text-end tabular{% endif %}{% if kind == 'date' %} tabular text-nowrap{% endif %}">{{ value }}</td>{% endfor %}</tr>

@@ -70,10 +70,16 @@ def to_xlsx(r: ReportResult, office_name: str) -> bytes:
                 cell.number_format = money_fmt
             elif c.kind == "date" and isinstance(value, dt.date):
                 cell.number_format = "DD.MM.YYYY"
+            if not is_total and (row - header_row) % 2 == 0:
+                cell.fill = PatternFill("solid", fgColor="F5F7FA")
             if is_total:
                 cell.font = Font(bold=True)
                 cell.fill = PatternFill("solid", fgColor="EEF2F7")
-            cell.alignment = Alignment(vertical="top", wrap_text=c.kind == "text")
+            cell.alignment = Alignment(
+                horizontal="right" if c.kind in ("money", "int") else "left",
+                vertical="top",
+                wrap_text=c.kind == "text",
+            )
     ws.freeze_panes = ws.cell(header_row + 1, 1)
     ws.auto_filter.ref = f"A{header_row}:{get_column_letter(ncol)}{row}"
     ws.page_setup.orientation = "landscape" if r.landscape else "portrait"
