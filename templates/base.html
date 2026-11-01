@@ -130,6 +130,13 @@
   {% block anonymous %}{% endblock %}
 {% endif %}
 <script src="{% static 'vendor/bootstrap/bootstrap.bundle.min.js' %}"></script>
+{% if request.user.is_authenticated %}
+<script>
+  // Geri/ileri tuşuyla tarayıcı belleğinden açılan sayfa sunucuya yeniden sorulur;
+  // çıkış yapılmışsa giriş ekranına gidilir.
+  addEventListener("pageshow", e => { if (e.persisted) location.reload(); });
+</script>
+{% endif %}
 {% if request.user.is_authenticated and office.idle_minutes %}
 <script>
   // Boşta kalma: bu süre fare/klavye hareketi olmazsa sayfa yenilenir, sunucu oturumu kapatır.

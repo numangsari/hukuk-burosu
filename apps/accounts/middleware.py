@@ -7,6 +7,7 @@ from django.contrib.auth import logout
 from django.http import HttpResponse
 from django.shortcuts import redirect
 from django.urls import reverse
+from django.utils.cache import add_never_cache_headers
 
 # PIN değiştirme zorunluyken de açılabilen adresler
 PIN_FREE_PREFIXES = (
@@ -47,6 +48,25 @@ class IdleTimeoutMiddleware:
             if not last or now - last > 60:
                 request.session["last_seen"] = now
         return self.get_response(request)
+
+
+class NoStoreMiddleware:
+    """Girişli kullanıcıya giden sayfaları tarayıcının saklamasını engeller.
+
+    Çıkıştan sonra geri tuşu önbellekteki eski sayfayı göstermesin; tarayıcı sunucuya
+    yeniden sorar ve oturum kapalı olduğu için giriş ekranına döner.
+    """
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        user = getattr(request, "user", None)
+        authenticated = user is not None and user.is_authenticated
+        response = self.get_response(request)
+        if authenticated:
+            add_never_cache_headers(response)
+        return response
 
 
 class ForcePinChangeMiddleware:

@@ -35,6 +35,18 @@ def test_login_with_pin(client, pin_user):
     assert r.url == reverse("core:home")
 
 
+def test_logged_in_pages_are_not_stored_and_logout_ends_session(client, pin_user):
+    client.force_login(pin_user)
+    r = client.get(reverse("core:home"))
+    assert r.status_code == 200
+    assert "no-store" in r["Cache-Control"]
+    client.post(reverse("accounts:logout"))
+    # Geri tuşu sunucuya yeniden sorduğunda eski sayfa değil giriş ekranı gelir.
+    r = client.get(reverse("core:home"))
+    assert r.status_code == 302
+    assert r.url.startswith(reverse("accounts:login"))
+
+
 def test_wrong_pin_keeps_user_selected(client, pin_user):
     r = client.post(reverse("accounts:login"), {"username": pin_user.username, "password": "0000"})
     assert r.status_code == 200
