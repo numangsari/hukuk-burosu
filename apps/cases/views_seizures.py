@@ -41,5 +41,7 @@ class SeizureSaveView(View):
 
     def _render(self, request, form):
         return render(
-            request, "cases/seizure_form.html", {"case": self.case, "form": form, "item": self.item}
+            request,
+            "cases/seizure_form.html",
+            {"case": self.case, "form": form, "item": self.item, "seizure_config": form.config},
         )

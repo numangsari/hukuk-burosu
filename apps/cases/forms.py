@@ -494,11 +494,140 @@ CollectionFormSet = forms.formset_factory(
 
 
 class SeizureForm(BootstrapMixin, forms.ModelForm):
+    debtor = forms.ChoiceField(label="Borçlu", choices=[])
+    state = forms.ChoiceField(label="Durum", choices=[])
+
     class Meta:
         model = Seizure
-        fields = ["debtor", "asset", "seized_on", "renewal_on", "is_active", "notes"]
+        fields = [
+            "debtor",
+            "kind",
+            "state",
+            "employer",
+            "bank_name",
+            "plate",
+            "property_info",
+            "address",
+            "notice_stage",
+            "recipient",
+            "related_case_info",
+            "seized_on",
+            "renewal_on",
+            "is_active",
+            "notes",
+        ]
         widgets = {
             "seized_on": DateInput(),
             "renewal_on": DateInput(),
+            "address": forms.Textarea(attrs={"rows": 2}),
             "notes": forms.Textarea(attrs={"rows": 2}),
         }
+
+    def __init__(self, *args, **kwargs):
+        from . import seizure_types
+
+        super().__init__(*args, **kwargs)
+        self.case = self.instance.case
+        self.borrowers = {}
+        for link in self.case.party_links.filter(role="debtor").select_related("party"):
+            self.borrowers[f"party:{link.party_id}"] = ("party", link.party)
+        if self.case.client_role == "debtor":
+            self.borrowers[f"client:{self.case.client_id}"] = ("client", self.case.client)
+        for link in self.case.co_client_links.filter(role="debtor").select_related("client"):
+            self.borrowers[f"client:{link.client_id}"] = ("client", link.client)
+        self.fields["debtor"].choices = [
+            ("", "Seçiniz…"),
+            *[(key, record.name) for key, (_, record) in self.borrowers.items()],
+        ]
+        if self.instance.debtor_party_id:
+            self.initial["debtor"] = f"party:{self.instance.debtor_party_id}"
+        elif self.instance.debtor_client_id:
+            self.initial["debtor"] = f"client:{self.instance.debtor_client_id}"
+        else:
+            self.initial["debtor"] = ""
+        self.fields["kind"].required = True
+        kind = self.data.get("kind", "") if self.is_bound else self.instance.kind
+        state = self.data.get("state", "") if self.is_bound else self.instance.state
+        self.fields["state"].choices = [("", "Seçiniz…"), *seizure_types.STATES.get(kind, [])]
+        self.fields["seized_on"].required = state in seizure_types.SEIZED_STATES
+        self.fields["bank_name"].label = "Banka adı (tek banka)"
+        self.fields["plate"].label = "Plaka (tek araç)"
+        self.fields["property_info"].label = "Taşınmaz bilgisi (il, ilçe, ada/parsel)"
+        self.fields["related_case_info"].label = "Alacaklı olduğu dosya (kurum ve numara)"
+        self.fields["employer"].label = "İşveren / işyeri (varsa)"
+        self.fields["recipient"].label = "İhbarname muhatabı (varsa)"
+        self.fields["notice_stage"].required = kind == "notice"
+        self.fields["debtor"].widget.attrs["x-model"] = "debtor"
+        self.fields["kind"].widget.attrs["x-model"] = "kind"
+        self.fields["state"].widget.attrs.update({"x-model": "state", "x-ref": "state"})
+        self.fields["seized_on"].widget.attrs.update(
+            {"x-model": "seized", ":required": "hasSeizure"}
+        )
+        self.fields["renewal_on"].widget.attrs.update(
+            {"x-model": "renewal", ":required": "annualRenewal"}
+        )
+        for field in (
+            "bank_name",
+            "plate",
+            "property_info",
+            "address",
+            "notice_stage",
+            "related_case_info",
+        ):
+            self.fields[field].widget.attrs[":required"] = f"requiredDetail('{field}')"
+        self.config = {
+            "states": seizure_types.STATES,
+            "seized_states": sorted(seizure_types.SEIZED_STATES),
+            "renewal_states": sorted(seizure_types.RENEWAL_STATES),
+            "kind": kind,
+            "state": state,
+            "debtor": self.data.get("debtor", "") if self.is_bound else self.initial["debtor"],
+            "seized": self["seized_on"].value(),
+            "renewal": self["renewal_on"].value(),
+        }
+        for key in ("seized", "renewal"):
+            value = self.config[key]
+            self.config[key] = value.isoformat() if hasattr(value, "isoformat") else (value or "")
+
+    def clean(self):
+        import re
+
+        from . import seizure_types
+
+        data = super().clean()
+        selected = self.borrowers.get(data.get("debtor"))
+        if selected:
+            category, record = selected
+            data["debtor"] = record.name
+            self.instance.debtor_party = record if category == "party" else None
+            self.instance.debtor_client = record if category == "client" else None
+        kind, state = data.get("kind"), data.get("state")
+        if kind not in dict(seizure_types.KINDS):
+            return data
+        for field in set().union(*seizure_types.DETAIL_FIELDS.values()):
+            if field not in seizure_types.DETAIL_FIELDS[kind]:
+                data[field] = ""
+        if state in {"vehicle_none", "property_none", "claim_none"}:
+            for field in seizure_types.DETAIL_FIELDS[kind]:
+                data[field] = ""
+        if state not in seizure_types.SEIZED_STATES:
+            data["seized_on"] = None
+        if state not in seizure_types.RENEWAL_STATES:
+            data["renewal_on"] = None
+        elif (
+            kind in {"vehicle", "property"} and data.get("seized_on") and not data.get("renewal_on")
+        ):
+            data["renewal_on"] = seizure_types.suggested_renewal(data["seized_on"])
+        if kind == "bank" and any(
+            separator in data.get("bank_name", "") for separator in (",", ";", "\n", "\r")
+        ):
+            self.add_error("bank_name", "Her bankayı ayrı bir haciz kaydı olarak girin.")
+        if kind == "vehicle" and state != "vehicle_none":
+            plate = data.get("plate", "").upper().replace("İ", "I").strip()
+            data["plate"] = re.sub(r"\s+", " ", plate)
+            if (
+                any(separator in plate for separator in (",", ";", "/", "\n", "\r"))
+                or len(re.findall(r"\b\d{2}\s*[A-Z]{1,3}\s*\d{1,4}\b", plate)) > 1
+            ):
+                self.add_error("plate", "Her araç için ayrı kayıt açıp tek plaka girin.")
+        return data

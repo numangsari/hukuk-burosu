@@ -1,13 +1,14 @@
 {% if not case.responsible_intern.is_active or not case.responsible_lawyer.is_active %}<div class="alert alert-warning">Dosyanın sorumlularından biri pasif. Yenileme görevi oluşturulabilmesi için dosyanın sorumlularını güncelleyin.</div>{% endif %}
 <div class="card table-card">
   <div class="card-header"><h2 class="card-title">Haciz takibi</h2>{% if case.is_open %}<a class="btn btn-sm btn-primary ms-auto" href="{% url 'cases:seizure_add' case.pk %}"><i class="bi bi-plus-lg"></i>Haciz ekle</a>{% endif %}</div>
-  <div class="table-responsive"><table class="table"><thead><tr><th>Borçlu</th><th>Mal varlığı</th><th>Haciz tarihi</th><th>Yenileme tarihi</th><th>Durum / görev</th><th></th></tr></thead><tbody>
+  <div class="table-responsive"><table class="table"><thead><tr><th>Borçlu</th><th>Haciz türü / ayrıntı</th><th>Aşama</th><th>Haciz tarihi</th><th>Yenileme tarihi</th><th>Durum / görev</th><th></th></tr></thead><tbody>
   {% for seizure in seizures %}<tr>
-    <td>{{ seizure.debtor }}</td><td>{{ seizure.asset }}{% if seizure.notes %}<div class="cell-sub">{{ seizure.notes|linebreaksbr }}</div>{% endif %}</td>
-    <td class="tabular">{{ seizure.seized_on|date:"d.m.Y" }}</td><td class="tabular">{{ seizure.renewal_on|date:"d.m.Y" }}</td>
+    <td>{{ seizure.debtor_display }}</td><td>{{ seizure.asset_label }}{% if seizure.notes %}<div class="cell-sub">{{ seizure.notes|linebreaksbr }}</div>{% endif %}</td>
+    <td>{{ seizure.state_label|default:"Önceki kayıt" }}</td>
+    <td class="tabular">{{ seizure.seized_on|date:"d.m.Y"|default:"—" }}</td><td class="tabular">{{ seizure.renewal_on|date:"d.m.Y"|default:"—" }}</td>
     <td>{% if seizure.is_active %}<span class="chip chip-primary">Aktif</span>{% else %}<span class="chip">Pasif</span>{% endif %}
       {% for renewal in seizure.renewals.all %}<div class="cell-sub">{{ renewal.due_date|date:"d.m.Y" }} · {% if renewal.task %}<a href="{{ renewal.task.get_absolute_url }}">{{ renewal.task.get_status_display }} — Görevi aç</a>{% else %}Görev silinmiş{% endif %}</div>{% endfor %}
     </td><td>{% if case.is_open %}<a class="btn btn-sm btn-light" href="{% url 'cases:seizure_edit' case.pk seizure.pk %}">Düzenle</a>{% endif %}</td>
-  </tr>{% empty %}<tr><td colspan="6"><div class="empty-state"><strong>Haciz kaydı yok</strong>Borçlunun mal varlığını, haciz ve yenileme tarihini ekleyin.</div></td></tr>{% endfor %}
+  </tr>{% empty %}<tr><td colspan="7"><div class="empty-state"><strong>Haciz kaydı yok</strong>Dosyanın borçlusunu seçip haciz türü ve durumunu ekleyin.</div></td></tr>{% endfor %}
   </tbody></table></div>
 </div>

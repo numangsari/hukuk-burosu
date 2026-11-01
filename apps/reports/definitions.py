@@ -11,7 +11,7 @@ from django.utils import timezone
 from apps.accounting.models import _MONEY as MONEY
 from apps.accounting.models import CREDIT_EXPR, EntryKind, LedgerEntry
 from apps.accounts.models import User
-from apps.cases import stages
+from apps.cases import seizure_types, stages
 from apps.cases.flows import cluster
 from apps.cases.models import Case, CaseEvent, CaseStatus, CaseType, Seizure
 from apps.clients.models import Client
@@ -234,11 +234,15 @@ class CaseListForm(BootstrapMixin, forms.Form):
 def _seizure_summary(cases):
     active = Seizure.objects.filter(
         case_id=OuterRef("pk"), is_active=True, case__case_type=CaseType.ENFORCEMENT
-    )
+    ).filter(Q(kind="") | Q(state__in=seizure_types.SEIZED_STATES))
     count = active.order_by().values("case_id").annotate(total=Count("pk")).values("total")
     return cases.annotate(
         active_seizures=Coalesce(Subquery(count, output_field=IntegerField()), Value(0)),
-        next_renewal=Subquery(active.order_by("renewal_on", "pk").values("renewal_on")[:1]),
+        next_renewal=Subquery(
+            active.exclude(renewal_on__isnull=True)
+            .order_by("renewal_on", "pk")
+            .values("renewal_on")[:1]
+        ),
     )
 
 
@@ -415,7 +419,13 @@ class SeizureReportForm(PeriodForm):
 def build_seizures(d, user):
     items = (
         Seizure.objects.filter(case__case_type=CaseType.ENFORCEMENT)
-        .select_related("case__client", "case__responsible_intern", "case__responsible_lawyer")
+        .select_related(
+            "case__client",
+            "case__responsible_intern",
+            "case__responsible_lawyer",
+            "debtor_party",
+            "debtor_client",
+        )
         .prefetch_related("renewals__task__assignee", "renewals__task__reviewer")
     )
     if not d.get("include_closed"):
@@ -449,14 +459,15 @@ def build_seizures(d, user):
             [
                 item.case.display_name,
                 item.case.client.name,
-                item.debtor,
-                item.asset,
+                item.debtor_display,
+                item.asset_label,
                 item.seized_on,
                 item.renewal_on,
                 "Aktif" if item.is_active else "Pasif",
                 task.assignee if task else item.case.responsible_intern,
                 task.reviewer if task else item.case.responsible_lawyer,
                 state,
+                item.state_label,
             ]
         )
     return ReportResult(
@@ -466,16 +477,17 @@ def build_seizures(d, user):
             Column("Dosya", "text", 2),
             Column("Müvekkil", "text", 1.3),
             Column("Borçlu", "text", 1.2),
-            Column("Mal varlığı", "text", 1.8),
+            Column("Haciz türü / ayrıntı", "text", 1.8),
             Column("Haciz tarihi", "date", 0.8),
             Column("Yenileme tarihi", "date", 0.8),
             Column("Haciz durumu", "text", 0.7),
             Column("Sorumlu", "text", 1),
             Column("Kontrolcü", "text", 1),
             Column("Görev durumu", "text", 1.1),
+            Column("Haciz aşaması", "text", 1.2),
         ],
         rows=rows,
-        summary=[("Haciz sayısı", str(len(rows)))],
+        summary=[("Takip sayısı", str(len(rows)))],
     )
 
 

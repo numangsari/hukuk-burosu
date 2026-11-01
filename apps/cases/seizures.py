@@ -1,8 +1,10 @@
 """İcra dosyalarında haciz takibi ve tarih geldiğinde görev oluşturma."""
 
+from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils import timezone
 
+from apps.core.text import tr_upper
 from apps.office.models import TaskType
 from apps.tasks.models import Task
 from apps.tasks.services import on_created
@@ -17,7 +19,16 @@ def save_seizure(case, form, user):
         raise ValueError("Haciz takibi yalnızca açık icra dosyalarında değiştirilebilir.")
     if form.instance.pk:
         Seizure.objects.select_for_update().get(pk=form.instance.pk, case=locked)
-    item = form.save(commit=False)
+    # Borçlu listesi kayıt anında da dosyanın güncel taraflarından doğrulanır.
+    from .forms import SeizureForm
+
+    form.instance.case = locked
+    checked = SeizureForm(form.data, instance=form.instance)
+    if not checked.is_valid():
+        raise ValidationError(
+            "Borçlu veya haciz bilgileri değişti. Sayfayı yenileyip tekrar deneyin."
+        )
+    item = checked.save(commit=False)
     item.case = locked
     if not item.pk:
         item.created_by = user
@@ -33,11 +44,17 @@ def _create_renewal(seizure_id, case_id, today):
         .select_related("responsible_intern", "responsible_lawyer")
         .get(pk=case_id)
     )
-    item = Seizure.objects.select_for_update().get(pk=seizure_id)
+    item = (
+        Seizure.objects.select_for_update(of=("self",))
+        .select_related("debtor_party", "debtor_client")
+        .get(pk=seizure_id)
+    )
     if (
         case.status != CaseStatus.OPEN
         or case.case_type != CaseType.ENFORCEMENT
         or not item.is_active
+        or not item.renewal_on
+        or not item.needs_renewal
         or item.renewal_on > today
         or item.renewals.filter(due_date=item.renewal_on).exists()
     ):
@@ -47,14 +64,15 @@ def _create_renewal(seizure_id, case_id, today):
     task_type, _ = TaskType.objects.get_or_create(name="Haciz yenileme")
     task = Task(
         case=case,
-        title=f"HACZİ YENİLE: {item.debtor} — {item.asset}"[:300],
+        title=tr_upper(f"HACZİ YENİLE: {item.debtor_display} — {item.asset_label}")[:300],
         task_type=task_type,
         assignee=case.responsible_intern,
         reviewer=case.responsible_lawyer,
         due_date=item.renewal_on,
         created_by=item.created_by,
-        notes=f"Borçlu: {item.debtor}\nMal varlığı: {item.asset}\n"
-        f"Haciz tarihi: {item.seized_on:%d.%m.%Y}\n"
+        notes=f"Borçlu: {item.debtor_display}\nHaciz: {item.asset_label}\n"
+        f"Durum: {item.state_label}\n"
+        f"Haciz tarihi: {item.seized_on.strftime('%d.%m.%Y') if item.seized_on else '—'}\n"
         f"Yenileme tarihi: {item.renewal_on:%d.%m.%Y}\n{item.notes}",
     )
     task.full_clean()

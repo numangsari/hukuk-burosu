@@ -12,7 +12,7 @@ from apps.clients.models import Client, Party, intern_choices, lawyer_choices
 from apps.core.models import TimeStampedModel
 from apps.core.text import tr_upper
 
-from . import stages
+from . import seizure_types, stages
 from .party_roles import PARTY_ROLE_CHOICES, PARTY_ROLES
 
 
@@ -449,9 +449,29 @@ class CaseEvent(models.Model):
 class Seizure(TimeStampedModel):
     case = models.ForeignKey(Case, on_delete=models.CASCADE, related_name="seizures")
     debtor = models.CharField("borçlu", max_length=300)
-    asset = models.CharField("haczedilen mal varlığı", max_length=500)
-    seized_on = models.DateField("haciz tarihi")
-    renewal_on = models.DateField("yenileme tarihi", db_index=True)
+    asset = models.CharField("önceki mal varlığı bilgisi", max_length=500, blank=True)
+    debtor_party = models.ForeignKey(
+        Party, on_delete=models.SET_NULL, null=True, blank=True, related_name="seizures"
+    )
+    debtor_client = models.ForeignKey(
+        Client, on_delete=models.SET_NULL, null=True, blank=True, related_name="debtor_seizures"
+    )
+    kind = models.CharField("haciz türü", max_length=20, choices=seizure_types.KINDS, blank=True)
+    state = models.CharField("durum", max_length=32, blank=True)
+    employer = models.CharField("işveren / işyeri", max_length=200, blank=True)
+    bank_name = models.CharField("banka adı", max_length=200, blank=True)
+    plate = models.CharField("plaka", max_length=20, blank=True)
+    property_info = models.CharField("taşınmaz bilgisi", max_length=500, blank=True)
+    address = models.TextField("adres", blank=True)
+    notice_stage = models.CharField(
+        "ihbarname", max_length=4, choices=seizure_types.NOTICE_STAGES, blank=True
+    )
+    recipient = models.CharField("ihbarname muhatabı", max_length=300, blank=True)
+    related_case_info = models.CharField(
+        "alacaklı olduğu dosya bilgisi", max_length=300, blank=True
+    )
+    seized_on = models.DateField("haciz tarihi", null=True, blank=True)
+    renewal_on = models.DateField("yenileme tarihi", db_index=True, null=True, blank=True)
     is_active = models.BooleanField("haciz takibi aktif", default=True)
     notes = models.TextField("not", blank=True)
     created_by = models.ForeignKey(
@@ -466,16 +486,100 @@ class Seizure(TimeStampedModel):
             models.CheckConstraint(
                 condition=models.Q(renewal_on__gte=models.F("seized_on")),
                 name="seizure_renewal_after_date",
-            )
+            ),
+            models.CheckConstraint(
+                condition=models.Q(debtor_party__isnull=True)
+                | models.Q(debtor_client__isnull=True),
+                name="seizure_single_debtor",
+            ),
         ]
 
     def __str__(self):
-        return f"{self.debtor} — {self.asset}"
+        return f"{self.debtor_display} — {self.asset_label}"
+
+    @property
+    def debtor_display(self):
+        return str(self.debtor_party or self.debtor_client or self.debtor)
+
+    @property
+    def state_label(self):
+        return dict(seizure_types.STATES.get(self.kind, [])).get(self.state, "")
+
+    @property
+    def details(self):
+        return " · ".join(
+            str(getattr(self, field) or "")
+            for field in seizure_types.DETAIL_FIELDS.get(self.kind, [])
+            if getattr(self, field)
+        )
+
+    @property
+    def asset_label(self):
+        if not self.kind:
+            return self.asset
+        return " · ".join(part for part in (self.get_kind_display(), self.details) if part)
+
+    @property
+    def needs_renewal(self):
+        return not self.kind or self.state in seizure_types.RENEWAL_STATES
 
     def clean(self):
         super().clean()
         if self.case_id and self.case.case_type != CaseType.ENFORCEMENT:
             raise ValidationError("Haciz takibi yalnızca icra dosyalarında kullanılabilir.")
+        if self.kind:
+            errors = {}
+            if self.state not in dict(seizure_types.STATES.get(self.kind, [])):
+                errors["state"] = "Haciz türüne uygun bir durum seçin."
+            if self.debtor_party_id and self.case_id:
+                valid_debtor = self.case.party_links.filter(
+                    party_id=self.debtor_party_id, role="debtor"
+                ).exists()
+            elif self.debtor_client_id and self.case_id:
+                valid_debtor = (
+                    self.case.client_id == self.debtor_client_id
+                    and self.case.client_role == "debtor"
+                ) or self.case.co_client_links.filter(
+                    client_id=self.debtor_client_id, role="debtor"
+                ).exists()
+            else:
+                valid_debtor = False
+            if not valid_debtor:
+                errors["debtor"] = "Dosyanın taraflarında borçlu olarak kayıtlı birini seçin."
+            if self.state in seizure_types.SEIZED_STATES and not self.seized_on:
+                errors["seized_on"] = "Haciz tarihini girin."
+            if self.kind == "bank" and not self.bank_name.strip():
+                errors["bank_name"] = "Her banka için ayrı kayıt açıp banka adını girin."
+            if self.kind == "vehicle" and self.state != "vehicle_none" and not self.plate.strip():
+                errors["plate"] = "Her araç için ayrı kayıt açıp tek plaka girin."
+            if (
+                self.kind == "property"
+                and self.state != "property_none"
+                and not self.property_info.strip()
+            ):
+                errors["property_info"] = "Taşınmaz bilgisini girin."
+            if self.kind == "location" and not self.address.strip():
+                errors["address"] = "Gidilen adresi girin."
+            if self.kind == "notice" and self.notice_stage not in dict(seizure_types.NOTICE_STAGES):
+                errors["notice_stage"] = "89/1, 89/2 veya 89/3 seçin."
+            if (
+                self.kind == "claim"
+                and self.state == "claim_exists"
+                and not self.related_case_info.strip()
+            ):
+                errors["related_case_info"] = (
+                    "Alacaklı olunan dosyanın kurum ve numara bilgisini girin."
+                )
+            if (
+                self.kind in {"vehicle", "property"}
+                and self.state in seizure_types.RENEWAL_STATES
+                and not self.renewal_on
+            ):
+                errors["renewal_on"] = "Yenileme tarihini girin."
+            if self.renewal_on and not self.seized_on:
+                errors["seized_on"] = "Yenileme için haciz tarihini de girin."
+            if errors:
+                raise ValidationError(errors)
         if self.seized_on and self.renewal_on and self.renewal_on < self.seized_on:
             raise ValidationError({"renewal_on": "Yenileme tarihi haciz tarihinden önce olamaz."})
 

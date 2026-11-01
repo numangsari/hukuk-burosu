@@ -31,6 +31,7 @@ Kullanıcının henüz tek tek bakmadığı kontrol maddeleri (Adım 4'e geçmed
 
 ### 4. Dosyalar — inceleme büyük ölçüde tamam, son sekmeler kaldı
 **Devam noktası:** Aşağıdakiler kullanıcıyla canlı ekranda gözden geçirildi ve onaylandı: yeni dosya formu (iki sütun, taraflar listesi + pop-up, ek müvekkiller, ilgili dosya oluştur), dosya listesi (sütun sırası, renkli tür/durum düğmeleri, bağlı dosya kümeleme ve "+X dosya bağlı"), açık/kapalı + aşama/kapanma modeli (kaynak `aşamalar.txt`), dosya özeti, Taraflar (sol/sağ yan), Görevler (aktif/tamamlanan, sıralama), Safahat (bağlı dosyaların tek akışı, ortak muhasebe), avukatlık sözleşmesi, numara ekleri (Esas/İcra/Soruşturma/Arabuluculuk/Karar), tebligatın kaldırılması.
+- Haciz takibi tür/aşama düzenine geçirildi: dosyanın borçlularından seçim, türe özel alanlar, ayrı banka/plaka kayıtları, araç/tapu için değiştirilebilir yenileme önerisi ve tek kayıtta 89 ihbarnamesi. Kullanıcıyla görsel kontrol yapılacak.
 - İcra ekleri: kapanışta çoklu tahsilat ve otomatik muhasebe; Haciz takibi sekmesi ve yenileme günü görev oluşturma; dosya listesinde ayrı AŞAMA sütunu/süzgeci. Bu ekranlar kullanıcıyla gözden geçirilecek.
 - Dosya notları Özet’in en altındadır; Geçmiş’te yalnızca işlem geçmişi ve iptal hareketleri kalır. Otomatik olaylar silinmez.
 - Kalan kontroller: Belgeler (yükleme ve doğru klasöre kopya kullanıcıyla doğrulandı; klasör adları müvekkil adı ve kurum/numara düzenine çevrilir), Geçmiş sekmesi, dosya silinince bağlı grup ve ek müvekkil davranışı, arama ve süzgeç ayrıntıları, silme yetkileri.

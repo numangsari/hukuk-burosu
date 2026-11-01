@@ -181,12 +181,19 @@ def test_inactive_responsible_is_reported_until_fixed(case_factory, lawyer):
 
 def test_seizure_form_dates_and_case_scoping(lawyer_client, case_factory, lawyer):
     case = case_factory(case_type="enforcement")
+    from apps.cases.models import CaseParty
+    from apps.clients.models import Party
+
+    debtor = Party.objects.create(kind="person", name="Örnek kişi")
+    CaseParty.objects.create(case=case, party=debtor, role="debtor")
     item = seizure(case, lawyer, renewal_on=timezone.localdate() + dt.timedelta(days=10))
     url = reverse("cases:seizure_edit", args=[case.pk, item.pk])
     assert lawyer_client.get(url).status_code == 200
     data = {
-        "debtor": "Örnek kişi",
-        "asset": "Örnek taşınmaz",
+        "debtor": f"party:{debtor.pk}",
+        "kind": "property",
+        "state": "property_seized",
+        "property_info": "Örnek taşınmaz",
         "seized_on": "2026-10-02",
         "renewal_on": "2026-10-01",
         "is_active": "on",
@@ -207,7 +214,9 @@ def test_seizure_form_dates_and_case_scoping(lawyer_client, case_factory, lawyer
     data["renewal_on"] = (timezone.localdate() + dt.timedelta(days=10)).isoformat()
     assert lawyer_client.post(url, data).status_code == 302
     item.refresh_from_db()
-    assert item.asset == "Örnek taşınmaz"
+    assert item.property_info == "Örnek taşınmaz"
+    assert item.asset == "Örnek araç"  # Önceki bilgi korunur.
+    assert item.debtor_party == debtor
 
 
 def test_stage_column_and_filter_do_not_mix_types(lawyer_client, case_factory):

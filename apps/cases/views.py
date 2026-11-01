@@ -343,7 +343,9 @@ class CaseDetailView(DetailView):
             for i, (key, label) in enumerate(steps)
         ]
         if self.object.case_type == CaseType.ENFORCEMENT:
-            ctx["seizures"] = self.object.seizures.prefetch_related("renewals__task")
+            ctx["seizures"] = self.object.seizures.select_related(
+                "debtor_party", "debtor_client"
+            ).prefetch_related("renewals__task")
         ctx["document_form"] = DocumentForm()
         ctx["party_links"] = self.object.party_links.select_related("party", "case")
         ctx["documents"] = self.object.documents.select_related("created_by")

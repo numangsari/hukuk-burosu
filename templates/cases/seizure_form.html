@@ -2,15 +2,75 @@
 {% block title %}Haciz takibi — {{ office.name }}{% endblock %}
 {% block content %}
 <div class="page-header"><div><div class="eyebrow"><a href="{{ case.get_absolute_url }}#t-haciz">{{ case.display_name }}</a></div><h1 class="page-title">{% if item.pk %}Haciz takibini düzenle{% else %}Yeni haciz takibi{% endif %}</h1></div></div>
-<form method="post" class="card">{% csrf_token %}
+{{ seizure_config|json_script:"seizure-config" }}
+<form method="post" class="card" x-data="seizureForm()">{% csrf_token %}
   <div class="form-section">
     {{ form.non_field_errors }}
-    <div class="row"><div class="col-md-6">{% include "partials/field.html" with field=form.debtor %}</div><div class="col-md-6">{% include "partials/field.html" with field=form.asset %}</div></div>
-    <div class="row"><div class="col-md-6">{% include "partials/field.html" with field=form.seized_on %}</div><div class="col-md-6">{% include "partials/field.html" with field=form.renewal_on %}</div></div>
+    {% if not form.borrowers %}<div class="alert alert-info">Bu dosyada borçlu kayıtlı değil. <a href="{{ case.get_absolute_url }}#t-taraflar">Taraflar bölümünden borçluyu ekleyin</a>.</div>{% endif %}
+    {% if item.asset %}<div class="small text-body-secondary mb-3">Önceki kayıt bilgisi: {{ item.debtor }} · {{ item.asset }}</div>{% endif %}
+    <div class="row"><div class="col-md-4">{% include "partials/field.html" with field=form.debtor %}</div><div class="col-md-4">{% include "partials/field.html" with field=form.kind %}</div><div class="col-md-4">{% include "partials/field.html" with field=form.state %}</div></div>
+    <div x-show="kind === 'salary'" x-cloak>{% include "partials/field.html" with field=form.employer %}</div>
+    <div x-show="kind === 'bank'" x-cloak>{% include "partials/field.html" with field=form.bank_name %}<div class="form-text mb-3">Her banka için ayrı haciz kaydı açın.</div></div>
+    <div x-show="kind === 'vehicle' && state !== 'vehicle_none'" x-cloak>{% include "partials/field.html" with field=form.plate %}<div class="form-text mb-3">Her plaka için ayrı haciz kaydı açın.</div></div>
+    <div x-show="kind === 'property' && state !== 'property_none'" x-cloak>{% include "partials/field.html" with field=form.property_info %}</div>
+    <div x-show="kind === 'location'" x-cloak>{% include "partials/field.html" with field=form.address %}</div>
+    <div class="row" x-show="kind === 'notice'" x-cloak><div class="col-md-4">{% include "partials/field.html" with field=form.notice_stage %}</div><div class="col-md-8">{% include "partials/field.html" with field=form.recipient %}</div></div>
+    <div x-show="kind === 'claim' && state === 'claim_exists'" x-cloak>{% include "partials/field.html" with field=form.related_case_info %}</div>
+    <div class="row">
+      <div class="col-md-6" x-show="hasSeizure" x-cloak>{% include "partials/field.html" with field=form.seized_on %}</div>
+      <div class="col-md-6" x-show="hasRenewal" x-cloak>{% include "partials/field.html" with field=form.renewal_on %}<div class="form-text mb-3" x-show="annualRenewal">Araç ve tapu için öneri, haciz tarihinin bir yıl sonrasından 30 gün öncedir. Tarihi değiştirebilirsiniz.</div><div class="form-text mb-3" x-show="kind === 'claim'">Yenileme gerekiyorsa tarihini girin.</div></div>
+    </div>
     {% include "partials/field.html" with field=form.notes %}
     <div class="form-check mb-3">{{ form.is_active }}<label class="form-check-label" for="{{ form.is_active.id_for_label }}">{{ form.is_active.label }}</label>{{ form.is_active.errors }}</div>
-    <div class="form-text">Yenileme günü dosyanın sorumlu stajyerine görev, sorumlu avukatına kontrol atanır. Bilgisayar o gün kapalıysa açıldığında oluşturulur. Pasif hacizlerde ve kapalı dosyalarda görev oluşturulmaz.</div>
+    <div class="form-text">Yenileme tarihi girilmiş aktif kayıtlarda o gün dosyanın stajyerine görev, avukatına kontrol atanır. Bilgisayar kapalıysa ilk açılışta oluşturulur.</div>
   </div>
-  <div class="form-footer"><a class="btn btn-light" href="{{ case.get_absolute_url }}#t-haciz">Vazgeç</a><button class="btn btn-primary">Kaydet</button></div>
+  <div class="form-footer"><a class="btn btn-light" href="{{ case.get_absolute_url }}#t-haciz">Vazgeç</a><button class="btn btn-primary" {% if not form.borrowers %}disabled{% endif %}>Kaydet</button></div>
 </form>
+<script>
+  function seizureForm() {
+    const config = JSON.parse(document.getElementById('seizure-config').textContent);
+    return {
+      kind: config.kind, state: config.state, debtor: config.debtor,
+      seized: config.seized, renewal: config.renewal, lastSuggested: '',
+      get hasSeizure() { return config.seized_states.includes(this.state); },
+      get hasRenewal() { return config.renewal_states.includes(this.state); },
+      get annualRenewal() { return ['vehicle', 'property'].includes(this.kind) && this.hasRenewal; },
+      requiredDetail(field) {
+        if (field === 'bank_name') return this.kind === 'bank';
+        if (field === 'plate') return this.kind === 'vehicle' && this.state !== 'vehicle_none';
+        if (field === 'property_info') return this.kind === 'property' && this.state !== 'property_none';
+        if (field === 'address') return this.kind === 'location';
+        if (field === 'notice_stage') return this.kind === 'notice';
+        if (field === 'related_case_info') return this.kind === 'claim' && this.state === 'claim_exists';
+        return false;
+      },
+      suggestDate() {
+        if (!this.annualRenewal || !/^\d{4}-\d{2}-\d{2}$/.test(this.seized)) return;
+        const [year, month, day] = this.seized.split('-').map(Number);
+        if (year >= 9999) return;
+        const anniversary = new Date(year + 1, month - 1, day, 12);
+        if (anniversary.getMonth() !== month - 1) anniversary.setDate(0);
+        anniversary.setDate(anniversary.getDate() - 30);
+        const suggested = [anniversary.getFullYear(), String(anniversary.getMonth() + 1).padStart(2, '0'), String(anniversary.getDate()).padStart(2, '0')].join('-');
+        if (!this.renewal || this.renewal === this.lastSuggested) this.renewal = suggested;
+        this.lastSuggested = suggested;
+      },
+      init() {
+        this.$watch('kind', value => {
+          this.state = '';
+          this.$refs.state.replaceChildren(new Option('Seçiniz…', ''));
+          (config.states[value] || []).forEach(([key, label]) => this.$refs.state.add(new Option(label, key)));
+          this.renewal = '';
+          this.lastSuggested = '';
+        });
+        this.$watch('state', () => {
+          if (!this.hasRenewal) this.renewal = '';
+          this.suggestDate();
+        });
+        this.$watch('seized', () => this.suggestDate());
+        this.suggestDate();
+      },
+    };
+  }
+</script>
 {% endblock %}
