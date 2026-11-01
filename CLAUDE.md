@@ -23,7 +23,7 @@ uv run pytest                                    # testler (dev DB'de test_ veri
 uv run ruff check .
 uv run ruff format --check .
 ```
-Dev ayarları `config/settings/dev.py`, varsayılan DB bağlantısı dev compose'daki DB'dir. 5433 portu bu makinede başka bir projede dolu olduğu için 5434 kullanılır.
+Dev ayarları `config/settings/dev.py`, varsayılan DB bağlantısı dev compose'daki DB'dir. Dev'de statik dosyaları WhiteNoise sunar (`whitenoise.runserver_nostatic`, `max-age=0`); CSS/JS değişikliği için Ctrl+F5 gerekmez. Henüz kurulu ofis sürümü yoktur; proje geliştirme aşamasındadır. 5433 portu bu makinede başka bir projede dolu olduğu için 5434 kullanılır.
 
 ## Env değişkenleri (production)
 `DJANGO_SETTINGS_MODULE=config.settings.prod`, `DJANGO_SECRET_KEY`, `DATABASE_URL`, `DJANGO_ALLOWED_HOSTS`, `MEDIA_ROOT`, `STATIC_ROOT`, `LOG_FILE`. `BACKUP_PASSWORD`, `BACKUP_DIR`, `PG_DUMP`, `PG_RESTORE`, `BACKUP_DATABASE_URL`. Şablon: `.env.example`.
