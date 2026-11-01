@@ -11,7 +11,7 @@ class PinLoginForm(AuthenticationForm):
     """Kullanıcı kartı seçilir (gizli username), PIN password alanında gelir."""
 
     error_messages = {
-        "invalid_login": "PIN hatalı. 5 hatalı denemeden sonra giriş 15 dakika kilitlenir.",
+        "invalid_login": "PIN hatalı. Tekrar deneyin.",
         "inactive": "Bu kullanıcı pasif.",
     }
 

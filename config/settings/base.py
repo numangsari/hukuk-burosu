@@ -23,7 +23,6 @@ INSTALLED_APPS = [
     "django.contrib.humanize",
     "django.contrib.postgres",
     "django_htmx",
-    "axes",
     "auditlog",
     "apps.core",
     "apps.accounts",
@@ -55,7 +54,6 @@ MIDDLEWARE = [
     "django_htmx.middleware.HtmxMiddleware",
     "auditlog.middleware.AuditlogMiddleware",
     "django.contrib.auth.middleware.LoginRequiredMiddleware",
-    "axes.middleware.AxesMiddleware",
     "apps.accounts.middleware.IdleTimeoutMiddleware",
     "apps.accounts.middleware.ForcePinChangeMiddleware",
 ]
@@ -83,10 +81,6 @@ WSGI_APPLICATION = "config.wsgi.application"
 # DATABASES ortama özel dosyalarda tanımlanır (dev.py / prod.py).
 
 AUTH_USER_MODEL = "accounts.User"
-AUTHENTICATION_BACKENDS = [
-    "axes.backends.AxesStandaloneBackend",
-    "django.contrib.auth.backends.ModelBackend",
-]
 # Giriş PIN ile yapılır; PIN kullanıcının parolası olarak hash'li saklanır.
 AUTH_PASSWORD_VALIDATORS = [{"NAME": "apps.accounts.validators.PinValidator"}]
 LOGIN_URL = "accounts:login"
@@ -96,13 +90,6 @@ LOGOUT_REDIRECT_URL = "accounts:login"
 # Oturum mesai süresince açık kalır, tarayıcı kapanınca biter.
 SESSION_COOKIE_AGE = 60 * 60 * 10
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True
-
-# Başarısız giriş kilidi: 5 deneme, 15 dakika.
-AXES_FAILURE_LIMIT = 5
-AXES_COOLOFF_TIME = 0.25
-AXES_RESET_ON_SUCCESS = True
-AXES_LOCKOUT_PARAMETERS = ["username", "ip_address"]
-AXES_LOCKOUT_TEMPLATE = "accounts/locked.html"
 
 LANGUAGE_CODE = "tr"
 TIME_ZONE = "Europe/Istanbul"

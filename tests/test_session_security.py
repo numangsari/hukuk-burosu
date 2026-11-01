@@ -18,10 +18,18 @@ def login(user):
     return c
 
 
-def test_setup_users_must_change_pin_then_released():
+def test_setup_users_start_pin_is_optional_to_change():
     call_command("setup_office_users", pin=PIN)
     u = User.objects.get(username="nursu.ozkok")
-    assert u.must_change_pin
+    assert not u.must_change_pin
+    assert login(u).get(reverse("clients:list")).status_code == 200
+
+
+def test_must_change_pin_then_released():
+    call_command("setup_office_users", pin=PIN)
+    u = User.objects.get(username="nursu.ozkok")
+    u.must_change_pin = True
+    u.save()
     c = login(u)
     r = c.get(reverse("clients:list"))
     assert r.status_code == 302 and r.url == "/hesap/ayarlar/?bolum=pin"

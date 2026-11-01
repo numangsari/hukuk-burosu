@@ -47,6 +47,14 @@ def test_logged_in_pages_are_not_stored_and_logout_ends_session(client, pin_user
     assert r.url.startswith(reverse("accounts:login"))
 
 
+def test_no_lockout_after_wrong_pins(client, pin_user):
+    url = reverse("accounts:login")
+    for _ in range(8):
+        client.post(url, {"username": pin_user.username, "password": "0000"})
+    r = client.post(url, {"username": pin_user.username, "password": TEST_PIN})
+    assert r.status_code == 302
+
+
 def test_wrong_pin_keeps_user_selected(client, pin_user):
     r = client.post(reverse("accounts:login"), {"username": pin_user.username, "password": "0000"})
     assert r.status_code == 200
