@@ -25,7 +25,7 @@ def queue_reminders(now=None):
     contacts = {
         contact.client_id: contact
         for contact in WhatsAppContact.objects.filter(
-            opted_in=True, reminders_enabled=True, client__is_active=True
+            opted_in=True, reminders_enabled=True
         ).select_related("client", "contact")
         if recipient_ready(contact)
     }

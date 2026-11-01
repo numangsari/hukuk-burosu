@@ -37,7 +37,7 @@ class Event:
     location: str = ""
     description: str = ""
     days: list[dt.date] = field(default_factory=list)
-    source: str = "google"  # Google takvimi, duruşma, tebligat veya görev
+    source: str = "google"  # Google takvimi, duruşma veya görev
     url: str = ""
 
     @property
@@ -165,8 +165,8 @@ def events_between(start: dt.date, end: dt.date) -> AgendaResult:
 
 
 def system_events(start: dt.date, end: dt.date) -> list[Event]:
-    """Planlı duruşmalar, açık görevlerin ve bekleyen tebligatların son günleri."""
-    from apps.cases.models import Hearing, HearingStatus, Service
+    """Planlı duruşmalar ve açık görevlerin son günleri."""
+    from apps.cases.models import Hearing, HearingStatus
     from apps.clients.models import ClientAppointment
     from apps.tasks.models import OPEN_STATUSES, Task
 
@@ -178,7 +178,7 @@ def system_events(start: dt.date, end: dt.date) -> list[Event]:
         s = timezone.localtime(h.starts_at)
         events.append(
             Event(
-                title=f"{h.get_kind_display()}: {h.case.subject}",
+                title=f"{h.get_kind_display()}: {h.case.display_name}",
                 start=s,
                 end=None,
                 all_day=False,
@@ -186,22 +186,6 @@ def system_events(start: dt.date, end: dt.date) -> list[Event]:
                 days=[s.date()],
                 source="hearing",
                 url=h.case.get_absolute_url(),
-            )
-        )
-    services_qs = Service.objects.filter(
-        is_done=False, deadline__gte=start, deadline__lt=end
-    ).select_related("case")
-    for sv in services_qs:
-        events.append(
-            Event(
-                title=f"Tebligat son günü: {sv.subject}",
-                start=sv.deadline,
-                end=None,
-                all_day=True,
-                location=f"{sv.case.archive_no} · {sv.case.subject}",
-                days=[sv.deadline],
-                source="deadline",
-                url=sv.case.get_absolute_url(),
             )
         )
     tasks = Task.objects.filter(
@@ -215,7 +199,7 @@ def system_events(start: dt.date, end: dt.date) -> list[Event]:
                 start=task.due_date,
                 end=None,
                 all_day=True,
-                location=f"{task.case.archive_no} · {responsible}",
+                location=f"{task.case.archive_reference} · {responsible}",
                 days=[task.due_date],
                 source="task",
                 url=task.get_absolute_url(),

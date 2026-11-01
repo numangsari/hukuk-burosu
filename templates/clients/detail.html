@@ -12,105 +12,160 @@
       <i class="bi {% if client.kind == 'company' %}bi-building{% else %}bi-person{% endif %}"></i>
     </div>
     <div class="min-w-0">
-      <div class="d-flex align-items-center gap-2 flex-wrap">
-        <h1 class="page-title">{{ client.name }}</h1>
-        <span class="chip {% if client.kind == 'company' %}chip-accent{% else %}chip-primary{% endif %} no-dot">{{ client.get_kind_display }}</span>
-        {% if not client.is_active %}<span class="chip">Pasif</span>{% endif %}
-      </div>
+      <h1 class="page-title">{{ client.name }}</h1>
       <div class="meta">
-        {% if can_view_accounting %}<span><i class="bi bi-wallet2"></i>Cari <strong class="tabular {% if ledger_balances.cari > 0 %}text-debt{% endif %}">{{ ledger_balances.cari|tl }}</strong></span>{% endif %}
-        {% if client.identity_no %}<span><i class="bi bi-card-text"></i>{% if client.kind == 'person' %}TCKN{% else %}VKN{% endif %} <strong class="tabular">{{ client.identity_no }}</strong></span>{% endif %}
-        <span><i class="bi bi-briefcase"></i>Avukat <strong>{{ client.responsible_lawyer }}</strong></span>
-        <span><i class="bi bi-mortarboard"></i>Stajyer <strong>{{ client.responsible_intern }}</strong></span>
-        <span><i class="bi bi-folder2"></i><strong>{{ cases|length }}</strong> dosya</span>
+        {% if client.poa_no %}<span class="poa-no tabular">{{ client.poa_label }}</span>{% else %}<span class="chip chip-warning no-dot">Vekalet yok</span>{% endif %}
+        <span><i class="bi bi-folder2-open"></i><strong>{{ open_case_count }}</strong> açık dosya</span>
+        <span><i class="bi bi-folder-check"></i><strong>{{ closed_case_count }}</strong> kapalı dosya</span>
       </div>
     </div>
     <div class="page-actions">
-      {% if request.user.is_office_admin %}
-      <form method="post" action="{% url 'clients:delete' client.pk %}" onsubmit="return confirm('Müvekkil silinsin mi?')">{% csrf_token %}
-        <button class="btn btn-outline-danger btn-icon" title="Sil"><i class="bi bi-trash"></i></button>
-      </form>
-      {% endif %}
       <a class="btn btn-light" href="{% url 'clients:update' client.pk %}"><i class="bi bi-pencil"></i>Düzenle</a>
       <a class="btn btn-light" href="{% url 'clients:messaging:client' client.pk %}"><i class="bi bi-whatsapp"></i>WhatsApp</a>
       <a class="btn btn-primary" href="{% url 'cases:create' %}?client={{ client.pk }}"><i class="bi bi-folder-plus"></i>Yeni dosya</a>
     </div>
   </div>
   <ul class="nav nav-underline-tabs" role="tablist">
-    <li><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#t-kimlik">Genel bilgiler</button></li>
-    <li><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-iletisim">İletişim<span class="count">{{ client.contacts.count }}</span></button></li>
-    <li><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-iban">IBAN<span class="count">{{ client.ibans.count }}</span></button></li>
-    {% if client.kind == "company" %}<li><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-yetkili">Yetkililer<span class="count">{{ client.representatives.count }}</span></button></li>{% endif %}
-    <li><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-vekalet">Vekaletler<span class="count">{{ client.powers_of_attorney.count }}</span></button></li>
+    <li><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#t-genel">Genel bilgiler</button></li>
     <li><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-dosyalar">Dosyalar<span class="count">{{ cases|length }}</span></button></li>
-    {% if can_view_accounting %}<li><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-cari" id="tab-cari">Cari hesap</button></li>{% endif %}
+    <li><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-muhasebe" id="tab-muhasebe">Muhasebe</button></li>
+    <li><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-raporlar">Raporlar</button></li>
     <li><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-gecmis">Geçmiş</button></li>
   </ul>
 </div>
 
-{% include "clients/_conflicts.html" %}
-
 <div class="tab-content">
-  <div class="tab-pane fade show active" id="t-kimlik">
-    <div class="card"><div class="card-body">
-      <dl class="dl-grid">
-        {% if client.kind == "person" %}
-          <dt>Ad soyad</dt><dd>{{ client.first_name }} {{ client.last_name }}</dd>
-          <dt>TC kimlik no</dt><dd class="tabular">{{ client.tckn|default:"—" }}</dd>
-        {% else %}
-          <dt>Unvan</dt><dd>{{ client.title }}</dd>
-          <dt>Vergi dairesi</dt><dd>{{ client.tax_office|default:"—" }}</dd>
-          <dt>Vergi kimlik no</dt><dd class="tabular">{{ client.vkn|default:"—" }}</dd>
-          <dt>MERSİS no</dt><dd class="tabular">{{ client.mersis_no|default:"—" }}</dd>
+  <div class="tab-pane fade show active" id="t-genel">
+    <div class="row g-3">
+      <div class="col-xl-6 d-flex flex-column gap-3">
+        <div class="card"><div class="card-header"><h2 class="card-title">Kimlik ve sorumlular</h2></div><div class="card-body">
+          <dl class="dl-grid">
+            {% if client.kind == "person" %}
+              <dt>Ad soyad</dt><dd>{{ client.first_name }} {{ client.last_name }}</dd>
+              <dt>TC kimlik no</dt><dd class="tabular">{{ client.tckn|default:"—" }}</dd>
+            {% else %}
+              <dt>Unvan</dt><dd>{{ client.title }}</dd>
+              <dt>Vergi dairesi</dt><dd>{{ client.tax_office|default:"—" }}</dd>
+              <dt>Vergi kimlik no</dt><dd class="tabular">{{ client.vkn|default:"—" }}</dd>
+              <dt>MERSİS no</dt><dd class="tabular">{{ client.mersis_no|default:"—" }}</dd>
+            {% endif %}
+            <dt>Sorumlu avukat</dt><dd>{{ client.responsible_lawyer }}</dd>
+            <dt>Sorumlu stajyer</dt><dd>{{ client.responsible_intern }}</dd>
+            <dt>Notlar</dt><dd>{{ client.notes|linebreaksbr|default:"—" }}</dd>
+            <dt>Kayıt</dt><dd class="text-body-secondary">{{ client.created_at|date:"d.m.Y H:i" }}{% if client.created_by %} · {{ client.created_by }}{% endif %}</dd>
+          </dl>
+        </div></div>
+
+        <div class="card table-card">
+          <div class="card-header"><h2 class="card-title">Vekaletler</h2>{% if client.poa_no %}<span class="poa-no tabular ms-2">{{ client.poa_label }}</span>{% endif %}</div>
+          <div class="table-responsive"><table class="table mb-0">
+            <thead><tr><th>Noter</th><th>Tarih</th><th>Yevmiye no</th><th>Belge</th></tr></thead>
+            <tbody>
+            {% for i in client.powers_of_attorney.all %}
+              <tr><td class="cell-main">{{ i.notary }}{% if i.notes %}<div class="cell-sub fw-normal">{{ i.notes }}</div>{% endif %}</td>
+                <td class="tabular">{{ i.date|date:"d.m.Y" }}</td><td class="tabular">{{ i.journal_no }}</td>
+                <td>{% if i.pdf %}<a href="{{ i.pdf.url }}" target="_blank" class="chip chip-danger no-dot"><i class="bi bi-file-earmark-pdf"></i>PDF</a>{% else %}<span class="text-body-secondary">—</span>{% endif %}</td></tr>
+            {% empty %}<tr><td colspan="4" class="text-body-secondary small py-3">Vekalet eklenmemiş.</td></tr>{% endfor %}
+            </tbody>
+          </table></div>
+        </div>
+      </div>
+
+      <div class="col-xl-6 d-flex flex-column gap-3">
+        {% if client.kind == "company" %}
+        <div class="card table-card">
+          <div class="card-header"><h2 class="card-title">Yetkililer</h2></div>
+          <div class="table-responsive"><table class="table mb-0"><tbody>
+            {% for i in client.representatives.all %}
+              <tr><td class="cell-main">{{ i.name }}{% if i.position %}<div class="cell-sub fw-normal">{{ i.position }}</div>{% endif %}</td>
+                <td>{{ i.phone|default:"" }}{% if i.email %}<div class="cell-sub">{{ i.email }}</div>{% endif %}</td></tr>
+            {% empty %}<tr><td class="text-body-secondary small py-3">Yetkili eklenmemiş.</td></tr>{% endfor %}
+          </tbody></table></div>
+        </div>
         {% endif %}
-        <dt>Sorumlu avukat</dt><dd>{{ client.responsible_lawyer }}</dd>
-        <dt>Sorumlu stajyer</dt><dd>{{ client.responsible_intern }}</dd>
-        <dt>Notlar</dt><dd>{{ client.notes|linebreaksbr|default:"—" }}</dd>
-        <dt>Kayıt</dt><dd class="text-body-secondary">{{ client.created_at|date:"d.m.Y H:i" }}{% if client.created_by %} · {{ client.created_by }}{% endif %}</dd>
-      </dl>
-    </div></div>
+        <div class="card table-card">
+          <div class="card-header"><h2 class="card-title">İletişim bilgileri</h2></div>
+          <div class="table-responsive"><table class="table mb-0"><tbody>
+            {% for i in client.contacts.all %}
+              <tr><td style="width: 34%"><i class="bi {% if i.kind == 'phone' %}bi-telephone{% elif i.kind == 'email' %}bi-envelope{% elif i.kind == 'kep' %}bi-envelope-check{% else %}bi-geo-alt{% endif %} text-body-secondary me-2"></i>{{ i.get_kind_display }}{% if i.label %} <span class="text-body-secondary">· {{ i.label }}</span>{% endif %}{% if i.is_primary %} <span class="chip chip-primary no-dot ms-1">Birincil</span>{% endif %}</td>
+                <td>{{ i.value|linebreaksbr }}</td></tr>
+            {% empty %}<tr><td class="text-body-secondary small py-3">İletişim bilgisi eklenmemiş.</td></tr>{% endfor %}
+          </tbody></table></div>
+        </div>
+
+        <div class="card table-card">
+          <div class="card-header"><h2 class="card-title">IBAN</h2></div>
+          <div class="table-responsive"><table class="table mb-0"><tbody>
+            {% for i in client.ibans.all %}
+              <tr><td class="tabular">{{ i.formatted }}{% if i.is_primary %} <span class="chip chip-primary no-dot ms-1">Birincil</span>{% endif %}</td>
+                <td class="text-body-secondary">{{ i.bank|default:"" }}{% if i.holder %}{% if i.bank %} · {% endif %}{{ i.holder }}{% endif %}</td></tr>
+            {% empty %}<tr><td class="text-body-secondary small py-3">IBAN eklenmemiş.</td></tr>{% endfor %}
+          </tbody></table></div>
+        </div>
+
+      </div>
+    </div>
   </div>
-  <div class="tab-pane fade" id="t-iletisim">{% include "clients/_sub_iletisim.html" with items=client.contacts.all form=subforms.iletisim %}</div>
-  <div class="tab-pane fade" id="t-iban">{% include "clients/_sub_iban.html" with items=client.ibans.all form=subforms.iban %}</div>
-  {% if client.kind == "company" %}<div class="tab-pane fade" id="t-yetkili">{% include "clients/_sub_yetkili.html" with items=client.representatives.all form=subforms.yetkili %}</div>{% endif %}
-  <div class="tab-pane fade" id="t-vekalet">{% include "clients/_sub_vekalet.html" with items=client.powers_of_attorney.all form=subforms.vekalet %}</div>
+
   <div class="tab-pane fade" id="t-dosyalar">
     <div class="card table-card">
       <div class="card-header"><h2 class="card-title">Dosyalar</h2>
         <a class="btn btn-sm btn-light ms-auto" href="{% url 'cases:create' %}?client={{ client.pk }}"><i class="bi bi-plus-lg"></i>Yeni dosya</a></div>
-      <div class="table-responsive">
-      <table class="table table-hover">
-        <thead><tr><th>Arşiv no</th><th>Dosya</th><th>Merci / Resmi no</th><th>Durum</th><th>Avukat</th></tr></thead>
-        <tbody>
-        {% for k in cases %}
-          <tr data-href="{{ k.get_absolute_url }}" onclick="location.href=this.dataset.href">
-            <td><a class="fw-semibold tabular" href="{{ k.get_absolute_url }}">{{ k.archive_no }}</a></td>
-            <td><div class="cell-main">{{ k.subject }}</div><div class="cell-sub">{{ k.get_case_type_display }}</div></td>
-            <td>{{ k.authority|default:"—" }}<div class="cell-sub">{{ k.official_no }}</div></td>
-            <td>{% include "cases/_status_chip.html" %}</td>
-            <td>{{ k.responsible_lawyer }}</td></tr>
-        {% empty %}<tr><td colspan="5"><div class="empty-state"><i class="bi bi-folder2"></i><strong>Dosya yok</strong>Bu müvekkil için henüz dosya açılmamış.</div></td></tr>{% endfor %}
-        </tbody>
-      </table>
-      </div>
+      <form class="filter-bar" hx-get="{% url 'clients:cases' client.pk %}" hx-target="#client-cases"
+            hx-trigger="input changed delay:300ms from:input[name=q], change">
+        <div class="grow"><i class="bi bi-search"></i><input class="form-control" type="search" name="q" placeholder="Arşiv no, konu, merci veya resmi no ara"></div>
+        <select class="form-select" name="status">
+          <option value="">Tüm durumlar</option>
+          <option value="open">Açık dosyalar</option>
+          <option value="closed">Kapalı dosyalar</option>
+        </select>
+        <select class="form-select" name="type">
+          <option value="">Tüm türler</option>
+          {% for v, l in case_types %}<option value="{{ v }}">{{ l }}</option>{% endfor %}
+        </select>
+        <select class="form-select" name="sort" aria-label="Sıralama">
+          {% for v, l in case_sorts %}<option value="{{ v }}" {% if case_sort == v %}selected{% endif %}>{{ l }}</option>{% endfor %}
+        </select>
+      </form>
+      <div id="client-cases">{% include "clients/_cases_table.html" %}</div>
     </div>
   </div>
-  <div class="tab-pane fade" id="t-gecmis">{% include "activity/_history.html" %}</div>
-  {% if can_view_accounting %}
-  <div class="tab-pane fade" id="t-cari">
+
+  <div class="tab-pane fade" id="t-muhasebe">
     <div class="card table-card">
-      <div class="card-header"><h2 class="card-title">Cari hesap ekstresi</h2>
-        {% if can_edit_accounting %}<a class="btn btn-sm btn-primary ms-auto" href="{% url 'accounting:create' %}?musteri={{ client.pk }}&next={{ client.get_absolute_url|urlencode }}%23cari"><i class="bi bi-plus-lg"></i>Yeni gelir / gider</a>{% endif %}</div>
-      {% include "accounting/_balances.html" with b=ledger_balances %}
+      <div class="card-header"><h2 class="card-title">{% if can_view_balances %}Cari hesap ekstresi{% else %}Muhasebe hareketleri{% endif %}</h2>
+        {% if can_edit_accounting %}<a class="btn btn-sm btn-primary ms-auto" href="{% url 'accounting:create' %}?musteri={{ client.pk }}&next={{ client.get_absolute_url|urlencode }}%23muhasebe"><i class="bi bi-plus-lg"></i>Yeni gelir / gider</a>{% endif %}</div>
+      {% if can_view_balances %}{% include "accounting/_balances.html" with b=ledger_balances %}{% endif %}
       {% include "accounting/_statement.html" with rows=ledger_rows show_case=True next=client.get_absolute_url %}
     </div>
   </div>
-  {% endif %}
+
+  <div class="tab-pane fade" id="t-raporlar">
+    <div class="row g-3">
+      {% for r in client_reports %}
+        <div class="col-md-6 col-xl-4">
+          <div class="card h-100"><div class="card-body d-flex flex-column gap-2">
+            <div class="d-flex align-items-center gap-2"><i class="bi {{ r.icon }} text-body-secondary"></i><strong>{{ r.title }}</strong></div>
+            <div class="small text-body-secondary flex-grow-1">{{ r.desc }}</div>
+            <div class="d-flex gap-2">
+              <a class="btn btn-sm btn-primary" href="{{ r.url }}&goster=1"><i class="bi bi-eye"></i>Önizle</a>
+              <a class="btn btn-sm btn-light" href="{{ r.url }}&format=xlsx"><i class="bi bi-file-earmark-excel"></i>Excel</a>
+              <a class="btn btn-sm btn-light" href="{{ r.url }}&format=pdf"><i class="bi bi-file-earmark-pdf"></i>PDF</a>
+            </div>
+          </div></div>
+        </div>
+      {% empty %}
+        <div class="col-12"><div class="card"><div class="empty-state"><i class="bi bi-bar-chart-line"></i><strong>Görüntüleyebileceğiniz rapor yok</strong></div></div></div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="tab-pane fade" id="t-gecmis">{% include "activity/_history.html" %}</div>
 </div>
 <script>
-  // #cari ile gelindiğinde cari hesap sekmesini aç
+  // #muhasebe (eski #cari) ile gelindiğinde muhasebe sekmesini aç
   document.addEventListener("DOMContentLoaded", () => {
-    if (location.hash === "#cari") document.getElementById("tab-cari")?.click();
+    if (location.hash === "#muhasebe" || location.hash === "#cari") document.getElementById("tab-muhasebe")?.click();
   });
 </script>
 {% endblock %}

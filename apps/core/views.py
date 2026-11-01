@@ -6,7 +6,6 @@ from django.views.generic import TemplateView
 
 from apps.agenda.services import combined_events
 from apps.agenda.views import group_by_day
-from apps.cases.models import Service
 from apps.tasks.models import OPEN_STATUSES, Task, TaskEvent, TaskStatus
 
 AGENDA_DAYS = 7
@@ -82,9 +81,6 @@ class HomeView(TemplateView):
                 for d in (today + dt.timedelta(days=i) for i in range(AGENDA_DAYS))
                 if by_day.get(d)
             ],
-            overdue_services=Service.objects.filter(is_done=False, deadline__lt=today)
-            .select_related("case")
-            .order_by("deadline")[:10],
             today=today,
             tomorrow=today + dt.timedelta(days=1),
         )

@@ -7,6 +7,7 @@
     <h1 class="page-title">{% if object %}Görevi düzenle{% else %}Yeni görev{% endif %}</h1>
   </div>
 </div>
+{{ form.supervisor_map|json_script:"supervisor-map" }}
 <form method="post" class="card" style="max-width: 900px" x-data="taskForm()">
   {% csrf_token %}
   {% if form.non_field_errors %}<div class="alert alert-danger m-3 mb-0">{{ form.non_field_errors }}</div>{% endif %}
@@ -71,6 +72,12 @@
         const a = document.getElementById("id_assignee"), r = document.getElementById("id_reviewer");
         if (!a.value && c.intern) a.value = c.intern;
         if (!r.value && c.lawyer) r.value = c.lawyer;
+      },
+      // Sorumlu seçilince kontrolcü, sorumlunun kontrolcüsü olur; kullanıcı değiştirebilir.
+      assigneeChanged() {
+        const map = JSON.parse(document.getElementById("supervisor-map").textContent);
+        const lawyer = map[document.getElementById("id_assignee").value];
+        if (lawyer) document.getElementById("id_reviewer").value = String(lawyer);
       },
     };
   }

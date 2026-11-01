@@ -7,7 +7,7 @@
   {% for t in tasks %}
     <tr data-href="{{ t.get_absolute_url }}" onclick="location.href=this.dataset.href">
       <td><a class="cell-main text-reset" href="{{ t.get_absolute_url }}">{{ t.title }}</a><div class="cell-sub">{{ t.task_type }}</div></td>
-      <td><span class="tabular">{{ t.case.archive_no }}</span> · {{ t.case.subject }}<div class="cell-sub">{{ t.client }}</div></td>
+      <td><span class="tabular">{{ t.case.archive_reference }}</span> · {{ t.case.display_name }}<div class="cell-sub">{{ t.client }}</div></td>
       <td>{{ t.assignee }}<div class="cell-sub">{{ t.reviewer }}</div></td>
       <td>{% include "tasks/_chips.html" with part="status" %}</td>
       <td>{% include "tasks/_chips.html" with part="due" %}<div class="cell-sub tabular">{{ t.due_date|date:"d.m.Y" }}</div></td>

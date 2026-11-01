@@ -1,0 +1,8 @@
+{# Müvekkil formundaki alt kayıt grubu. Kullanım: include with fs=formset prefix="iban" add_label="IBAN ekle" #}
+{{ fs.management_form }}
+{% if fs.non_form_errors %}<div class="alert alert-danger py-2">{{ fs.non_form_errors }}</div>{% endif %}
+<div id="{{ prefix }}-rows" class="sub-rows">
+  {% for f in fs %}{% include "clients/_formset_row.html" %}{% endfor %}
+</div>
+<template id="{{ prefix }}-empty">{% include "clients/_formset_row.html" with f=fs.empty_form %}</template>
+<button type="button" class="btn btn-light btn-sm mt-2" @click="addRow('{{ prefix }}')"><i class="bi bi-plus-lg"></i>{{ add_label }}</button>

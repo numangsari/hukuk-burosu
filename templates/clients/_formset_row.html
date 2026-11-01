@@ -1,0 +1,18 @@
+{# Alt kayıt satırı: f = formset formu. Alan genişlikleri "Birincil" kutusu aynı satıra sığacak şekilde ayarlıdır. #}
+<div class="sub-row">
+  {% for hidden in f.hidden_fields %}{{ hidden }}{% endfor %}
+  <div class="row g-2 flex-grow-1">
+    {% for field in f.visible_fields %}{% if field.name != "DELETE" %}
+      {% if field.field.widget.input_type == "checkbox" %}<div class="col-auto d-flex align-items-end pb-2">
+      {% elif field.name in "value iban notary pdf name notes" %}<div class="col-12 col-md-5">
+      {% elif field.name == "label" or field.name == "bank" %}<div class="col-6 col-md-2">
+      {% else %}<div class="col-6 col-md-3">{% endif %}
+        {% include "partials/field.html" with field=field %}
+      </div>
+    {% endif %}{% endfor %}
+  </div>
+  <div class="d-flex flex-column align-items-end gap-1 align-self-stretch justify-content-end">
+    {% if f.instance.pdf %}<a class="small text-nowrap" href="{{ f.instance.pdf.url }}" target="_blank"><i class="bi bi-file-earmark-pdf"></i> Mevcut PDF</a>{% endif %}
+    {% if f.DELETE and f.instance.pk %}<label class="sub-row-delete" title="Bu satırı sil">{{ f.DELETE }}<i class="bi bi-trash"></i> Sil</label>{% endif %}
+  </div>
+</div>

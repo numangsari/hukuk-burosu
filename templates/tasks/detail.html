@@ -17,7 +17,7 @@
         {% include "tasks/_chips.html" with t=task part="due" %}
       </div>
       <div class="meta">
-        <span><i class="bi bi-folder2"></i><a class="fw-medium" href="{{ task.case.get_absolute_url }}">{{ task.case.archive_no }} — {{ task.case.subject }}</a></span>
+        <span><i class="bi bi-folder2"></i><a class="fw-medium" href="{{ task.case.get_absolute_url }}">{{ task.case.archive_reference }} — {{ task.case.display_name }}</a></span>
         <span><i class="bi bi-person"></i><a href="{{ task.client.get_absolute_url }}">{{ task.client }}</a></span>
         <span><i class="bi bi-calendar-event"></i>Son gün <strong class="tabular">{{ task.due_date|date:"d.m.Y" }}</strong></span>
       </div>

@@ -19,8 +19,8 @@ from openpyxl.worksheet.datavalidation import DataValidation
 from apps.accounting.models import EntryKind, LedgerEntry
 from apps.accounting.services import create_entry
 from apps.accounts.models import User
-from apps.cases.models import Case, CaseStage, CaseStatus, CaseType
-from apps.clients.conflicts import parties_matching
+from apps.cases import stages
+from apps.cases.models import Case, CaseStatus, CaseType
 from apps.clients.models import Client, ClientContact, ClientIban, PersonKind
 from apps.core.text import fold
 from apps.core.validators import normalize_iban, validate_iban, validate_tckn, validate_vkn
@@ -85,7 +85,7 @@ def template_bytes() -> bytes:
         "• Sorumlu avukat/stajyer boşsa aktarım ekranında seçilen varsayılan kişi atanır. Ad soyad sistemdeki kullanıcıyla aynı yazılmalıdır.",
         "• Dosyalar: Müvekkil sütununa müvekkilin adı/unvanı veya TCKN/VKN'si yazılır; müvekkil aynı dosyada veya sistemde olmalıdır.",
         f"• Dosya türleri: {', '.join(label for _, label in CaseType.choices)}",
-        f"• Durumlar: {', '.join(label for _, label in CaseStatus.choices)} · Aşamalar: {', '.join(label for _, label in CaseStage.choices)}",
+        "• Durum: Açık veya Kapalı (boşsa Açık). Aşama sütunu: açık dosyada türün aşaması, kapalı dosyada kapanma nedeni (örn. Haricen tahsil nedeniyle kapandı); boşsa açıkta türün ilk aşaması atanır, kapalıda zorunludur.",
         "• Tarihler GG.AA.YYYY, tutarlar rakam olarak yazılır (ör. 15000,50).",
         "• Açılış bakiyeleri: eski sistemden devreden alacak 'Vekalet ücreti (devir)', emanetteki para 'Karşı taraftan tahsilat (devir)' olarak kaydedilir.",
         "• Sistemde zaten bulunan müvekkil (aynı TCKN/VKN veya ad) ve dosya (aynı arşiv no) atlanır; üzerine yazılmaz.",
@@ -113,7 +113,6 @@ class ImportPlan:
     clients: list = field(default_factory=list)  # (row_result, Client, contacts, iban)
     cases: list = field(default_factory=list)  # (row_result, Case, client_key)
     balances: list = field(default_factory=list)  # (row_result, client, date, fee, trust, desc)
-    conflicts: bool = False  # karşı taraf kayıtlarıyla eşleşen yeni müvekkil var
 
     @property
     def errors(self):
@@ -274,12 +273,6 @@ def build_plan(file_obj, default_lawyer, default_intern, file_hash: str = "") ->
                         res.messages.append(
                             "Uyarı: aynı adlı başka bir müvekkil var (kimlik numarası farklı)."
                         )
-                    if conflicts := parties_matching(name, identity):
-                        plan.conflicts = True
-                        res.messages.append(
-                            "Çıkar çatışması: karşı taraf olarak kayıtlı — "
-                            + ", ".join(sorted({str(p) for p in conflicts}))
-                        )
                     iban = normalize_iban(_s(r["IBAN"]))
                     if iban:
                         validate_iban(iban)
@@ -299,7 +292,10 @@ def build_plan(file_obj, default_lawyer, default_intern, file_hash: str = "") ->
                 res.messages += e.messages if isinstance(e, ValidationError) else [str(e)]
             plan.rows.append(res)
 
-    archive_seen = set(Case.objects.values_list("archive_no", flat=True))
+    archive_seen = {
+        number.casefold()
+        for number in Case.objects.filter(archive_folder_no="").values_list("archive_no", flat=True)
+    }
     if "Dosyalar" in wb.sheetnames:
         for idx, r in _rows(wb["Dosyalar"], CASE_COLS):
             res = RowResult("Dosyalar", idx, _s(r["Arşiv no"]) + " " + _s(r["Konu"]), "create")
@@ -312,21 +308,34 @@ def build_plan(file_obj, default_lawyer, default_intern, file_hash: str = "") ->
                 archive = _s(r["Arşiv no"])
                 if not archive or not _s(r["Konu"]):
                     raise ValueError("Arşiv no ve Konu zorunludur.")
-                if archive in archive_seen:
+                if archive.casefold() in archive_seen:
                     res.status = "skip"
                     res.messages.append("Bu arşiv numarası zaten kayıtlı.")
                 else:
+                    case_type = (
+                        _choice(r["Dosya türü"], CaseType.choices, "Dosya türü") or CaseType.OTHER
+                    )
+                    status = _choice(r["Durum"], CaseStatus.choices, "Durum") or CaseStatus.OPEN
+                    stage = reason = ""
+                    if status == CaseStatus.CLOSED:
+                        reasons = [(c.key, c.label) for c in stages.closing_reasons(case_type)]
+                        reason = _choice(r["Aşama"], reasons, "Kapanma nedeni")
+                        if not reason:
+                            raise ValueError(
+                                "Kapalı dosyada kapanma nedeni (Aşama sütunu) zorunludur."
+                            )
+                    else:
+                        stage = _choice(r["Aşama"], stages.open_stages(case_type), "Aşama")
                     k = Case(
-                        case_type=_choice(r["Dosya türü"], CaseType.choices, "Dosya türü") or CaseType.OTHER,
+                        case_type=case_type, status=status, stage=stage, closing_reason=reason,
                         archive_no=archive, official_no=_s(r["Resmi no"]), authority=_s(r["Merci"]),
-                        subject=_s(r["Konu"]), status=_choice(r["Durum"], CaseStatus.choices, "Durum") or CaseStatus.PENDING,
-                        stage=_choice(r["Aşama"], CaseStage.choices, "Aşama"), value=_money(r["Değer"]),
+                        subject=_s(r["Konu"]), value=_money(r["Değer"]),
                         opened_on=_date(r["Açılış tarihi"]), notes=_s(r["Notlar"]),
                         responsible_lawyer=person(r["Sorumlu avukat"], client.responsible_lawyer, ("admin", "lawyer"), "Sorumlu avukat"),
                         responsible_intern=person(r["Sorumlu stajyer"], client.responsible_intern, ("intern",), "Sorumlu stajyer"),
                     )  # fmt: skip
                     plan.cases.append((res, k, client))
-                    archive_seen.add(archive)
+                    archive_seen.add(archive.casefold())
             except (ValueError, ValidationError) as e:
                 res.status = "error"
                 res.messages += e.messages if isinstance(e, ValidationError) else [str(e)]

@@ -16,7 +16,8 @@ from django.utils import timezone
 from apps.accounting.models import EntryKind, LedgerEntry
 from apps.accounting.services import create_entry
 from apps.accounts.models import User
-from apps.cases.models import Case, CaseEvent, CaseParty, Hearing, Service
+from apps.cases import stages
+from apps.cases.models import Case, CaseEvent, CaseParty, Hearing
 from apps.clients.models import Client, ClientContact, ClientIban, Party, PowerOfAttorney
 from apps.office.models import TaskType
 from apps.tasks import services as task_services
@@ -46,10 +47,10 @@ TASK_TITLES = {
     "Dilekçe": ["Cevap dilekçesi hazırla", "Cevaba cevap dilekçesi", "İstinaf dilekçesi", "Bilirkişi raporuna itiraz dilekçesi"],
     "Duruşma hazırlığı": ["Duruşma notlarını hazırla", "Tanık listesini güncelle"],
     "Müvekkil görüşmesi": ["Müvekkille ön görüşme", "Müvekkile dosya durumunu bildir"],
-    "Tebligat takibi": ["UYAP tebligatlarını kontrol et", "Tebligat parçasını dosyaya işle"],
     "Harç / Masraf": ["Gider avansı yatır", "Harç makbuzunu dosyaya ekle"],
     "İcra takibi": ["Haciz talebi", "Maaş haczi müzekkeresi", "Mal varlığı araştırması"],
     "Keşif": ["Keşif masrafını yatır"],
+    "Tebligat takibi": ["UYAP tebligatlarını kontrol et", "Tebligat parçasını dosyaya işle"],
     "Bilirkişi": ["Bilirkişi raporunu incele"],
     "Diğer": ["Vekaletnameyi yenile"],
 }  # fmt: skip
@@ -84,7 +85,7 @@ class Command(BaseCommand):
 
     def seed(self, rnd, today, lawyers, interns):
         admin = next((u for u in lawyers if u.role == "admin"), lawyers[0])
-        counts = dict.fromkeys(["müvekkil", "dosya", "görev", "duruşma", "tebligat", "hareket"], 0)
+        counts = dict.fromkeys(["müvekkil", "dosya", "görev", "duruşma", "hareket"], 0)
         used_names = set()
         clients = []
         for i in range(18):
@@ -132,12 +133,12 @@ class Command(BaseCommand):
                 "Sakarya Cumhuriyet Başsavcılığı" if t == "investigation" else (
                     f"Sakarya {rnd.randint(1, 8)}. Noterliği" if t == "notice" else (
                         "Sakarya Arabuluculuk Bürosu" if t == "mediation" else ("" if t == "consultancy" else rnd.choice(COURTS)))))  # fmt: skip
-            status = rnd.choices(["pending", "decided", "finalized", "closed"], [70, 12, 8, 10])[0]
+            status = rnd.choices(["open", "closed"], [90, 10])[0]
             k = Case.objects.create(
                 client=c, case_type=t, archive_no=f"2026/{base_no + n:04d}",
                 official_no=f"2026/{rnd.randint(10, 999)} {'E.' if t in ('civil', 'criminal', 'administrative') else ''}".strip(),
                 authority=authority, subject=rnd.choice(SUBJECTS[t]), status=status,
-                stage="first" if t in ("civil", "criminal", "administrative") else "",
+                closing_reason=stages.closing_reasons(t)[0].key if status == "closed" else "",
                 enforcement_type="negotiable" if t == "enforcement" else "",
                 value=Decimal(rnd.randrange(20_000, 900_000, 500)) if t in ("civil", "enforcement", "mediation") else None,
                 responsible_lawyer=c.responsible_lawyer, responsible_intern=c.responsible_intern,
@@ -238,15 +239,6 @@ class Command(BaseCommand):
             CaseEvent.objects.create(case=k, date=past.date(), kind="hearing", title="Duruşma ertelendi",
                                      description="Tanıkların dinlenmesi için ertelendi (örnek).", created_by=admin)  # fmt: skip
             counts["duruşma"] += 2
-
-        # Tebligatlar
-        for k in rnd.sample(open_cases, min(10, len(open_cases))):
-            served = today - dt.timedelta(days=rnd.randint(1, 12))
-            deadline = served + dt.timedelta(days=rnd.choice([7, 14, 14, 15]))
-            Service.objects.create(case=k, kind=rnd.choice(["uyap", "e_service", "post"]),
-                                   subject=rnd.choice(["Gerekçeli karar", "Bilirkişi raporu", "Ödeme emri", "Ara karar", "Cevap dilekçesi"]),
-                                   served_on=served, deadline=deadline, is_done=rnd.random() < 0.3, created_by=admin)  # fmt: skip
-            counts["tebligat"] += 1
 
         # Muhasebe
         for k in cases:

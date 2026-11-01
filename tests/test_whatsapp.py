@@ -220,7 +220,7 @@ def test_only_definitely_failed_messages_can_be_retried(channel, recipient, lawy
     assert deliveries == [message.pk]
 
 
-@pytest.mark.parametrize("change", ["consent", "phone", "inactive", "expired"])
+@pytest.mark.parametrize("change", ["consent", "phone", "expired"])
 def test_changed_recipient_or_window_stops_queued_message(
     channel, recipient, lawyer, deliveries, change
 ):
@@ -232,9 +232,6 @@ def test_changed_recipient_or_window_stops_queued_message(
     elif change == "phone":
         recipient.contact.value = "0500 000 00 02"
         recipient.contact.save()
-    elif change == "inactive":
-        recipient.client.is_active = False
-        recipient.client.save()
     else:
         WhatsAppMessage.objects.filter(direction="incoming").update(
             occurred_at=timezone.now() - dt.timedelta(hours=25)

@@ -1,6 +1,7 @@
 import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
+from django.utils import timezone
 
 from apps.cases.models import Case, CaseParty, Document
 from apps.clients.models import Party
@@ -21,14 +22,35 @@ def _case_data(client_obj, **kw):
     data = {
         "client": client_obj.pk,
         "case_type": "civil",
+        "archive_folder_no": "1",
         "archive_no": "100",
+        "authority": "Örnek Kurum",
+        "official_year": 2026,
+        "official_sequence": 1,
+        "client_role": "plaintiff",
+        "parties-TOTAL_FORMS": "0",
+        "parties-INITIAL_FORMS": "0",
         "subject": "Tazminat",
+        "opened_on": timezone.localdate().isoformat(),
         "status": "pending",
         "stage": "first",
         "responsible_lawyer": client_obj.responsible_lawyer_id,
         "responsible_intern": client_obj.responsible_intern_id,
     }
     data.update(kw)
+    if "official_no" in kw and not kw["official_no"]:
+        data.update(official_year="", official_sequence="")
+    default_roles = {
+        "consultancy": "party_one",
+        "other": "applicant",
+        "enforcement": "creditor",
+        "criminal": "accused",
+        "investigation": "suspect",
+        "mediation": "applicant",
+        "notice": "notifier",
+    }
+    if "client_role" not in kw:
+        data["client_role"] = default_roles.get(data["case_type"], "plaintiff")
     return data
 
 
@@ -48,10 +70,12 @@ def test_type_specific_fields_cleared(lawyer_client, client_factory):
         _case_data(c, case_type="enforcement", enforcement_type="negotiable", crime="x"),
     )
     case = Case.objects.get()
-    assert case.stage == ""  # icra takibinde aşama yok
+    assert (
+        case.status == "open" and case.stage == "started"
+    )  # Yeni dosya açık ve ilk aşamada başlar.
     assert case.crime == ""
     assert case.enforcement_type == "negotiable"
-    assert case.labels["official_no"] == "Takip No"
+    assert case.labels["official_no"] == "Dosya Numarası"
 
 
 def test_create_prefills_from_client(lawyer_client, client_factory):
@@ -66,7 +90,7 @@ def test_case_list_default_hides_closed(lawyer_client, case_factory):
     case_factory(subject="Açık")
     case_factory(subject="Kapalı", status="closed")
     r = lawyer_client.get(reverse("cases:list"))
-    assert [k.subject for k in r.context["cases"]] == ["Açık"]
+    assert [k.subject for k in r.context["cases"]] == ["AÇIK"]
     r = lawyer_client.get(reverse("cases:list"), {"status": "all"})
     assert len(r.context["cases"]) == 2
 
@@ -77,18 +101,13 @@ def test_party_add_reuses_identity_and_warns_on_client(lawyer_client, case_facto
     lawyer_client.post(
         url, {"role": "defendant", "kind": "company", "name": "X A.Ş.", "identity_no": "1234567890"}
     )
-    other = case_factory()
+    other = case_factory(case_type="enforcement")
     lawyer_client.post(
         reverse("cases:party_add", args=[other.pk]),
         {"role": "debtor", "kind": "company", "name": "X Anonim", "identity_no": "1234567890"},
     )
     assert Party.objects.count() == 1
     assert CaseParty.objects.count() == 2
-
-    # Müvekkil adıyla karşı taraf eklemek onay ister.
-    r = lawyer_client.post(url, {"role": "defendant", "kind": "person", "name": case.client.name})
-    assert case.client in r.context["conflicts"]
-    assert CaseParty.objects.filter(case=case).count() == 1
 
 
 def test_document_upload_and_delete_rights(
@@ -121,3 +140,254 @@ def test_case_form_type_labels_are_json_object(lawyer_client):
     r = lawyer_client.get(reverse("cases:create"))
     # json_script ile tek seferde kodlanmış nesne olmalı (çift kodlanmış string değil)
     assert '<script id="type-labels" type="application/json">{"civil"' in r.content.decode()
+
+
+@pytest.mark.parametrize(
+    "case_type",
+    ["civil", "criminal", "administrative", "enforcement", "investigation", "mediation", "notice"],
+)
+def test_institution_and_number_required(client_factory, case_type):
+    from apps.cases.forms import CaseForm
+
+    data = _case_data(
+        client_factory(), case_type=case_type, authority="", official_no="", subject=""
+    )
+    form = CaseForm(data)
+    assert not form.is_valid()
+    assert {"authority", "official_year", "official_sequence"} <= form.errors.keys()
+    assert "subject" in form.errors
+
+
+@pytest.mark.parametrize("case_type", ["consultancy", "other"])
+def test_named_cases_need_only_title(lawyer_client, client_factory, case_type):
+    data = _case_data(
+        client_factory(), case_type=case_type, authority="", official_no="", subject="örnek isim"
+    )
+    assert lawyer_client.post(reverse("cases:create"), data).status_code == 302
+    case = Case.objects.get()
+    assert case.subject == "ÖRNEK İSİM"
+    assert case.authority == case.official_no == ""
+    data["subject"] = ""
+    data["archive_no"] = "101"
+    response = lawyer_client.post(reverse("cases:create"), data)
+    assert "subject" in response.context["form"].errors
+
+
+def test_archive_location_unique_per_folder(lawyer_client, client_factory):
+    owner = client_factory()
+    for folder in ("A", "B"):
+        assert (
+            lawyer_client.post(
+                reverse("cases:create"), _case_data(owner, archive_folder_no=folder)
+            ).status_code
+            == 302
+        )
+    response = lawyer_client.post(reverse("cases:create"), _case_data(owner, archive_folder_no="a"))
+    assert "archive_no" in response.context["form"].errors
+    assert Case.objects.get(archive_folder_no="A").archive_reference == "A / 100"
+
+
+def test_client_required_and_responsibles_default(lawyer_client, client_factory, admin_user):
+    owner = client_factory()
+    data = _case_data(owner, responsible_lawyer="", responsible_intern="")
+    assert lawyer_client.post(reverse("cases:create"), data).status_code == 302
+    case = Case.objects.get()
+    assert case.responsible_lawyer == owner.responsible_lawyer
+    assert case.responsible_intern == owner.responsible_intern
+    assert case.subject == "TAZMİNAT"
+    assert case.display_name == "ÖRNEK KURUM - 2026/1"
+    data.update(archive_no="101", responsible_lawyer=admin_user.pk)
+    assert lawyer_client.post(reverse("cases:create"), data).status_code == 302
+    assert Case.objects.get(archive_no="101").responsible_lawyer == admin_user
+    data.update(client="", archive_no="102")
+    response = lawyer_client.post(reverse("cases:create"), data)
+    assert "client" in response.context["form"].errors
+
+
+def test_existing_archive_number_preserved_when_edited(lawyer_client, case_factory):
+    case = case_factory(archive_no="2026/0099", subject="Eski konu")
+    data = _case_data(case.client, archive_folder_no="", archive_no=case.archive_no)
+    assert lawyer_client.post(reverse("cases:update", args=[case.pk]), data).status_code == 302
+    case.refresh_from_db()
+    assert case.archive_reference == "2026/0099"
+    assert case.subject == "TAZMİNAT"
+
+
+@pytest.mark.parametrize("case_type", ["civil", "consultancy", "other"])
+def test_case_display_name_and_subject_are_independent(case_factory, case_type):
+    case = case_factory(
+        case_type=case_type, authority="Örnek Kurum", official_no="2026/42", subject="Örnek konu"
+    )
+    expected = "ÖRNEK KONU" if case_type in ("consultancy", "other") else "ÖRNEK KURUM - 2026/42"
+    assert case.display_name == expected
+    assert str(case) == expected
+
+
+def test_case_form_date_and_removed_fields(lawyer_client, client_factory, case_factory):
+    from apps.cases.forms import CaseForm
+
+    form = CaseForm()
+    assert form["opened_on"].value() == timezone.localdate()
+    assert not {"value", "status", "stage", "closed_on"} & form.fields.keys()
+    case = case_factory(
+        value=100,
+        status="closed",
+        stage="appeal",
+        closing_reason="waiver",
+        closed_on=timezone.localdate(),
+    )
+    data = _case_data(case.client, archive_no=case.archive_no)
+    assert lawyer_client.post(reverse("cases:update", args=[case.pk]), data).status_code == 302
+    case.refresh_from_db()
+    assert case.status == "closed"
+    assert case.stage == "appeal"
+    assert case.value == 100
+    assert case.closed_on == timezone.localdate()
+
+
+@pytest.mark.parametrize("case_type", ["civil", "consultancy", "other"])
+def test_case_names_in_lists_and_selectors(lawyer_client, case_factory, case_type):
+    case = case_factory(
+        case_type=case_type, authority="Örnek Kurum", official_no="2026/42", subject="Örnek konu"
+    )
+    response = lawyer_client.get(reverse("cases:list"))
+    assert case.display_name in response.content.decode()
+    response = lawyer_client.get(case.get_absolute_url())
+    assert case.display_name in response.content.decode()
+    assert "ÖRNEK KONU" in response.content.decode()
+
+
+@pytest.mark.parametrize(
+    "case_type",
+    [
+        "civil",
+        "criminal",
+        "administrative",
+        "enforcement",
+        "investigation",
+        "consultancy",
+        "mediation",
+        "notice",
+        "other",
+    ],
+)
+def test_party_choices_follow_case_type(lawyer_client, case_factory, case_type):
+    from apps.cases.party_roles import PARTY_ROLES
+
+    case = case_factory(case_type=case_type)
+    response = lawyer_client.get(case.get_absolute_url())
+    assert list(response.context["party_form"].fields["role"].choices)[1:] == PARTY_ROLES[case_type]
+    role = PARTY_ROLES[case_type][0][0]
+    response = lawyer_client.post(
+        reverse("cases:party_add", args=[case.pk]),
+        {"role": role, "kind": "person", "name": "Örnek Taraf"},
+    )
+    assert case.party_links.get().role == role
+    lawyer_client.post(
+        reverse("cases:party_add", args=[case.pk]),
+        {"role": "invalid", "kind": "person", "name": "Yanlış Sıfat"},
+    )
+    assert case.party_links.count() == 1
+
+
+def test_case_number_defaults_and_numeric_validation(lawyer_client, client_factory):
+    from apps.cases.forms import CaseForm
+
+    form = CaseForm()
+    assert form["official_year"].value() == timezone.localdate().year
+    owner = client_factory()
+    data = _case_data(owner, official_sequence="abc")
+    response = lawyer_client.post(reverse("cases:create"), data)
+    assert "official_sequence" in response.context["form"].errors
+    assert not Case.objects.exists()
+    data.update(official_sequence="0042", authority="izmir ıslah kurumu")
+    assert lawyer_client.post(reverse("cases:create"), data).status_code == 302
+    case = Case.objects.get()
+    assert case.official_no == "2026/42"
+    assert case.authority == "İZMİR ISLAH KURUMU"
+
+
+def test_parties_saved_with_case_and_errors_preserve_rows(lawyer_client, client_factory):
+    owner = client_factory()
+    data = _case_data(
+        owner,
+        **{
+            "parties-TOTAL_FORMS": "1",
+            "parties-0-role": "defendant",
+            "parties-0-kind": "person",
+            "parties-0-name": "Örnek Taraf",
+        },
+    )
+    assert lawyer_client.post(reverse("cases:create"), data).status_code == 302
+    case = Case.objects.get()
+    assert case.client_role == "plaintiff"
+    link = case.party_links.get()
+    assert link.party.name == "Örnek Taraf"
+    assert link.role == "defendant"
+    data.update(archive_no="101", **{"parties-0-role": "creditor"})
+    response = lawyer_client.post(reverse("cases:create"), data)
+    assert response.status_code == 200
+    assert response.context["party_formset"].forms[0]["name"].value() == "Örnek Taraf"
+    assert Case.objects.count() == 1
+    assert Party.objects.count() == 1
+
+
+def test_existing_party_role_edit_and_new_party_reuse(lawyer_client, client_factory):
+    owner = client_factory()
+    data = _case_data(
+        owner,
+        **{
+            "parties-TOTAL_FORMS": "1",
+            "parties-0-role": "defendant",
+            "parties-0-kind": "company",
+            "parties-0-name": "Örnek AŞ",
+            "parties-0-identity_no": "1234567890",
+        },
+    )
+    assert lawyer_client.post(reverse("cases:create"), data).status_code == 302
+    first = Case.objects.get()
+    link = first.party_links.get()
+    update = _case_data(owner, **{f"party_role_{link.pk}": "counter_defendant"})
+    assert lawyer_client.post(reverse("cases:update", args=[first.pk]), update).status_code == 302
+    link.refresh_from_db()
+    assert link.role == "counter_defendant"
+    data["archive_no"] = "101"
+    assert lawyer_client.post(reverse("cases:create"), data).status_code == 302
+    assert Case.objects.count() == 2
+    assert Party.objects.count() == 1
+
+
+def _case_with_party(owner, case_factory):
+    case = case_factory(owner)
+    party = Party.objects.create(kind="person", name="SİLİNECEK TARAF")
+    return case, case.party_links.create(party=party, role="defendant")
+
+
+def test_admin_can_remove_party_from_case_form(admin_client_logged, client_factory, case_factory):
+    owner = client_factory()
+    case, link = _case_with_party(owner, case_factory)
+    data = _case_data(owner, archive_folder_no=case.archive_folder_no, archive_no=case.archive_no)
+    data[f"party_role_{link.pk}"] = "defendant"
+    data[f"party_remove_{link.pk}"] = "on"
+    response = admin_client_logged.post(reverse("cases:update", args=[case.pk]), data)
+    assert response.status_code == 302
+    assert not case.party_links.exists()
+    assert Party.objects.filter(pk=link.party_id).exists()
+
+
+def test_non_admin_cannot_remove_party_from_case_form(lawyer_client, client_factory, case_factory):
+    owner = client_factory()
+    case, link = _case_with_party(owner, case_factory)
+    data = _case_data(owner, archive_folder_no=case.archive_folder_no, archive_no=case.archive_no)
+    data[f"party_role_{link.pk}"] = "defendant"
+    data[f"party_remove_{link.pk}"] = "on"
+    lawyer_client.post(reverse("cases:update", args=[case.pk]), data)
+    assert case.party_links.filter(pk=link.pk).exists()
+
+
+def test_client_role_rejects_other_case_type(lawyer_client, client_factory):
+    response = lawyer_client.post(
+        reverse("cases:create"), _case_data(client_factory(), client_role="accused")
+    )
+    assert "client_role" in response.context["form"].errors
+    assert not Case.objects.exists()

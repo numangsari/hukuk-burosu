@@ -4,10 +4,16 @@ from pathlib import Path
 
 from django.conf import settings
 from django.db import models
+from django.db.models.functions import Lower
 from django.urls import reverse
+from django.utils import timezone
 
 from apps.clients.models import Client, Party, intern_choices, lawyer_choices
 from apps.core.models import TimeStampedModel
+from apps.core.text import tr_upper
+
+from . import decisions, stages
+from .party_roles import PARTY_ROLE_CHOICES, PARTY_ROLES
 
 
 class CaseType(models.TextChoices):
@@ -16,7 +22,7 @@ class CaseType(models.TextChoices):
     ADMINISTRATIVE = "administrative", "İdari Dava"
     ENFORCEMENT = "enforcement", "İcra Takibi"
     INVESTIGATION = "investigation", "Soruşturma"
-    CONSULTANCY = "consultancy", "Danışmanlık / Sözleşme"
+    CONSULTANCY = "consultancy", "Sözleşme"
     MEDIATION = "mediation", "Arabuluculuk"
     NOTICE = "notice", "İhtarname"
     OTHER = "other", "Diğer"
@@ -26,45 +32,19 @@ LITIGATION_TYPES = {CaseType.CIVIL, CaseType.CRIMINAL, CaseType.ADMINISTRATIVE}
 
 # Türe göre form etiketleri. Boş değer alanın o türde gizleneceğini belirtir.
 TYPE_LABELS = {
-    CaseType.CIVIL: {"official_no": "Esas No", "authority": "Mahkeme", "value": "Dava Değeri"},
-    CaseType.CRIMINAL: {"official_no": "Esas No", "authority": "Mahkeme", "value": ""},
-    CaseType.ADMINISTRATIVE: {
-        "official_no": "Esas No",
-        "authority": "Mahkeme",
-        "value": "Dava Değeri",
-    },
-    CaseType.ENFORCEMENT: {
-        "official_no": "Takip No",
-        "authority": "İcra Dairesi",
-        "value": "Alacak Tutarı",
-    },
-    CaseType.INVESTIGATION: {"official_no": "Soruşturma No", "authority": "Savcılık", "value": ""},
-    CaseType.CONSULTANCY: {
-        "official_no": "Referans No",
-        "authority": "",
-        "value": "Sözleşme Bedeli",
-    },
-    CaseType.MEDIATION: {
-        "official_no": "Büro No",
-        "authority": "Arabuluculuk Bürosu",
-        "value": "Uyuşmazlık Tutarı",
-    },
-    CaseType.NOTICE: {"official_no": "Yevmiye No", "authority": "Noter", "value": ""},
-    CaseType.OTHER: {"official_no": "Referans No", "authority": "Merci", "value": "Değer"},
+    kind: {
+        "official_no": "" if kind in {CaseType.CONSULTANCY, CaseType.OTHER} else "Dosya Numarası",
+        "authority": "" if kind in {CaseType.CONSULTANCY, CaseType.OTHER} else "Kurum Adı",
+        "subject": "Konu",
+        "value": "",
+    }
+    for kind in CaseType
 }
 
 
 class CaseStatus(models.TextChoices):
-    PENDING = "pending", "Derdest"
-    DECIDED = "decided", "Karar"
-    FINALIZED = "finalized", "Kesinleşti"
-    CLOSED = "closed", "Kapandı"
-
-
-class CaseStage(models.TextChoices):
-    FIRST = "first", "İlk derece"
-    APPEAL = "appeal", "İstinaf"
-    CASSATION = "cassation", "Temyiz"
+    OPEN = "open", "Açık"
+    CLOSED = "closed", "Kapalı"
 
 
 class EnforcementType(models.TextChoices):
@@ -81,15 +61,29 @@ class Case(TimeStampedModel):
         Client, verbose_name="müvekkil", on_delete=models.PROTECT, related_name="cases"
     )
     case_type = models.CharField("dosya türü", max_length=20, choices=CaseType.choices)
-    archive_no = models.CharField("arşiv no", max_length=50, unique=True)
-    official_no = models.CharField("resmi no", max_length=100, blank=True)
-    authority = models.CharField("merci", max_length=200, blank=True)
+    client_role = models.CharField(
+        "müvekkilin sıfatı", max_length=32, choices=PARTY_ROLE_CHOICES, blank=True
+    )
+    archive_folder_no = models.CharField("klasör no", max_length=50, blank=True)
+    archive_no = models.CharField("dosya no", max_length=50)
+    official_no = models.CharField("dosya numarası", max_length=100, blank=True)
+    authority = models.CharField("kurum adı", max_length=200, blank=True)
     subject = models.CharField("konu", max_length=300)
     value = models.DecimalField("değer", max_digits=16, decimal_places=2, null=True, blank=True)
     status = models.CharField(
-        "durum", max_length=20, choices=CaseStatus.choices, default=CaseStatus.PENDING
+        "durum", max_length=20, choices=CaseStatus.choices, default=CaseStatus.OPEN
     )
-    stage = models.CharField("aşama", max_length=20, choices=CaseStage.choices, blank=True)
+    # Açık dosyanın aşaması; seçenekler türe göre `stages.py` içindedir.
+    stage = models.CharField("aşama", max_length=40, blank=True)
+    closing_reason = models.CharField("kapanma nedeni", max_length=40, blank=True)
+    closing_note = models.TextField("kapanış notu", blank=True)
+    decision_date = models.DateField("karar tarihi", null=True, blank=True)
+    decision_no = models.CharField("karar numarası", max_length=100, blank=True)
+    closing_amount = models.DecimalField(
+        "tahsil/ödeme tutarı", max_digits=16, decimal_places=2, null=True, blank=True
+    )
+    closing_amount_date = models.DateField("tahsil/ödeme tarihi", null=True, blank=True)
+    closing_accounted = models.BooleanField("muhasebeye kaydedildi", null=True, blank=True)
     enforcement_type = models.CharField(
         "takip türü", max_length=20, choices=EnforcementType.choices, blank=True
     )
@@ -109,7 +103,9 @@ class Case(TimeStampedModel):
         related_name="cases_as_intern",
         limit_choices_to=intern_choices,
     )
-    opened_on = models.DateField("açılış tarihi", null=True, blank=True)
+    opened_on = models.DateField(
+        "dosya açılış tarihi", default=timezone.localdate, null=True, blank=True
+    )
     closed_on = models.DateField("kapanış tarihi", null=True, blank=True)
     notes = models.TextField("notlar", blank=True)
     folder_name = models.CharField(
@@ -126,12 +122,45 @@ class Case(TimeStampedModel):
         verbose_name = "dosya"
         verbose_name_plural = "dosyalar"
         ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                Lower("archive_folder_no"), Lower("archive_no"), name="unique_case_archive_location"
+            ),
+        ]
+
+    def get_client_role_display(self):
+        return dict(PARTY_ROLES.get(self.case_type, [])).get(
+            self.client_role, dict(PARTY_ROLE_CHOICES).get(self.client_role, self.client_role)
+        )
+
+    @property
+    def archive_reference(self):
+        if self.archive_folder_no:
+            return f"{self.archive_folder_no} / {self.archive_no}"
+        return self.archive_no
+
+    @property
+    def display_name(self):
+        if self.case_type in {CaseType.CONSULTANCY, CaseType.OTHER}:
+            return self.subject
+        return (
+            " - ".join(part for part in (self.authority, self.official_no) if part) or self.subject
+        )
 
     def __str__(self):
-        return f"{self.archive_no} — {self.subject}"
+        return self.display_name
 
     def get_absolute_url(self):
         return reverse("cases:detail", args=[self.pk])
+
+    def save(self, *args, **kwargs):
+        self.authority = tr_upper(self.authority).strip()
+        self.subject = tr_upper(self.subject).strip()  # dosya adları büyük harf
+        if self.status == CaseStatus.OPEN and self.stage not in dict(
+            stages.open_stages(self.case_type)
+        ):
+            self.stage = stages.default_stage(self.case_type)
+        super().save(*args, **kwargs)
 
     @property
     def labels(self) -> dict:
@@ -144,6 +173,29 @@ class Case(TimeStampedModel):
     @property
     def is_open(self) -> bool:
         return self.status != CaseStatus.CLOSED
+
+    @property
+    def has_safahat(self) -> bool:
+        return self.case_type in decisions.SAFAHAT_TYPES
+
+    @property
+    def stage_label(self) -> str:
+        return stages.stage_label(self.case_type, self.stage)
+
+    @property
+    def closing_label(self) -> str:
+        return stages.closing_label(self.case_type, self.closing_reason)
+
+    @property
+    def status_detail(self) -> str:
+        """Durumun alt satırı: açıkta aşama, kapalıda kapanma nedeni."""
+        return self.stage_label if self.is_open else self.closing_label
+
+    @property
+    def status_summary(self) -> str:
+        detail = self.status_detail
+        label = self.get_status_display()
+        return f"{label} / {detail}" if detail else label
 
     @staticmethod
     def suggest_archive_no() -> str:
@@ -179,7 +231,7 @@ class CaseParty(models.Model):
     case = models.ForeignKey(Case, on_delete=models.CASCADE, related_name="party_links")
     party = models.ForeignKey(Party, on_delete=models.PROTECT, related_name="case_links")
     role = models.CharField(
-        "rol", max_length=20, choices=PartyRole.choices, default=PartyRole.OTHER
+        "taraf sıfatı", max_length=32, choices=PARTY_ROLE_CHOICES, default=PartyRole.OTHER
     )
 
     class Meta:
@@ -191,6 +243,11 @@ class CaseParty(models.Model):
 
     def __str__(self):
         return f"{self.party} ({self.get_role_display()})"
+
+    def get_role_display(self):
+        return dict(PARTY_ROLES.get(self.case.case_type, [])).get(
+            self.role, dict(PARTY_ROLE_CHOICES).get(self.role, self.role)
+        )
 
 
 class DocumentCategory(models.TextChoices):
@@ -276,31 +333,35 @@ class Hearing(TimeStampedModel):
         return f"{self.get_kind_display()} — {self.starts_at:%d.%m.%Y %H:%M}"
 
 
-class ServiceKind(models.TextChoices):
-    UYAP = "uyap", "UYAP"
-    E_SERVICE = "e_service", "E-tebligat"
-    POST = "post", "Posta"
-    HAND = "hand", "Elden"
+class CaseStep(TimeStampedModel):
+    """Safahat adımı: esas dosyanın istinaf, temyiz, bozma sonrası veya görevsizlik sonrası kaydı.
 
+    Bağımsız dosya değildir; yalnızca kurum, dosya no, karar no ve karar bilgisini tutar.
+    """
 
-class Service(TimeStampedModel):
-    """Tebligat. Son gün elle girilir (otomatik süre hesabı yok)."""
-
-    case = models.ForeignKey(Case, on_delete=models.CASCADE, related_name="services")
-    kind = models.CharField("tür", max_length=20, choices=ServiceKind.choices)
-    subject = models.CharField("konu", max_length=300)
-    served_on = models.DateField("tebliğ tarihi")
-    deadline = models.DateField("son gün", null=True, blank=True)
-    notes = models.TextField("notlar", blank=True)
-    is_done = models.BooleanField("gereği yapıldı", default=False)
+    case = models.ForeignKey(Case, on_delete=models.CASCADE, related_name="steps")
+    authority = models.CharField("kurum adı", max_length=200)
+    official_no = models.CharField("dosya numarası", max_length=100, blank=True)
+    decision_date = models.DateField("karar tarihi", null=True, blank=True)
+    decision_no = models.CharField("karar numarası", max_length=100, blank=True)
+    decision = models.CharField("karar", max_length=40)
+    note = models.TextField("not", blank=True)
 
     class Meta:
-        verbose_name = "tebligat"
-        verbose_name_plural = "tebligatlar"
-        ordering = ["-served_on", "-pk"]
+        verbose_name = "safahat adımı"
+        verbose_name_plural = "safahat"
+        ordering = ["decision_date", "created_at", "pk"]
 
     def __str__(self):
-        return self.subject
+        return f"{self.authority} {self.official_no}".strip()
+
+    def save(self, *args, **kwargs):
+        self.authority = tr_upper(self.authority).strip()
+        super().save(*args, **kwargs)
+
+    @property
+    def decision_label(self) -> str:
+        return decisions.decision_label(self.case.case_type, self.decision)
 
 
 class CaseEvent(models.Model):
@@ -312,6 +373,7 @@ class CaseEvent(models.Model):
         SERVICE = "service", "Tebligat"
         TASK = "task", "Görev"
         DOCUMENT = "document", "Belge"
+        STATUS = "status", "Durum"
 
     case = models.ForeignKey(Case, on_delete=models.CASCADE, related_name="events")
     date = models.DateField("tarih")

@@ -7,7 +7,6 @@ from django.urls import reverse
 
 from apps.accounting.models import EntryKind, LedgerEntry
 from apps.accounting.views import statement
-from apps.office.models import OfficeSettings
 
 pytestmark = pytest.mark.django_db
 D = Decimal
@@ -67,25 +66,36 @@ def test_statement_running_balances(client_factory):
     ]
 
 
-def test_create_entry_case_sets_client_and_trust_limits(admin_user, case_factory):
+def test_create_entry_requires_client_case_optional_no_trust_limit(admin_user, case_factory):
     case = case_factory()
     c = login(admin_user)
     url = reverse("accounting:create")
-    r = c.post(url, {"kind": "fee", "case": case.pk, "amount": "15000.50", "date": "2026-11-01"})
+    # Müvekkil seçmeden kayıt girilemez.
+    r = c.post(url, {"kind": "fee", "case": case.pk, "amount": "10", "date": "2026-11-01"})
+    assert "client" in r.context["form"].errors and not LedgerEntry.objects.exists()
+    r = c.post(
+        url,
+        {"kind": "fee", "client": case.client_id, "case": case.pk, "amount": "15000.50",
+         "date": "2026-11-01"},
+    )  # fmt: skip
     assert r.status_code == 302
     e = LedgerEntry.objects.get()
-    assert e.client == case.client and e.created_by == admin_user
+    assert e.client == case.client and e.case == case and e.created_by == admin_user
+    # Dosya seçmeden müvekkilin genel gideri girilebilir.
+    r = c.post(
+        url, {"kind": "expense", "client": case.client_id, "amount": "50", "date": "2026-11-01"}
+    )
+    assert r.status_code == 302
+    assert LedgerEntry.objects.filter(case__isnull=True, kind="expense").count() == 1
+    LedgerEntry.objects.filter(kind="expense").delete()
 
-    # Emanet yokken müvekkile ödeme / mahsup yapılamaz.
-    r = c.post(
-        url, {"kind": "trust_out", "client": case.client_id, "amount": "10", "date": "2026-11-01"}
-    )
-    assert "amount" in r.context["form"].errors
-    r = c.post(
-        url, {"kind": "offset", "client": case.client_id, "amount": "10", "date": "2026-11-01"}
-    )
-    assert "amount" in r.context["form"].errors
-    assert LedgerEntry.objects.count() == 1
+    # Emanet bakiyesi yetmese de müvekkile ödeme / mahsup yapılabilir.
+    for kind in ("trust_out", "offset"):
+        r = c.post(
+            url, {"kind": kind, "client": case.client_id, "amount": "10", "date": "2026-11-01"}
+        )
+        assert r.status_code == 302
+    assert LedgerEntry.objects.count() == 3
 
 
 def test_case_must_belong_to_client(admin_user, case_factory, client_factory):
@@ -98,44 +108,48 @@ def test_case_must_belong_to_client(admin_user, case_factory, client_factory):
     assert "case" in r.context["form"].errors
 
 
-def test_cancel_requires_reason_and_edit_right(admin_user, lawyer, client_factory):
+def test_cancel_requires_reason(admin_user, intern, client_factory):
     c = client_factory()
     e = add(c, EntryKind.FEE, "100")
     url = reverse("accounting:cancel", args=[e.pk])
-    office = OfficeSettings.load()
-    office.lawyer_can_edit_accounting = False
-    office.save()
-    assert login(lawyer).post(url, {"reason": "hata"}).status_code == 403
     login(admin_user).post(url, {"reason": ""})
     e.refresh_from_db()
     assert not e.is_cancelled
-    login(admin_user).post(url, {"reason": "Yanlış tutar"})
+    # Herkes kayıt girip iptal edebilir (stajyer dahil).
+    login(intern).post(url, {"reason": "Yanlış tutar"})
     e.refresh_from_db()
-    assert e.is_cancelled and e.cancelled_by == admin_user and e.cancel_reason == "Yanlış tutar"
+    assert e.is_cancelled and e.cancelled_by == intern and e.cancel_reason == "Yanlış tutar"
 
 
-def test_role_permissions(lawyer, intern, client_factory):
-    c = client_factory()
-    add(c, EntryKind.FEE, "100")
-    # Varsayılan: avukat görür ve girer, stajyer göremez.
-    assert login(lawyer).get(reverse("accounting:list")).status_code == 200
-    assert login(intern).get(reverse("accounting:list")).status_code == 403
-    r = login(intern).get(reverse("clients:list"))
-    assert "Bakiye" not in r.content.decode()
-    r = login(intern).get(reverse("clients:list"), {"sort": "-balance", "debt": "yes"})
-    assert r.status_code == 200 and len(r.context["clients"]) == 1  # filtre yok sayılır
-
-    office = OfficeSettings.load()
-    office.intern_can_view_accounting = True
-    office.save()
+def test_records_for_everyone_balances_for_selected(lawyer, intern, client_factory, case_factory):
+    case = case_factory()
+    add(case.client, EntryKind.FEE, "100", case=case)
+    # Kayıtlar herkese açık: stajyer muhasebe listesini görür ve kayıt girebilir.
     assert login(intern).get(reverse("accounting:list")).status_code == 200
-    assert login(intern).get(reverse("accounting:create")).status_code == 403
+    assert login(intern).get(reverse("accounting:create")).status_code == 200
+    html = login(intern).get(case.get_absolute_url()).content.decode()
+    assert "Dosya hareketleri" in html
+    # Bakiye ve borçluluk yalnızca yöneticiye ve seçilen kişilere görünür.
+    r = login(lawyer).get(reverse("clients:list"))
+    assert "Bakiye" not in r.content.decode()
+    r = login(lawyer).get(reverse("clients:list"), {"sort": "-balance", "debt": "yes"})
+    assert r.status_code == 200 and len(r.context["clients"]) == 1  # süzgeç yok sayılır
+    assert (
+        "Cari hesap ekstresi"
+        not in login(lawyer).get(case.client.get_absolute_url()).content.decode()
+    )
+    lawyer.can_view_balances = True
+    lawyer.save()
+    assert "Bakiye" in login(lawyer).get(reverse("clients:list")).content.decode()
 
 
-def test_client_list_balance_tasks_and_filters(lawyer_client, client_factory, case_factory):
+def test_client_list_balance_tasks_and_filters(lawyer, client_factory, case_factory):
     from apps.office.models import TaskType
     from apps.tasks.models import Task
 
+    lawyer.can_view_balances = True
+    lawyer.save()
+    lawyer_client = login(lawyer)
     a = client_factory(first_name="Borçlu")
     b = client_factory(first_name="Temiz")
     add(a, EntryKind.FEE, "2000")
@@ -149,31 +163,36 @@ def test_client_list_balance_tasks_and_filters(lawyer_client, client_factory, ca
     )  # fmt: skip
     url = reverse("clients:list")
     rows = {c.first_name: c for c in lawyer_client.get(url).context["clients"]}
-    assert rows["Borçlu"].balance == D("1500") and rows["Borçlu"].open_task_count == 1
-    assert rows["Temiz"].balance == D("0") and rows["Temiz"].open_task_count == 0
+    assert rows["BORÇLU"].balance == D("1500") and rows["BORÇLU"].open_task_count == 1
+    assert rows["TEMİZ"].balance == D("0") and rows["TEMİZ"].open_task_count == 0
     names = lambda r: [c.first_name for c in r.context["clients"]]  # noqa: E731
-    assert names(lawyer_client.get(url, {"debt": "yes"})) == ["Borçlu"]
-    assert names(lawyer_client.get(url, {"tasks": "yes"})) == ["Borçlu"]
-    assert names(lawyer_client.get(url, {"sort": "-balance"}))[0] == "Borçlu"
+    assert names(lawyer_client.get(url, {"debt": "yes"})) == ["BORÇLU"]
+    assert names(lawyer_client.get(url, {"tasks": "yes"})) == ["BORÇLU"]
+    assert names(lawyer_client.get(url, {"sort": "-balance"}))[0] == "BORÇLU"
 
 
-def test_detail_tabs_show_statement(lawyer_client, case_factory):
+def test_detail_tabs_show_statement(admin_user, case_factory):
     case = case_factory()
     add(case.client, EntryKind.FEE, "750", case=case)
-    html = lawyer_client.get(case.client.get_absolute_url()).content.decode()
+    c = login(admin_user)
+    html = c.get(case.client.get_absolute_url()).content.decode()
     assert "Cari hesap ekstresi" in html and "750,00 ₺" in html
-    html = lawyer_client.get(case.get_absolute_url()).content.decode()
+    html = c.get(case.get_absolute_url()).content.decode()
     assert "Dosya hareketleri" in html
 
 
-def test_permissions_form_edit_requires_view(admin_user):
+def test_balance_viewers_form(admin_user, lawyer, intern):
     login(admin_user).post(
-        reverse("accounts:settings"),
-        {
-            "section": "yetkiler",
-            "lawyer_can_view_accounting": "",
-            "lawyer_can_edit_accounting": "on",
-        },
+        reverse("accounts:settings"), {"section": "yetkiler", "viewers": [intern.pk]}
     )
-    office = OfficeSettings.load()
-    assert not office.lawyer_can_view_accounting and not office.lawyer_can_edit_accounting
+    lawyer.refresh_from_db()
+    intern.refresh_from_db()
+    assert intern.can_view_balances and not lawyer.can_view_balances
+
+
+def test_settings_sections_render(admin_user, intern):
+    c = login(admin_user)
+    r = c.get(reverse("accounts:settings"), {"bolum": "yetkiler"})
+    assert r.status_code == 200 and "Bakiye görme yetkisi" in r.content.decode()
+    r = c.get(reverse("accounts:settings"), {"bolum": "kullanicilar", "id": intern.pk})
+    assert r.status_code == 200 and "Kontrolcü" in r.content.decode()

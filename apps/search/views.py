@@ -48,7 +48,7 @@ def search_querysets(q: str) -> dict:
     clients = (
         Client.objects.filter(Q(search_key__contains=key) | Q(tckn=q) | Q(vkn=q))
         .select_related("responsible_lawyer")
-        .order_by("-is_active", "name")
+        .order_by("name")
     )
     if len(key) >= 4 and not clients.exists():
         # Yazım hatalarına tolerans: trigram benzerliği
@@ -61,6 +61,7 @@ def search_querysets(q: str) -> dict:
         "clients": clients,
         "cases": Case.objects.filter(
             Q(archive_no__unaccent__icontains=q)
+            | Q(archive_folder_no__unaccent__icontains=q)
             | Q(official_no__unaccent__icontains=q)
             | Q(subject__unaccent__icontains=q)
             | Q(authority__unaccent__icontains=q)

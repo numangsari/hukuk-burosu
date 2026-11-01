@@ -15,10 +15,6 @@ from .models import (
 
 
 class ClientForm(BootstrapMixin, forms.ModelForm):
-    confirm_conflict = forms.BooleanField(
-        label="Çıkar çatışması uyarısını gördüm, yine de kaydet", required=False
-    )
-
     class Meta:
         model = Client
         fields = [
@@ -30,40 +26,66 @@ class ClientForm(BootstrapMixin, forms.ModelForm):
             "vkn",
             "tax_office",
             "mersis_no",
+            "poa_no",
             "responsible_lawyer",
             "responsible_intern",
             "notes",
-            "is_active",
             "folder_name",
         ]
-        widgets = {"kind": forms.RadioSelect}
+        widgets = {"kind": forms.RadioSelect, "notes": forms.Textarea(attrs={"rows": 3})}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["kind"].choices = PersonKind.choices  # boş seçenek olmasın
         self.fields["kind"].widget.attrs["class"] = "form-check-input"
         self.fields["kind"].widget.attrs["x-model"] = "kind"
+        for name in ("first_name", "last_name", "title"):
+            self.fields[name].widget.attrs["class"] += " text-uppercase-input"
+        self.fields["poa_no"].help_text = (
+            f"Boş bırakılırsa vekalet eklendiğinde sıradaki numara (V-{Client.suggest_poa_no()}) "
+            "verilir."
+        )
+        self.fields["responsible_lawyer"].widget.attrs["x-on:change"] = "lawyerChanged($event)"
+        self.fields["responsible_intern"].widget.attrs["x-ref"] = "intern"
         self.fields["folder_name"].help_text = (
             "Boşsa müvekkil numarası ve adıyla ayrı bir klasör oluşturulur. "
             "Kaydedilmiş klasörler taşınmaz."
         )
-        self.conflicts = []
 
 
-class ContactForm(BootstrapMixin, forms.ModelForm):
+class OptionalRowMixin:
+    """Müvekkil formundaki alt kayıt satırı: boş satır zorunlu değildir; satıra bir şey
+    yazılınca zorunlu alanlar (yıldızsız gösterilir) istenir."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.row_required = [name for name, f in self.fields.items() if f.required]
+        for name in self.row_required:
+            self.fields[name].required = False
+
+    def clean(self):
+        data = super().clean()
+        if self.has_changed() and not data.get("DELETE"):
+            for name in self.row_required:
+                if not data.get(name) and name not in self.errors:
+                    self.add_error(name, "Bu alanı doldurun.")
+        return data
+
+
+class ContactForm(OptionalRowMixin, BootstrapMixin, forms.ModelForm):
     class Meta:
         model = ClientContact
         fields = ["kind", "label", "value", "is_primary"]
         widgets = {"value": forms.Textarea(attrs={"rows": 1})}
 
 
-class IbanForm(BootstrapMixin, forms.ModelForm):
+class IbanForm(OptionalRowMixin, BootstrapMixin, forms.ModelForm):
     class Meta:
         model = ClientIban
         fields = ["iban", "bank", "holder", "is_primary"]
 
 
-class RepresentativeForm(BootstrapMixin, forms.ModelForm):
+class RepresentativeForm(OptionalRowMixin, BootstrapMixin, forms.ModelForm):
     class Meta:
         model = ClientRepresentative
         fields = ["name", "position", "phone", "email"]
@@ -91,10 +113,27 @@ class PartyForm(BootstrapMixin, forms.ModelForm):
         }
 
 
-# Müvekkil detayındaki satır içi alt kayıtlar: url anahtarı -> (form, ilişki adı, başlık)
-SUBRECORDS = {
-    "iletisim": (ContactForm, "contacts", "İletişim bilgisi"),
-    "iban": (IbanForm, "ibans", "IBAN"),
-    "yetkili": (RepresentativeForm, "representatives", "Yetkili kişi"),
-    "vekalet": (PowerOfAttorneyForm, "powers_of_attorney", "Vekalet"),
+class ClientPoaForm(OptionalRowMixin, PowerOfAttorneyForm):
+    """Müvekkil formundaki vekalet satırı (fiziki yer müvekkilin V-numarasıyla tutulur)."""
+
+    class Meta(PowerOfAttorneyForm.Meta):
+        fields = ["notary", "date", "journal_no", "pdf", "notes"]
+
+
+# Müvekkil oluşturma/düzenleme ekranındaki alt kayıt grupları: önek -> (model, satır formu)
+CLIENT_SUBRECORDS = {
+    "iletisim": (ClientContact, ContactForm),
+    "iban": (ClientIban, IbanForm),
+    "yetkili": (ClientRepresentative, RepresentativeForm),
+    "vekalet": (PowerOfAttorney, ClientPoaForm),
 }
+
+
+# İletişimde bu türler için boş satır her zaman ekranda hazır gelir.
+DEFAULT_CONTACT_KINDS = ["phone", "email", "address"]
+
+
+def client_formset(prefix: str, can_delete: bool, extra: int = 1):
+    """Alt kayıt grubu. Mevcut satırı yalnızca yönetici silebilir."""
+    model, form = CLIENT_SUBRECORDS[prefix]
+    return forms.inlineformset_factory(Client, model, form=form, extra=extra, can_delete=can_delete)

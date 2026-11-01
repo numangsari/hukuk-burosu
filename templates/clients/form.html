@@ -5,62 +5,114 @@
   <div>
     <div class="eyebrow"><a href="{% if object %}{{ object.get_absolute_url }}{% else %}{% url 'clients:list' %}{% endif %}"><i class="bi bi-chevron-left"></i> {% if object %}{{ object }}{% else %}Müvekkiller{% endif %}</a></div>
     <h1 class="page-title">{% if object %}Müvekkili düzenle{% else %}Yeni müvekkil{% endif %}</h1>
-    {% if not object %}<p class="page-subtitle">İletişim, IBAN, yetkili ve vekalet bilgileri kayıttan sonra müvekkil kartından eklenir.</p>{% endif %}
   </div>
 </div>
-<form method="post" x-data="{ kind: '{{ form.kind.value|default:'person' }}' }" class="card" style="max-width: 900px"
-      hx-get="{% url 'clients:conflict_check' %}" hx-target="#conflict-live" hx-trigger="change from:.identity" hx-include="this">
+{{ intern_by_lawyer|json_script:"intern-by-lawyer" }}
+<form method="post" enctype="multipart/form-data" x-data="clientForm('{{ form.kind.value|default:'person' }}')">
   {% csrf_token %}
-  {% if form.non_field_errors %}<div class="alert alert-danger m-3 mb-0">{{ form.non_field_errors }}</div>{% endif %}
-
-  <div class="form-section">
-    <div class="form-section-head"><h2>Müvekkil tipi</h2><p>Gerçek kişi için TC kimlik, tüzel kişi için vergi bilgileri istenir.</p></div>
-    <div class="segmented">
-      {% for radio in form.kind %}{{ radio.tag }}<label for="{{ radio.id_for_label }}">{{ radio.choice_label }}</label>{% endfor %}
+  {% if form.non_field_errors %}<div class="alert alert-danger mb-3">{{ form.non_field_errors }}</div>{% endif %}
+  {# Bölümler iki sütuna tarayıcı tarafından dengeli dağıtılır (.form-masonry). #}
+  <div class="form-masonry">
+    <div class="card">
+      <div class="form-section">
+        <div class="form-section-head"><h2>Müvekkil tipi</h2></div>
+        <div class="segmented">
+          {% for radio in form.kind %}{{ radio.tag }}<label for="{{ radio.id_for_label }}">{{ radio.choice_label }}</label>{% endfor %}
+        </div>
+      </div>
+      <div class="form-section">
+        <div class="form-section-head"><h2>Kimlik bilgileri</h2></div>
+        <div class="row" x-show="kind === 'person'">
+          <div class="col-md-4">{% include "partials/field.html" with field=form.first_name %}</div>
+          <div class="col-md-4">{% include "partials/field.html" with field=form.last_name %}</div>
+          <div class="col-md-4">{% include "partials/field.html" with field=form.tckn %}</div>
+        </div>
+        <div class="row" x-show="kind === 'company'" x-cloak>
+          <div class="col-md-8">{% include "partials/field.html" with field=form.title %}</div>
+          <div class="col-md-4">{% include "partials/field.html" with field=form.vkn %}</div>
+          <div class="col-md-6">{% include "partials/field.html" with field=form.tax_office %}</div>
+          <div class="col-md-6">{% include "partials/field.html" with field=form.mersis_no %}</div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="form-section">
+        <div class="form-section-head"><h2>Sorumlular</h2></div>
+        <div class="row">
+          <div class="col-md-6">{% include "partials/field.html" with field=form.responsible_lawyer %}</div>
+          <div class="col-md-6">{% include "partials/field.html" with field=form.responsible_intern %}</div>
+        </div>
+      </div>
+    </div>
+    <div class="card" x-show="kind === 'company'" x-cloak>
+      <div class="form-section">
+        <div class="form-section-head"><h2>Yetkililer</h2></div>
+        {% include "clients/_formset.html" with fs=formsets.yetkili.0 prefix="yetkili" add_label="Yetkili ekle" %}
+      </div>
+    </div>
+    <div class="card">
+      <div class="form-section">
+        <div class="form-section-head"><h2>Vekalet</h2></div>
+        <div class="row">
+          <div class="col-md-5">
+            <label class="form-label" for="{{ form.poa_no.id_for_label }}">{{ form.poa_no.label|capfirst }}</label>
+            <div class="input-group"><span class="input-group-text">V-</span>{{ form.poa_no }}</div>
+            {% for e in form.poa_no.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}
+          </div>
+          <div class="col-md-7 d-flex align-items-end"><div class="form-text mb-2">{{ form.poa_no.help_text }}</div></div>
+        </div>
+        <div class="mt-3">{% include "clients/_formset.html" with fs=formsets.vekalet.0 prefix="vekalet" add_label="Vekalet ekle" %}</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="form-section">
+        <div class="form-section-head"><h2>İletişim bilgileri</h2></div>
+        {% include "clients/_formset.html" with fs=formsets.iletisim.0 prefix="iletisim" add_label="İletişim ekle" %}
+      </div>
+    </div>
+    <div class="card">
+      <div class="form-section">
+        <div class="form-section-head"><h2>IBAN</h2></div>
+        {% include "clients/_formset.html" with fs=formsets.iban.0 prefix="iban" add_label="IBAN ekle" %}
+      </div>
+    </div>
+    <div class="card">
+      <div class="form-section">
+        <div class="form-section-head"><h2>Notlar</h2></div>
+        {% include "partials/field.html" with field=form.notes %}
+        {% if object %}{% include "partials/field.html" with field=form.folder_name %}{% endif %}
+      </div>
     </div>
   </div>
 
-  <div class="form-section">
-    <div class="form-section-head"><h2>Kimlik bilgileri</h2><p>Bilgiler girilirken karşı taraf kayıtlarıyla çıkar çatışması kontrolü yapılır.</p></div>
-    <div class="row identity" x-show="kind === 'person'">
-      <div class="col-md-4">{% include "partials/field.html" with field=form.first_name %}</div>
-      <div class="col-md-4">{% include "partials/field.html" with field=form.last_name %}</div>
-      <div class="col-md-4">{% include "partials/field.html" with field=form.tckn %}</div>
+  <div class="card">
+    <div class="form-footer">
+      {% if object and request.user.is_office_admin %}
+        <a class="btn btn-outline-danger me-auto" href="{% url 'clients:delete' object.pk %}"><i class="bi bi-trash"></i>Müvekkili sil</a>
+      {% endif %}
+      <a class="btn btn-light" href="{% if object %}{{ object.get_absolute_url }}{% else %}{% url 'clients:list' %}{% endif %}">Vazgeç</a>
+      <button class="btn btn-primary"><i class="bi bi-check2"></i>Kaydet</button>
     </div>
-    <div class="row identity" x-show="kind === 'company'" x-cloak>
-      <div class="col-md-8">{% include "partials/field.html" with field=form.title %}</div>
-      <div class="col-md-4">{% include "partials/field.html" with field=form.vkn %}</div>
-      <div class="col-md-6">{% include "partials/field.html" with field=form.tax_office %}</div>
-      <div class="col-md-6">{% include "partials/field.html" with field=form.mersis_no %}</div>
-    </div>
-    <div id="conflict-live">{% include "clients/_conflicts.html" with conflicts=form.conflicts %}</div>
-    {% if form.conflicts %}{% include "partials/field.html" with field=form.confirm_conflict %}{% endif %}
-  </div>
-
-  <div class="form-section">
-    <div class="form-section-head"><h2>Sorumlular</h2><p>Bu müvekkilin yeni dosyalarında varsayılan olarak kullanılır.</p></div>
-    <div class="row">
-      <div class="col-md-6">{% include "partials/field.html" with field=form.responsible_lawyer %}</div>
-      <div class="col-md-6">{% include "partials/field.html" with field=form.responsible_intern %}</div>
-    </div>
-  </div>
-
-  <div class="form-section">
-    <div class="form-section-head"><h2>Notlar</h2></div>
-    {% include "partials/field.html" with field=form.notes %}
-    {% include "partials/field.html" with field=form.is_active wrap_class="" %}
-  </div>
-
-  {% if object %}
-  <div class="form-section">
-    <div class="form-section-head"><h2>Ofis klasörü</h2><p>Belgelerin kopyalanacağı müvekkil klasörünün adı (Müvekkiller klasörü içinde).</p></div>
-    {% include "partials/field.html" with field=form.folder_name wrap_class="" %}
-  </div>
-  {% endif %}
-
-  <div class="form-footer">
-    <a class="btn btn-light" href="{% if object %}{{ object.get_absolute_url }}{% else %}{% url 'clients:list' %}{% endif %}">Vazgeç</a>
-    <button class="btn btn-primary"><i class="bi bi-check2"></i>Kaydet</button>
   </div>
 </form>
+<script>
+  function clientForm(kind) {
+    const map = JSON.parse(document.getElementById("intern-by-lawyer").textContent);
+    return {
+      kind,
+      // Avukat seçilince ona bağlı stajyer (Ayarlar > Kullanıcılar) otomatik seçilir.
+      lawyerChanged(e) {
+        const intern = map[e.target.value];
+        if (intern) this.$refs.intern.value = String(intern);
+      },
+      // Alt kayıt grubuna boş satır ekler (Django formset).
+      addRow(prefix) {
+        const total = document.getElementById(`id_${prefix}-TOTAL_FORMS`);
+        const html = document.getElementById(`${prefix}-empty`).innerHTML.replace(/__prefix__/g, total.value);
+        document.getElementById(`${prefix}-rows`).insertAdjacentHTML("beforeend", html);
+        total.value = Number(total.value) + 1;
+      },
+    };
+  }
+</script>
 {% endblock %}

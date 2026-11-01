@@ -1,0 +1,39 @@
+{# Safahat adımı penceresi içeriği (HTMX ile #step-modal-dialog içine yüklenir). #}
+<form class="modal-content" method="post"
+      hx-post="{% if step %}{% url 'cases:step_edit' case.pk step.pk %}{% else %}{% url 'cases:step_add' case.pk %}{% endif %}"
+      hx-target="#step-modal-dialog" hx-swap="innerHTML">
+  {% csrf_token %}
+  <div class="modal-header">
+    <h2 class="modal-title fs-6">{% if step %}Safahat adımını düzenle{% else %}Safahat adımı ekle{% endif %}</h2>
+    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Kapat"></button>
+  </div>
+  <div class="modal-body">
+    {% if form.non_field_errors %}<div class="alert alert-danger py-2">{{ form.non_field_errors }}</div>{% endif %}
+    <datalist id="authority-options">{% for a in authorities %}<option value="{{ a }}">{% endfor %}</datalist>
+    <div class="row">
+      <div class="col-md-6">{% include "partials/field.html" with field=form.authority label="Kurum adı" %}</div>
+      <div class="col-md-6">
+        <div class="form-label" id="step-official-label">Dosya numarası</div>
+        <div class="row g-2 mb-3" role="group" aria-labelledby="step-official-label">
+          <div class="col-5">{{ form.official_year }}{% for e in form.official_year.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}</div>
+          <div class="col-7">{{ form.official_sequence }}{% for e in form.official_sequence.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}</div>
+        </div>
+      </div>
+      <div class="col-md-6">{% include "partials/field.html" with field=form.decision_date %}</div>
+      <div class="col-md-6">
+        <div class="form-label" id="step-decision-label">Karar numarası</div>
+        <div class="row g-2 mb-3" role="group" aria-labelledby="step-decision-label">
+          <div class="col-5">{{ form.decision_year }}{% for e in form.decision_year.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}</div>
+          <div class="col-7">{{ form.decision_sequence }}{% for e in form.decision_sequence.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}</div>
+        </div>
+      </div>
+      <div class="col-12">{% include "partials/field.html" with field=form.decision %}</div>
+      <div class="col-12">{% include "partials/field.html" with field=form.note %}</div>
+      <div class="col-12">{% include "partials/field.html" with field=form.apply_to_case wrap_class="mb-0" %}</div>
+    </div>
+  </div>
+  <div class="modal-footer">
+    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Vazgeç</button>
+    <button class="btn btn-primary"><i class="bi bi-check2"></i>Kaydet</button>
+  </div>
+</form>

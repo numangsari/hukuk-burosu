@@ -1,0 +1,12 @@
+<div class="party-card" data-party-card>
+  <div class="row">
+    <div class="col-md-6">{% include "partials/field.html" with field=row.role %}</div>
+    <div class="col-md-6">{% include "partials/field.html" with field=row.kind %}</div>
+    <div class="col-12">{% include "partials/field.html" with field=row.name %}</div>
+    <div class="col-md-6">{% include "partials/field.html" with field=row.identity_no %}</div>
+    <div class="col-md-6">{% include "partials/field.html" with field=row.lawyer %}</div>
+    <div class="col-12">{% include "partials/field.html" with field=row.address %}</div>
+  </div>
+  {% include "partials/field.html" with field=row.DELETE label="Bu yeni satırı çıkar" %}
+  {{ row.non_field_errors }}
+</div>

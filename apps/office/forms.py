@@ -57,25 +57,6 @@ class CalendarForm(BootstrapMixin, forms.ModelForm):
         return obj
 
 
-class AccountingPermissionsForm(BootstrapMixin, forms.ModelForm):
-    class Meta:
-        model = OfficeSettings
-        fields = [
-            "lawyer_can_view_accounting",
-            "lawyer_can_edit_accounting",
-            "intern_can_view_accounting",
-            "intern_can_edit_accounting",
-        ]
-
-    def clean(self):
-        data = super().clean()
-        # Göremeyen rol hareket de giremez.
-        for role in ("lawyer", "intern"):
-            if not data.get(f"{role}_can_view_accounting"):
-                data[f"{role}_can_edit_accounting"] = False
-        return data
-
-
 class DocumentsRootForm(BootstrapMixin, forms.ModelForm):
     class Meta:
         model = OfficeSettings

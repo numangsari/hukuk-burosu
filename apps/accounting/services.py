@@ -1,4 +1,4 @@
-"""Aynı müvekkilin para işlemlerini bakiye kontrolüyle birlikte sıraya alır."""
+"""Aynı müvekkilin para işlemlerini sıraya alır (emanet eksiye düşebilir)."""
 
 from django.core.exceptions import ValidationError
 from django.db import transaction
@@ -6,9 +6,8 @@ from django.utils import timezone
 
 from apps.cases.models import Case
 from apps.clients.models import Client
-from apps.core.templatetags.ui import tl
 
-from .models import EntryKind, LedgerEntry
+from .models import LedgerEntry
 
 
 @transaction.atomic
@@ -17,13 +16,8 @@ def create_entry(entry: LedgerEntry) -> LedgerEntry:
         case = Case.objects.select_for_update().get(pk=entry.case_id)
         if entry.client_id != case.client_id:
             raise ValidationError("Dosyanın müvekkili değişti. Bilgileri yenileyip tekrar deneyin.")
+    # Müvekkile ödeme ve mahsup emanet bakiyesini aşabilir (kullanıcı kararı).
     Client.objects.select_for_update().get(pk=entry.client_id)
-    if entry.kind in (EntryKind.TRUST_OUT, EntryKind.OFFSET):
-        trust = LedgerEntry.objects.filter(client_id=entry.client_id).balances()["trust"]
-        if entry.amount > trust:
-            raise ValidationError(
-                f"Emanet bakiyesi {tl(trust)}; bu tutardan fazla ödeme veya mahsup yapılamaz."
-            )
     entry.save()
     return entry
 
@@ -37,13 +31,7 @@ def cancel_entry(entry: LedgerEntry, user, reason: str) -> LedgerEntry:
     reason = reason.strip()
     if not reason:
         raise ValidationError("İptal nedeni yazılmalı.")
-    if entry.trust_effect > 0:
-        trust = LedgerEntry.objects.filter(client_id=entry.client_id).balances()["trust"]
-        if trust - entry.trust_effect < 0:
-            raise ValidationError(
-                "Bu iptal emanet bakiyesini eksiye düşürür. "
-                "Önce bağlı ödeme veya mahsupları düzeltin."
-            )
+    # Emanet girişinin iptali emaneti eksiye düşürse de serbesttir (kullanıcı kararı).
     entry.is_cancelled = True
     entry.cancelled_at = timezone.now()
     entry.cancelled_by = user

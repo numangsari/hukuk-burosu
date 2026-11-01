@@ -53,13 +53,13 @@ def test_non_preview_types_are_downloaded(case_factory, lawyer):
     assert "sandbox" in r["Content-Security-Policy"]
 
 
-def test_ledger_receipt_needs_accounting_permission(client_factory, lawyer, intern):
+def test_ledger_receipt_visible_to_logged_in_users(client_factory, lawyer, intern):
     c = client_factory()
     e = LedgerEntry(client=c, kind="expense", amount=Decimal("10"), date=dt.date(2026, 11, 1))
     e.receipt.save("makbuz.pdf", ContentFile(b"%PDF"), save=False)
     e.save()
-    assert not OfficeSettings.load().intern_can_view_accounting
-    assert login(intern).get(e.receipt.url).status_code == 403
+    # Muhasebe kayıtları (ve belgeleri) herkese açıktır.
+    assert login(intern).get(e.receipt.url).status_code == 200
     assert login(lawyer).get(e.receipt.url).status_code == 200
 
 
@@ -87,16 +87,15 @@ def test_dangerous_uploads_rejected(case_factory, client_factory, lawyer_client,
         {"title": "x", "category": "other", "file": SimpleUploadedFile("kotu.html", b"<script>")},
     )
     assert "file" in r.context["document_form"].errors and not Document.objects.exists()
+    from tests.conftest import client_form_data
+
+    row = {"notary": "N", "date": "2026-10-01", "journal_no": "1",
+           "pdf": SimpleUploadedFile("v.svg", b"<svg/>")}  # fmt: skip
     r = lawyer_client.post(
-        reverse("clients:sub_add", args=[case.client_id, "vekalet"]),
-        {
-            "notary": "N",
-            "date": "2026-10-01",
-            "journal_no": "1",
-            "pdf": SimpleUploadedFile("v.svg", b"<svg/>"),
-        },
+        reverse("clients:update", args=[case.client_id]),
+        client_form_data(case.client, vekalet=[row]),
     )
-    assert "pdf" in r.context["form"].errors
+    assert "pdf" in r.context["formsets"]["vekalet"][0].forms[0].errors
     task = Task.objects.create(
         task_type=TaskType.objects.get(name="Müvekkil görüşmesi"), title="t", case=case, assignee=intern,
         reviewer=lawyer, due_date=timezone.localdate(), created_by=lawyer,

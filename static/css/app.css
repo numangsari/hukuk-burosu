@@ -613,6 +613,22 @@ a.stat-card:hover { box-shadow: var(--shadow); border-color: color-mix(in srgb, 
 .agenda-item .x small { display: block; color: var(--muted); font-size: .76rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* ---------- Ana sayfa ---------- */
+/* Uzun formlar: bölümler geniş ekranda iki sütuna dengeli dağılır (sıra yukarıdan aşağı, soldan sağa) */
+.form-masonry { column-gap: 1rem; }
+.form-masonry > .form-section { break-inside: avoid; }
+.form-masonry > .card { break-inside: avoid; display: block; width: 100%; margin-bottom: 1rem; }
+@media (min-width: 1200px) { .form-masonry { column-count: 2; } }
+/* Müvekkil formundaki alt kayıt satırları (iletişim, IBAN, yetkili, vekalet) */
+.sub-rows { display: flex; flex-direction: column; gap: .5rem; }
+.sub-row { display: flex; gap: .75rem; align-items: flex-start; padding: .75rem; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface-2); }
+.sub-row .mb-3 { margin-bottom: 0 !important; }
+.sub-row-delete { display: inline-flex; align-items: center; gap: .3rem; align-self: flex-end; margin-bottom: .5rem; color: var(--muted); cursor: pointer; font-size: .85rem; }
+.sub-row-delete:hover { color: var(--danger-ink); }
+.sub-row-delete input { margin: 0; }
+/* Ad, unvan, dosya konusu ve görev adı her zaman büyük harf kaydedilir */
+.text-uppercase-input { text-transform: uppercase; }
+.text-uppercase-input::placeholder { text-transform: none; }
+.poa-no { display: inline-block; font-weight: 650; font-size: .82rem; padding: .15rem .5rem; border-radius: 6px; background: var(--accent-soft); color: var(--accent); }
 .side-link .office-link-open { margin-left: auto; width: auto; font-size: .7rem; opacity: .65; }
 .wa-messages { display: flex; flex-direction: column; gap: .75rem; max-height: 500px; min-height: 180px; overflow-y: auto; padding: 1.25rem; }
 .wa-message { width: min(90%, 640px); align-self: flex-start; border: 1px solid var(--line); border-radius: var(--radius-sm); padding: .85rem 1rem; background: var(--surface-2); }
@@ -769,3 +785,89 @@ a.agenda-item:hover { background: var(--surface-2); text-decoration: none; color
 .report-summary strong { font-variant-numeric: tabular-nums; }
 .report-total td { font-weight: 700; background: var(--surface-2); border-top: 2px solid var(--line) !important; }
 .idle-note { color: #f3d9ab !important; font-size: .88rem; }
+
+/* Dosya formu: üstte iki sütun, altında tam genişlikte taraflar ve notlar */
+.form-cols { display: grid; grid-template-columns: 1fr; }
+@media (min-width: 1200px) {
+  .form-cols { grid-template-columns: 1fr 1fr; }
+  .form-cols > .form-col + .form-col { border-left: 1px solid var(--line); }
+}
+.form-col > .form-section + .form-section { border-top: 1px solid var(--line); }
+.form-cols + .form-section { border-top: 1px solid var(--line); }
+.party-lanes { display: grid; grid-template-columns: 1fr; gap: 1rem; }
+@media (min-width: 992px) {
+  .party-lanes-split { grid-template-columns: 1fr 1fr; }
+  .party-lanes-split > .party-lane:nth-child(3) { grid-column: 1 / -1; }
+}
+.party-lane { border: 1px solid var(--line); border-radius: .5rem; padding: 1rem; }
+.party-lane-head { font-size: .85rem; font-weight: 650; margin-bottom: .75rem; }
+.party-card .form-check { display: none; }
+.party-item { display: flex; align-items: center; justify-content: space-between; gap: .75rem; padding: .5rem 0; border-bottom: 1px solid var(--line); }
+.party-item:last-child { border-bottom: 0; }
+.party-item-main { min-width: 0; overflow-wrap: anywhere; }
+.party-item-actions { display: flex; gap: .25rem; flex-shrink: 0; }
+.party-card input[name^="party_remove_"] { display: none; }
+
+/* Dosya durumu: solda büyük AÇIK/KAPALI, sağda aşama çizgisi veya kapanış bilgisi */
+.case-status { display: grid; grid-template-columns: auto 1fr; align-items: center; border-top: 1px solid var(--line); }
+.case-status-state { align-self: stretch; display: flex; align-items: center; padding: 1.25rem 2rem; font-size: 1.75rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; border-right: 1px solid var(--line); }
+.case-status-state.is-open { color: var(--brand); }
+.case-status-state.is-closed { color: var(--muted); }
+.case-status-body { padding: 1.25rem 1.5rem; min-width: 0; }
+.case-closing { display: flex; align-items: center; gap: 1.5rem; }
+.case-closing-info { flex: 1; text-align: center; text-transform: uppercase; }
+.case-closing-reason { font-size: 1.1rem; font-weight: 700; letter-spacing: .04em; }
+.case-closing-date { margin-top: .2rem; font-size: .85rem; letter-spacing: .08em; color: var(--muted); }
+@media (max-width: 767px) {
+  .case-status { grid-template-columns: 1fr; }
+  .case-status-state { border-right: 0; border-bottom: 1px solid var(--line); padding: .75rem 1.25rem; font-size: 1.25rem; }
+  .case-closing { flex-direction: column; align-items: stretch; }
+}
+.stage-track { list-style: none; display: flex; margin: 0; padding: .5rem 0 .25rem; overflow-x: auto; }
+.stage-track > li { flex: 1 1 0; min-width: 7rem; position: relative; }
+.stage-track > li::before { content: ""; position: absolute; top: calc(.55rem - 1px); left: -50%; right: 50%; height: 2px; background: var(--line); }
+.stage-track > li:first-child::before { display: none; }
+.stage-track > li.stage-done::before, .stage-track > li.stage-current::before { background: var(--brand); }
+.stage-step { position: relative; display: flex; flex-direction: column; align-items: center; gap: .4rem; width: 100%; padding: 0 .35rem; background: none; border: 0; text-align: center; font-size: .75rem; line-height: 1.25; color: var(--muted); cursor: pointer; }
+.stage-step:disabled { cursor: default; opacity: 1; }
+.stage-dot { width: 1.1rem; height: 1.1rem; border-radius: 50%; background: var(--surface); border: 2px solid var(--line); z-index: 1; }
+.stage-done .stage-dot { background: var(--brand); border-color: var(--brand); }
+.stage-current .stage-dot { background: var(--accent); border-color: var(--accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 25%, transparent); }
+.stage-current .stage-name { font-weight: 700; color: var(--bs-body-color); }
+.stage-done .stage-name { color: var(--bs-body-color); }
+.stage-todo:hover .stage-dot, .stage-done:hover .stage-dot { border-color: var(--accent); }
+
+/* Dosya özeti */
+.info-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.1rem 2rem; }
+.info-wide { grid-column: 1 / -1; }
+.info-label { font-size: .75rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; margin-bottom: .15rem; }
+.info-value { font-size: .95rem; font-weight: 500; color: var(--ink); overflow-wrap: anywhere; }
+.party-summary-item { display: flex; align-items: center; gap: .65rem; padding: .45rem 0; }
+.party-avatar { background: var(--brand-soft); color: var(--brand); display: grid; place-items: center; }
+.recent-list { list-style: none; margin: 0; padding: 0; }
+.recent-list li { display: flex; gap: 1rem; padding: .6rem 0; border-top: 1px solid var(--line); }
+.recent-list li:first-child { border-top: 0; padding-top: 0; }
+.recent-date { flex: 0 0 5.5rem; font-size: .8rem; color: var(--muted); padding-top: .1rem; }
+.upcoming-list { list-style: none; margin: 0; padding: 0; }
+.upcoming-list li + li { border-top: 1px solid var(--line); }
+.upcoming-list a { display: flex; align-items: center; gap: .75rem; padding: .65rem 0; color: inherit; }
+.upcoming-list a:hover { text-decoration: none; }
+.upcoming-icon { width: 2rem; height: 2rem; border-radius: .6rem; display: grid; place-items: center; background: var(--brand-soft); color: var(--brand); flex-shrink: 0; }
+.upcoming-when { text-align: right; font-size: .8rem; color: var(--muted); flex-shrink: 0; }
+.upcoming-when > span { display: block; }
+.upcoming-when.is-soon { color: var(--warning-ink); font-weight: 600; }
+.upcoming-when.is-late { color: var(--danger-ink, #c0392b); font-weight: 600; }
+@media (max-width: 575px) { .info-grid { grid-template-columns: 1fr; } }
+.stat-card { flex-direction: row; }
+
+/* Safahat */
+.safahat-current { padding: .75rem 1rem; margin-bottom: 1.25rem; border: 1px dashed var(--line); border-radius: .5rem; background: var(--bs-tertiary-bg); }
+.safahat-list { list-style: none; margin: 0; padding: 0 0 0 1.25rem; position: relative; }
+.safahat-list::before { content: ""; position: absolute; left: .4rem; top: .5rem; bottom: .5rem; width: 2px; background: var(--line); }
+.safahat-item { position: relative; padding-bottom: 1rem; }
+.safahat-dot { position: absolute; left: -1.25rem; top: .9rem; width: .85rem; height: .85rem; border-radius: 50%; background: var(--brand); border: 2px solid var(--surface); box-shadow: 0 0 0 2px var(--brand); }
+.safahat-card { border: 1px solid var(--line); border-radius: .5rem; padding: .85rem 1rem; background: var(--surface); }
+.safahat-date { font-size: .78rem; color: var(--muted); font-weight: 600; letter-spacing: .04em; }
+.safahat-title { font-weight: 650; overflow-wrap: anywhere; }
+.safahat-meta { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; margin-top: .5rem; font-size: .85rem; }
+.safahat-actions { display: flex; gap: .25rem; flex-shrink: 0; }

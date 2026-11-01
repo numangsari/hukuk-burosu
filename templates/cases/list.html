@@ -4,7 +4,6 @@
 <div class="page-header">
   <div>
     <h1 class="page-title">Dosyalar</h1>
-    <p class="page-subtitle">Dava, icra, soruşturma, danışmanlık ve diğer tüm iş dosyaları.</p>
   </div>
   <div class="page-actions">
     <a class="btn btn-primary" href="{% url 'cases:create' %}"><i class="bi bi-folder-plus"></i>Yeni dosya</a>
@@ -20,7 +19,7 @@
     </select>
     <select class="form-select" name="status">
       <option value="open">Açık dosyalar</option>
-      {% for v, l in statuses %}<option value="{{ v }}" {% if request.GET.status == v %}selected{% endif %}>{{ l }}</option>{% endfor %}
+      <option value="closed" {% if request.GET.status == 'closed' %}selected{% endif %}>Kapalı dosyalar</option>
       <option value="all" {% if request.GET.status == 'all' %}selected{% endif %}>Tümü</option>
     </select>
     <select class="form-select" name="lawyer">

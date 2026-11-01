@@ -60,15 +60,6 @@
       </div>
       <div class="panel-scroll">
       {% if agenda.error %}<div class="alert alert-warning small m-3 mb-0 py-2"><i class="bi bi-exclamation-triangle me-1"></i>{{ agenda.error }}</div>{% endif %}
-      {% if overdue_services %}
-        <div class="agenda-day" style="color: var(--danger-ink)">Süresi geçmiş tebligatlar</div>
-        {% for s in overdue_services %}
-          <a class="agenda-item src-deadline" href="{{ s.case.get_absolute_url }}">
-            <span class="t" style="color: var(--danger-ink)">{{ s.deadline|date:"d.m" }}</span>
-            <span class="x">{{ s.subject }}<small>{{ s.case.archive_no }} · {{ s.case.subject }}</small></span>
-          </a>
-        {% endfor %}
-      {% endif %}
       {% for day in agenda_days %}
         <div class="agenda-day">{% if day.date == today %}Bugün{% elif day.date == tomorrow %}Yarın{% else %}{{ day.date|date:"j F, l" }}{% endif %}</div>
         {% for ev in day.events %}

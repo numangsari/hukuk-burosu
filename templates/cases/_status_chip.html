@@ -1,1 +1,1 @@
-{% if k.status == "pending" %}<span class="chip chip-primary">{{ k.get_status_display }}</span>{% elif k.status == "decided" %}<span class="chip chip-warning">{{ k.get_status_display }}</span>{% elif k.status == "finalized" %}<span class="chip chip-success">{{ k.get_status_display }}</span>{% else %}<span class="chip">{{ k.get_status_display }}</span>{% endif %}
+{% if k.status == "open" %}<span class="chip chip-primary">{{ k.get_status_display }}</span>{% else %}<span class="chip">{{ k.get_status_display }}</span>{% endif %}

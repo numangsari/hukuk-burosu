@@ -1,74 +1,72 @@
 {% extends "base.html" %}
-{% block title %}{% if object %}{{ object.archive_no }} — düzenle{% else %}Yeni dosya{% endif %}{% endblock %}
+{% block title %}{% if object %}{{ object.archive_reference }} — düzenle{% else %}Yeni dosya{% endif %}{% endblock %}
 {% block content %}
 <div class="page-header">
   <div>
-    <div class="eyebrow"><a href="{% if object %}{{ object.get_absolute_url }}{% else %}{% url 'cases:list' %}{% endif %}"><i class="bi bi-chevron-left"></i> {% if object %}{{ object.archive_no }}{% else %}Dosyalar{% endif %}</a></div>
+    <div class="eyebrow"><a href="{% if object %}{{ object.get_absolute_url }}{% else %}{% url 'cases:list' %}{% endif %}"><i class="bi bi-chevron-left"></i> {% if object %}{{ object.archive_reference }}{% else %}Dosyalar{% endif %}</a></div>
     <h1 class="page-title">{% if object %}Dosyayı düzenle{% else %}Yeni dosya{% endif %}</h1>
-    {% if not object %}<p class="page-subtitle">Karşı taraflar ve belgeler kayıttan sonra dosya sayfasından eklenir.</p>{% endif %}
   </div>
 </div>
 {{ type_labels|json_script:"type-labels" }}
+{{ party_roles|json_script:"party-roles" }}
+{{ party_lanes|json_script:"party-lanes" }}
 <datalist id="authority-options">{% for a in authorities %}<option value="{{ a }}">{% endfor %}</datalist>
-<form method="post" class="card" style="max-width: 980px" x-data="caseForm('{{ form.case_type.value|default:'civil' }}')">
+{{ form.intern_map|json_script:"intern-by-lawyer" }}
+<form method="post" class="card" @change="formChanged($event)" x-data="caseForm('{{ form.case_type.value|default:'civil' }}')">
   {% csrf_token %}
   {% if form.non_field_errors %}<div class="alert alert-danger m-3 mb-0">{{ form.non_field_errors }}</div>{% endif %}
 
+  <div class="form-cols">
+  <div class="form-col">
   <div class="form-section">
-    <div class="form-section-head"><h2>Dosya</h2><p>Müvekkil seçildiğinde sorumlular müvekkil kartından gelir.</p></div>
     <div class="row">
-      <div class="col-md-6">{% include "partials/field.html" with field=form.client %}</div>
-      <div class="col-md-3">{% include "partials/field.html" with field=form.case_type %}</div>
-      <div class="col-md-3">{% include "partials/field.html" with field=form.archive_no %}</div>
+      <div class="col-md-7">{% include "partials/field.html" with field=form.client %}</div>
+      <div class="col-md-5">{% include "partials/field.html" with field=form.client_role %}</div>
+      <div class="col-md-6">{% include "partials/field.html" with field=form.case_type %}</div>
+      <div class="col-md-6">{% include "partials/field.html" with field=form.opened_on %}</div>
     </div>
-    {% include "partials/field.html" with field=form.subject %}
   </div>
 
   <div class="form-section">
-    <div class="form-section-head"><h2>Merci ve numaralar</h2><p>Alan adları dosya türüne göre değişir.</p></div>
+    <div class="form-section-head"><h2>Kurum ve dosya bilgileri</h2></div>
     <div class="row">
-      <div class="col-md-3">
-        <div class="mb-3">
-          <label class="form-label" for="{{ form.official_no.id_for_label }}" x-text="labels.official_no"></label>
-          {{ form.official_no }}{% for e in form.official_no.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}
-        </div>
-      </div>
-      <div class="col-md-5" x-show="labels.authority">
+      <div class="col-md-6" x-show="labels.authority" x-cloak>
         <div class="mb-3">
           <label class="form-label" for="{{ form.authority.id_for_label }}" x-text="labels.authority"></label>
-          {{ form.authority }}
+          {{ form.authority }}{% for e in form.authority.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}
         </div>
       </div>
-      <div class="col-md-4" x-show="labels.value">
-        <div class="mb-3">
-          <label class="form-label" for="{{ form.value.id_for_label }}" x-text="labels.value"></label>
-          <div class="input-group">{{ form.value }}<span class="input-group-text">₺</span></div>
-          {% for e in form.value.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}
+      <div class="col-md-6" x-show="labels.official_no" x-cloak>
+        <div class="form-label" id="official-number-label">Dosya Numarası</div>
+        <div class="row g-2 mb-3" role="group" aria-labelledby="official-number-label">
+          <div class="col-5">
+            <label class="visually-hidden" for="{{ form.official_year.id_for_label }}">Yıl</label>
+            {{ form.official_year }}
+            {% for e in form.official_year.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}
+          </div>
+          <div class="col-7">
+            <label class="visually-hidden" for="{{ form.official_sequence.id_for_label }}">Numara</label>
+            {{ form.official_sequence }}
+            {% if form.official_sequence.help_text %}<div class="form-text">{{ form.official_sequence.help_text }}</div>{% endif %}
+            {% for e in form.official_sequence.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}
+          </div>
         </div>
       </div>
+      <div class="col-12">{% include "partials/field.html" with field=form.subject %}</div>
       <div class="col-md-4" x-show="caseType === 'enforcement'" x-cloak>{% include "partials/field.html" with field=form.enforcement_type %}</div>
       <div class="col-md-6" x-show="['criminal','investigation'].includes(caseType)" x-cloak>{% include "partials/field.html" with field=form.crime %}</div>
       <div class="col-md-6" x-show="caseType === 'mediation'" x-cloak>{% include "partials/field.html" with field=form.mediator %}</div>
     </div>
   </div>
 
-  <div class="form-section">
-    <div class="form-section-head"><h2>Durum ve tarihler</h2></div>
-    <div class="row">
-      <div class="col-md-3">{% include "partials/field.html" with field=form.status %}</div>
-      <div class="col-md-3" x-show="['civil','criminal','administrative'].includes(caseType)">{% include "partials/field.html" with field=form.stage %}</div>
-      <div class="col-md-3">{% include "partials/field.html" with field=form.opened_on %}</div>
-      <div class="col-md-3">{% include "partials/field.html" with field=form.closed_on %}</div>
-    </div>
   </div>
-
+  <div class="form-col">
   <div class="form-section">
     <div class="form-section-head"><h2>Sorumlular</h2></div>
     <div class="row">
       <div class="col-md-6">{% include "partials/field.html" with field=form.responsible_lawyer %}</div>
       <div class="col-md-6">{% include "partials/field.html" with field=form.responsible_intern %}</div>
     </div>
-    {% include "partials/field.html" with field=form.notes wrap_class="" %}
   </div>
 
   {% if object %}
@@ -78,26 +76,235 @@
   </div>
   {% endif %}
 
+  <div class="form-section">
+    <div class="form-section-head"><h2>Fiziki arşiv yeri</h2></div>
+    <div class="row">
+      <div class="col-md-6">{% include "partials/field.html" with field=form.archive_folder_no %}</div>
+      <div class="col-md-6">{% include "partials/field.html" with field=form.archive_no %}</div>
+    </div>
+  </div>
+  </div>
+  </div>
+  <div class="form-section party-section">
+    <div class="form-section-head"><h2>Taraflar</h2></div>
+    {{ party_formset.management_form }}
+    {% if party_formset.non_form_errors %}<div class="alert alert-danger">{{ party_formset.non_form_errors }}</div>{% endif %}
+    <div class="party-lanes" :class="{ 'party-lanes-split': lanes.length > 1 }">
+      {% for key in "abn" %}
+      <div class="party-lane" x-show="lanes.length > {% if key == 'a' %}0{% elif key == 'b' %}1{% else %}2{% endif %}" x-cloak>
+        <div class="party-lane-head" x-text="lanes[{% if key == 'a' %}0{% elif key == 'b' %}1{% else %}2{% endif %}]?.label"></div>
+        <div class="party-list" data-lane-list="{{ key }}" @click="listClick($event)"></div>
+        <button type="button" class="btn btn-light btn-sm mt-2" @click="addParty('{{ key }}')"><i class="bi bi-plus-lg"></i>Taraf ekle</button>
+      </div>
+      {% endfor %}
+    </div>
+    <div id="party-rows" hidden>
+      {% for link, field in form.existing_party_rows %}
+        <div class="party-card" data-party-card data-existing data-party-name="{{ link.party.name }}" data-party-identity="{{ link.party.identity_no }}"><div class="mb-2"><strong>{{ link.party.name }}</strong></div>{% include "partials/field.html" with field=field %}{% if link.remove_field %}{{ link.remove_field }}{% endif %}</div>
+      {% endfor %}
+      {% for row in party_formset %}{% include "cases/_party_row.html" %}{% endfor %}
+    </div>
+    <template id="party-empty">{% include "cases/_party_row.html" with row=party_formset.empty_form %}</template>
+  </div>
+
+  <div class="form-section">
+    {% include "partials/field.html" with field=form.notes wrap_class="" %}
+  </div>
+  <div class="modal fade" id="party-modal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 class="modal-title fs-6" x-text="fresh ? 'Taraf ekle' : 'Tarafı düzenle'"></h2>
+          <button type="button" class="btn-close" aria-label="Kapat" @click="cancelParty()"></button>
+        </div>
+        <div class="modal-body" id="party-modal-body" @keydown.enter="if ($event.target.tagName === 'INPUT') { $event.preventDefault(); saveParty(); }"></div>
+        <div class="modal-footer">
+          <span class="text-danger small me-auto" x-text="modalError"></span>
+          <button type="button" class="btn btn-light" @click="cancelParty()">Vazgeç</button>
+          <button type="button" class="btn btn-primary" @click="saveParty()"><i class="bi bi-check2"></i>Kaydet</button>
+        </div>
+      </div>
+    </div>
+  </div>
   <div class="form-footer">
+    {% if object and request.user.is_office_admin %}<button type="submit" form="case-delete-form" class="btn btn-outline-danger me-auto" onclick="return confirm('Dosya ve belgeleri silinsin mi?')"><i class="bi bi-trash"></i>Dosyayı sil</button>{% endif %}
     <a class="btn btn-light" href="{% if object %}{{ object.get_absolute_url }}{% else %}{% url 'cases:list' %}{% endif %}">Vazgeç</a>
     <button class="btn btn-primary"><i class="bi bi-check2"></i>Kaydet</button>
   </div>
 </form>
+{% if object and request.user.is_office_admin %}<form id="case-delete-form" method="post" action="{% url 'cases:delete' object.pk %}">{% csrf_token %}</form>{% endif %}
 <script>
   function caseForm(initial) {
     const all = JSON.parse(document.getElementById("type-labels").textContent);
+    const KEYS = ["a", "b", "n"];
+    const esc = text => String(text).replace(/[&<>"']/g, c => (
+      { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+    let cardSeq = 0;
     return {
       caseType: initial,
+      clientRole: "",
+      clientName: "",
+      editing: null,
+      fresh: false,
+      snapshot: [],
+      modalError: "",
       get labels() { return all[this.caseType] || all.civil; },
+      get lanes() {
+        const lanes = JSON.parse(document.getElementById("party-lanes").textContent);
+        return lanes[this.caseType] || lanes.civil;
+      },
+      // Müvekkilin bölümü; sıfat seçilmeden müvekkil listede görünmez.
+      get clientLane() { return this.laneKeyOf(this.clientRole); },
+      laneKeyOf(role) {
+        const index = this.lanes.findIndex(lane => lane.roles.includes(role));
+        return index < 0 ? null : KEYS[index];
+      },
+      roleLabel(role) {
+        const roles = JSON.parse(document.getElementById("party-roles").textContent)[this.caseType] || [];
+        const found = roles.find(([value]) => value === role);
+        return found ? found[1] : "";
+      },
+      cardInfo(card) {
+        const value = selector => { const el = card.querySelector(selector); return el ? el.value.trim() : ""; };
+        const del = card.querySelector('input[name$="-DELETE"], input[name^="party_remove_"]');
+        return {
+          role: value("[data-party-role]"),
+          name: value('[name$="-name"]') || card.dataset.partyName || "",
+          identity: value('[name$="-identity_no"]') || card.dataset.partyIdentity || "",
+          existing: "existing" in card.dataset,
+          deleted: Boolean(del && del.checked),
+        };
+      },
+      // Taraf listesini kartlardaki değerlerden yeniden çizer.
+      renderList() {
+        const items = { a: [], b: [], n: [] };
+        const lane = this.clientLane;
+        if (lane) {
+          items[lane].push(
+            `<div class="party-item"><div class="party-item-main"><strong>${esc(this.clientName || "Müvekkil")}</strong> <span class="text-body-secondary">(müvekkil)</span>` +
+            `<div class="small text-body-secondary">${esc(this.roleLabel(this.clientRole))}</div></div></div>`);
+        }
+        this.$root.querySelectorAll("[data-party-card]").forEach(card => {
+          const info = this.cardInfo(card);
+          if (info.deleted || card === this.editing) return;
+          if (!card.dataset.cardId) card.dataset.cardId = String(++cardSeq);
+          const key = this.laneKeyOf(info.role) || "a";
+          const detail = [this.roleLabel(info.role) || "Sıfat seçilmeli", info.identity].filter(Boolean).map(esc).join(" · ");
+          const id = card.dataset.cardId;
+          items[key].push(
+            `<div class="party-item"><div class="party-item-main"><strong>${esc(info.name || "(adsız)")}</strong>` +
+            `<div class="small text-body-secondary">${detail}</div></div><div class="party-item-actions">` +
+            `<button type="button" class="btn btn-light btn-sm" data-card="${id}" data-card-action="edit" title="Düzenle"><i class="bi bi-pencil"></i></button>` +
+            (info.existing && !card.querySelector('input[name^="party_remove_"]') ? "" : `<button type="button" class="btn btn-light btn-sm" data-card="${id}" data-card-action="remove" title="Sil"><i class="bi bi-trash"></i></button>`) +
+            "</div></div>");
+        });
+        KEYS.forEach(key => {
+          const el = this.$root.querySelector(`[data-lane-list="${key}"]`);
+          if (el) el.innerHTML = items[key].join("") || '<div class="small text-body-secondary">Henüz taraf yok.</div>';
+        });
+      },
+      listClick(event) {
+        const button = event.target.closest("[data-card-action]");
+        if (!button) return;
+        const card = this.$root.querySelector(`[data-card-id="${button.dataset.card}"]`);
+        if (!card) return;
+        if (button.dataset.cardAction === "edit") this.openCard(card, false);
+        else {
+          card.querySelector('input[name$="-DELETE"], input[name^="party_remove_"]').checked = true;
+          this.renderList();
+        }
+      },
+      openCard(card, fresh) {
+        this.editing = card;
+        this.fresh = fresh;
+        this.modalError = "";
+        this.snapshot = Array.from(card.querySelectorAll("input,select,textarea"), el => [el, el.type === "checkbox" ? el.checked : el.value]);
+        this.$root.querySelector("#party-modal-body").replaceChildren(card);
+        this.renderList();
+        bootstrap.Modal.getOrCreateInstance(this.$root.querySelector("#party-modal")).show();
+      },
+      closeCard() {
+        const card = this.editing;
+        this.$root.querySelector("#party-rows").appendChild(card);
+        this.editing = null;
+        bootstrap.Modal.getOrCreateInstance(this.$root.querySelector("#party-modal")).hide();
+        this.renderList();
+      },
+      saveParty() {
+        const info = this.cardInfo(this.editing);
+        if (!info.role) { this.modalError = "Taraf sıfatını seçin."; return; }
+        if (!info.existing) {
+          const kind = this.editing.querySelector('[name$="-kind"]');
+          if (kind && !kind.value) { this.modalError = "Türü seçin."; return; }
+          if (!info.name) { this.modalError = "Ad soyad / unvan girin."; return; }
+        }
+        this.closeCard();
+      },
+      cancelParty() {
+        if (this.fresh) this.editing.querySelector('input[name$="-DELETE"]').checked = true;
+        else this.snapshot.forEach(([el, value]) => { if (el.type === "checkbox") el.checked = value; else el.value = value; });
+        this.closeCard();
+      },
+      formChanged(event) {
+        if (event.target.id === "id_client_role") this.clientRole = event.target.value;
+      },
+      updateRoles() {
+        const roles = JSON.parse(document.getElementById("party-roles").textContent)[this.caseType] || [];
+        this.$root.querySelectorAll("[data-party-role]").forEach(select => {
+          const selected = select.value;
+          select.replaceChildren(new Option("Seçiniz…", ""), ...roles.map(([value, label]) => new Option(label, value)));
+          select.value = roles.some(([value]) => value === selected) ? selected : "";
+        });
+        const client = this.$root.querySelector("#id_client_role");
+        this.clientRole = client ? client.value : "";
+        this.renderList();
+      },
+      addParty(key) {
+        const total = this.$root.querySelector("#id_parties-TOTAL_FORMS");
+        if (Number(total.value) >= 50) return;
+        const rows = this.$root.querySelector("#party-rows");
+        const html = this.$root.querySelector("#party-empty").innerHTML.replaceAll("__prefix__", total.value);
+        rows.insertAdjacentHTML("beforeend", html);
+        total.value = Number(total.value) + 1;
+        this.updateRoles();
+        // Yeni satırın sıfatı bölümün ilk sıfatı olarak gelir.
+        const card = rows.lastElementChild;
+        const select = card.querySelector("[data-party-role]");
+        const lane = this.lanes[KEYS.indexOf(key)];
+        if (select && lane && lane.roles.length) select.value = lane.roles[0];
+        this.openCard(card, true);
+      },
+      lawyerChanged(e) {
+        const map = JSON.parse(document.getElementById("intern-by-lawyer").textContent);
+        const intern = map[e.target.value];
+        if (intern) document.getElementById("id_responsible_intern").value = String(intern);
+      },
       init() {
+        this.$watch("caseType", () => this.updateRoles());
+        this.$watch("clientName", () => this.renderList());
+        this.$watch("clientRole", () => this.renderList());
+        const clientRole = this.$root.querySelector("#id_client_role");
+        this.clientRole = clientRole ? clientRole.value : "";
+        // Müvekkil adı, taraflar listesinde müvekkil satırında görünür.
+        const client = this.$root.querySelector("#id_client");
+        const showName = () => {
+          const option = client.options[client.selectedIndex];
+          this.clientName = option && option.value ? option.text : "";
+        };
+        showName();
+        this.renderList();
+        // Sunucu hata verdiyse hatalı taraf satırı doğrudan açılır.
+        const bad = this.$root.querySelector("#party-rows [data-party-card] .invalid-feedback");
+        if (bad) this.openCard(bad.closest("[data-party-card]"), false);
         // Müvekkil seçilince sorumlu avukat/stajyer müvekkilden gelir (değiştirilebilir).
-        const client = this.$el.querySelector("#id_client");
         client.addEventListener("change", async () => {
+          showName();
           if (!client.value) return;
           const r = await fetch(`/muvekkiller/${client.value}/varsayilanlar/`);
           const d = await r.json();
-          this.$el.querySelector("#id_responsible_lawyer").value = d.responsible_lawyer;
-          this.$el.querySelector("#id_responsible_intern").value = d.responsible_intern;
+          if (client.value !== String(d.client_id)) return;
+          this.$root.querySelector("#id_responsible_lawyer").value = d.responsible_lawyer;
+          this.$root.querySelector("#id_responsible_intern").value = d.responsible_intern;
         });
       },
     };

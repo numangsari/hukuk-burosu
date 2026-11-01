@@ -15,7 +15,7 @@ class CasesConfig(AppConfig):
             models.CaseParty,
             models.Document,
             models.Hearing,
-            models.Service,
             models.CaseEvent,
+            models.CaseStep,
         ):
             auditlog.register(m)

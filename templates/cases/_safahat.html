@@ -1,0 +1,55 @@
+{# Dosya detayı > Safahat sekmesi: esas dosyanın üst derece, bozma sonrası ve görevsizlik sonrası adımları. #}
+<div class="card">
+  <div class="card-header">
+    <h2 class="card-title">Safahat</h2>
+    <button type="button" class="btn btn-sm btn-primary ms-auto"
+            hx-get="{% url 'cases:step_add' case.pk %}" hx-target="#step-modal-dialog" hx-swap="innerHTML"
+            hx-on::after-request="bootstrap.Modal.getOrCreateInstance(document.getElementById('step-modal')).show()">
+      <i class="bi bi-plus-lg"></i>Adım ekle
+    </button>
+  </div>
+  <div class="card-body">
+    <div class="safahat-current">
+      <div class="info-label">Güncel esas dosya</div>
+      <div class="safahat-title">{{ case.authority|default:"Kurum girilmemiş" }}{% if case.official_no %} <span class="tabular">· {{ case.official_no }}</span>{% endif %}</div>
+    </div>
+    {% if steps %}
+    <ol class="safahat-list">
+      {% for step in steps %}
+      <li class="safahat-item">
+        <span class="safahat-dot"></span>
+        <div class="safahat-card">
+          <div class="d-flex align-items-start gap-2 flex-wrap">
+            <div class="min-w-0 flex-grow-1">
+              <div class="safahat-date tabular">{{ step.decision_date|date:"d.m.Y"|default:"Tarihsiz" }}</div>
+              <div class="safahat-title">{{ step.authority }}{% if step.official_no %} <span class="tabular">· {{ step.official_no }}</span>{% endif %}</div>
+            </div>
+            <div class="safahat-actions">
+              <button type="button" class="btn btn-light btn-sm" title="Düzenle"
+                      hx-get="{% url 'cases:step_edit' case.pk step.pk %}" hx-target="#step-modal-dialog" hx-swap="innerHTML"
+                      hx-on::after-request="bootstrap.Modal.getOrCreateInstance(document.getElementById('step-modal')).show()"><i class="bi bi-pencil"></i></button>
+              <form method="post" action="{% url 'cases:step_apply' case.pk step.pk %}" class="d-inline"
+                    onsubmit="return confirm('Esas dosyadaki kurum adı ve dosya numarası bu adımdaki bilgilerle değiştirilsin mi? Önceki bilgi dosya geçmişinde saklanır.')">{% csrf_token %}
+                <button class="btn btn-light btn-sm" title="Esas dosya bilgisi olarak ayarla"><i class="bi bi-arrow-repeat"></i></button>
+              </form>
+              {% if request.user.is_office_admin %}
+              <form method="post" action="{% url 'cases:step_delete' case.pk step.pk %}" class="d-inline" onsubmit="return confirm('Safahat adımı silinsin mi?')">{% csrf_token %}
+                <button class="btn btn-light btn-sm text-danger" title="Sil"><i class="bi bi-trash"></i></button>
+              </form>
+              {% endif %}
+            </div>
+          </div>
+          <div class="safahat-meta">
+            {% if step.decision_no %}<span><span class="text-body-secondary">Karar No</span> <strong class="tabular">{{ step.decision_no }}</strong></span>{% endif %}
+            <span class="chip chip-primary no-dot">{{ step.decision_label|default:step.decision }}</span>
+          </div>
+          {% if step.note %}<div class="small text-body-secondary mt-2">{{ step.note|linebreaksbr }}</div>{% endif %}
+        </div>
+      </li>
+      {% endfor %}
+    </ol>
+    {% else %}
+    <div class="empty-state"><i class="bi bi-diagram-3"></i><strong>Safahat adımı yok</strong>İstinaf, temyiz, bozma sonrası yeni esas veya görevsizlikle gönderilen mahkeme bilgilerini buraya ekleyin.</div>
+    {% endif %}
+  </div>
+</div>

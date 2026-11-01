@@ -1,5 +1,5 @@
 <div id="timeline" class="card">
-  <div class="card-header"><h2 class="card-title">Zaman çizelgesi</h2></div>
+  <div class="card-header"><h2 class="card-title">Notlar ve olaylar</h2></div>
   <form class="inline-form row g-2 align-items-end" style="border-top: 0; border-bottom: 1px solid var(--line); border-radius: 0"
         hx-post="{% url 'cases:event_add' case.pk %}" hx-target="#timeline" hx-swap="outerHTML">
     <div class="col-md-2">{% include "partials/field.html" with field=event_form.date wrap_class="" %}</div>
@@ -27,7 +27,7 @@
         </div>
       </li>
     {% empty %}
-      <li class="empty-state">Henüz kayıt yok. Tebligatlar, duruşma sonuçları ve tamamlanan görevler buraya otomatik düşer.</li>
+      <li class="empty-state">Henüz kayıt yok. Duruşma sonuçları, aşama değişiklikleri ve tamamlanan görevler buraya otomatik düşer.</li>
     {% endfor %}
   </ul>
 </div>

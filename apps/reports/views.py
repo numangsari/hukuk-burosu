@@ -5,7 +5,7 @@ from django.utils import timezone
 from django.utils.text import slugify
 from django.views import View
 
-from apps.accounting.permissions import can_view as can_view_accounting
+from apps.accounting.permissions import can_view_balances as can_view_accounting
 from apps.office.models import OfficeSettings
 
 from .base import fmt

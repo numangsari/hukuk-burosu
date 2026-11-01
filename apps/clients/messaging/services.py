@@ -26,7 +26,7 @@ RANK = {"sent": 1, "failed": 2, "delivered": 3, "read": 4}
 
 
 def recipient_ready(contact):
-    if not contact or not contact.opted_in or not contact.client.is_active or not contact.contact:
+    if not contact or not contact.opted_in or not contact.contact:
         return False
     try:
         return (

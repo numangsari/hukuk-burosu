@@ -170,14 +170,14 @@ def test_home_active_tasks_sorted_by_urgency(task_factory, intern, lawyer):
     services.perform(review, "submit", intern)
     r = login(intern).get(reverse("core:home"))
     # Kontrole gönderilen görev sorumlunun listesinden çıkar.
-    assert [t.title for t in r.context["own_tasks"]] == ["Gecikmiş", "Sonra"]
+    assert [t.title for t in r.context["own_tasks"]] == ["GECİKMİŞ", "SONRA"]
     # Stajyerde kontrol paneli gösterilmez.
     assert not r.context["show_review"]
     assert "Kontrolümü bekleyenler" not in r.content.decode()
     r = login(lawyer).get(reverse("core:home"))
     # Kontrolcüde ayrı bölümde görünür, kendi görevleriyle karışmaz.
     assert list(r.context["own_tasks"]) == []
-    assert [t.title for t in r.context["review_tasks"]] == ["Kontrolde"]
+    assert [t.title for t in r.context["review_tasks"]] == ["KONTROLDE"]
     assert "Kontrolümü bekleyenler" in r.content.decode()
 
 
@@ -195,7 +195,7 @@ def test_home_shows_revision_note_and_approval_until_seen(task_factory, intern, 
     services.perform(t, "approve", lawyer)
     r = c.get(reverse("core:home"))
     # Onaylanan görev sorumluya "Onaylandı" olarak döner.
-    assert [x.title for x in r.context["approved_tasks"]] == ["Dilekçe"]
+    assert [x.title for x in r.context["approved_tasks"]] == ["DİLEKÇE"]
     assert "Onaylandı" in r.content.decode()
     # Görevi açmak onay satırını kaldırmaz (tamamlama prosedürü ayrıca belirlenecek).
     c.get(t.get_absolute_url())

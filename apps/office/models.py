@@ -33,10 +33,6 @@ class OfficeSettings(models.Model):
     upcoming_days = models.PositiveSmallIntegerField("yaklaşan tarih penceresi (gün)", default=7)
     backup_time = models.TimeField("yedek saati", default=datetime.time(12, 30))
     backup_dir = models.CharField("yedek hedef klasörü", max_length=500, blank=True)
-    lawyer_can_view_accounting = models.BooleanField("avukat muhasebeyi görür", default=True)
-    lawyer_can_edit_accounting = models.BooleanField("avukat muhasebe girer", default=True)
-    intern_can_view_accounting = models.BooleanField("stajyer muhasebeyi görür", default=False)
-    intern_can_edit_accounting = models.BooleanField("stajyer muhasebe girer", default=False)
 
     class Meta:
         verbose_name = "ofis ayarları"

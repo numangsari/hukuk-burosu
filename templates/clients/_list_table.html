@@ -3,18 +3,18 @@
 <table class="table table-hover">
   <thead>
     <tr>
+      <th style="width: 110px">{% sort_link "poa" "Vekalet" %}</th>
       <th>{% sort_link "name" "Müvekkil" %}</th>
-      <th>{% sort_link "kind" "Tip" %}</th>
       <th>{% sort_link "responsible_lawyer__first_name" "Sorumlular" %}</th>
-      <th>Vekalet</th>
       <th class="text-end">{% sort_link "case_count" "Dosya" %}</th>
       <th class="text-end">{% sort_link "open_task_count" "Açık görev" %}</th>
-      {% if can_view_accounting %}<th class="text-end">{% sort_link "balance" "Bakiye" %}</th>{% endif %}
+      {% if can_view_balances %}<th class="text-end">{% sort_link "balance" "Bakiye" %}</th>{% endif %}
     </tr>
   </thead>
   <tbody>
   {% for c in clients %}
     <tr data-href="{{ c.get_absolute_url }}" onclick="location.href=this.dataset.href">
+      <td>{% if c.poa_no %}<span class="poa-no tabular">{{ c.poa_label }}</span>{% elif c.has_poa %}<span class="chip chip-success">Var</span>{% else %}<span class="chip chip-warning">Yok</span>{% endif %}</td>
       <td>
         <div class="d-flex align-items-center gap-3">
           <span class="hero-icon" style="width: 36px; height: 36px; font-size: 1rem; border-radius: 10px;{% if c.kind == 'company' %} background: var(--accent-soft); color: var(--accent){% endif %}">
@@ -22,20 +22,17 @@
           </span>
           <div class="min-w-0">
             <a href="{{ c.get_absolute_url }}" class="cell-main text-reset">{{ c.name }}</a>
-            {% if not c.is_active %}<span class="chip no-dot ms-1">Pasif</span>{% endif %}
             <div class="cell-sub tabular">{{ c.identity_no|default:"Kimlik no girilmemiş" }}</div>
           </div>
         </div>
       </td>
-      <td class="text-body-secondary">{{ c.get_kind_display }}</td>
       <td><div>{{ c.responsible_lawyer }}</div><div class="cell-sub">{{ c.responsible_intern }}</div></td>
-      <td>{% if c.has_poa %}<span class="chip chip-success">Var</span>{% else %}<span class="chip chip-warning">Yok</span>{% endif %}</td>
       <td class="text-end tabular fw-semibold">{{ c.case_count }}</td>
       <td class="text-end tabular">{% if c.open_task_count %}<span class="count-pill">{{ c.open_task_count }}</span>{% else %}<span class="text-body-secondary">0</span>{% endif %}</td>
-      {% if can_view_accounting %}<td class="text-end tabular {% if c.balance > 0 %}text-debt fw-semibold{% elif c.balance < 0 %}text-credit{% else %}text-body-secondary{% endif %}">{{ c.balance|tl }}</td>{% endif %}
+      {% if can_view_balances %}<td class="text-end tabular {% if c.balance > 0 %}text-debt fw-semibold{% elif c.balance < 0 %}text-credit{% else %}text-body-secondary{% endif %}">{{ c.balance|tl }}</td>{% endif %}
     </tr>
   {% empty %}
-    <tr><td colspan="8"><div class="empty-state"><i class="bi bi-people"></i><strong>Müvekkil bulunamadı</strong>Filtreleri değiştirin veya yeni müvekkil ekleyin.</div></td></tr>
+    <tr><td colspan="6"><div class="empty-state"><i class="bi bi-people"></i><strong>Müvekkil bulunamadı</strong>Filtreleri değiştirin veya yeni müvekkil ekleyin.</div></td></tr>
   {% endfor %}
   </tbody>
 </table>

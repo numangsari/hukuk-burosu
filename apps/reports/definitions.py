@@ -71,7 +71,7 @@ def build_statement(d, user):
             [
                 e.date,
                 e.get_kind_display(),
-                e.case.archive_no if e.case else "",
+                e.case.archive_reference if e.case else "",
                 e.description,
                 e.amount,
                 cari,
@@ -113,9 +113,7 @@ class DebtorsForm(BootstrapMixin, forms.Form):
 def build_debtors(d, user):
     from apps.clients.views import annotate_list_values
 
-    qs = annotate_list_values(Client.objects.select_related("responsible_lawyer")).filter(
-        is_active=True
-    )
+    qs = annotate_list_values(Client.objects.select_related("responsible_lawyer"))
     if d.get("lawyer"):
         qs = qs.filter(responsible_lawyer=d["lawyer"])
     if not d.get("include_zero"):
@@ -181,7 +179,7 @@ def build_tasks(d, user):
         qs = qs.filter(Q(assignee=d["user"]) | Q(reviewer=d["user"]))
     qs = _date_filter(qs, d, "due_date").order_by("due_date", "pk")
     rows = [
-        [t.due_date, t.title, t.task_type.name, f"{t.case.archive_no} · {t.client}", t.assignee, t.reviewer,
+        [t.due_date, t.title, t.task_type.name, f"{t.case.archive_reference} · {t.client}", t.assignee, t.reviewer,
          t.get_status_display() + (" (revizyon)" if t.revision_requested else ""),
          t.due_label if t.is_open else (f"{timezone.localtime(t.completed_at):%d.%m.%Y}" if t.completed_at else "")]
         for t in qs
@@ -212,7 +210,7 @@ class CaseListForm(BootstrapMixin, forms.Form):
     )
     status = forms.ChoiceField(
         label="Durum",
-        choices=[("open", "Açık dosyalar"), *CaseStatus.choices, ("all", "Tümü")],
+        choices=[("open", "Açık dosyalar"), ("closed", "Kapalı dosyalar"), ("all", "Tümü")],
         initial="open",
         required=False,
     )
@@ -238,8 +236,8 @@ def build_cases(d, user):
         "archive_no"
     )
     rows = [
-        [k.archive_no, k.get_case_type_display(), k.subject, k.client.name, f"{k.authority} {k.official_no}".strip(),
-         k.get_status_display() + (f" / {k.get_stage_display()}" if k.stage else ""), k.responsible_lawyer, k.open_tasks]
+        [k.archive_reference, k.get_case_type_display(), k.display_name, k.client.name, f"{k.authority} {k.official_no}".strip(),
+         k.status_summary, k.responsible_lawyer, k.open_tasks]
         for k in qs
     ]  # fmt: skip
     return ReportResult(
@@ -312,7 +310,7 @@ def _tl(v):
 # 6. Müvekkil bazlı dosya son durum raporu --------------------------------------------------
 class ClientCasesForm(BootstrapMixin, forms.Form):
     client = forms.ModelChoiceField(label="Müvekkil", queryset=Client.objects.all(), required=False,
-                                    help_text="Boş bırakılırsa tüm aktif müvekkiller")  # fmt: skip
+                                    help_text="Boş bırakılırsa tüm müvekkiller")  # fmt: skip
     include_closed = forms.BooleanField(label="Kapanmış dosyaları da göster", required=False)
 
 
@@ -321,8 +319,6 @@ def build_client_cases(d, user):
     cases = Case.objects.select_related("client")
     if d.get("client"):
         cases = cases.filter(client=d["client"])
-    else:
-        cases = cases.filter(client__is_active=True)
     if not d.get("include_closed"):
         cases = cases.exclude(status=CaseStatus.CLOSED)
     hearing_sq = (
@@ -344,14 +340,14 @@ def build_client_cases(d, user):
         last_title=Subquery(last_sq.values("title")[:1]),
     ).order_by("client__name", "archive_no")
     rows = [
-        [k.client.name, k.archive_no, k.subject, k.get_status_display() + (f" / {k.get_stage_display()}" if k.stage else ""),
+        [k.client.name, k.archive_reference, k.display_name, k.status_summary,
          f"{timezone.localtime(k.next_hearing):%d.%m.%Y %H:%M}" if k.next_hearing else "",
          k.open_tasks, f"{k.last_date:%d.%m.%Y} {k.last_title}" if k.last_date else ""]
         for k in cases
     ]  # fmt: skip
     return ReportResult(
         title="Dosyaların Son Durumu",
-        subtitle=(d["client"].name if d.get("client") else "Tüm aktif müvekkiller")
+        subtitle=(d["client"].name if d.get("client") else "Tüm müvekkiller")
         + f" · {timezone.localdate():%d.%m.%Y}",
         columns=[
             Column("Müvekkil", "text", 1.5),

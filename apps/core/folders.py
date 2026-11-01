@@ -114,7 +114,7 @@ def case_dir(case) -> Path:
     others = others.exclude(folder_name="")
     if stored.folder_name and fold(sanitize(stored.folder_name)) == fold(POA_DIR):
         raise FolderError("Dosya klasörü için Vekaletler adı kullanılamaz. Farklı bir ad seçin.")
-    wanted = f"D{stored.pk:06d} - {stored.archive_no} - {stored.subject}"
+    wanted = f"D{stored.pk:06d} - {stored.archive_reference} - {stored.subject}"
     path = _record_dir(stored, parent, wanted, others, "dosya")
     case.folder_name = stored.folder_name
     return path

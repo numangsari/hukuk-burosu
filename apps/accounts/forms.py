@@ -74,7 +74,7 @@ class UserAdminForm(BootstrapMixin, forms.ModelForm):
 
     class Meta:
         model = User
-        fields = ["first_name", "last_name", "role", "title", "order", "is_active"]
+        fields = ["first_name", "last_name", "role", "title", "supervisor", "order", "is_active"]
         labels = {"first_name": "Ad", "last_name": "Soyad", "is_active": "Aktif"}
 
     def __init__(self, *args, editor=None, **kwargs):
@@ -82,6 +82,14 @@ class UserAdminForm(BootstrapMixin, forms.ModelForm):
         self.editor = editor
         self.fields["first_name"].required = True
         self.fields["last_name"].required = True
+        self.fields["supervisor"].help_text = (
+            "Bu kişi görevde sorumlu olunca kontrolcü olarak bu kişi önerilir. Stajyerde ayrıca "
+            "müvekkil ve dosyada bu avukat seçilince stajyer otomatik dolar."
+        )
+        self.fields["role"].widget.attrs["x-model"] = "role"
+        self.fields["supervisor"].queryset = User.objects.filter(
+            role__in=[User.Role.ADMIN, User.Role.LAWYER], is_active=True
+        ).exclude(pk=self.instance.pk)
 
     def clean_pin(self):
         pin = self.cleaned_data.get("pin", "")
@@ -118,3 +126,28 @@ class UserAdminForm(BootstrapMixin, forms.ModelForm):
         if commit:
             user.save()
         return user
+
+
+class BalanceViewersForm(forms.Form):
+    """Müvekkil bakiyesini, borçlu süzgecini, cari hesabı ve finansal raporları kimin
+    göreceği. Yöneticiler her zaman görür."""
+
+    viewers = forms.ModelMultipleChoiceField(
+        label="Bakiyeleri görebilenler",
+        queryset=User.objects.none(),
+        required=False,
+        widget=forms.CheckboxSelectMultiple,
+    )
+
+    def __init__(self, data=None, files=None):
+        super().__init__(data)
+        qs = User.objects.filter(is_active=True).exclude(role=User.Role.ADMIN)
+        self.fields["viewers"].queryset = qs
+        self.initial["viewers"] = list(qs.filter(can_view_balances=True))
+
+    def save(self):
+        chosen = {u.pk for u in self.cleaned_data["viewers"]}
+        qs = self.fields["viewers"].queryset
+        qs.filter(pk__in=chosen).update(can_view_balances=True)
+        qs.exclude(pk__in=chosen).update(can_view_balances=False)
+        return None

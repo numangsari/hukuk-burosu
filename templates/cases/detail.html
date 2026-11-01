@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% load ui %}
-{% block title %}{{ case.archive_no }} — {{ office.name }}{% endblock %}
+{% block title %}{{ case.archive_reference }} — {{ office.name }}{% endblock %}
 {% block content %}
 <div class="page-header mb-3">
   <div class="eyebrow"><a href="{% url 'cases:list' %}"><i class="bi bi-chevron-left"></i> Dosyalar</a></div>
@@ -10,37 +10,80 @@
   <div class="detail-hero">
     <div class="hero-icon"><i class="bi bi-folder2-open"></i></div>
     <div class="min-w-0">
-      <div class="small text-body-secondary fw-medium">{{ case.get_case_type_display }} · Arşiv no <span class="tabular">{{ case.archive_no }}</span></div>
       <div class="d-flex align-items-center gap-2 flex-wrap">
-        <h1 class="page-title">{{ case.subject }}</h1>
-        {% with k=case %}{% include "cases/_status_chip.html" %}{% endwith %}
-        {% if case.stage %}<span class="chip no-dot">{{ case.get_stage_display }}</span>{% endif %}
+        <h1 class="page-title">{{ case.display_name }}</h1>
       </div>
       <div class="meta">
         <span><i class="bi bi-person"></i>Müvekkil <a class="fw-medium" href="{{ case.client.get_absolute_url }}">{{ case.client }}</a></span>
-        {% if case.authority %}<span><i class="bi bi-bank2"></i>{{ case.authority }}</span>{% endif %}
-        {% if case.official_no %}<span><i class="bi bi-hash"></i>{{ case.labels.official_no }} <strong class="tabular">{{ case.official_no }}</strong></span>{% endif %}
-        <span><i class="bi bi-briefcase"></i>{{ case.responsible_lawyer }}</span>
-        <span><i class="bi bi-mortarboard"></i>{{ case.responsible_intern }}</span>
       </div>
     </div>
     <div class="page-actions">
-      {% if request.user.is_office_admin %}
-      <form method="post" action="{% url 'cases:delete' case.pk %}" onsubmit="return confirm('Dosya ve belgeleri silinsin mi?')">{% csrf_token %}
-        <button class="btn btn-outline-danger btn-icon" title="Sil"><i class="bi bi-trash"></i></button>
-      </form>
+      {% if case.is_open %}
+      <a class="btn btn-light" href="{% url 'cases:close' case.pk %}"><i class="bi bi-archive"></i>Dosyayı kapat</a>
       {% endif %}
       <a class="btn btn-light" href="{% url 'cases:update' case.pk %}"><i class="bi bi-pencil"></i>Düzenle</a>
       <a class="btn btn-primary" href="{% url 'tasks:create' %}?dosya={{ case.pk }}"><i class="bi bi-plus-lg"></i>Yeni görev</a>
     </div>
   </div>
+  <div class="case-status" x-data="{ stage: '', label: '', pick(el) { this.stage = el.dataset.stage; this.label = el.dataset.label; bootstrap.Modal.getOrCreateInstance(this.$refs.confirm).show(); }, reopen() { bootstrap.Modal.getOrCreateInstance(this.$refs.reopen).show(); } }">
+    {% if case.is_open %}
+    <div class="case-status-state is-open">Açık</div>
+    <div class="case-status-body">
+      <ol class="stage-track">
+        {% for step in stage_steps %}
+        <li class="stage-{{ step.state }}">
+          <button type="button" class="stage-step" data-stage="{{ step.key }}" data-label="{{ step.label }}" {% if step.state == "current" %}aria-current="step" disabled{% else %}@click="pick($el)"{% endif %}>
+            <span class="stage-dot"></span><span class="stage-name">{{ step.label }}</span>
+          </button>
+        </li>
+        {% endfor %}
+      </ol>
+    </div>
+    <div class="modal fade" x-ref="confirm" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <form method="post" action="{% url 'cases:stage' case.pk %}" class="modal-content">{% csrf_token %}
+          <input type="hidden" name="stage" :value="stage">
+          <div class="modal-header"><h2 class="modal-title fs-6">Aşamayı değiştir</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Kapat"></button></div>
+          <div class="modal-body">Dosyanın aşaması <strong>{{ case.stage_label }}</strong> yerine <strong x-text="label"></strong> olarak değiştirilsin mi?</div>
+          <div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Vazgeç</button><button class="btn btn-primary">Onayla</button></div>
+        </form>
+      </div>
+    </div>
+    {% else %}
+    <div class="case-status-state is-closed">Kapalı</div>
+    <div class="case-status-body case-closing">
+      <div class="case-closing-info">
+        <div class="case-closing-reason">{{ case.closing_label|default:"—" }}</div>
+        {% if case.decision_date or case.decision_no %}<div class="case-closing-date tabular">{% if case.decision_date %}Karar Tarihi: {{ case.decision_date|date:"d.m.Y" }}{% endif %}{% if case.decision_date and case.decision_no %} - {% endif %}{% if case.decision_no %}Karar No: {{ case.decision_no }}{% endif %}</div>{% endif %}
+        {% if case.closed_on %}<div class="case-closing-date tabular">Kapanma Tarihi: {{ case.closed_on|date:"d.m.Y" }}</div>{% endif %}
+      </div>
+      {% if request.user.is_office_admin %}
+      <button type="button" class="btn btn-light text-nowrap" @click="reopen()"><i class="bi bi-arrow-counterclockwise"></i>Yeniden aç</button>
+      {% endif %}
+    </div>
+    {% if request.user.is_office_admin %}
+    <div class="modal fade" x-ref="reopen" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <form method="post" action="{% url 'cases:reopen' case.pk %}" class="modal-content">{% csrf_token %}
+          <div class="modal-header"><h2 class="modal-title fs-6">Dosyayı yeniden aç</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Kapat"></button></div>
+          <div class="modal-body">
+            <p>Dosya yeniden açılsın mı? Kapanış bilgileri dosyadan kalkar, geçmişte ve zaman çizelgesinde saklanır.</p>
+            <label class="form-label" for="id_stage">Açılacağı aşama</label>
+            {{ stage_form.stage }}
+          </div>
+          <div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Vazgeç</button><button class="btn btn-primary">Yeniden aç</button></div>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+    {% endif %}
+  </div>
   <ul class="nav nav-underline-tabs">
     <li><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#t-ozet">Özet</button></li>
+    <li><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-taraflar">Taraflar<span class="count">{{ party_links|length }}</span></button></li>
+    {% if case.has_safahat %}<li><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-safahat">Safahat<span class="count">{{ steps|length }}</span></button></li>{% endif %}
     <li><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-gorevler">Görevler<span class="count">{{ tasks|length }}</span></button></li>
     <li><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-durusmalar">Duruşmalar<span class="count">{{ hearings|length }}</span></button></li>
-    <li><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-tebligatlar">Tebligatlar<span class="count">{{ services|length }}</span></button></li>
-    <li><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-zaman">Zaman çizelgesi</button></li>
-    <li><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-taraflar">Karşı taraflar<span class="count">{{ party_links|length }}</span></button></li>
     <li><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-belgeler">Belgeler<span class="count">{{ documents|length }}</span></button></li>
     {% if can_view_accounting %}<li><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-muhasebe">Muhasebe</button></li>{% endif %}
     <li><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-gecmis">Geçmiş</button></li>
@@ -48,58 +91,33 @@
 </div>
 
 <div class="tab-content">
-  <div class="tab-pane fade show active" id="t-ozet">
-    <div class="row g-3">
-      <div class="col-lg-8">
-        <div class="card h-100"><div class="card-body">
-          <h2 class="section-title">Dosya bilgileri</h2>
-          <dl class="dl-grid">
-            <dt>{{ case.labels.official_no }}</dt><dd class="tabular">{{ case.official_no|default:"—" }}</dd>
-            {% if case.labels.authority %}<dt>{{ case.labels.authority }}</dt><dd>{{ case.authority|default:"—" }}</dd>{% endif %}
-            {% if case.labels.value %}<dt>{{ case.labels.value }}</dt><dd class="tabular">{{ case.value|tl }}</dd>{% endif %}
-            {% if case.enforcement_type %}<dt>Takip türü</dt><dd>{{ case.get_enforcement_type_display }}</dd>{% endif %}
-            {% if case.crime %}<dt>Suç</dt><dd>{{ case.crime }}</dd>{% endif %}
-            {% if case.mediator %}<dt>Arabulucu</dt><dd>{{ case.mediator }}</dd>{% endif %}
-            <dt>Notlar</dt><dd>{{ case.notes|linebreaksbr|default:"—" }}</dd>
-          </dl>
-        </div></div>
-      </div>
-      <div class="col-lg-4">
-        <div class="card h-100"><div class="card-body">
-          <h2 class="section-title">Ekip ve tarihler</h2>
-          <div class="d-flex align-items-center gap-2 mb-3">
-            <span class="avatar avatar-sm" style="--h: {{ case.responsible_lawyer.avatar_hue }}">{{ case.responsible_lawyer.initials }}</span>
-            <div><div class="fw-medium">{{ case.responsible_lawyer }}</div><div class="small text-body-secondary">Sorumlu avukat</div></div>
-          </div>
-          <div class="d-flex align-items-center gap-2 mb-3">
-            <span class="avatar avatar-sm" style="--h: {{ case.responsible_intern.avatar_hue }}">{{ case.responsible_intern.initials }}</span>
-            <div><div class="fw-medium">{{ case.responsible_intern }}</div><div class="small text-body-secondary">Sorumlu stajyer</div></div>
-          </div>
-          <dl class="dl-grid" style="grid-template-columns: 110px 1fr">
-            <dt>Açılış</dt><dd class="tabular">{{ case.opened_on|date:"d.m.Y"|default:"—" }}</dd>
-            <dt>Kapanış</dt><dd class="tabular">{{ case.closed_on|date:"d.m.Y"|default:"—" }}</dd>
-            <dt>Kayıt</dt><dd class="small text-body-secondary">{{ case.created_at|date:"d.m.Y" }}{% if case.created_by %} · {{ case.created_by }}{% endif %}</dd>
-          </dl>
-        </div></div>
-      </div>
-    </div>
-  </div>
+  <div class="tab-pane fade show active" id="t-ozet">{% include "cases/_summary.html" %}</div>
+  <div class="tab-pane fade" id="t-taraflar">{% include "cases/_parties.html" %}</div>
+  {% if case.has_safahat %}<div class="tab-pane fade" id="t-safahat">{% include "cases/_safahat.html" %}</div>{% endif %}
   <div class="tab-pane fade" id="t-gorevler">{% include "cases/_tasks.html" %}</div>
   <div class="tab-pane fade" id="t-durusmalar">{% include "cases/_hearings.html" %}</div>
-  <div class="tab-pane fade" id="t-tebligatlar">{% include "cases/_services.html" %}</div>
-  <div class="tab-pane fade" id="t-zaman">{% include "cases/_timeline.html" %}</div>
-  <div class="tab-pane fade" id="t-taraflar">{% include "cases/_parties.html" %}</div>
   <div class="tab-pane fade" id="t-belgeler">{% include "cases/_documents.html" %}</div>
-  <div class="tab-pane fade" id="t-gecmis">{% include "activity/_history.html" %}</div>
+  <div class="tab-pane fade" id="t-gecmis">
+    <div class="mb-3">{% include "cases/_timeline.html" %}</div>
+    {% include "activity/_history.html" %}
+  </div>
   {% if can_view_accounting %}
   <div class="tab-pane fade" id="t-muhasebe">
     <div class="card table-card">
       <div class="card-header"><h2 class="card-title">Dosya hareketleri</h2>
         {% if can_edit_accounting %}<a class="btn btn-sm btn-primary ms-auto" href="{% url 'accounting:create' %}?dosya={{ case.pk }}&next={{ case.get_absolute_url|urlencode }}"><i class="bi bi-plus-lg"></i>Yeni gelir / gider</a>{% endif %}</div>
-      {% include "accounting/_balances.html" with b=ledger_balances %}
+      {% if can_view_balances %}{% include "accounting/_balances.html" with b=ledger_balances %}{% endif %}
       {% include "accounting/_statement.html" with rows=ledger_rows next=case.get_absolute_url %}
     </div>
   </div>
   {% endif %}
 </div>
+<div class="modal fade" id="step-modal" tabindex="-1" aria-hidden="true"><div class="modal-dialog modal-lg" id="step-modal-dialog"></div></div>
+<script>
+  // Adres #t-... ile açılırsa ilgili sekme açılır (ör. safahat adımı kaydından sonra).
+  document.addEventListener("DOMContentLoaded", () => {
+    const tab = location.hash && document.querySelector('.nav-underline-tabs [data-bs-target="' + location.hash + '"]');
+    if (tab) tab.click();
+  });
+</script>
 {% endblock %}

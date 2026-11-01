@@ -7,6 +7,7 @@ from django.utils import timezone
 from apps.cases.models import Case
 from apps.clients.models import Client
 from apps.core.models import TimeStampedModel
+from apps.core.text import tr_upper
 from apps.office.models import TaskType
 
 
@@ -74,6 +75,7 @@ class Task(TimeStampedModel):
             raise ValidationError({"reviewer": "Kontrolcü, sorumludan farklı biri olmalı."})
 
     def save(self, *args, **kwargs):
+        self.title = tr_upper(self.title).strip()  # görev adları büyük harf
         if self.case_id:
             self.client_id = Case.objects.values_list("client_id", flat=True).get(pk=self.case_id)
         super().save(*args, **kwargs)

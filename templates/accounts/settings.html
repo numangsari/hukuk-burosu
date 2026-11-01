@@ -19,7 +19,7 @@
         {% if office.documents_root %}<span class="chip chip-success ms-auto">Ayarlı</span>{% endif %}</a>
       <a class="{% if active == 'gorev_turleri' %}active{% endif %}" href="?bolum=gorev_turleri"><i class="bi bi-list-check"></i>Görev türleri</a>
       <a href="{% url 'imports:import' %}"><i class="bi bi-file-earmark-arrow-up"></i>Excel'den veri aktarımı</a>
-      <a class="{% if active == 'yetkiler' %}active{% endif %}" href="?bolum=yetkiler"><i class="bi bi-shield-check"></i>Muhasebe yetkileri</a>
+      <a class="{% if active == 'yetkiler' %}active{% endif %}" href="?bolum=yetkiler"><i class="bi bi-shield-check"></i>Bakiye görme yetkisi</a>
       <a class="{% if active == 'takvim' %}active{% endif %}" href="?bolum=takvim"><i class="bi bi-calendar3"></i>Google Takvim
         {% if calendar_connected %}<span class="chip chip-success ms-auto">Bağlı</span>{% endif %}</a>
       {% endif %}
@@ -109,7 +109,7 @@
         </div>
       </div>
       <div class="col-xl-5">
-        <form method="post" class="card">{% csrf_token %}<input type="hidden" name="section" value="kullanicilar">
+        <form method="post" class="card" x-data="{ role: '{{ form.role.value|default:'lawyer' }}' }">{% csrf_token %}<input type="hidden" name="section" value="kullanicilar">
           {% if form.instance.pk %}<input type="hidden" name="user_id" value="{{ form.instance.pk }}">{% endif %}
           <div class="form-section">
             <div class="form-section-head"><h2>{% if form.instance.pk %}{{ form.instance }} — düzenle{% else %}Yeni kullanıcı{% endif %}</h2>
@@ -120,6 +120,7 @@
               <div class="col-md-6">{% include "partials/field.html" with field=form.last_name %}</div>
               <div class="col-md-6">{% include "partials/field.html" with field=form.role %}</div>
               <div class="col-md-6">{% include "partials/field.html" with field=form.title %}</div>
+              <div class="col-12">{% include "partials/field.html" with field=form.supervisor %}</div>
               <div class="col-md-6">{% include "partials/field.html" with field=form.pin %}</div>
               <div class="col-md-6">{% include "partials/field.html" with field=form.order %}</div>
             </div>
@@ -230,14 +231,10 @@
     {% with form=forms.yetkiler %}
     <form method="post" class="card" style="max-width: 640px">{% csrf_token %}<input type="hidden" name="section" value="yetkiler">
       <div class="form-section">
-        <div class="form-section-head"><h2>Muhasebe yetkileri</h2><p>Yönetici her zaman tam yetkilidir. Görme yetkisi olmayan rol, bakiye sütununu ve cari hesabı da göremez.</p></div>
-        <table class="table perm-table mb-0">
-          <thead><tr><th>Rol</th><th class="text-center">Görebilir</th><th class="text-center">Hareket girebilir / iptal edebilir</th></tr></thead>
-          <tbody>
-            <tr><td class="fw-medium">Avukat</td><td class="text-center">{{ form.lawyer_can_view_accounting }}</td><td class="text-center">{{ form.lawyer_can_edit_accounting }}</td></tr>
-            <tr><td class="fw-medium">Stajyer</td><td class="text-center">{{ form.intern_can_view_accounting }}</td><td class="text-center">{{ form.intern_can_edit_accounting }}</td></tr>
-          </tbody>
-        </table>
+        <div class="form-section-head"><h2>Bakiye görme yetkisi</h2><p>Herkes muhasebe kaydı görür ve girer. Müvekkil bakiyesi, borçlu süzgeci, cari hesap ve finansal raporlar yalnızca yöneticilere ve aşağıda işaretlenen kişilere görünür.</p></div>
+        <div class="balance-viewers">
+          {% for cb in form.viewers %}<label class="form-check">{{ cb.tag }}<span class="form-check-label">{{ cb.choice_label }}</span></label>{% endfor %}
+        </div>
       </div>
       <div class="form-footer"><button class="btn btn-primary"><i class="bi bi-check2"></i>Kaydet</button></div>
     </form>

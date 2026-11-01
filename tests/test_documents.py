@@ -90,16 +90,16 @@ def test_approve_publishes_to_case_and_folder(task, intern, lawyer, office_root)
     services.perform(task, "approve", lawyer)
     assert task.warnings == []
     doc = Document.objects.get(case=task.case)
-    assert doc.category == "petition" and doc.title == "Cevap dilekçesi"
+    assert doc.category == "petition" and doc.title == "CEVAP DİLEKÇESİ"
     folder = (
         office_root
         / "Müvekkiller"
-        / f"M{task.case.client_id:06d} - Deneme Kişi"
-        / f"D{task.case_id:06d} - 2026-0041 - Alacak davası"
+        / f"M{task.case.client_id:06d} - DENEME KİŞİ"
+        / f"D{task.case_id:06d} - 2026-0041 - ALACAK DAVASI"
     )
     files = list(folder.iterdir())
     assert len(files) == 1 and files[0].read_bytes() == b"son hal"
-    assert files[0].name == f"{timezone.localdate():%Y-%m-%d} Cevap dilekçesi.docx"
+    assert files[0].name == f"{timezone.localdate():%Y-%m-%d} CEVAP DİLEKÇESİ.docx"
     assert doc.folder_path == str(files[0])
 
 
@@ -131,11 +131,11 @@ def test_existing_client_folder_is_reused_and_names_not_overwritten(
 
 def test_poa_pdf_goes_to_vekaletler(client_factory, lawyer_client, office_root):
     c = client_factory()
-    lawyer_client.post(
-        reverse("clients:sub_add", args=[c.pk, "vekalet"]),
-        {"notary": "Sakarya 1. Noterliği", "date": "2026-10-01", "journal_no": "12345",
-         "pdf": SimpleUploadedFile("vekalet.pdf", b"%PDF")},
-    )  # fmt: skip
+    from tests.conftest import client_form_data
+
+    row = {"notary": "Sakarya 1. Noterliği", "date": "2026-10-01", "journal_no": "12345",
+           "pdf": SimpleUploadedFile("vekalet.pdf", b"%PDF")}  # fmt: skip
+    lawyer_client.post(reverse("clients:update", args=[c.pk]), client_form_data(c, vekalet=[row]))
     poa = PowerOfAttorney.objects.get()
     assert Path(poa.folder_path).parent.name == "Vekaletler"
     assert Path(poa.folder_path).name == "2026-10-01 Sakarya 1. Noterliği 12345.pdf"

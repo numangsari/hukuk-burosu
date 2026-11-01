@@ -10,7 +10,7 @@ from django.utils import timezone
 from openpyxl import load_workbook
 
 from apps.accounting.models import EntryKind, LedgerEntry
-from apps.cases.models import CaseParty, Hearing, Service
+from apps.cases.models import CaseParty, Hearing
 from apps.clients.models import Party
 from apps.office.models import TaskType
 from apps.reports.base import Column, ReportResult
@@ -41,17 +41,12 @@ def task(case_factory, intern, lawyer):
 
 
 @pytest.mark.parametrize("role", ["intern", "lawyer", "admin_user"])
-@pytest.mark.parametrize("kind", ["hearing", "service", "party"])
+@pytest.mark.parametrize("kind", ["hearing", "party"])
 def test_case_record_delete_requires_admin(request, role, kind, case_factory):
     case = case_factory()
     if kind == "hearing":
         item = Hearing.objects.create(case=case, starts_at=timezone.now())
         route = "cases:hearing_delete"
-    elif kind == "service":
-        item = Service.objects.create(
-            case=case, kind="post", subject="Örnek tebligat", served_on=timezone.localdate()
-        )
-        route = "cases:service_delete"
     else:
         party = Party.objects.create(kind="person", name="Örnek Karşı Taraf")
         item = CaseParty.objects.create(case=case, party=party, role="defendant")
@@ -67,6 +62,8 @@ def test_case_record_delete_requires_admin(request, role, kind, case_factory):
 @pytest.mark.parametrize("role", ["intern", "lawyer", "admin_user"])
 @pytest.mark.parametrize("kind", ["iletisim", "iban", "yetkili", "vekalet"])
 def test_client_subrecord_delete_requires_admin(request, role, kind, client_factory):
+    from tests.conftest import client_form_data
+
     owner = (
         client_factory(kind="company", title="Örnek Şirket")
         if kind == "yetkili"
@@ -75,7 +72,7 @@ def test_client_subrecord_delete_requires_admin(request, role, kind, client_fact
     if kind == "iletisim":
         item = owner.contacts.create(kind="phone", value="0000000000")
     elif kind == "iban":
-        item = owner.ibans.create(iban="TR000000000000000000000000")
+        item = owner.ibans.create(iban="TR330006100519786457841326")
     elif kind == "yetkili":
         item = owner.representatives.create(name="Örnek Yetkili")
     else:
@@ -83,9 +80,11 @@ def test_client_subrecord_delete_requires_admin(request, role, kind, client_fact
             notary="Örnek Noter", date=timezone.localdate(), journal_no="1"
         )
     client = login(request.getfixturevalue(role))
-    url = reverse("clients:sub_delete", args=[owner.pk, kind, item.pk])
-    assert (url in client.get(owner.get_absolute_url()).content.decode()) == (role == "admin_user")
-    assert client.post(url).status_code == (200 if role == "admin_user" else 403)
+    url = reverse("clients:update", args=[owner.pk])
+    page = client.get(url).content.decode()
+    # Silme kutusu yalnızca yöneticinin formunda çıkar; diğerlerinde silme yok sayılır.
+    assert (f'name="{kind}-0-DELETE"' in page) == (role == "admin_user")
+    client.post(url, client_form_data(owner, delete={(kind, item.pk)}))
     assert type(item).objects.filter(pk=item.pk).exists() == (role != "admin_user")
 
 
@@ -95,80 +94,16 @@ def add_entry(owner, kind, amount):
     )
 
 
-def test_trust_income_cannot_be_cancelled_after_payment(admin_user, client_factory):
+def test_trust_income_can_be_cancelled_after_payment(admin_user, client_factory):
+    # Emanet girişi, ödeme yapılmış olsa da iptal edilebilir; emanet eksiye düşer.
     owner = client_factory()
     income = add_entry(owner, EntryKind.TRUST_IN, "10000")
-    payment = add_entry(owner, EntryKind.TRUST_OUT, "7000")
+    add_entry(owner, EntryKind.TRUST_OUT, "7000")
     client = login(admin_user)
-    response = client.post(
-        reverse("accounting:cancel", args=[income.pk]), {"reason": "Yanlış kayıt"}
-    )
-    assert response.status_code == 302
-    income.refresh_from_db()
-    assert not income.is_cancelled
-    assert owner.ledger_entries.balances()["trust"] == Decimal("3000")
-    client.post(reverse("accounting:cancel", args=[payment.pk]), {"reason": "Ödeme geri alındı"})
     client.post(reverse("accounting:cancel", args=[income.pk]), {"reason": "Yanlış kayıt"})
     income.refresh_from_db()
     assert income.is_cancelled
-    assert owner.ledger_entries.balances()["trust"] == 0
-
-
-@pytest.mark.parametrize("linked", ["task", "ledger", "none"])
-def test_case_client_change_preserves_linked_records(linked, task, client_factory, lawyer):
-    case = task.case
-    old_owner = case.client
-    if linked != "task":
-        task.delete()
-    if linked == "ledger":
-        LedgerEntry.objects.create(
-            client=old_owner, case=case, kind="fee", amount=10, date=timezone.localdate()
-        )
-    new_owner = client_factory(first_name="Başka")
-    response = login(lawyer).post(
-        reverse("cases:update", args=[case.pk]),
-        {
-            "client": new_owner.pk,
-            "case_type": case.case_type,
-            "archive_no": case.archive_no,
-            "subject": case.subject,
-            "status": case.status,
-            "stage": case.stage,
-            "responsible_lawyer": lawyer.pk,
-            "responsible_intern": case.responsible_intern_id,
-        },
-    )
-    case.refresh_from_db()
-    if linked == "none":
-        assert response.status_code == 302
-        assert case.client == new_owner
-    else:
-        assert response.status_code == 200
-        assert "client" in response.context["form"].errors
-        assert case.client == old_owner
-
-
-@pytest.mark.parametrize("role", ["intern", "lawyer", "admin_user"])
-def test_review_documents_are_frozen(request, role, task, intern, settings, tmp_path):
-    settings.MEDIA_ROOT = tmp_path
-    doc = TaskDocument.objects.create(
-        task=task,
-        file=SimpleUploadedFile("ornek.pdf", b"%PDF"),
-        original_name="ornek.pdf",
-        uploaded_by=intern,
-    )
-    services.perform(task, "submit", intern)
-    client = login(request.getfixturevalue(role))
-    assert (
-        client.post(
-            reverse("tasks:doc_upload", args=[task.pk]),
-            {"file": SimpleUploadedFile("yeni.pdf", b"yeni"), "replaces": doc.pk},
-        ).status_code
-        == 403
-    )
-    assert client.post(reverse("tasks:doc_delete", args=[task.pk, doc.pk])).status_code == 403
-    assert client.get(reverse("tasks:update", args=[task.pk])).status_code == 403
-    assert task.documents.get().pk == doc.pk
+    assert owner.ledger_entries.balances()["trust"] == Decimal("-7000")
 
 
 def test_approve_rechecks_required_document(task, lawyer):

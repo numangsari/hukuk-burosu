@@ -9,7 +9,7 @@ from django.utils import timezone
 
 from apps.accounting.models import EntryKind, LedgerEntry
 from apps.cases.models import Hearing
-from apps.office.models import OfficeSettings, TaskType
+from apps.office.models import TaskType
 from apps.reports.definitions import REPORTS
 from apps.search.views import search
 from apps.tasks.models import Task
@@ -47,7 +47,7 @@ def test_search_views(lawyer_client, client_factory):
     r = lawyer_client.get(
         reverse("search:search"), {"q": "ozturk", "canli": 1}, HTTP_HX_REQUEST="true"
     )
-    assert "Mehmet Öztürk" in r.content.decode()
+    assert "MEHMET ÖZTÜRK" in r.content.decode()
     r = lawyer_client.get(reverse("search:search"), {"q": "ozturk"})
     assert r.context["total"] == 1
 
@@ -181,15 +181,14 @@ def test_report_values(admin_user, report_data):
     assert res.rows[0][1] == "Devir" and res.rows[0][5] == Decimal("10500")
     assert res.rows[-1][5] == Decimal("7500") and res.rows[-1][6] == Decimal("2000")
     r = c.get(reverse("reports:report", args=["gorevler"]), {"goster": 1, "status": "overdue"})
-    assert [row[1] for row in r.context["result"].rows] == ["Gecikmiş iş"]
+    assert [row[1] for row in r.context["result"].rows] == ["GECİKMİŞ İŞ"]
     r = c.get(reverse("reports:report", args=["dosya-son-durum"]), {"goster": 1})
     row = r.context["result"].rows[0]
     assert row[1] == "2026/0007" and row[4] and row[5] == 1
 
 
 def test_financial_reports_hidden_without_permission(intern, report_data):
-    office = OfficeSettings.load()
-    assert not office.intern_can_view_accounting
+    assert not intern.can_view_balances
     c = login(intern)
     keys = set(c.get(reverse("reports:index")).context["reports"])
     assert keys == {"gorevler", "dosya-listesi", "dosya-son-durum"}

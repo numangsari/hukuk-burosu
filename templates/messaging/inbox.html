@@ -2,7 +2,7 @@
 {% block title %}WhatsApp mesajları — {{ office.name }}{% endblock %}
 {% block content %}
 <div class="page-header">
-  <div><h1 class="page-title">WhatsApp mesajları</h1><p class="page-subtitle">Ofis numarasından gönderilen ve gelen mesajlar.</p></div>
+  <div><h1 class="page-title">WhatsApp mesajları</h1></div>
   {% if request.user.is_office_admin %}<a class="btn btn-light" href="{% url 'clients:messaging:settings' %}"><i class="bi bi-gear"></i>Bağlantı ve hatırlatmalar</a>{% endif %}
 </div>
 {% if not connection_ready or not whatsapp_settings.enabled %}<div class="alert alert-info">WhatsApp bağlantısı henüz gönderime açılmadı. Müvekkillerin numaralarını ve mesaj tercihlerini şimdiden hazırlayabilirsiniz.</div>{% endif %}

@@ -65,8 +65,6 @@ class ImportView(AdminRequiredMixin, View):
                         User.objects.get(pk=request.POST["default_intern"]),
                         file_hash=file_hash,
                     )
-                if plan.conflicts and not request.POST.get("confirm_conflicts"):
-                    raise ValueError("Çıkar çatışması uyarılarını onaylamadınız.")
                 counts = services.execute(
                     plan,
                     request.user,

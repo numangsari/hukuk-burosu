@@ -6,7 +6,7 @@ from django.db.models import Q
 from django.urls import reverse
 
 from apps.core.models import TimeStampedModel
-from apps.core.text import fold
+from apps.core.text import fold, tr_upper
 from apps.core.validators import normalize_iban, validate_iban, validate_tckn, validate_vkn
 
 
@@ -47,7 +47,14 @@ class Client(TimeStampedModel):
         limit_choices_to=intern_choices,
     )
     notes = models.TextField("notlar", blank=True)
-    is_active = models.BooleanField("aktif", default=True)
+    # Vekaleti olan müvekkilin numarası (V-121): vekaletin fiziki klasördeki yerini gösterir.
+    poa_no = models.PositiveIntegerField(
+        "vekalet no",
+        null=True,
+        blank=True,
+        unique=True,
+        help_text="Fiziki vekalet klasöründeki sıra numarası (V-121 için 121).",
+    )
     folder_name = models.CharField(
         "klasör adı",
         max_length=120,
@@ -79,6 +86,16 @@ class Client(TimeStampedModel):
     def identity_no(self) -> str:
         return self.tckn if self.kind == PersonKind.PERSON else self.vkn
 
+    @property
+    def poa_label(self) -> str:
+        return f"V-{self.poa_no}" if self.poa_no else ""
+
+    @staticmethod
+    def suggest_poa_no() -> int:
+        """Son vekalet numarasının bir fazlası."""
+        last = Client.objects.aggregate(m=models.Max("poa_no"))["m"]
+        return (last or 0) + 1
+
     def clean(self):
         errors = {}
         if self.kind == PersonKind.PERSON:
@@ -92,6 +109,10 @@ class Client(TimeStampedModel):
             raise ValidationError(errors)
 
     def save(self, *args, **kwargs):
+        # Müvekkil adları her zaman büyük harfle tutulur.
+        self.first_name = tr_upper(self.first_name).strip()
+        self.last_name = tr_upper(self.last_name).strip()
+        self.title = tr_upper(self.title).strip()
         if self.kind == PersonKind.PERSON:
             self.title = self.vkn = self.tax_office = self.mersis_no = ""
             self.name = f"{self.first_name} {self.last_name}".strip()

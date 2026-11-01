@@ -19,14 +19,14 @@ def office_root(tmp_path):
     return root
 
 
-@pytest.mark.parametrize("other_name", ["Örnek", "Ornek"])
+@pytest.mark.parametrize("other_name", ["ÖRNEK", "ORNEK"])
 def test_same_names_use_separate_numbered_folders(client_factory, office_root, other_name):
     first = client_factory(first_name="Örnek", last_name="Kişi")
     second = client_factory(first_name=other_name, last_name="Kişi")
     first_path = folders.client_dir(first)
     second_path = folders.client_dir(second)
-    assert first_path.name == f"M{first.pk:06d} - Örnek Kişi"
-    assert second_path.name == f"M{second.pk:06d} - {other_name} Kişi"
+    assert first_path.name == f"M{first.pk:06d} - ÖRNEK KİŞİ"
+    assert second_path.name == f"M{second.pk:06d} - {other_name} KİŞİ"
     assert first_path != second_path
 
 
@@ -82,8 +82,8 @@ def test_case_numbers_keep_sanitized_archive_names_separate(case_factory, office
     second = case_factory(client=first.client, archive_no="26-1", subject="Örnek")
     first_path = folders.case_dir(first)
     second_path = folders.case_dir(second)
-    assert first_path.name == f"D{first.pk:06d} - 26-1 - Örnek"
-    assert second_path.name == f"D{second.pk:06d} - 26-1 - Örnek"
+    assert first_path.name == f"D{first.pk:06d} - 26-1 - ÖRNEK"
+    assert second_path.name == f"D{second.pk:06d} - 26-1 - ÖRNEK"
     assert first_path != second_path
 
 

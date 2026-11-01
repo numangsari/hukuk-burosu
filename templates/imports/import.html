@@ -5,7 +5,6 @@
   <div>
     <div class="eyebrow"><a href="{% url 'accounts:settings' %}"><i class="bi bi-chevron-left"></i> Ayarlar</a></div>
     <h1 class="page-title">Excel'den veri aktarımı</h1>
-    <p class="page-subtitle">Mevcut müvekkil, dosya ve açılış bakiyelerini toplu olarak sisteme aktarın.</p>
   </div>
   <div class="page-actions"><a class="btn btn-light" href="{% url 'imports:template' %}"><i class="bi bi-file-earmark-excel" style="color: var(--success-ink)"></i>Şablonu indir</a></div>
 </div>
@@ -45,7 +44,7 @@
     <tbody>
     {% for r in plan.rows %}
       <tr><td>{{ r.sheet }}</td><td class="tabular">{{ r.row }}</td><td class="fw-medium">{{ r.label|default:"—" }}</td>
-        <td>{% if r.status == "create" and "Çıkar çatışması" in r.messages|join:" " %}<span class="chip chip-warning">Eklenecek · çatışma</span>{% elif r.status == "create" %}<span class="chip chip-success">Eklenecek</span>{% elif r.status == "skip" %}<span class="chip">Atlanacak</span>{% else %}<span class="chip chip-danger">Hatalı</span>{% endif %}</td>
+        <td>{% if r.status == "create" %}<span class="chip chip-success">Eklenecek</span>{% elif r.status == "skip" %}<span class="chip">Atlanacak</span>{% else %}<span class="chip chip-danger">Hatalı</span>{% endif %}</td>
         <td class="small">{{ r.messages|join:" · " }}</td></tr>
     {% empty %}<tr><td colspan="5"><div class="empty-state py-3"><strong>Dosyada aktarılacak satır yok</strong></div></td></tr>{% endfor %}
     </tbody>
@@ -63,10 +62,6 @@
     <input type="hidden" name="default_lawyer" value="{{ default_lawyer }}">
     <input type="hidden" name="default_intern" value="{{ default_intern }}">
     <input type="hidden" name="file_name" value="{{ file_name }}">
-    {% if plan.conflicts %}
-    <div class="form-check mb-2"><input class="form-check-input" type="checkbox" name="confirm_conflicts" value="1" id="cc" required>
-      <label class="form-check-label" for="cc">Çıkar çatışması uyarılarını inceledim, yine de aktar</label></div>
-    {% endif %}
     <button class="btn btn-primary"><i class="bi bi-check2-all"></i>Aktarımı onayla</button>
   </form>
   {% endif %}

@@ -4,7 +4,6 @@
 <div class="page-header">
   <div>
     <h1 class="page-title">Müvekkiller</h1>
-    <p class="page-subtitle">Gerçek ve tüzel kişi müvekkil kartları.</p>
   </div>
   <div class="page-actions">
     <a class="btn btn-primary" href="{% url 'clients:create' %}"><i class="bi bi-person-plus"></i>Yeni müvekkil</a>
@@ -36,19 +35,16 @@
       <option value="yes" {% if request.GET.tasks == 'yes' %}selected{% endif %}>Açık görevi olan</option>
       <option value="no" {% if request.GET.tasks == 'no' %}selected{% endif %}>Açık görevi olmayan</option>
     </select>
-    {% if can_view_accounting %}
+    {% if can_view_balances %}
     <select class="form-select" name="debt">
       <option value="">Bakiye: tümü</option>
       <option value="yes" {% if request.GET.debt == 'yes' %}selected{% endif %}>Borçlu</option>
       <option value="no" {% if request.GET.debt == 'no' %}selected{% endif %}>Borcu yok</option>
     </select>
     {% endif %}
-    <select class="form-select" name="active" style="min-width: 110px">
-      <option value="1">Aktif</option>
-      <option value="0" {% if request.GET.active == '0' %}selected{% endif %}>Pasif</option>
-      <option value="all" {% if request.GET.active == 'all' %}selected{% endif %}>Tümü</option>
+    <select class="form-select" name="sort" aria-label="Sıralama">
+      {% for k, label in sort_options %}<option value="{{ k }}" {% if sort == k %}selected{% endif %}>{{ label }}</option>{% endfor %}
     </select>
-    {% if request.GET.sort %}<input type="hidden" name="sort" value="{{ request.GET.sort }}">{% endif %}
   </form>
   <div id="list-table">{% include "clients/_list_table.html" %}</div>
 </div>

@@ -45,7 +45,8 @@ def run_together(operation):
 
 
 @pytest.mark.parametrize("kind", [EntryKind.TRUST_OUT, EntryKind.OFFSET])
-def test_parallel_payments_cannot_overdraw_trust(client_factory, kind):
+def test_parallel_payments_are_all_recorded(client_factory, kind):
+    # Emanet bakiyesini aşan ödeme/mahsup serbest; eşzamanlı iki kayıt da yazılır.
     owner = client_factory()
     LedgerEntry.objects.create(
         client=owner, kind=EntryKind.TRUST_IN, amount=10000, date=timezone.localdate()
@@ -58,9 +59,9 @@ def test_parallel_payments_cannot_overdraw_trust(client_factory, kind):
             )
         )
 
-    assert sorted(run_together(pay)) == [False, True]
-    assert owner.ledger_entries.filter(kind=kind).count() == 1
-    assert owner.ledger_entries.balances()["trust"] == Decimal("3000")
+    assert sorted(run_together(pay)) == [True, True]
+    assert owner.ledger_entries.filter(kind=kind).count() == 2
+    assert owner.ledger_entries.balances()["trust"] == Decimal("-4000")
 
 
 def test_parallel_cancellations_only_cancel_once(client_factory, admin_user):

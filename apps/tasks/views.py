@@ -56,6 +56,7 @@ class TaskListView(ListView):
             qs = qs.filter(
                 Q(title__icontains=q)
                 | Q(case__archive_no__icontains=q)
+                | Q(case__archive_folder_no__icontains=q)
                 | Q(case__subject__icontains=q)
                 | Q(client__search_key__contains=fold(q))
             )
@@ -222,7 +223,7 @@ def case_options(request):
             "cases": [
                 {
                     "id": c.pk,
-                    "label": f"{c.archive_no} — {c.subject} ({c.client})",
+                    "label": f"{c.archive_reference} — {c.display_name} ({c.client})",
                     "client": c.client_id,
                     "lawyer": c.responsible_lawyer_id,
                     "intern": c.responsible_intern_id,

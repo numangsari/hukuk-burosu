@@ -28,6 +28,19 @@ class User(AbstractUser):
     page_size = models.PositiveSmallIntegerField(
         "sayfa başına kayıt", default=25, choices=[(n, str(n)) for n in (25, 50, 100)]
     )
+    # Kontrolcü: görevde bu kişi sorumluyken kontrolcü olarak önerilir. Stajyerde ayrıca avukat
+    # seçilince bağlı stajyeri dolar.
+    supervisor = models.ForeignKey(
+        "self",
+        verbose_name="kontrolcü",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="interns",
+        limit_choices_to={"role__in": ["admin", "lawyer"], "is_active": True},
+    )
+    # Müvekkil bakiyesi, borçlu süzgeci, cari hesap ve finansal raporlar (yönetici her zaman görür).
+    can_view_balances = models.BooleanField("müvekkil bakiyelerini görür", default=False)
 
     class Meta:
         verbose_name = "kullanıcı"

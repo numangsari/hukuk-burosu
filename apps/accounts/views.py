@@ -9,7 +9,6 @@ from django.views import View
 
 from apps.core.permissions import is_admin
 from apps.office.forms import (
-    AccountingPermissionsForm,
     BackupSettingsForm,
     CalendarForm,
     DocumentsRootForm,
@@ -18,7 +17,7 @@ from apps.office.forms import (
 )
 from apps.office.models import OfficeSettings, TaskType
 
-from .forms import PinChangeForm, PinLoginForm, ProfileForm, UserAdminForm
+from .forms import BalanceViewersForm, PinChangeForm, PinLoginForm, ProfileForm, UserAdminForm
 from .models import User
 
 
@@ -60,7 +59,7 @@ class SettingsView(View):
         if is_admin(user):
             forms["ofis"] = OfficeForm(*bound("ofis"), instance=office)
             forms["takvim"] = CalendarForm(*bound("takvim"), instance=office)
-            forms["yetkiler"] = AccountingPermissionsForm(*bound("yetkiler"), instance=office)
+            forms["yetkiler"] = BalanceViewersForm(*bound("yetkiler"))
             forms["klasor"] = DocumentsRootForm(*bound("klasor"), instance=office)
             edit = User.objects.filter(
                 pk=request.GET.get("id") or request.POST.get("user_id") or 0

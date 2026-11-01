@@ -4,10 +4,11 @@ def app_context(request):
     ctx = {"office": OfficeSettings.load()}
     user = getattr(request, "user", None)
     if user is not None and user.is_authenticated:
-        from apps.accounting.permissions import can_edit, can_view
+        from apps.accounting.permissions import can_edit, can_view, can_view_balances
 
         ctx["can_view_accounting"] = can_view(user)
         ctx["can_edit_accounting"] = can_edit(user)
+        ctx["can_view_balances"] = can_view_balances(user)
         if user.is_office_admin:
             from apps.backups.services import backup_stale
 

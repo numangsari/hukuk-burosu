@@ -4,13 +4,12 @@
 <div class="page-header">
   <div>
     <h1 class="page-title">Takvim</h1>
-    <p class="page-subtitle">Ofisin Google Takvim'i (salt okunur), duruşmalar, randevular, görev ve tebligat son günleri.</p>
   </div>
 </div>
 
 {% if not agenda.configured %}
 <div class="alert alert-warning d-flex gap-2"><i class="bi bi-info-circle-fill"></i>
-  <div>Google Takvim bağlı değil; sistemdeki duruşmalar, randevular, görev ve tebligat son günleri gösteriliyor.
+  <div>Google Takvim bağlı değil; sistemdeki duruşmalar, randevular, görev son günleri gösteriliyor.
   {% if request.user.is_office_admin %}<a href="{% url 'accounts:settings' %}?bolum=takvim">Ayarlar'dan bağlayın</a>.{% endif %}</div>
 </div>
 {% endif %}
@@ -46,7 +45,7 @@
 <div class="d-flex gap-3 small text-body-secondary mt-2">
   <span><span class="legend src-google"></span>Google Takvim</span>
   <span><span class="legend src-hearing"></span>Duruşma</span>
-  <span><span class="legend src-deadline"></span>Tebligat son günü</span>
+  <span><span class="legend src-deadline"></span>Görev son günü</span>
   <span><span class="legend src-task"></span>Görev son günü</span>
   <span><span class="legend src-appointment"></span>Randevu</span>
 </div>

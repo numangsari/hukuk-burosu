@@ -1,6 +1,14 @@
 """Türkçe metin yardımcıları."""
 
 _TR_LOWER = str.maketrans({"I": "ı", "İ": "i"})
+_TR_UPPER = str.maketrans({"i": "İ", "ı": "I"})
+
+
+def tr_upper(value: str) -> str:
+    """Türkçe kurallarla büyük harf (i → İ, ı → I)."""
+    return (value or "").translate(_TR_UPPER).upper()
+
+
 _FOLD = str.maketrans("çğıöşüâîû", "cgiosuaiu")
 
 

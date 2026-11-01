@@ -11,14 +11,12 @@ from .models import Task
 
 class CaseChoiceField(forms.ModelChoiceField):
     def label_from_instance(self, obj):
-        return f"{obj.archive_no} — {obj.subject} ({obj.client})"
+        return f"{obj.archive_reference} — {obj.display_name} ({obj.client})"
 
 
 class TaskForm(BootstrapMixin, forms.ModelForm):
     # Yalnızca dosya listesini süzmek için; kaydedilen müvekkil her zaman dosyanın müvekkilidir.
-    client = forms.ModelChoiceField(
-        label="müvekkil", queryset=Client.objects.filter(is_active=True), required=False
-    )
+    client = forms.ModelChoiceField(label="müvekkil", queryset=Client.objects.all(), required=False)
     case = CaseChoiceField(label="dosya", queryset=Case.objects.none())
 
     class Meta:
@@ -47,6 +45,12 @@ class TaskForm(BootstrapMixin, forms.ModelForm):
         self.fields["case"].widget.attrs["x-ref"] = "case"
         self.fields["client"].widget.attrs["@change"] = "filterCases()"
         self.fields["case"].widget.attrs["@change"] = "caseChanged()"
+        self.fields["assignee"].widget.attrs["@change"] = "assigneeChanged()"
+        self.fields["title"].widget.attrs["class"] += " text-uppercase-input"
+        # Sorumlu seçilince kontrolcü, sorumlunun kontrolcüsü olarak önerilir (değiştirilebilir).
+        self.supervisor_map = dict(
+            User.objects.filter(supervisor__isnull=False).values_list("pk", "supervisor_id")
+        )
 
     def clean(self):
         data = super().clean()

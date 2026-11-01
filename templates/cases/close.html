@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}Dosyayı kapat — {{ case.archive_reference }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="eyebrow"><a href="{{ case.get_absolute_url }}"><i class="bi bi-chevron-left"></i> {{ case.archive_reference }}</a></div>
+    <h1 class="page-title">Dosyayı kapat</h1>
+  </div>
+</div>
+{{ flags|json_script:"closing-flags" }}
+<form method="post" class="card" x-data="closeForm()">
+  {% csrf_token %}
+  {% if form.non_field_errors %}<div class="alert alert-danger m-3 mb-0">{{ form.non_field_errors }}</div>{% endif %}
+  <div class="form-section">
+    <div class="small text-body-secondary mb-3">{{ case.display_name }} · {{ case.get_case_type_display }} · {{ case.client }}</div>
+    <div class="row">
+      <div class="col-md-8">{% include "partials/field.html" with field=form.closing_reason %}</div>
+      <div class="col-md-4">{% include "partials/field.html" with field=form.closed_on %}</div>
+    </div>
+  </div>
+  {% if has_decision %}
+  <div class="form-section">
+    <div class="form-section-head"><h2>Karar bilgisi</h2></div>
+    <div class="row">
+      <div class="col-md-6">{% include "partials/field.html" with field=form.decision_date %}</div>
+      <div class="col-md-6">
+        <div class="form-label" id="decision-number-label">Karar numarası</div>
+        <div class="row g-2 mb-3" role="group" aria-labelledby="decision-number-label">
+          <div class="col-5">
+            <label class="visually-hidden" for="{{ form.decision_year.id_for_label }}">Yıl</label>{{ form.decision_year }}
+            {% for e in form.decision_year.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}
+          </div>
+          <div class="col-7">
+            <label class="visually-hidden" for="{{ form.decision_sequence.id_for_label }}">Numara</label>{{ form.decision_sequence }}
+            {% for e in form.decision_sequence.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+  <div class="form-section" x-show="money" x-cloak>
+    <div class="form-section-head"><h2>Tahsil / ödeme</h2><p>Bu kapanma nedeninde tahsilat veya ödeme olduysa girin.</p></div>
+    <div class="row">
+      <div class="col-md-4">{% include "partials/field.html" with field=form.closing_amount %}</div>
+      <div class="col-md-4">{% include "partials/field.html" with field=form.closing_amount_date %}</div>
+      <div class="col-md-4">{% include "partials/field.html" with field=form.closing_accounted %}</div>
+    </div>
+    <div class="alert alert-warning small mb-0">Bu tutar dosyaya yalnızca bilgi olarak yazılır, muhasebeye kendiliğinden işlenmez. Muhasebe hareketini ayrıca <a href="{% url 'accounting:create' %}?dosya={{ case.pk }}">Muhasebe &rsaquo; Yeni gelir / gider</a> ekranından girmeyi unutmayın.</div>
+  </div>
+  <div class="form-section">
+    {% include "partials/field.html" with field=form.closing_note wrap_class="" %}
+    <div class="form-text" x-show="noteRequired" x-cloak>Bu kapanma nedeninde açıklama zorunludur.</div>
+  </div>
+  <div class="form-footer">
+    <a class="btn btn-light" href="{{ case.get_absolute_url }}">Vazgeç</a>
+    <button class="btn btn-primary" onclick="return confirm('Dosya kapatılsın mı?')"><i class="bi bi-archive"></i>Dosyayı kapat</button>
+  </div>
+</form>
+<script>
+  function closeForm() {
+    const flags = JSON.parse(document.getElementById("closing-flags").textContent);
+    return {
+      reason: "{{ form.closing_reason.value|default_if_none:''|escapejs }}",
+      get money() { return (flags[this.reason] || "").includes("m"); },
+      get noteRequired() { return (flags[this.reason] || "").includes("n"); },
+      init() {
+        const select = this.$root.querySelector("#id_closing_reason");
+        select.addEventListener("change", () => { this.reason = select.value; });
+      },
+    };
+  }
+</script>
+{% endblock %}

@@ -42,7 +42,7 @@ def client_row(kind="Gerçek", first="Ayşe", last="DENEME", tckn="", title="", 
 
 
 def case_row(client="Ayşe DENEME", archive="2026/0900", subject="Alacak", **kw):
-    return [client, kw.get("type", "Hukuk Davası"), archive, "", "", subject, kw.get("status", "Derdest"),
+    return [client, kw.get("type", "Hukuk Davası"), archive, "", "", subject, kw.get("status", "Açık"),
             kw.get("stage", ""), kw.get("value", ""), kw.get("opened", "15.01.2026"), "", "", ""]  # fmt: skip
 
 
@@ -56,7 +56,7 @@ def test_plan_and_execute(lawyer, intern, admin_user):
     f = workbook(
         clients=[client_row(tckn=VALID_TCKN, phone="0555 000 00 00", iban="TR33 0006 1005 1978 6457 8413 26"),
                  client_row(kind="Tüzel", first="", last="", title="Deneme Ticaret A.Ş.")],
-        cases=[case_row(value="150.000,50", stage="İlk derece"), case_row(client="Deneme Ticaret A.Ş.", archive="2026/0901", type="İcra Takibi")],
+        cases=[case_row(value="150.000,50", stage="İstinaf incelemesi"), case_row(client="Deneme Ticaret A.Ş.", archive="2026/0901", type="İcra Takibi")],
         balances=[["Ayşe DENEME", "31.12.2025", "25000", "1000", ""]],
     )  # fmt: skip
     plan = services.build_plan(f, lawyer, intern)
@@ -67,7 +67,7 @@ def test_plan_and_execute(lawyer, intern, admin_user):
     assert ayse.responsible_lawyer == lawyer and ayse.contacts.get().value == "0555 000 00 00"
     assert ayse.ibans.get().iban == "TR330006100519786457841326"
     case = Case.objects.get(archive_no="2026/0900")
-    assert case.value == Decimal("150000.50") and case.stage == "first" and case.client == ayse
+    assert case.value == Decimal("150000.50") and case.stage == "appeal" and case.client == ayse
     assert Case.objects.get(archive_no="2026/0901").case_type == "enforcement"
     b = LedgerEntry.objects.filter(client=ayse).balances()
     assert (b["cari"], b["trust"]) == (Decimal("25000"), Decimal("1000"))
@@ -134,7 +134,7 @@ def test_same_file_and_same_balance_not_imported_twice(admin_user, lawyer, inter
     assert other.rows[0].status == "skip" and LedgerEntry.objects.filter(client=c).count() == 1
 
 
-def test_conflict_with_party_needs_confirmation(admin_user, lawyer, intern):
+def test_client_matching_party_imports_without_confirmation(admin_user, lawyer, intern):
     from apps.clients.models import Party
 
     Party.objects.create(kind="person", name="Ayşe DENEME")
@@ -145,12 +145,9 @@ def test_conflict_with_party_needs_confirmation(admin_user, lawyer, intern):
         reverse("imports:import"),
         {"file": upload, "default_lawyer": lawyer.pk, "default_intern": intern.pk},
     )
-    assert r.context["plan"].conflicts
     data = {"token": r.context["token"], "default_lawyer": lawyer.pk, "default_intern": intern.pk}
     c.post(reverse("imports:import"), data)
-    assert not Client.objects.exists()  # onaysız aktarılmaz
-    c.post(reverse("imports:import"), {**data, "confirm_conflicts": "1"})
-    assert Client.objects.count() == 1
+    assert Client.objects.count() == 1  # çıkar çatışması onayı istenmez
 
 
 def test_unknown_responsible_user_is_error(lawyer, intern):
@@ -191,3 +188,22 @@ def test_bad_file_rejected(admin_user, lawyer, intern):
     r = c.post(reverse("imports:import"), {"file": SimpleUploadedFile("x.xlsx", b"bozuk"), "default_lawyer": lawyer.pk,
                                            "default_intern": intern.pk})  # fmt: skip
     assert "file" in r.context["form"].errors
+
+
+def test_closed_case_import_needs_closing_reason(lawyer, intern):
+    clients = [client_row()]
+    plan = services.build_plan(
+        workbook(clients=clients, cases=[case_row(status="Kapalı")]), lawyer, intern
+    )
+    case_result = [r for r in plan.rows if r.sheet == "Dosyalar"][0]
+    assert case_result.status == "error" and "kapanma nedeni" in case_result.messages[0].lower()
+    plan = services.build_plan(
+        workbook(
+            clients=clients,
+            cases=[case_row(status="Kapalı", stage="Feragat nedeniyle sonuçlandı")],
+        ),
+        lawyer,
+        intern,
+    )
+    case_result = [r for r in plan.rows if r.sheet == "Dosyalar"][0]
+    assert case_result.status == "create", case_result.messages

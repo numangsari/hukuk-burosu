@@ -1,26 +1,32 @@
-"""Muhasebe yetkisi: rol bazında Ofis Ayarları'ndan yönetilir, yönetici her zaman yetkilidir."""
+"""Muhasebe yetkisi.
+
+Herkes muhasebe kaydı görür ve girer. Müvekkil bakiyesi, borçlu süzgeci, cari hesap
+ekstresi, muhasebe toplamları ve finansal raporlar yalnızca yöneticiye ve yöneticinin
+Ayarlar > Bakiye görme yetkisi'nden seçtiği kişilere görünür (`User.can_view_balances`).
+"""
 
 from django.core.exceptions import PermissionDenied
 
 from apps.core.permissions import is_admin
-from apps.office.models import OfficeSettings
 
 
-def _flag(user, action: str) -> bool:
-    if not user.is_authenticated or not user.is_active:
-        return False
-    if is_admin(user):
-        return True
-    office = OfficeSettings.load()
-    return bool(getattr(office, f"{user.role}_can_{action}_accounting", False))
+def _active(user) -> bool:
+    return bool(user and user.is_authenticated and user.is_active)
 
 
 def can_view(user) -> bool:
-    return _flag(user, "view")
+    """Muhasebe kayıtlarını görme (dosya muhasebe sekmesi, muhasebe listesi)."""
+    return _active(user)
 
 
 def can_edit(user) -> bool:
-    return can_view(user) and _flag(user, "edit")
+    """Muhasebe kaydı girme ve iptal etme."""
+    return _active(user)
+
+
+def can_view_balances(user) -> bool:
+    """Müvekkil bakiyesi, borçluluk, cari hesap ve finansal raporlar."""
+    return _active(user) and (is_admin(user) or user.can_view_balances)
 
 
 class ViewRequiredMixin:

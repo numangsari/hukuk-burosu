@@ -3,26 +3,31 @@
 <table class="table table-hover">
   <thead>
     <tr>
-      <th>{% sort_link "archive_no" "Arşiv no" %}</th>
-      <th>{% sort_link "subject" "Dosya" %}</th>
+      <th>{% sort_link "archive_no" "Fiziki arşiv no" %}</th>
+      <th>{% sort_link "subject" "Dosya bilgisi" %}</th>
       <th>{% sort_link "client__name" "Müvekkil" %}</th>
-      <th>Merci / Resmi no</th>
       <th>{% sort_link "status" "Durum" %}</th>
+      <th>{% sort_link "open_task_count" "Açık görev" %}</th>
       <th>Sorumlular</th>
+      <th>{% sort_link "opened_on" "Dosya açılış tarihi" %}</th>
     </tr>
   </thead>
   <tbody>
   {% for k in cases %}
     <tr data-href="{{ k.get_absolute_url }}" onclick="location.href=this.dataset.href">
-      <td><a href="{{ k.get_absolute_url }}" class="fw-semibold tabular">{{ k.archive_no }}</a></td>
-      <td><div class="cell-main">{{ k.subject }}</div><div class="cell-sub">{{ k.get_case_type_display }}</div></td>
+      <td><a href="{{ k.get_absolute_url }}" class="fw-semibold tabular">{{ k.archive_reference }}</a></td>
+      <td>
+        <div class="cell-main">{{ k.display_name }}</div>
+        <div class="cell-sub">{{ k.get_case_type_display }}{% if k.authority and k.subject %} · {{ k.subject }}{% endif %}</div>
+      </td>
       <td>{{ k.client }}</td>
-      <td>{{ k.authority|default:"—" }}<div class="cell-sub tabular">{{ k.official_no }}</div></td>
-      <td>{% include "cases/_status_chip.html" %}{% if k.stage %}<div class="cell-sub mt-1">{{ k.get_stage_display }}</div>{% endif %}</td>
+      <td>{% include "cases/_status_chip.html" %}{% if k.status_detail %}<div class="cell-sub mt-1">{{ k.status_detail }}</div>{% endif %}</td>
+      <td class="tabular">{% if k.open_task_count %}{{ k.open_task_count }}{% else %}<span class="text-body-secondary">—</span>{% endif %}</td>
       <td><div>{{ k.responsible_lawyer }}</div><div class="cell-sub">{{ k.responsible_intern }}</div></td>
+      <td class="tabular">{{ k.opened_on|date:"d.m.Y" }}</td>
     </tr>
   {% empty %}
-    <tr><td colspan="6"><div class="empty-state"><i class="bi bi-folder2"></i><strong>Dosya bulunamadı</strong>Filtreleri değiştirin veya yeni dosya açın.</div></td></tr>
+    <tr><td colspan="7"><div class="empty-state"><i class="bi bi-folder2"></i><strong>Dosya bulunamadı</strong>Filtreleri değiştirin veya yeni dosya açın.</div></td></tr>
   {% endfor %}
   </tbody>
 </table>

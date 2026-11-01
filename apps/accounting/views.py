@@ -113,7 +113,7 @@ class EntryCreateView(EditRequiredMixin, CreateView):
         return (
             nxt
             if nxt.startswith("/") and not nxt.startswith("//")
-            else self.object.client.get_absolute_url() + "#cari"
+            else self.object.client.get_absolute_url() + "#muhasebe"
         )
 
 
