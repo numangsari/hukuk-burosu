@@ -37,7 +37,7 @@ class Event:
     location: str = ""
     description: str = ""
     days: list[dt.date] = field(default_factory=list)
-    source: str = "google"  # Google takvimi, duruşma veya görev
+    source: str = "google"  # Google takvimi veya görev
     url: str = ""
 
     @property
@@ -161,4 +161,43 @@ def events_between(start: dt.date, end: dt.date) -> AgendaResult:
     result = AgendaResult(configured=True, events=events, stale=stale)
     if stale:
         result.error = "Google Takvim'e şu an ulaşılamıyor; son alınan veri gösteriliyor."
+    return result
+
+
+def task_events(start: dt.date, end: dt.date) -> list[Event]:
+    """Açık görevleri son günlerinde, tüm gün süren etkinlikler olarak gösterir."""
+    from apps.tasks.models import OPEN_STATUSES, Task, TaskStatus
+
+    tasks = Task.objects.filter(
+        status__in=OPEN_STATUSES, due_date__gte=start, due_date__lt=end
+    ).select_related("case", "assignee", "reviewer")
+    events = []
+    for task in tasks:
+        responsible = task.reviewer if task.status == TaskStatus.REVIEW else task.assignee
+        events.append(
+            Event(
+                title=f"GÖREV: {task.title}",
+                start=task.due_date,
+                end=None,
+                all_day=True,
+                location=f"{task.case.archive_reference} · {responsible}",
+                days=[task.due_date],
+                source="task",
+                url=task.get_absolute_url(),
+            )
+        )
+    return events
+
+
+def combined_events(start: dt.date, end: dt.date) -> AgendaResult:
+    """Google etkinlikleri ile açık görevleri aynı takvimde birleştirir."""
+    result = events_between(start, end)
+    result.events = sorted(
+        result.events + task_events(start, end),
+        key=lambda event: (
+            event.start_date,
+            not event.all_day,
+            event.start if not event.all_day else dt.time(),
+        ),
+    )
     return result

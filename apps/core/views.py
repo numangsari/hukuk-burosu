@@ -4,7 +4,7 @@ from django.db.models import OuterRef, Subquery
 from django.utils import timezone
 from django.views.generic import TemplateView
 
-from apps.agenda.services import events_between
+from apps.agenda.services import combined_events
 from apps.agenda.views import group_by_day
 from apps.tasks.models import OPEN_STATUSES, Task, TaskEvent, TaskStatus
 
@@ -61,7 +61,7 @@ class HomeView(TemplateView):
         user = self.request.user
         now = timezone.localtime()
         today = now.date()
-        result = events_between(today, today + dt.timedelta(days=AGENDA_DAYS))
+        result = combined_events(today, today + dt.timedelta(days=AGENDA_DAYS))
         by_day = group_by_day(result.events)
         own = own_tasks_for(user)
         # Stajyerler kontrolcü olmadığı için onlarda "Kontrolümü bekleyenler" paneli yok.

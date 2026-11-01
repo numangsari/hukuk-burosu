@@ -112,7 +112,7 @@ def test_calendar_page_month_and_week(lawyer_client, monkeypatch):
 
 
 @pytest.mark.parametrize("configured", [False, True])
-def test_home_and_calendar_only_show_google_events(
+def test_home_and_calendar_show_tasks_and_all_google_events(
     lawyer_client, case_factory, monkeypatch, configured
 ):
     from django.utils import timezone
@@ -129,9 +129,9 @@ def test_home_and_calendar_only_show_google_events(
     appointment = ClientAppointment.objects.create(
         client=case.client, title="Eski randevu", starts_at=now
     )
-    Task.objects.create(
+    task = Task.objects.create(
         case=case,
-        title="Takvime girmeyecek görev",
+        title="Örnek görev",
         due_date=today,
         task_type=TaskType.objects.first(),
         assignee=case.responsible_intern,
@@ -143,6 +143,8 @@ def test_home_and_calendar_only_show_google_events(
     calendar = (
         "BEGIN:VCALENDAR\nVERSION:2.0\nBEGIN:VEVENT\nUID:only-google@test\n"
         f"DTSTART;VALUE=DATE:{today:%Y%m%d}\nSUMMARY:Google örnek etkinlik\n"
+        "END:VEVENT\nBEGIN:VEVENT\nUID:meeting@test\n"
+        f"DTSTART:{today:%Y%m%d}T120000Z\nSUMMARY:Google toplantı\n"
         "END:VEVENT\nEND:VCALENDAR\n"
     )
     monkeypatch.setattr(services, "fetch_ics", lambda url: calendar)
@@ -150,8 +152,15 @@ def test_home_and_calendar_only_show_google_events(
         response = lawyer_client.get(url, params)
         assert response.status_code == 200
         events = response.context["agenda"].events
-        assert [e.title for e in events] == (["Google örnek etkinlik"] if configured else [])
-        assert all(e.source == "google" for e in events)
+        assert [e.title for e in events] == (
+            ["Google örnek etkinlik", f"GÖREV: {task.title}", "Google toplantı"]
+            if configured
+            else [f"GÖREV: {task.title}"]
+        )
+        task_event = next(e for e in events if e.source == "task")
+        assert task_event.all_day and task_event.days == [today]
+        assert task_event.url == task.get_absolute_url()
+        assert task_event.url in response.content.decode()
         html = response.content.decode()
         assert "Eski randevu" not in html and "Eski duruşma" not in html
         assert "WhatsApp mesajları" not in html
@@ -159,3 +168,57 @@ def test_home_and_calendar_only_show_google_events(
             assert "Google Takvim bağlı değil" in html
     assert Hearing.objects.filter(pk=hearing.pk).exists()
     assert ClientAppointment.objects.filter(pk=appointment.pk).exists()
+
+
+@pytest.mark.parametrize("status", ["active", "review", "done"])
+def test_task_deadlines_only_appear_on_due_date(case_factory, status):
+    from apps.office.models import TaskType
+    from apps.tasks.models import Task
+
+    case = case_factory()
+    due = dt.date(2026, 11, 5)
+    task = Task.objects.create(
+        case=case,
+        title="Son gün denemesi",
+        due_date=due,
+        status=status,
+        task_type=TaskType.objects.first(),
+        assignee=case.responsible_intern,
+        reviewer=case.responsible_lawyer,
+    )
+    assert not services.task_events(due - dt.timedelta(days=1), due)
+    assert not services.task_events(due + dt.timedelta(days=1), due + dt.timedelta(days=2))
+    events = services.task_events(due, due + dt.timedelta(days=1))
+    if status == "done":
+        assert not events
+    else:
+        assert len(events) == 1 and events[0].title == f"GÖREV: {task.title}"
+        responsible = task.reviewer if status == "review" else task.assignee
+        assert str(responsible) in events[0].location
+
+
+def test_google_connection_failure_does_not_hide_tasks(case_factory, monkeypatch):
+    from apps.office.models import TaskType
+    from apps.tasks.models import Task
+
+    case = case_factory()
+    due = dt.date(2026, 11, 5)
+    task = Task.objects.create(
+        case=case,
+        title="Bağlantı olmadan görev",
+        due_date=due,
+        task_type=TaskType.objects.first(),
+        assignee=case.responsible_intern,
+        reviewer=case.responsible_lawyer,
+    )
+    office = OfficeSettings.load()
+    office.calendar_ics_url = FAKE_URL
+    office.save()
+
+    def fail(url):
+        raise CalendarError("Google Takvim'e ulaşılamadı.")
+
+    monkeypatch.setattr(services, "fetch_ics", fail)
+    result = services.combined_events(due, due + dt.timedelta(days=1))
+    assert result.error and result.configured
+    assert [event.title for event in result.events] == [f"GÖREV: {task.title}"]
