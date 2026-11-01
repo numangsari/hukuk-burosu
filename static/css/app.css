@@ -602,6 +602,9 @@ a.stat-card:hover { box-shadow: var(--shadow); border-color: color-mix(in srgb, 
 .cal-day { font-size: .8rem; font-weight: 600; color: var(--ink-2); margin-bottom: .25rem; display: inline-grid; place-items: center; min-width: 26px; height: 26px; border-radius: 50%; }
 .cal-cell.today .cal-day { background: var(--brand); color: #fff; }
 .cal-week .cal-cell { min-height: 420px; }
+.cal-events { max-height: 150px; overflow-y: auto; overscroll-behavior: contain; }
+.cal-week .cal-events { max-height: 370px; }
+.cal-events:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
 .cal-ev { display: block; font-size: .75rem; line-height: 1.3; padding: .2rem .4rem; border-radius: 6px; margin-bottom: 3px; background: var(--brand-soft); color: var(--brand); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cal-ev.all-day { background: var(--brand); color: #fff; }
 .cal-ev b { font-weight: 650; margin-right: .25rem; }

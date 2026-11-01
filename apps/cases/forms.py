@@ -107,7 +107,7 @@ class CaseForm(BootstrapMixin, forms.ModelForm):
         self.fields["case_type"].widget.attrs["x-model"] = "caseType"
         self.fields["authority"].widget.attrs["list"] = "authority-options"
         self.fields["folder_name"].help_text = (
-            "Boşsa dosya numarası, arşiv numarası ve konusuyla ayrı bir klasör oluşturulur. "
+            "Boşsa kurum adı ve dosya numarası kullanılır; bunlar yoksa konu kullanılır. "
             "Kaydedilmiş klasörler taşınmaz."
         )
         self.fields["subject"].widget.attrs["class"] += " text-uppercase-input"

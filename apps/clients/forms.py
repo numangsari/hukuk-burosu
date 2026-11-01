@@ -49,7 +49,7 @@ class ClientForm(BootstrapMixin, forms.ModelForm):
         self.fields["responsible_lawyer"].widget.attrs["x-on:change"] = "lawyerChanged($event)"
         self.fields["responsible_intern"].widget.attrs["x-ref"] = "intern"
         self.fields["folder_name"].help_text = (
-            "Boşsa müvekkil numarası ve adıyla ayrı bir klasör oluşturulur. "
+            "Boşsa ad-soyad veya unvan kullanılır; aynı ad varsa (2) eklenir. "
             "Kaydedilmiş klasörler taşınmaz."
         )
 

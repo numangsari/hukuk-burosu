@@ -31,7 +31,7 @@ Kullanıcının henüz tek tek bakmadığı kontrol maddeleri (Adım 4'e geçmed
 
 ### 4. Dosyalar — inceleme büyük ölçüde tamam, son sekmeler kaldı
 **Devam noktası:** Aşağıdakiler kullanıcıyla canlı ekranda gözden geçirildi ve onaylandı: yeni dosya formu (iki sütun, taraflar listesi + pop-up, ek müvekkiller, ilgili dosya oluştur), dosya listesi (sütun sırası, renkli tür/durum düğmeleri, bağlı dosya kümeleme ve "+X dosya bağlı"), açık/kapalı + aşama/kapanma modeli (kaynak `aşamalar.txt`), dosya özeti, Taraflar (sol/sağ yan), Görevler (aktif/tamamlanan, sıralama), Safahat (bağlı dosyaların tek akışı, ortak muhasebe), avukatlık sözleşmesi, numara ekleri (Esas/İcra/Soruşturma/Arabuluculuk/Karar), tebligatın kaldırılması.
-- Kalan kontroller: Belgeler (yükleme düzeni düzeltildi, ofis klasörü kopyası denenmedi), Geçmiş sekmesi, dosya silinince bağlı grup ve ek müvekkil davranışı, arama ve süzgeç ayrıntıları, silme yetkileri.
+- Kalan kontroller: Belgeler (yükleme ve doğru klasöre kopya kullanıcıyla doğrulandı; klasör adları müvekkil adı ve kurum/numara düzenine çevrilir), Geçmiş sekmesi, dosya silinince bağlı grup ve ek müvekkil davranışı, arama ve süzgeç ayrıntıları, silme yetkileri.
 - Bilinen sınırlar: bağlı dosya kümelemesi yalnızca gösterilen sayfa içinde; klasör yapısı yalnızca asıl müvekkili kullanır; sözleşmedeki vekalet ücreti muhasebe kaydıyla bağlı değildir (yalnızca öneri).
 - Kullanıcı kararları (uygulandı): tebligat kaldırıldı; safahat aşama kaydı değil bağlı dosyalardır; bağlantıyı koparma yönetici ve avukatlarda; bağlanacak dosyaların en az bir ortak müvekkili olmalı; ek müvekkilin kendi sıfatı vardır; bağlı dosyalar aynı fiziki arşiv yerini paylaşabilir (veritabanı tekillik kısıtı kaldırıldı, form denetler).
 
@@ -48,6 +48,7 @@ Kullanıcının henüz tek tek bakmadığı kontrol maddeleri (Adım 4'e geçmed
 
 ### 7. Takvim
 - Google Takvim iCal bağlantısı ve açık görevlerin son günleri: ana sayfada 7 gün, takvim sayfasında ay/hafta görünümü. Görevler son günlerinde saat alanında `GÖREV`, başlıkta yalnızca görev adıyla görünür ve tıklanınca açılır; tamamlananlar gösterilmez. Google etkinliklerinin tümü gösterilir. Google bağlı değilken veya erişilemezken de görevler görünür. Duruşma ve randevu eklenmez; dosya eşleştirmesi veya etkinlikten görev oluşturma yapılmaz.
+- Yoğun günlerde etkinlik listesi kendi içinde kayar; tarih başlığı sabittir.
 - Google bağlantısı (Ayarlar > Google Takvim), erişilemeyince uyarıyla son kopya.
 
 ### 8. Muhasebe

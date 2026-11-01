@@ -25,8 +25,8 @@ def test_same_names_use_separate_numbered_folders(client_factory, office_root, o
     second = client_factory(first_name=other_name, last_name="Kişi")
     first_path = folders.client_dir(first)
     second_path = folders.client_dir(second)
-    assert first_path.name == f"M{first.pk:06d} - ÖRNEK KİŞİ"
-    assert second_path.name == f"M{second.pk:06d} - {other_name} KİŞİ"
+    assert first_path.name == "ÖRNEK KİŞİ"
+    assert second_path.name == f"{other_name} KİŞİ (2)"
     assert first_path != second_path
 
 
@@ -77,13 +77,13 @@ def test_ambiguous_existing_folders_require_explicit_resolution(client_factory, 
         folders.client_dir(owner)
 
 
-def test_case_numbers_keep_sanitized_archive_names_separate(case_factory, office_root):
+def test_same_case_names_remain_separate(case_factory, office_root):
     first = case_factory(archive_no="26/1", subject="Örnek")
     second = case_factory(client=first.client, archive_no="26-1", subject="Örnek")
     first_path = folders.case_dir(first)
     second_path = folders.case_dir(second)
-    assert first_path.name == f"D{first.pk:06d} - 26-1 - ÖRNEK"
-    assert second_path.name == f"D{second.pk:06d} - 26-1 - ÖRNEK"
+    assert first_path.name == "ÖRNEK"
+    assert second_path.name == "ÖRNEK (2)"
     assert first_path != second_path
 
 
@@ -136,3 +136,33 @@ def test_parallel_file_copies_keep_both_contents(tmp_path, monkeypatch):
         paths = [future.result(timeout=20) for future in futures]
     assert len(set(paths)) == 2
     assert {path.read_bytes() for path in paths} == {b"birinci", b"ikinci"}
+
+
+def test_client_company_uses_title_and_case_uses_official_name(
+    client_factory, case_factory, office_root
+):
+    owner = client_factory(kind="company", title="Örnek Şirket")
+    case = case_factory(
+        client=owner, authority="Sakarya 3. Asliye Hukuk Mahkemesi", official_no="2026/121"
+    )
+    path = folders.case_dir(case)
+    assert path.parent.name == "ÖRNEK ŞİRKET"
+    assert path.name == "SAKARYA 3. ASLİYE HUKUK MAHKEMESİ - 2026-121 Esas"
+
+
+def test_new_folder_read_error_is_reported(client_factory, office_root, monkeypatch):
+    from pathlib import Path
+
+    parent = office_root / folders.CLIENTS_DIR
+    parent.mkdir(parents=True)
+    owner = client_factory()
+    iterdir = Path.iterdir
+
+    def denied(path):
+        if path == parent:
+            raise PermissionError("Örnek erişim hatası")
+        return iterdir(path)
+
+    monkeypatch.setattr(Path, "iterdir", denied)
+    with pytest.raises(folders.FolderError, match="okunamadı"):
+        folders.client_dir(owner)

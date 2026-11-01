@@ -91,12 +91,7 @@ def test_approve_publishes_to_case_and_folder(task, intern, lawyer, office_root)
     assert task.warnings == []
     doc = Document.objects.get(case=task.case)
     assert doc.category == "petition" and doc.title == "CEVAP DİLEKÇESİ"
-    folder = (
-        office_root
-        / "Müvekkiller"
-        / f"M{task.case.client_id:06d} - DENEME KİŞİ"
-        / f"D{task.case_id:06d} - 2026-0041 - ALACAK DAVASI"
-    )
+    folder = office_root / "Müvekkiller" / "DENEME KİŞİ" / "ALACAK DAVASI"
     files = list(folder.iterdir())
     assert len(files) == 1 and files[0].read_bytes() == b"son hal"
     assert files[0].name == f"{timezone.localdate():%Y-%m-%d} CEVAP DİLEKÇESİ.docx"
