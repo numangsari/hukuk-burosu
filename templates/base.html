@@ -19,20 +19,8 @@
     <a href="{% url 'core:home' %}" class="head-row head-office">
       <span class="head-text"><strong>{{ office.name }}</strong></span>
     </a>
-    <div class="dropdown">
-      <button class="head-row head-user" data-bs-toggle="dropdown" aria-expanded="false">
-        <span class="head-text"><strong>{{ request.user }}</strong><small>{{ request.user.display_title }}</small></span>
-        <i class="bi bi-chevron-down head-caret"></i>
-      </button>
-      <ul class="dropdown-menu w-100">
-        <li><a class="dropdown-item" href="{% url 'accounts:settings' %}"><i class="bi bi-gear"></i>Ayarlar</a></li>
-        <li><hr class="dropdown-divider"></li>
-        <li>
-          <form method="post" action="{% url 'accounts:logout' %}">{% csrf_token %}
-            <button class="dropdown-item"><i class="bi bi-box-arrow-right"></i>Çıkış yap</button>
-          </form>
-        </li>
-      </ul>
+    <div class="head-row head-user">
+      <span class="head-text"><strong>{{ request.user }}</strong><small>{{ request.user.display_title }}</small></span>
     </div>
     </div>
     {% with ns=request.resolver_match.namespace %}
@@ -50,22 +38,19 @@
       <a class="side-link {% if ns == 'reports' %}active{% endif %}" href="{% url 'reports:index' %}"><i class="bi bi-bar-chart-line"></i>Raporlar</a>
       <div class="nav-section">Sistem</div>
       <a class="side-link {% if ns == 'activity' %}active{% endif %}" href="{% url 'activity:list' %}"><i class="bi bi-clock-history"></i>Aktivite kaydı</a>
-      <a class="side-link {% if ns == 'accounts' %}active{% endif %}" href="{% url 'accounts:settings' %}"><i class="bi bi-gear"></i>Ayarlar</a>
       {% if request.user.is_office_admin %}
       <a class="side-link" href="{% url 'admin:index' %}"><i class="bi bi-sliders"></i>Yönetim paneli</a>
       {% endif %}
       <div class="nav-section">Kısayollar</div>
-      {% include "partials/office_links.html" with compact=True %}
+      {% include "partials/office_links.html" %}
     </nav>
     {% endwith %}
-    {% if office.address or office.phone or office.email or office.tax_number %}
-    <div class="sidebar-foot">
-      {% if office.address %}<div class="foot-line"><i class="bi bi-geo-alt"></i><span>{{ office.address|linebreaksbr }}</span></div>{% endif %}
-      {% if office.phone %}<div class="foot-line"><i class="bi bi-telephone"></i><span>{{ office.phone|phone_tr }}</span></div>{% endif %}
-      {% if office.email %}<div class="foot-line"><i class="bi bi-envelope"></i><span>{{ office.email }}</span></div>{% endif %}
-      {% if office.tax_number %}<div class="foot-line"><i class="bi bi-receipt"></i><span>{% if office.tax_office %}{{ office.tax_office }} V.D. · {% endif %}{{ office.tax_number }}</span></div>{% endif %}
+    <div class="sidebar-account">
+      <a class="side-link {% if request.resolver_match.namespace == 'accounts' %}active{% endif %}" href="{% url 'accounts:settings' %}"><i class="bi bi-gear"></i>Ayarlar</a>
+      <form method="post" action="{% url 'accounts:logout' %}">{% csrf_token %}
+        <button type="submit" class="side-link"><i class="bi bi-box-arrow-right"></i>Çıkış yap</button>
+      </form>
     </div>
-    {% endif %}
   </aside>
   <div class="sidebar-backdrop" :class="nav && 'open'" @click="nav = false"></div>
 
@@ -81,6 +66,14 @@
         <kbd>Ctrl K</kbd>
         <div class="search-dd" id="search-dd" x-show="open" x-cloak></div>
       </form>
+      <nav class="topbar-actions" aria-label="Yeni kayıt">
+        <a class="top-action ta-brand" href="{% url 'tasks:create' %}" title="Yeni görev"><i class="bi bi-check2-square"></i><span>Yeni görev</span></a>
+        <a class="top-action ta-accent" href="{% url 'cases:create' %}" title="Yeni dosya"><i class="bi bi-folder-plus"></i><span>Yeni dosya</span></a>
+        <a class="top-action ta-success" href="{% url 'clients:create' %}" title="Yeni müvekkil"><i class="bi bi-person-plus"></i><span>Yeni müvekkil</span></a>
+        {% if can_edit_accounting %}
+        <a class="top-action ta-warning" href="{% url 'accounting:create' %}" title="Yeni gelir / gider"><i class="bi bi-cash-coin"></i><span>Yeni gelir / gider</span></a>
+        {% endif %}
+      </nav>
       <div class="ms-auto d-flex align-items-center gap-1">
         <span class="text-body-secondary small d-none d-md-inline me-2">{% now "j F Y, l" %}</span>
         <button class="icon-btn" title="Tema" hx-post="{% url 'accounts:theme_toggle' %}" hx-swap="none"
@@ -110,6 +103,14 @@
       {% endif %}
       {% block content %}{% endblock %}
     </main>
+    {% if office.address or office.phone or office.email or office.tax_number %}
+    <footer class="page-foot">
+      {% if office.address %}<span class="foot-item"><i class="bi bi-geo-alt"></i>{{ office.address }}</span>{% endif %}
+      {% if office.phone %}<span class="foot-item"><i class="bi bi-telephone"></i>{{ office.phone|phone_tr }}</span>{% endif %}
+      {% if office.email %}<span class="foot-item"><i class="bi bi-envelope"></i>{{ office.email }}</span>{% endif %}
+      {% if office.tax_number %}<span class="foot-item"><i class="bi bi-receipt"></i>{% if office.tax_office %}{{ office.tax_office }} V.D. · {% endif %}{{ office.tax_number }}</span>{% endif %}
+    </footer>
+    {% endif %}
   </div>
 </div>
 

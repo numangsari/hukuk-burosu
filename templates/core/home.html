@@ -4,15 +4,16 @@
   <h1 class="page-title">{{ greeting }}, {{ request.user.first_name|default:request.user.username }}</h1>
 </div>
 
-<div class="row g-4">
-  <div class="col-xl-8">
-    <div class="card task-panel h-100">
+<div class="row g-4 home-panels">
+  <div class="col-xl-7">
+    <div class="card task-panel">
       <div class="card-header">
         <i class="bi bi-check2-square text-body-secondary"></i>
         <h2 class="card-title">Aktif görevlerim</h2>
         {% if my_task_count %}<span class="count-pill">{{ my_task_count }}</span>{% endif %}
         <a class="ms-auto small" href="{% url 'tasks:list' %}">Tüm görevler <i class="bi bi-arrow-right"></i></a>
       </div>
+      <div class="panel-scroll">
       {% if my_tasks %}
       <ul class="task-list">
         {% for t in my_tasks %}
@@ -46,44 +47,19 @@
         Size atanan veya kontrolünüzü bekleyen görevler burada en acil olandan başlayarak listelenir.
       </div>
       {% endif %}
+      </div>
     </div>
   </div>
 
-  <div class="col-xl-4 d-flex flex-column gap-4">
-    <div class="quick-actions">
-      <a class="quick-action" href="{% url 'tasks:create' %}">
-        <span class="qa-icon" style="background: var(--brand-soft); color: var(--brand)"><i class="bi bi-check2-square"></i></span>Yeni görev
-      </a>
-      <a class="quick-action" href="{% url 'cases:create' %}">
-        <span class="qa-icon" style="background: var(--accent-soft); color: var(--accent)"><i class="bi bi-folder-plus"></i></span>Yeni dosya
-      </a>
-      <a class="quick-action" href="{% url 'clients:create' %}">
-        <span class="qa-icon" style="background: var(--success-soft); color: var(--success-ink)"><i class="bi bi-person-plus"></i></span>Yeni müvekkil
-      </a>
-      {% if can_edit_accounting %}
-      <a class="quick-action" href="{% url 'accounting:create' %}">
-        <span class="qa-icon" style="background: var(--warning-soft); color: var(--warning-ink)"><i class="bi bi-cash-coin"></i></span>Yeni gelir / gider
-      </a>
-      {% else %}
-      <span class="quick-action disabled" title="Muhasebe yetkiniz yok">
-        <span class="qa-icon" style="background: var(--warning-soft); color: var(--warning-ink)"><i class="bi bi-cash-coin"></i></span>Yeni gelir / gider
-      </span>
-      {% endif %}
-    </div>
-
+  <div class="col-xl-5">
     <div class="card">
-      <div class="card-header"><h2 class="card-title">Ofis kısayolları</h2></div>
-      <div class="card-body quick-actions">
-        {% include "partials/office_links.html" with compact=False %}
-      </div>
-    </div>
-
-    <div class="card flex-grow-1">
       <div class="card-header">
         <i class="bi bi-calendar3 text-body-secondary"></i>
-        <h2 class="card-title">Yaklaşan tarihler</h2>
+        <h2 class="card-title">Takvim</h2>
+        <span class="small text-body-secondary">Önümüzdeki 7 gün</span>
         <a class="ms-auto small" href="{% url 'agenda:calendar' %}">Takvimi aç <i class="bi bi-arrow-right"></i></a>
       </div>
+      <div class="panel-scroll">
       {% if agenda.error %}<div class="alert alert-warning small m-3 mb-0 py-2"><i class="bi bi-exclamation-triangle me-1"></i>{{ agenda.error }}</div>{% endif %}
       {% if overdue_services %}
         <div class="agenda-day" style="color: var(--danger-ink)">Süresi geçmiş tebligatlar</div>
@@ -109,6 +85,7 @@
         <div class="small text-body-secondary px-3 pb-3 pt-2"><i class="bi bi-info-circle"></i> Google Takvim bağlı değil{% if request.user.is_office_admin %} — <a href="{% url 'accounts:settings' %}?bolum=takvim">bağla</a>{% endif %}.</div>
       {% endif %}
       <div class="pb-2"></div>
+      </div>
     </div>
   </div>
 </div>

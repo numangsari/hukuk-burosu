@@ -1,7 +1,7 @@
 {% load ui %}
 {% office_links as links %}
 {% for link in links %}
-<a class="{% if compact %}side-link{% else %}office-shortcut{% endif %}" href="{{ link.url }}"
+<a class="side-link" href="{{ link.url }}"
    target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer"
    title="{{ link.description }} — yeni sekmede açılır">
   <i class="bi {{ link.icon }}" aria-hidden="true"></i>
