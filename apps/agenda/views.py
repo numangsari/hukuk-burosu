@@ -5,7 +5,7 @@ from collections import defaultdict
 from django.utils import timezone
 from django.views.generic import TemplateView
 
-from .services import combined_events
+from .services import events_between
 
 MONTHS = [
     "Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran",
@@ -56,7 +56,7 @@ class AgendaView(TemplateView):
                 f"{last.year}"
             )
 
-        result = combined_events(start, end)
+        result = events_between(start, end)
         by_day = group_by_day(result.events)
         ctx.update(
             view=view,

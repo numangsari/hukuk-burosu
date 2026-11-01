@@ -1,30 +1,21 @@
 {% load ui %}
 {# Dosya detayı > Özet sekmesi. Veriler views.CaseDetailView içinde (summary.py) hazırlanır. #}
 <div class="row g-3 mb-3">
-  <div class="col-sm-6 col-xl-3">
+  <div class="col-sm-6 col-xl-4">
     <a href="#" class="card stat-card" onclick="goCaseTab('#t-gorevler'); return false">
       <div class="stat-icon"><i class="bi bi-check2-square"></i></div>
       <div><div class="stat-label">Açık görev</div><div class="stat-value">{{ summary.open_task_count }}</div>
         <div class="stat-hint {% if summary.overdue_task_count %}text-danger fw-medium{% endif %}">{% if summary.overdue_task_count %}{{ summary.overdue_task_count }} gecikmiş{% else %}Gecikmiş yok{% endif %}</div></div>
     </a>
   </div>
-  <div class="col-sm-6 col-xl-3">
-    <a href="#" class="card stat-card" onclick="goCaseTab('#t-durusmalar'); return false">
-      <div class="stat-icon accent"><i class="bi bi-bank2"></i></div>
-      <div><div class="stat-label">Sıradaki duruşma</div>
-        {% if summary.next_hearing %}<div class="stat-value fs-5">{{ summary.next_hearing.starts_at|date:"d.m.Y" }}</div>
-        <div class="stat-hint">{{ summary.next_hearing.starts_at|date:"H:i" }} · {{ summary.next_hearing.get_kind_display }}</div>
-        {% else %}<div class="stat-value fs-5 text-body-secondary">—</div><div class="stat-hint">Planlı duruşma yok</div>{% endif %}</div>
-    </a>
-  </div>
-  <div class="col-sm-6 col-xl-3">
+  <div class="col-sm-6 col-xl-4">
     <a href="#" class="card stat-card" onclick="goCaseTab('#t-safahat'); return false">
       <div class="stat-icon warning"><i class="bi bi-diagram-3"></i></div>
       <div><div class="stat-label">Bağlı dosya</div><div class="stat-value">{{ summary.linked_count }}</div>
         <div class="stat-hint">{% if summary.linked_count %}Safahat ve muhasebe ortak{% else %}Bağlı dosya yok{% endif %}</div></div>
     </a>
   </div>
-  <div class="col-sm-6 col-xl-3">
+  <div class="col-sm-6 col-xl-4">
     <a href="#" class="card stat-card" onclick="goCaseTab('#t-belgeler'); return false">
       <div class="stat-icon success"><i class="bi bi-files"></i></div>
       <div><div class="stat-label">Belge</div><div class="stat-value">{{ summary.document_count }}</div>

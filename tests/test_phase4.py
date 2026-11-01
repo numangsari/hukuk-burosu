@@ -184,7 +184,8 @@ def test_report_values(admin_user, report_data):
     assert [row[1] for row in r.context["result"].rows] == ["GECİKMİŞ İŞ"]
     r = c.get(reverse("reports:report", args=["dosya-son-durum"]), {"goster": 1})
     row = r.context["result"].rows[0]
-    assert row[1] == "2026/0007" and row[4] and row[5] == 1
+    assert row[1] == "2026/0007" and row[4] == 1
+    assert "Sonraki duruşma" not in [column.label for column in r.context["result"].columns]
 
 
 def test_financial_reports_hidden_without_permission(intern, report_data):

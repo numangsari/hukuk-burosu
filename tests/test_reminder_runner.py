@@ -9,7 +9,7 @@ import pytest
 @pytest.mark.parametrize(
     "status, result", [("Stopped", 0), ("Missing", 0), ("Running", 0), ("Running", 7)]
 )
-def test_reminder_runner_checks_service_and_reports_command_result(tmp_path, status, result):
+def test_retired_reminder_runner_never_calls_command(tmp_path, status, result):
     command = tmp_path / "manage.cmd"
     command.write_text(
         '@echo off\n>> "%~dp0called.txt" echo %*\n' + f"exit /b {result}\n", encoding="ascii"
@@ -30,8 +30,6 @@ def test_reminder_runner_checks_service_and_reports_command_result(tmp_path, sta
         timeout=20,
         check=False,
     )
-    assert response.returncode == result, response.stderr.decode(errors="replace")
+    assert response.returncode == 0, response.stderr.decode(errors="replace")
     marker = tmp_path / "called.txt"
-    assert marker.exists() == (status == "Running")
-    if marker.exists():
-        assert marker.read_text().splitlines() == ["send_whatsapp"]
+    assert not marker.exists()

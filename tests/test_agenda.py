@@ -109,3 +109,53 @@ def test_calendar_page_month_and_week(lawyer_client, monkeypatch):
     r = lawyer_client.get(reverse("agenda:calendar"), {"view": "week", "date": "2026-11-05"})
     assert "2 Kasım – 8 Kasım 2026" in r.content.decode()
     assert FAKE_URL not in r.content.decode()
+
+
+@pytest.mark.parametrize("configured", [False, True])
+def test_home_and_calendar_only_show_google_events(
+    lawyer_client, case_factory, monkeypatch, configured
+):
+    from django.utils import timezone
+
+    from apps.cases.models import Hearing
+    from apps.clients.models import ClientAppointment
+    from apps.office.models import TaskType
+    from apps.tasks.models import Task
+
+    case = case_factory()
+    today = timezone.localdate()
+    now = timezone.now()
+    hearing = Hearing.objects.create(case=case, starts_at=now, authority="Eski duruşma")
+    appointment = ClientAppointment.objects.create(
+        client=case.client, title="Eski randevu", starts_at=now
+    )
+    Task.objects.create(
+        case=case,
+        title="Takvime girmeyecek görev",
+        due_date=today,
+        task_type=TaskType.objects.first(),
+        assignee=case.responsible_intern,
+        reviewer=case.responsible_lawyer,
+    )
+    office = OfficeSettings.load()
+    office.calendar_ics_url = FAKE_URL if configured else ""
+    office.save()
+    calendar = (
+        "BEGIN:VCALENDAR\nVERSION:2.0\nBEGIN:VEVENT\nUID:only-google@test\n"
+        f"DTSTART;VALUE=DATE:{today:%Y%m%d}\nSUMMARY:Google örnek etkinlik\n"
+        "END:VEVENT\nEND:VCALENDAR\n"
+    )
+    monkeypatch.setattr(services, "fetch_ics", lambda url: calendar)
+    for url, params in [("/", {}), (reverse("agenda:calendar"), {"date": today.isoformat()})]:
+        response = lawyer_client.get(url, params)
+        assert response.status_code == 200
+        events = response.context["agenda"].events
+        assert [e.title for e in events] == (["Google örnek etkinlik"] if configured else [])
+        assert all(e.source == "google" for e in events)
+        html = response.content.decode()
+        assert "Eski randevu" not in html and "Eski duruşma" not in html
+        assert "WhatsApp mesajları" not in html
+        if not configured:
+            assert "Google Takvim bağlı değil" in html
+    assert Hearing.objects.filter(pk=hearing.pk).exists()
+    assert ClientAppointment.objects.filter(pk=appointment.pk).exists()

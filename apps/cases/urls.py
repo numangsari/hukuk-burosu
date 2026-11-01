@@ -30,17 +30,6 @@ urlpatterns = [
         views.DocumentDeleteView.as_view(),
         name="document_delete",
     ),
-    path("<int:pk>/durusma/", rec.HearingAddView.as_view(), name="hearing_add"),
-    path(
-        "<int:pk>/durusma/<int:item_pk>/sonuc/",
-        rec.HearingResultView.as_view(),
-        name="hearing_result",
-    ),
-    path(
-        "<int:pk>/durusma/<int:item_pk>/sil/",
-        rec.HearingDeleteView.as_view(),
-        name="hearing_delete",
-    ),
     path("<int:pk>/not/", rec.EventAddView.as_view(), name="event_add"),
     path("<int:pk>/not/<int:item_pk>/sil/", rec.EventDeleteView.as_view(), name="event_delete"),
 ]

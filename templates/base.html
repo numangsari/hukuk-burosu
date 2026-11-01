@@ -32,7 +32,6 @@
       <div class="nav-section">Kayıtlar</div>
       <a class="side-link {% if ns == 'clients' %}active{% endif %}" href="{% url 'clients:list' %}"><i class="bi bi-people"></i>Müvekkiller</a>
       <a class="side-link {% if ns == 'cases' %}active{% endif %}" href="{% url 'cases:list' %}"><i class="bi bi-folder2-open"></i>Dosyalar</a>
-      <a class="side-link {% if ns == 'clients:messaging' %}active{% endif %}" href="{% url 'clients:messaging:inbox' %}"><i class="bi bi-whatsapp"></i>WhatsApp mesajları</a>
       <div class="nav-section">Finans ve Rapor</div>
       {% if can_view_accounting %}<a class="side-link {% if ns == 'accounting' %}active{% endif %}" href="{% url 'accounting:list' %}"><i class="bi bi-wallet2"></i>Muhasebe</a>{% endif %}
       <a class="side-link {% if ns == 'reports' %}active{% endif %}" href="{% url 'reports:index' %}"><i class="bi bi-bar-chart-line"></i>Raporlar</a>

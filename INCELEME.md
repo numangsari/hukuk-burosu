@@ -31,14 +31,12 @@ Kullanıcının henüz tek tek bakmadığı kontrol maddeleri (Adım 4'e geçmed
 
 ### 4. Dosyalar — inceleme büyük ölçüde tamam, son sekmeler kaldı
 **Devam noktası:** Aşağıdakiler kullanıcıyla canlı ekranda gözden geçirildi ve onaylandı: yeni dosya formu (iki sütun, taraflar listesi + pop-up, ek müvekkiller, ilgili dosya oluştur), dosya listesi (sütun sırası, renkli tür/durum düğmeleri, bağlı dosya kümeleme ve "+X dosya bağlı"), açık/kapalı + aşama/kapanma modeli (kaynak `aşamalar.txt`), dosya özeti, Taraflar (sol/sağ yan), Görevler (aktif/tamamlanan, sıralama), Safahat (bağlı dosyaların tek akışı, ortak muhasebe), avukatlık sözleşmesi, numara ekleri (Esas/İcra/Soruşturma/Arabuluculuk/Karar), tebligatın kaldırılması.
-- Kalan kontroller: Duruşmalar sekmesi (Google Takvim entegrasyonu Adım 7'de yapılacak), Belgeler (yükleme düzeni düzeltildi, ofis klasörü kopyası denenmedi), Geçmiş sekmesi, dosya silinince bağlı grup ve ek müvekkil davranışı, arama ve süzgeç ayrıntıları, silme yetkileri.
-- Bilinen sınırlar: bağlı dosya kümelemesi yalnızca gösterilen sayfa içinde; klasör yapısı ve WhatsApp hatırlatması yalnızca asıl müvekkili kullanır; sözleşmedeki vekalet ücreti muhasebe kaydıyla bağlı değildir (yalnızca öneri).
+- Kalan kontroller: Belgeler (yükleme düzeni düzeltildi, ofis klasörü kopyası denenmedi), Geçmiş sekmesi, dosya silinince bağlı grup ve ek müvekkil davranışı, arama ve süzgeç ayrıntıları, silme yetkileri.
+- Bilinen sınırlar: bağlı dosya kümelemesi yalnızca gösterilen sayfa içinde; klasör yapısı yalnızca asıl müvekkili kullanır; sözleşmedeki vekalet ücreti muhasebe kaydıyla bağlı değildir (yalnızca öneri).
 - Kullanıcı kararları (uygulandı): tebligat kaldırıldı; safahat aşama kaydı değil bağlı dosyalardır; bağlantıyı koparma yönetici ve avukatlarda; bağlanacak dosyaların en az bir ortak müvekkili olmalı; ek müvekkilin kendi sıfatı vardır; bağlı dosyalar aynı fiziki arşiv yerini paylaşabilir (veritabanı tekillik kısıtı kaldırıldı, form denetler).
 
-### 5. Duruşma ve tebligat
-- Duruşma/keşif/bilirkişi ekleme, düzenleme; sonuç girilince zaman çizelgesine düşmesi; silme yalnızca yönetici.
-- Tebligat: son gün elle, "gereği yapıldı" işareti, süresi geçenlerin ana sayfada görünmesi.
-- Takvim ve ana sayfa yansımaları (Adım 7'deki takvim kararına göre).
+### 5. Duruşma ve tebligat — kullanım dışı
+- Kullanıcı kararıyla duruşma bölümü kaldırıldı; eski kayıtlar korunur. Tebligat daha önce kaldırılmıştı.
 
 ### 6. Görevler
 - Liste kapsamları (Bana atanan, Kontrolümde, Oluşturduklarım, Tümü), durum/tür süzgeci, arama.
@@ -49,8 +47,8 @@ Kullanıcının henüz tek tek bakmadığı kontrol maddeleri (Adım 4'e geçmed
 - Yorumlar, geçmiş, silme yetkisi (oluşturan veya yönetici).
 
 ### 7. Takvim
-- **Planlanan:** takvim yalnızca Google Takvim'i gösterecek; görev/duruşma/tebligat son günleri takvime eklenmeyecek; Google etkinlikleri sisteme kayıt olarak aktarılmayacak. Bir Google etkinliğine sistemden sorumlu atanabilecek; atanınca o etkinlikle ilgili görev oluşacak ve tamamlanması istenecek (ör. duruşma hakkında müvekkile WhatsApp'tan bilgi vermek). Ana sayfadaki Takvim paneli de buna göre değişecek.
-- Ay/hafta görünümü, Google bağlantısı (Ayarlar > Google Takvim), erişilemeyince son kopya.
+- Yalnızca Google Takvim iCal bağlantısı: ana sayfada 7 gün, takvim sayfasında ay/hafta görünümü. Görev, duruşma ve randevu eklenmez; dosya eşleştirmesi veya etkinlikten görev oluşturma yapılmaz.
+- Google bağlantısı (Ayarlar > Google Takvim), erişilemeyince uyarıyla son kopya.
 
 ### 8. Muhasebe
 - Liste: süzgeçler (müvekkil, dosya, tür, tarih, iptaller), toplamlar yalnızca bakiye yetkilisine.
@@ -62,13 +60,13 @@ Kullanıcının henüz tek tek bakmadığı kontrol maddeleri (Adım 4'e geçmed
 - 6 rapor: önizleme, Excel, PDF (Türkçe karakter); finansal raporlar yalnızca bakiye yetkilisine; parametreler.
 
 ### 10. Hatırlatmalar
-- Sistem içi bildirimler kaldırıldı. Kalan: WhatsApp hatırlatmaları (Adım 12) ve ana sayfa rozetleri. Kullanıcıya başka hatırlatma ihtiyacı olup olmadığını sor.
+- Sistem içi bildirimler ve WhatsApp hatırlatmaları kullanım dışı. Görevler ana sayfa rozetleriyle izlenir.
 
 ### 11. Aktivite kaydı
 - `/aktivite/` süzgeçleri; yönetici herkesi, diğerleri kendini görür; müvekkil/dosya "Geçmiş" sekmeleri; giriş/çıkış kayıtları.
 
-### 12. WhatsApp
-- Mesaj kutusu, müvekkil ekranı, randevular, izin/alıcı seçimi, hazır metinler. Canlı bağlantı `WHATSAPP.md`'deki adımlarla kullanıcıyla kurulacak (gerçek gönderim henüz yapılmadı).
+### 12. WhatsApp — kullanım dışı
+- Ekranlar, gelen bildirim adresi ve otomatik gönderim kaldırıldı. Gelecekte tekrar kurulabilmesi için kod ve eski kayıtlar korunur. WhatsApp Web kısayolu bağımsızdır.
 
 ### 13. Yönetici ayarları
 - Ofis bilgileri, kullanıcılar (rol, unvan, bağlı avukat, PIN sıfırlama, pasife alma), görev türleri (belge zorunlu), bakiye görme yetkisi, belge klasörü (yazma testi), yedekleme (saat, hedef klasör, şimdi yedek al, geçmiş), Google Takvim, boşta kalma süresi.

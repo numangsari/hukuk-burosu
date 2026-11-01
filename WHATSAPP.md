@@ -1,4 +1,6 @@
-# WhatsApp mesajlaşması ve canlı bağlantı
+# WhatsApp — arşivlenmiş bağlantı taslağı
+
+**Kullanım dışı:** Kullanıcı kararıyla mesaj ekranları, gelen bildirim adresi ve otomatik gönderim kaldırılmıştır. Aşağıdakiler eski taslaktır; yeniden kurulum kararı olmadan uygulanmaz. Eski kayıtlar korunur.
 
 Program bölümü hazır; gerçek ofis numarası henüz bağlanmadı. Gönderim varsayılan olarak kapalıdır. Mevcut telefon hesabı taşınmadı, gerçek mesaj gönderilmedi.
 

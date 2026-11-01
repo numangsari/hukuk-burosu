@@ -28,7 +28,6 @@ from .forms import (
     CaseStageForm,
     CoClientFormSet,
     DocumentForm,
-    HearingForm,
     PartyFormSet,
 )
 from .models import (
@@ -337,8 +336,6 @@ class CaseDetailView(DetailView):
         ctx["documents"] = self.object.documents.select_related("created_by")
         case = self.object
         ctx.update(
-            hearing_form=HearingForm(initial={"authority": case.authority}),
-            hearings=case.hearings.order_by("-starts_at"),
             event_form=CaseEventForm(initial={"date": timezone.localdate()}),
             timeline=case.events.select_related("created_by"),
             flow_members=services.flow_members(case),
@@ -352,10 +349,8 @@ class CaseDetailView(DetailView):
         ctx["summary"] = summary.build_summary(
             case,
             list(ctx["tasks"]),
-            list(ctx["hearings"]),
             list(ctx["flow_members"]),
             list(ctx["documents"]),
-            ctx["now"],
             ctx["today"],
         )
         ctx["party_groups"] = summary.party_groups(case, list(ctx["party_links"]))

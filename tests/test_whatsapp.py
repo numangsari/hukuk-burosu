@@ -36,6 +36,8 @@ CONFIG_NAMES = [
 
 @pytest.fixture(autouse=True)
 def isolate_whatsapp(monkeypatch, settings):
+    # Arşivlenen ekranlar gerçek uygulamada açık değildir; yalnızca burada denenir.
+    settings.ROOT_URLCONF = "tests.urls_archived_messaging"
     # Gerçek hesapla bağlantı kurulmaz; bütün telefon ve içerikler uydurmadır.
     for name in CONFIG_NAMES:
         monkeypatch.delenv(name, raising=False)

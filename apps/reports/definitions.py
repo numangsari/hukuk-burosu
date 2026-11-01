@@ -12,7 +12,7 @@ from apps.accounting.models import _MONEY as MONEY
 from apps.accounting.models import CREDIT_EXPR, EntryKind, LedgerEntry
 from apps.accounts.models import User
 from apps.cases.flows import cluster
-from apps.cases.models import Case, CaseEvent, CaseStatus, CaseType, Hearing, HearingStatus
+from apps.cases.models import Case, CaseEvent, CaseStatus, CaseType
 from apps.clients.models import Client
 from apps.core.forms import BootstrapMixin, DateInput
 from apps.tasks.models import OPEN_STATUSES, Task, TaskStatus
@@ -316,33 +316,23 @@ class ClientCasesForm(BootstrapMixin, forms.Form):
 
 
 def build_client_cases(d, user):
-    now = timezone.now()
     cases = Case.objects.select_related("client")
     if d.get("client"):
         cases = cases.filter(client=d["client"])
     if not d.get("include_closed"):
         cases = cases.exclude(status=CaseStatus.CLOSED)
-    hearing_sq = (
-        Hearing.objects.filter(
-            case=OuterRef("pk"), status=HearingStatus.PLANNED, starts_at__gte=now
-        )
-        .order_by("starts_at")
-        .values("starts_at")[:1]
-    )
     tasks_sq = (
         Task.objects.filter(case=OuterRef("pk"), status__in=OPEN_STATUSES)
         .order_by().values("case").annotate(n=Count("pk")).values("n")
     )  # fmt: skip
     last_sq = CaseEvent.objects.filter(case=OuterRef("pk")).order_by("-date", "-created_at")
     cases = cases.annotate(
-        next_hearing=Subquery(hearing_sq),
         open_tasks=Coalesce(Subquery(tasks_sq, output_field=IntegerField()), Value(0)),
         last_date=Subquery(last_sq.values("date")[:1]),
         last_title=Subquery(last_sq.values("title")[:1]),
     ).order_by("client__name", "archive_no")
     rows = [
         [k.client.name, k.archive_reference, _linked_name(k), k.status_summary,
-         f"{timezone.localtime(k.next_hearing):%d.%m.%Y %H:%M}" if k.next_hearing else "",
          k.open_tasks, f"{k.last_date:%d.%m.%Y} {k.last_title}" if k.last_date else ""]
         for k in cluster(cases)
     ]  # fmt: skip
@@ -355,7 +345,6 @@ def build_client_cases(d, user):
             Column("Arşiv no", "text", 0.7),
             Column("Konu", "text", 1.7),
             Column("Durum", "text", 1),
-            Column("Sonraki duruşma", "text", 1),
             Column("Açık görev", "int", 0.6),
             Column("Son gelişme", "text", 2.4),
         ],  # fmt: skip

@@ -84,7 +84,6 @@
     <li><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-taraflar">Taraflar<span class="count">{{ party_links|length }}</span></button></li>
     <li><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-safahat">Safahat<span class="count">{{ flow_members|length }}</span></button></li>
     <li><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-gorevler">Görevler<span class="count">{{ tasks|length }}</span></button></li>
-    <li><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-durusmalar">Duruşmalar<span class="count">{{ hearings|length }}</span></button></li>
     <li><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-belgeler">Belgeler<span class="count">{{ documents|length }}</span></button></li>
     {% if can_view_accounting %}<li><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-muhasebe">Muhasebe</button></li>{% endif %}
     <li><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-gecmis">Geçmiş</button></li>
@@ -96,7 +95,6 @@
   <div class="tab-pane fade" id="t-taraflar">{% include "cases/_parties.html" %}</div>
   <div class="tab-pane fade" id="t-safahat">{% include "cases/_safahat.html" %}</div>
   <div class="tab-pane fade" id="t-gorevler">{% include "cases/_tasks.html" %}</div>
-  <div class="tab-pane fade" id="t-durusmalar">{% include "cases/_hearings.html" %}</div>
   <div class="tab-pane fade" id="t-belgeler">{% include "cases/_documents.html" %}</div>
   <div class="tab-pane fade" id="t-gecmis">
     <div class="mb-3">{% include "cases/_timeline.html" %}</div>

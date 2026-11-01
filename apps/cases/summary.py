@@ -2,7 +2,6 @@
 
 from apps.tasks.models import OPEN_STATUSES
 
-from .models import HearingStatus
 from .party_roles import PARTY_SIDES, party_lanes
 
 UPCOMING_LIMIT = 6
@@ -73,12 +72,10 @@ def party_groups(case, party_links, include_empty=False):
     return [g for i, g in enumerate(groups) if g["items"] or (include_empty and i < 2)]
 
 
-def build_summary(case, tasks, hearings, flow_members, documents, now, today):
+def build_summary(case, tasks, flow_members, documents, today):
     """Sayaçlar ve yaklaşan işler. Girdiler ayrıca sorgulanmaması için hazır listelerdir."""
     open_tasks = [t for t in tasks if t.status in OPEN_STATUSES]
     overdue_tasks = [t for t in open_tasks if t.due_date < today]
-    planned = [h for h in hearings if h.status == HearingStatus.PLANNED and h.starts_at >= now]
-    planned.sort(key=lambda h: h.starts_at)
     upcoming = []
     for task in open_tasks:
         upcoming.append(
@@ -91,18 +88,6 @@ def build_summary(case, tasks, hearings, flow_members, documents, now, today):
                 "sub": str(task.assignee) if task.assignee_id else "",
             }
         )
-    for hearing in planned:
-        upcoming.append(
-            {
-                "icon": "bi-bank2",
-                "kind": hearing.get_kind_display(),
-                "title": hearing.authority or hearing.get_kind_display(),
-                "date": hearing.starts_at.date(),
-                "time": hearing.starts_at,
-                "tab": "#t-durusmalar",
-                "sub": hearing.room,
-            }
-        )
     upcoming.sort(key=lambda item: item["date"])
     for item in upcoming:
         item["days"] = (item["date"] - today).days
@@ -111,7 +96,6 @@ def build_summary(case, tasks, hearings, flow_members, documents, now, today):
     return {
         "open_task_count": len(open_tasks),
         "overdue_task_count": len(overdue_tasks),
-        "next_hearing": planned[0] if planned else None,
         "linked_count": len(flow_members) - 1,
         "document_count": len(documents),
         "last_document_at": last_document,

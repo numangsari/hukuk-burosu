@@ -69,7 +69,7 @@
           {% if ev.url %}</a>{% else %}</div>{% endif %}
         {% endfor %}
       {% empty %}
-        {% if not overdue_services %}<div class="empty-state"><i class="bi bi-calendar-check"></i><strong>Önümüzdeki 7 günde kayıt yok</strong></div>{% endif %}
+        <div class="empty-state"><i class="bi bi-calendar-check"></i><strong>Önümüzdeki 7 günde kayıt yok</strong></div>
       {% endfor %}
       {% if not agenda.configured %}
         <div class="small text-body-secondary px-3 pb-3 pt-2"><i class="bi bi-info-circle"></i> Google Takvim bağlı değil{% if request.user.is_office_admin %} — <a href="{% url 'accounts:settings' %}?bolum=takvim">bağla</a>{% endif %}.</div>

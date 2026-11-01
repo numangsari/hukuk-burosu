@@ -10,7 +10,7 @@ from django.utils import timezone
 from openpyxl import load_workbook
 
 from apps.accounting.models import EntryKind, LedgerEntry
-from apps.cases.models import CaseParty, Hearing
+from apps.cases.models import CaseParty
 from apps.clients.models import Party
 from apps.office.models import TaskType
 from apps.reports.base import Column, ReportResult
@@ -41,16 +41,11 @@ def task(case_factory, intern, lawyer):
 
 
 @pytest.mark.parametrize("role", ["intern", "lawyer", "admin_user"])
-@pytest.mark.parametrize("kind", ["hearing", "party"])
-def test_case_record_delete_requires_admin(request, role, kind, case_factory):
+def test_case_record_delete_requires_admin(request, role, case_factory):
     case = case_factory()
-    if kind == "hearing":
-        item = Hearing.objects.create(case=case, starts_at=timezone.now())
-        route = "cases:hearing_delete"
-    else:
-        party = Party.objects.create(kind="person", name="Örnek Karşı Taraf")
-        item = CaseParty.objects.create(case=case, party=party, role="defendant")
-        route = "cases:party_remove"
+    party = Party.objects.create(kind="person", name="Örnek Karşı Taraf")
+    item = CaseParty.objects.create(case=case, party=party, role="defendant")
+    route = "cases:party_remove"
     client = login(request.getfixturevalue(role))
     url = reverse(route, args=[case.pk, item.pk])
     assert (url in client.get(case.get_absolute_url()).content.decode()) == (role == "admin_user")
