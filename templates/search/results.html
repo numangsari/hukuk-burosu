@@ -4,15 +4,18 @@
 <div class="page-header">
   <div>
     <h1 class="page-title">Arama sonuçları</h1>
-    <p class="page-subtitle">{% if q %}"{{ q }}" için {{ total }} sonuç{% else %}Aramak için en az 2 karakter yazın.{% endif %}</p>
+    <p class="page-subtitle">{% if q|length >= 2 %}"{{ q }}" için {{ total }} sonuç{% else %}Aramak için en az 2 karakter yazın.{% endif %}</p>
   </div>
 </div>
-<form class="mb-3" style="max-width: 560px">
-  <div class="search-box" style="max-width: none"><i class="bi bi-search"></i><input class="form-control" name="q" value="{{ q }}" autofocus placeholder="Müvekkil, dosya, görev, karşı taraf, belge…"></div>
-</form>
-{% if total %}
-<div class="card sr-page">{% include "search/_items.html" %}</div>
-{% elif q|length >= 2 %}
-<div class="card"><div class="empty-state"><i class="bi bi-search"></i><strong>Sonuç bulunamadı</strong>Farklı bir kelime deneyin. Türkçe karakter ve büyük/küçük harf fark etmez.</div></div>
-{% endif %}
+<div class="card table-card" id="search-card">
+  <form class="filter-bar" id="search-form" hx-get="{% url 'search:search' %}" hx-target="#search-results" hx-push-url="true"
+        hx-trigger="input changed delay:300ms from:input[name=q], change" hx-indicator="#search-card">
+    <input type="hidden" name="tur" value="{{ kind }}" id="search-kind">
+    <div class="grow"><i class="bi bi-search"></i><input class="form-control" type="search" name="q" value="{{ q }}" autofocus placeholder="Müvekkil, dosya, görev, karşı taraf, belge…"></div>
+    <select class="form-select" name="sirala" aria-label="Sıralama">
+      {% for v, l in sorts %}<option value="{{ v }}" {% if sort == v %}selected{% endif %}>{{ l }}</option>{% endfor %}
+    </select>
+  </form>
+  <div id="search-results">{% include "search/_results_body.html" %}</div>
+</div>
 {% endblock %}

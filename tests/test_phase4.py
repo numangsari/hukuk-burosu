@@ -52,6 +52,44 @@ def test_search_views(lawyer_client, client_factory):
     assert r.context["total"] == 1
 
 
+def test_search_page_kind_filter_and_sort(lawyer_client, client_factory, case_factory):
+    a = client_factory(first_name="Zeki", last_name="Deneme")
+    b = client_factory(first_name="Ahmet", last_name="Deneme")
+    case_factory(client=a, subject="Deneme davası")
+    url = reverse("search:search")
+    r = lawyer_client.get(url, {"q": "deneme"})
+    counts = {param: n for param, _, n in r.context["kinds"]}
+    assert counts["muvekkil"] == 2 and counts["dosya"] == 1
+    # Tür süzgeci yalnızca seçilen türü getirir; sayılar yine hepsini gösterir.
+    r = lawyer_client.get(url, {"q": "deneme", "tur": "muvekkil"}, HTTP_HX_REQUEST="true")
+    assert set(r.context["r"]) == {"clients"}
+    assert r.context["total"] == 3
+    # Ada göre sıralama
+    r = lawyer_client.get(url, {"q": "deneme", "tur": "muvekkil", "sirala": "ad"})
+    assert [c.pk for c in r.context["r"]["clients"]] == [b.pk, a.pk]
+    r = lawyer_client.get(url, {"q": "deneme", "tur": "muvekkil", "sirala": "yeni"})
+    assert [c.pk for c in r.context["r"]["clients"]] == [b.pk, a.pk]
+
+
+def test_search_page_paginates_kind_and_previews_all(lawyer, client_factory):
+    from apps.search.views import PREVIEW_LIMIT
+
+    lawyer.page_size = 5
+    lawyer.save()
+    for i in range(PREVIEW_LIMIT + 2):
+        client_factory(first_name=f"Kişi{i:02d}", last_name="Sayfalı")
+    c = login(lawyer)
+    url = reverse("search:search")
+    # Tümü: türden ilk sonuçlar + tümünü gör bağlantısı
+    r = c.get(url, {"q": "sayfali"})
+    assert len(r.context["r"]["clients"]) == PREVIEW_LIMIT
+    assert r.context["more"]["clients"][0] == PREVIEW_LIMIT + 2
+    # Tür sekmesi: kullanıcının sayfa boyutuyla sayfa sayfa, hepsi görülebilir
+    r = c.get(url, {"q": "sayfali", "tur": "muvekkil", "page": 3})
+    assert r.context["paginator"].num_pages == 3
+    assert len(r.context["r"]["clients"]) == 2
+
+
 # --- Aktivite ----------------------------------------------------------------------------
 def test_activity_records_changes_and_login(lawyer, admin_user, client_factory, client):
     c = client_factory()

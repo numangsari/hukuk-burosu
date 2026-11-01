@@ -1,0 +1,25 @@
+{# Arama sonuç sayfasının süzgeçle yenilenen gövdesi #}
+{% if q|length >= 2 %}
+<ul class="nav nav-underline-tabs search-kinds">
+  <li><a class="nav-link {% if not kind %}active{% endif %}" href="#" data-kind="">Tümü<span class="count">{{ total }}</span></a></li>
+  {% for param, label, n in kinds %}
+    <li><a class="nav-link {% if kind == param %}active{% endif %}{% if not n %} disabled{% endif %}" href="#" data-kind="{{ param }}">{{ label }}<span class="count">{{ n }}</span></a></li>
+  {% endfor %}
+</ul>
+{% endif %}
+{% if shown %}
+  <div class="sr-page">{% include "search/_items.html" %}</div>
+  {% if page_obj %}{% include "partials/pagination.html" %}{% endif %}
+{% elif q|length >= 2 %}
+  <div class="empty-state"><i class="bi bi-search"></i><strong>Sonuç bulunamadı</strong>Farklı bir kelime deneyin. Türkçe karakter ve büyük/küçük harf fark etmez.</div>
+{% endif %}
+<script>
+  // Tür sekmesi: gizli alanı değiştirip formu yeniden gönderir.
+  document.querySelectorAll(".search-kinds [data-kind]").forEach(a => a.addEventListener("click", e => {
+    e.preventDefault();
+    if (a.classList.contains("disabled")) return;
+    const field = document.getElementById("search-kind");
+    field.value = a.dataset.kind;
+    htmx.trigger(document.getElementById("search-form"), "change");
+  }));
+</script>
