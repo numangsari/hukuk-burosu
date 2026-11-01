@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" fill="none" stroke="#c9a46a" stroke-linecap="round" stroke-linejoin="round">
+  <!-- Giriş ekranı arka planı: adalet terazisi ve klasik sütunlu cephe (soluk filigran) -->
+  <g stroke-width="2" opacity=".55">
+    <path d="M70 150 L600 40 L1130 150 Z"/>
+    <path d="M110 140 L600 60 L1090 140"/>
+    <rect x="60" y="150" width="1080" height="22"/>
+    <path d="M40 728 H1160 M60 712 H1140"/>
+    <g id="col">
+      <rect x="85" y="172" width="130" height="18"/>
+      <path d="M100 190 H200 L192 204 H108 Z"/>
+      <rect x="110" y="204" width="80" height="476"/>
+      <path d="M126 212 V672 M142 212 V672 M158 212 V672 M174 212 V672"/>
+      <path d="M100 680 H200 L210 696 H90 Z"/>
+    </g>
+    <use href="#col" x="140"/>
+    <use href="#col" x="760"/>
+    <use href="#col" x="900"/>
+  </g>
+  <g stroke-width="3.5">
+    <circle cx="600" cy="214" r="14"/>
+    <path d="M600 228 V640"/>
+    <path d="M400 304 Q600 272 800 304"/>
+    <circle cx="600" cy="286" r="10"/>
+    <path d="M410 300 L350 470 M410 300 L470 470"/>
+    <path d="M790 300 L730 470 M790 300 L850 470"/>
+    <path d="M336 470 Q410 534 484 470 Z"/>
+    <path d="M716 470 Q790 534 864 470 Z"/>
+    <path d="M548 640 H652 L684 692 H516 Z"/>
+    <path d="M480 708 H720"/>
+  </g>
+</svg>

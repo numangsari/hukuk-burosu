@@ -450,33 +450,64 @@ a.stat-card:hover { box-shadow: var(--shadow); border-color: color-mix(in srgb, 
 
 /* ---------- Giriş ---------- */
 .login-page {
+  position: relative; isolation: isolate; overflow: hidden;
   min-height: 100vh;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   padding: 2rem 1rem;
   background:
-    radial-gradient(1200px 600px at 10% -10%, rgba(184, 146, 90, .18), transparent 60%),
-    radial-gradient(900px 500px at 110% 110%, rgba(31, 79, 143, .35), transparent 60%),
+    radial-gradient(900px 520px at 50% 42%, rgba(29, 58, 99, .55), transparent 70%),
+    radial-gradient(1100px 600px at 0% -10%, rgba(184, 146, 90, .14), transparent 60%),
+    radial-gradient(900px 500px at 110% 110%, rgba(31, 79, 143, .3), transparent 60%),
     linear-gradient(160deg, var(--navy-800) 0%, var(--navy-950) 100%);
   color: #fff;
 }
-.login-brand { text-align: center; margin-bottom: 2.5rem; }
-.login-brand .brand-mark { width: 56px; height: 56px; font-size: 1.3rem; border-radius: 14px; margin: 0 auto 1rem; }
-.login-brand h1 { font-size: 1.6rem; font-weight: 700; letter-spacing: -.02em; margin: 0; }
-.login-brand p { color: rgba(255, 255, 255, .6); margin: .4rem 0 0; }
-.user-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; width: min(620px, 100%); }
+/* Soluk hukuk filigranı: terazi ve sütunlu cephe */
+.login-page::before {
+  content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background: url("../img/login-justice.svg") center 46% / min(1250px, 135vw) auto no-repeat;
+  opacity: .07;
+}
+/* Kenarları karartan hafif vinyet */
+.login-page::after {
+  content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background: radial-gradient(ellipse at center, transparent 55%, rgba(5, 11, 22, .55) 100%);
+}
+.login-brand { text-align: center; margin-bottom: 2.75rem; }
+.login-brand .eyebrow {
+  display: inline-block; font-size: .72rem; font-weight: 600; letter-spacing: .28em; text-transform: uppercase;
+  color: var(--accent); margin-bottom: .85rem;
+}
+.login-brand h1 {
+  font-family: Georgia, Cambria, "Times New Roman", serif;
+  font-size: clamp(2rem, 4.5vw, 2.75rem); font-weight: 400; letter-spacing: .01em; line-height: 1.15; margin: 0;
+}
+.login-brand h1::after {
+  content: ""; display: block; width: 72px; height: 1px; margin: 1.1rem auto 0;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+}
+.login-brand p { color: rgba(255, 255, 255, .6); margin: 1rem 0 0; font-size: .95rem; }
+.user-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; width: min(640px, 100%); }
 @media (max-width: 575.98px) { .user-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .user-card {
-  background: rgba(255, 255, 255, .06);
-  border: 1px solid rgba(255, 255, 255, .1);
-  border-radius: 16px; padding: 1.5rem 1rem; color: #fff; text-align: center;
-  cursor: pointer; transition: transform .15s, background .15s, border-color .15s;
-  backdrop-filter: blur(6px);
+  position: relative;
+  background: linear-gradient(180deg, rgba(255, 255, 255, .07), rgba(255, 255, 255, .025));
+  border: 1px solid rgba(255, 255, 255, .09);
+  border-radius: 18px; padding: 1.6rem 1rem 1.4rem; color: #fff; text-align: center;
+  cursor: pointer; transition: transform .2s, background .2s, border-color .2s, box-shadow .2s;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 10px 30px -18px rgba(0, 0, 0, .7);
   display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
 }
-.user-card:hover, .user-card:focus-visible { transform: translateY(-3px); background: rgba(255, 255, 255, .1); border-color: rgba(184, 146, 90, .6); outline: none; }
-.user-card .avatar { width: 64px; height: 64px; font-size: 1.3rem; margin-bottom: .85rem; box-shadow: 0 0 0 4px rgba(255, 255, 255, .08); }
+.user-card:hover, .user-card:focus-visible {
+  transform: translateY(-4px); outline: none;
+  background: linear-gradient(180deg, rgba(255, 255, 255, .1), rgba(255, 255, 255, .04));
+  border-color: rgba(184, 146, 90, .55);
+  box-shadow: 0 18px 40px -20px rgba(0, 0, 0, .8), 0 0 0 1px rgba(184, 146, 90, .25), 0 0 28px -6px rgba(184, 146, 90, .35);
+}
+.user-card .avatar { width: 64px; height: 64px; font-size: 1.3rem; margin-bottom: .9rem; box-shadow: 0 0 0 4px rgba(255, 255, 255, .06); transition: box-shadow .2s; }
+.user-card:hover .avatar, .user-card:focus-visible .avatar { box-shadow: 0 0 0 4px rgba(184, 146, 90, .35); }
 .user-card .name { font-weight: 600; font-size: .95rem; }
-.user-card .role { font-size: .8rem; color: rgba(255, 255, 255, .55); margin-top: .15rem; }
+.user-card .role { font-size: .78rem; color: rgba(255, 255, 255, .5); margin-top: .2rem; letter-spacing: .01em; }
 .pin-card {
   width: 340px; padding: 2rem; border-radius: 20px; text-align: center;
   background: var(--surface); color: var(--ink); box-shadow: 0 30px 60px -12px rgba(0, 0, 0, .45);
