@@ -44,10 +44,10 @@
       {% endif %}
       <div class="pin-pad">
         <template x-for="d in ['1','2','3','4','5','6','7','8','9']">
-          <button type="button" @click="add(d)" x-text="d"></button>
+          <button type="button" @click="tap(d, $event)" x-text="d"></button>
         </template>
         <span></span>
-        <button type="button" @click="add('0')">0</button>
+        <button type="button" @click="tap('0', $event)">0</button>
         <button type="button" @click="pin = pin.slice(0, -1)" aria-label="Sil"><i class="bi bi-backspace"></i></button>
       </div>
     </form>
@@ -74,6 +74,15 @@
       },
       back() { this.selected = ""; this.pin = ""; this.error = false; },
       submitting: false,
+      lastTap: { d: "", t: 0 },
+      // Fare/touchpad tek basışta iki tık gönderebiliyor (tuş arkı, dokunma + basma).
+      // Aynı rakama 120 ms içinde gelen ikinci tık yok sayılır; bilerek iki kez basmak bu kadar hızlı olmaz.
+      tap(d, e) {
+        const t = e.timeStamp;
+        if (e.detail > 1 && d === this.lastTap.d && t - this.lastTap.t < 120) return;
+        this.lastTap = { d, t };
+        this.add(d);
+      },
       add(d) {
         if (this.pin.length < 4) this.pin += d;
         this.$refs.pin.focus();
