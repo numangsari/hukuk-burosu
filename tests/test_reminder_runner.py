@@ -34,6 +34,4 @@ def test_reminder_runner_checks_service_and_reports_command_result(tmp_path, sta
     marker = tmp_path / "called.txt"
     assert marker.exists() == (status == "Running")
     if marker.exists():
-        assert marker.read_text().splitlines() == (
-            ["send_reminders"] if result else ["send_reminders", "send_whatsapp"]
-        )
+        assert marker.read_text().splitlines() == ["send_whatsapp"]

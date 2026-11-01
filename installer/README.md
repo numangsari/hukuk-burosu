@@ -23,8 +23,7 @@ indirir, `installer\cache\` altında saklar ve SHA256 değerlerini `build\indiri
 - Servisler: `OzkurtHukukDB` (PostgreSQL, yalnızca 127.0.0.1) ve `OzkurtHukukApp` (port 80). PC açılınca kendiliğinden başlar.
 - Güvenlik duvarı: port 80 yalnızca Özel/Etki alanı ağ profili için açılır. Ofis ağının Windows'ta "Özel ağ" olarak işaretli olması gerekir.
 - Görev Zamanlayıcı: "Ozkurt Hukuk Yedek" 30 dakikada bir çalışır, Ayarlar'daki saatte günde bir yedek alır.
-- "Ozkurt Hukuk Hatirlatma" beş dakikada bir görev, duruşma ve tebligat uyarılarını oluşturur. Sayfa açık olması gerekmez. Bu görev yeni kurulumda veya kurulum paketiyle güncellemede eklenir; geliştirme ortamında `uv run python manage.py send_reminders` elle çalıştırılabilir.
-- Aynı görev `send_whatsapp` işlemini de çalıştırır. WhatsApp, resmî bağlantı ve uygulamadaki gönderim anahtarı açılana kadar mesaj göndermez. Bağlantı hazırlığı proje kökündeki `WHATSAPP.md` içindedir.
+- "Ozkurt Hukuk Hatirlatma" beş dakikada bir `send_whatsapp` işlemini çalıştırır (müvekkillere duruşma/randevu hatırlatmaları). Sistem içi bildirim (zil) özelliği kaldırıldı. Bu görev yeni kurulumda veya kurulum paketiyle güncellemede eklenir. WhatsApp, resmî bağlantı ve uygulamadaki gönderim anahtarı açılana kadar mesaj göndermez. Bağlantı hazırlığı proje kökündeki `WHATSAPP.md` içindedir.
 - İlk kurulumda masaüstüne **YEDEK PAROLASI** dosyası bırakılır: parola güvenli yerde saklanıp dosya silinmelidir.
 
 ## Güncelleme

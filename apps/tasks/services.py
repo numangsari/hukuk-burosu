@@ -2,7 +2,8 @@
 
 Aktif → Kontrolde → Tamamlandı
 Kontrolcü revizyon isterse görev Aktif'e döner ve "revizyon istendi" işareti alır.
-Tamamlanan görev yeniden açılabilir. Yönetici her işlemi yapabilir.
+Tamamlanan görev yeniden açılabilir. Yönetici her işlemi yapabilir; kontrole sorumlu ve
+yönetici dışında kimse gönderemez.
 İptal durumu yoktur; yanlış açılan görevi oluşturan veya yönetici siler.
 """
 
@@ -15,7 +16,6 @@ from django.utils import timezone
 from apps.cases.documents import publish_task_documents
 from apps.cases.models import CaseEvent
 from apps.core.permissions import is_admin
-from apps.notifications.services import notify
 
 from .models import Task, TaskEvent, TaskStatus
 
@@ -62,6 +62,7 @@ def can_do(action: Action, task: Task, user) -> bool:
     if is_admin(user):
         return True
     if action.who == "assignee":
+        # Kontrole sorumlu (ve yönetici) gönderir; kontrolcü gönderemez.
         return user.pk == task.assignee_id
     if action.who == "reviewer":
         return user.pk == task.reviewer_id
@@ -120,17 +121,26 @@ def perform(task: Task, key: str, user, comment: str = "") -> Task:
         task.revision_requested = True
     elif key in ("submit", "reopen"):
         task.revision_requested = False
-    task.save(update_fields=["status", "completed_at", "revision_requested", "updated_at"])
+    # Onaylanan görev sorumlunun ana sayfasında "Onaylandı" olarak görünür.
+    task.approval_seen = key != "approve"
+    # Onay döngüsüne giren görev artık "yeni" değildir (yeni ve revizyon birlikte görünmez).
+    task.assignee_seen = True
+    task.save(
+        update_fields=[
+            "status",
+            "completed_at",
+            "revision_requested",
+            "approval_seen",
+            "assignee_seen",
+            "updated_at",
+        ]
+    )
     TaskEvent.objects.create(
         task=task, actor=user, kind=action.event, from_status=old, to_status=task.status,
         comment=comment,
     )  # fmt: skip
 
-    url = task.get_absolute_url()
-    if key == "submit":
-        notify(task.reviewer, f"Kontrolünüzü bekliyor: {task.title}", url=url, actor=user)
-    elif key == "approve":
-        notify(task.assignee, f"Görev onaylandı: {task.title}", url=url, actor=user)
+    if key == "approve":
         docs, task.warnings = publish_task_documents(task, user)
         names = ", ".join(d.title for d in docs)
         CaseEvent.objects.create(
@@ -142,29 +152,27 @@ def perform(task: Task, key: str, user, comment: str = "") -> Task:
             + (f" · belgeler: {names}" if names else ""),
             created_by=user,
         )
-    elif key == "revise":
-        notify(
-            task.assignee,
-            f"Revizyon istendi: {task.title}",
-            body=comment[:200],
-            url=url,
-            actor=user,
-        )
-    elif key == "reopen":
-        notify(task.assignee, f"Görev yeniden açıldı: {task.title}", url=url, actor=user)
     return task
+
+
+def _mark_new_for_assignee(task: Task, user):
+    """Görevi başkası atadıysa sorumlu açana kadar "Yeni görev" uyarısı gösterilir.
+    Yeni sorumlu için görev sıfırdan başlar: önceki revizyon işareti kalkar (not geçmişte
+    kalır), böylece bir görev aynı anda hem "yeni" hem "revizyonlu" görünmez."""
+    seen = task.assignee_id == user.pk
+    fields = {"assignee_seen": seen}
+    if not seen:
+        fields["revision_requested"] = False
+    Task.objects.filter(pk=task.pk).update(**fields)
+    for name, value in fields.items():
+        setattr(task, name, value)
 
 
 def on_created(task: Task, user):
     TaskEvent.objects.create(
         task=task, actor=user, kind=TaskEvent.Kind.CREATED, to_status=task.status
     )
-    notify(
-        task.assignee,
-        f"Size yeni görev atandı: {task.title}",
-        url=task.get_absolute_url(),
-        actor=user,
-    )
+    _mark_new_for_assignee(task, user)
 
 
 def on_updated(task: Task, user, changed: list[str], old_assignee_id=None):
@@ -175,12 +183,7 @@ def on_updated(task: Task, user, changed: list[str], old_assignee_id=None):
         comment="Değişen alanlar: " + ", ".join(changed),
     )  # fmt: skip
     if old_assignee_id and old_assignee_id != task.assignee_id:
-        notify(
-            task.assignee,
-            f"Size görev atandı: {task.title}",
-            url=task.get_absolute_url(),
-            actor=user,
-        )
+        _mark_new_for_assignee(task, user)
 
 
 def add_comment(task: Task, user, comment: str):
@@ -188,11 +191,3 @@ def add_comment(task: Task, user, comment: str):
     if not comment:
         raise ValidationError("Yorum boş olamaz.")
     TaskEvent.objects.create(task=task, actor=user, kind=TaskEvent.Kind.COMMENT, comment=comment)
-    for other in {task.assignee, task.reviewer}:
-        notify(
-            other,
-            f"Yeni yorum: {task.title}",
-            body=comment[:200],
-            url=task.get_absolute_url(),
-            actor=user,
-        )

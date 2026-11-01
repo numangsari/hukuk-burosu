@@ -53,6 +53,11 @@ class Task(TimeStampedModel):
     )
     # Kontrolcü revizyon istediğinde işaretlenir, sorumlu tekrar kontrole gönderince kalkar.
     revision_requested = models.BooleanField("revizyon istendi", default=False)
+    # Onaylanan görev sorumlunun ana sayfasında "Onaylandı" olarak kalır. Ne zaman kalkacağı
+    # görev tamamlama prosedürüyle belirlenecek; şimdilik yalnızca yeniden açılınca kalkar.
+    approval_seen = models.BooleanField("onay görüldü", default=True)
+    # Başkasının atadığı görev, sorumlu açana kadar ana sayfada "Yeni görev" uyarısıyla durur.
+    assignee_seen = models.BooleanField("sorumlu gördü", default=True)
     completed_at = models.DateTimeField("tamamlanma", null=True, blank=True)
 
     class Meta:

@@ -148,6 +148,9 @@ class TaskDetailView(DetailView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         t, u = self.object, self.request.user
+        if t.assignee_id == u.pk and not t.assignee_seen:
+            # Sorumlu yeni görevi açtı; ana sayfadaki "Yeni görev" uyarısı kalkar.
+            Task.objects.filter(pk=t.pk).update(assignee_seen=True)
         ctx.update(
             actions=services.available_actions(t, u),
             can_edit=services.can_edit(t, u),

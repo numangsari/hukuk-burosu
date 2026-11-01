@@ -10,4 +10,4 @@ class TasksConfig(AppConfig):
 
         from . import models
 
-        auditlog.register(models.Task)
+        auditlog.register(models.Task, exclude_fields=["approval_seen", "assignee_seen"])

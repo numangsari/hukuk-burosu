@@ -7,8 +7,6 @@ from django.urls import reverse
 from django.utils import timezone
 
 from apps.cases.models import CaseEvent
-from apps.notifications.models import Notification
-from apps.notifications.services import send_daily_reminders
 from apps.office.models import TaskType
 from apps.tasks import services
 from apps.tasks.models import Task, TaskStatus
@@ -65,7 +63,7 @@ def test_create_task_via_form_notifies_assignee(lawyer, intern, case_factory):
     t = Task.objects.get()
     assert t.client_id == case.client_id and t.created_by == lawyer
     assert t.events.get().kind == "created"
-    assert Notification.objects.filter(user=intern, title__contains="yeni görev").exists()
+    assert not t.assignee_seen  # avukat stajyere atadı: "Yeni görev"
 
 
 def test_form_rejects_same_assignee_reviewer_and_wrong_client(lawyer, case_factory, client_factory):
@@ -93,13 +91,11 @@ def test_full_approval_cycle(task_factory, lawyer, intern):
     assert t.status == TaskStatus.ACTIVE  # oluşturulunca doğrudan aktif
     services.perform(t, "submit", intern)
     assert t.status == TaskStatus.REVIEW
-    assert Notification.objects.filter(user=lawyer, title__startswith="Kontrolünüzü").exists()
 
     with pytest.raises(ValidationError):
         services.perform(t, "revise", lawyer, "")  # açıklama zorunlu
     services.perform(t, "revise", lawyer, "Emsal kararları ekle")
     assert t.status == TaskStatus.ACTIVE and t.revision_requested
-    assert Notification.objects.filter(user=intern, title__startswith="Revizyon").exists()
 
     services.perform(t, "submit", intern)
     assert not t.revision_requested
@@ -149,12 +145,10 @@ def test_action_endpoint_and_detail(task_factory, intern):
     assert r.status_code == 403
 
 
-def test_comment_notifies_other_party(task_factory, intern, lawyer):
+def test_comment_is_recorded(task_factory, intern):
     t = task_factory()
     login(intern).post(reverse("tasks:comment", args=[t.pk]), {"comment": "Dosya eksik"})
     assert t.events.filter(kind="comment").exists()
-    assert Notification.objects.filter(user=lawyer, title__startswith="Yeni yorum").count() == 1
-    assert not Notification.objects.filter(user=intern, title__startswith="Yeni yorum").exists()
 
 
 def test_task_list_scopes(task_factory, intern, lawyer):
@@ -175,10 +169,85 @@ def test_home_active_tasks_sorted_by_urgency(task_factory, intern, lawyer):
     review = task_factory(title="Kontrolde", due_date=today)
     services.perform(review, "submit", intern)
     r = login(intern).get(reverse("core:home"))
-    assert [t.title for t in r.context["my_tasks"]] == ["Gecikmiş", "Sonra"]
+    # Kontrole gönderilen görev sorumlunun listesinden çıkar.
+    assert [t.title for t in r.context["own_tasks"]] == ["Gecikmiş", "Sonra"]
+    # Stajyerde kontrol paneli gösterilmez.
+    assert not r.context["show_review"]
+    assert "Kontrolümü bekleyenler" not in r.content.decode()
     r = login(lawyer).get(reverse("core:home"))
-    assert [t.title for t in r.context["my_tasks"]] == ["Kontrolde"]
-    assert "Kontrolünüzde" in r.content.decode()
+    # Kontrolcüde ayrı bölümde görünür, kendi görevleriyle karışmaz.
+    assert list(r.context["own_tasks"]) == []
+    assert [t.title for t in r.context["review_tasks"]] == ["Kontrolde"]
+    assert "Kontrolümü bekleyenler" in r.content.decode()
+
+
+def test_home_shows_revision_note_and_approval_until_seen(task_factory, intern, lawyer):
+    t = task_factory(title="Dilekçe")
+    services.perform(t, "submit", intern)
+    services.perform(t, "revise", lawyer, comment="Ek delilleri ekleyin")
+    c = login(intern)
+    r = c.get(reverse("core:home"))
+    row = r.context["own_tasks"][0]
+    assert row.revision_note == "Ek delilleri ekleyin"
+    assert "Ek delilleri ekleyin" in r.content.decode()
+
+    services.perform(t, "submit", intern)
+    services.perform(t, "approve", lawyer)
+    r = c.get(reverse("core:home"))
+    # Onaylanan görev sorumluya "Onaylandı" olarak döner.
+    assert [x.title for x in r.context["approved_tasks"]] == ["Dilekçe"]
+    assert "Onaylandı" in r.content.decode()
+    # Görevi açmak onay satırını kaldırmaz (tamamlama prosedürü ayrıca belirlenecek).
+    c.get(t.get_absolute_url())
+    assert list(c.get(reverse("core:home")).context["approved_tasks"]) != []
+    # Yeniden açılınca onay satırı kalkar.
+    services.perform(t, "reopen", lawyer)
+    assert list(c.get(reverse("core:home")).context["approved_tasks"]) == []
+
+
+def test_new_task_flag_until_assignee_opens(task_factory, intern, lawyer):
+    t = task_factory(title="Yeni iş")
+    services.on_created(t, lawyer)  # avukat stajyere atadı
+    c = login(intern)
+    r = c.get(reverse("core:home"))
+    assert not r.context["own_tasks"][0].assignee_seen
+    assert "chip-solid-new" in r.content.decode()
+    # Kontrolcünün açması uyarıyı kaldırmaz, sorumlunun açması kaldırır.
+    login(lawyer).get(t.get_absolute_url())
+    t.refresh_from_db()
+    assert not t.assignee_seen
+    c.get(t.get_absolute_url())
+    t.refresh_from_db()
+    assert t.assignee_seen
+    assert "chip-solid-new" not in c.get(reverse("core:home")).content.decode()
+
+
+def test_reassigned_task_is_new_not_revision(task_factory, intern, lawyer):
+    from tests.conftest import make_user
+
+    t = task_factory(title="Devir")
+    services.perform(t, "submit", intern)
+    services.perform(t, "revise", lawyer, comment="Düzeltin")
+    other = make_user("stajyer2", "intern")
+    old = t.assignee_id
+    t.assignee = other
+    t.save()
+    services.on_updated(t, lawyer, ["Sorumlu"], old)
+    t.refresh_from_db()
+    assert not t.assignee_seen and not t.revision_requested
+
+
+def test_submit_only_assignee_or_admin(task_factory, admin_user, lawyer):
+    t = task_factory(title="Yetki")
+    assert "submit" not in [a.key for a in services.available_actions(t, lawyer)]  # kontrolcü
+    assert "submit" in [a.key for a in services.available_actions(t, admin_user)]
+
+
+def test_own_task_is_not_marked_new(task_factory, intern):
+    t = task_factory(title="Kendi işim")
+    services.on_created(t, intern)  # stajyer kendine görev açtı
+    t.refresh_from_db()
+    assert t.assignee_seen
 
 
 def test_due_labels(task_factory):
@@ -186,22 +255,3 @@ def test_due_labels(task_factory):
     assert task_factory(due_date=today - dt.timedelta(days=3)).due_label == "3 gün gecikti"
     assert task_factory(due_date=today).urgency == "today"
     assert task_factory(due_date=today + dt.timedelta(days=1)).due_label == "Yarın"
-
-
-def test_daily_reminders_are_sent_once(task_factory, intern):
-    task_factory(due_date=timezone.localdate() + dt.timedelta(days=1))
-    assert send_daily_reminders() == 1
-    assert send_daily_reminders() == 0
-    assert Notification.objects.filter(user=intern, kind="deadline").count() == 1
-
-
-def test_notification_open_and_read_all(task_factory, intern, lawyer):
-    services.on_created(task_factory(), lawyer)
-    n = Notification.objects.get(user=intern)
-    c = login(intern)
-    r = c.get(reverse("notifications:open", args=[n.pk]))
-    n.refresh_from_db()
-    assert n.is_read and r.url == n.url
-    services.on_created(task_factory(), lawyer)
-    c.post(reverse("notifications:read_all"))
-    assert not Notification.objects.filter(user=intern, is_read=False).exists()

@@ -236,7 +236,7 @@ a.head-row:hover { color: var(--sb-ink-strong); text-decoration: none; }
   border-bottom: 1px solid var(--line);
 }
 .search-box { position: relative; flex: 1; max-width: 520px; }
-.search-box i { position: absolute; left: .85rem; top: 50%; transform: translateY(-50%); color: var(--muted); }
+.search-box > i { position: absolute; left: .85rem; top: 50%; transform: translateY(-50%); color: var(--muted); }
 .search-box input {
   padding-left: 2.4rem; padding-right: 3.5rem;
   background: var(--surface-2); border-color: transparent; border-radius: 10px; height: 40px;
@@ -433,6 +433,10 @@ a.stat-card:hover { box-shadow: var(--shadow); border-color: color-mix(in srgb, 
 .chip-danger { background: var(--danger-soft); color: var(--danger-ink); }
 .chip-info { background: var(--info-soft); color: var(--info-ink); }
 .chip-accent { background: var(--accent-soft); color: #8a6a3c; }
+/* Dikkat çekmesi gereken durumlar için dolgulu rozetler */
+.chip-solid-warning { background: #d97706; color: #fff; }
+.chip-solid-success { background: #15803d; color: #fff; }
+.chip-solid-new { background: #6d28d9; color: #fff; }
 [data-bs-theme="dark"] .chip-accent { color: #e2c08f; }
 
 /* ---------- Avatar ---------- */
@@ -639,11 +643,33 @@ a.stat-card:hover { box-shadow: var(--shadow); border-color: color-mix(in srgb, 
 .task-row.urg-overdue::before { background: var(--danger-ink); }
 .task-row.urg-today::before { background: var(--warning-ink); }
 .task-row.urg-soon::before { background: var(--info-ink); }
+/* Revizyon istenen ve onaylanan görev satırları zeminiyle ayrışır */
+.task-row.is-revision { background: var(--warning-soft); }
+.task-row.is-revision::before { background: #d97706; width: 5px; top: 0; bottom: 0; border-radius: 0; }
+.task-row.is-approved { background: var(--success-soft); }
+.task-row.is-approved::before { background: #15803d; width: 5px; top: 0; bottom: 0; border-radius: 0; }
+.task-row.is-new { background: rgba(109, 40, 217, .1); }
+.task-row.is-new::before { background: #6d28d9; width: 5px; top: 0; bottom: 0; border-radius: 0; }
+.task-row.is-revision .task-link:hover, .task-row.is-approved .task-link:hover, .task-row.is-new .task-link:hover { background: transparent; filter: brightness(1.04); }
+.revision-note {
+  display: flex; gap: .4rem; align-items: flex-start; margin-top: .35rem;
+  font-size: .8rem; color: var(--warning-ink); font-style: italic;
+}
+.revision-note i { font-style: normal; margin-top: .1rem; }
 .task-link { display: flex; gap: 1rem; align-items: center; padding: .85rem 1.25rem; color: var(--ink); }
 .task-link:hover { background: var(--surface-2); text-decoration: none; color: var(--ink); }
 .task-title { font-weight: 600; font-size: .92rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .task-meta { display: flex; flex-wrap: wrap; gap: .2rem .9rem; font-size: .78rem; color: var(--muted); margin-top: .15rem; }
+/* Alt bilgi parçaları arasına orta nokta */
+.task-meta-dotted { gap: .2rem 0; }
+.task-meta-dotted > span + span::before { content: "·"; margin: 0 .5rem; opacity: .7; }
 .task-side { display: flex; flex-direction: column; align-items: flex-end; gap: .35rem; flex-shrink: 0; }
+/* Ana sayfa: Görevlerim (marka mavisi) ve Kontrolümü bekleyenler (bilgi mavisi) panelleri */
+.panel-icon-own { color: var(--brand); }
+.panel-icon-review { color: var(--info-ink); }
+.task-panel { border-top: 3px solid var(--brand); }
+.review-panel { border-top-color: var(--info-ink); }
+.review-panel .count-pill { background: var(--info-soft); color: var(--info-ink); }
 
 /* ---------- Zaman çizelgesi / görev geçmişi ---------- */
 .timeline { list-style: none; margin: 0; padding: 1rem 1.25rem 1.25rem 1.25rem; }
@@ -680,18 +706,6 @@ a.agenda-item:hover { background: var(--surface-2); text-decoration: none; color
 .agenda-item.src-deadline .t { color: var(--danger-ink); }
 .agenda-item.src-task .t { color: var(--info-ink); }
 
-/* ---------- Bildirimler ---------- */
-.bell-badge { position: absolute; top: 4px; right: 4px; min-width: 17px; height: 17px; padding: 0 4px; border-radius: 999px; background: var(--danger-ink); color: #fff; font-size: .65rem; font-weight: 700; display: grid; place-items: center; border: 2px solid var(--surface); }
-.notif-menu { width: 360px; padding: 0; overflow: hidden; }
-.notif-head { display: flex; align-items: center; padding: .75rem 1rem; border-bottom: 1px solid var(--line); font-size: .875rem; }
-.notif-items { max-height: 420px; overflow-y: auto; }
-.notif-item { display: flex; gap: .75rem; padding: .7rem 1rem; color: var(--ink); font-size: .84rem; border-bottom: 1px solid var(--line); }
-.notif-item:last-child { border-bottom: 0; }
-.notif-item:hover { background: var(--surface-2); text-decoration: none; color: var(--ink); }
-.notif-item i { color: var(--muted); margin-top: .1rem; }
-.notif-item small { color: var(--muted); font-size: .74rem; }
-.notif-item.unread { background: var(--brand-soft); }
-.notif-item.unread i { color: var(--brand); }
 
 /* ---------- Muhasebe ---------- */
 .balance-strip { display: grid; grid-template-columns: repeat(3, 1fr); border-bottom: 1px solid var(--line); }
@@ -738,6 +752,7 @@ a.agenda-item:hover { background: var(--surface-2); text-decoration: none; color
 .sr-all { display: block; text-align: center; padding: .55rem; margin-top: .25rem; border-top: 1px solid var(--line); font-size: .82rem; }
 .sr-empty { padding: .9rem; text-align: center; color: var(--muted); font-size: .85rem; }
 .sr-page { padding: .5rem; }
+.sr-more { display: inline-flex; align-items: center; gap: .3rem; margin: .1rem 0 .4rem 2.3rem; font-size: .8rem; font-weight: 600; }
 .tl-act-success .tl-dot { border-color: var(--success-ink); background: var(--success-soft); }
 .tl-act-primary .tl-dot { border-color: var(--brand); background: var(--brand-soft); }
 .tl-act-danger .tl-dot { border-color: var(--danger-ink); background: var(--danger-soft); }

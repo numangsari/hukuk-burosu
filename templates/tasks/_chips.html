@@ -1,6 +1,6 @@
 {# Kullanım: include with t=task ; part="status" veya "due" #}
 {% if part == "status" %}
-  {% if t.status == "active" %}{% if t.revision_requested %}<span class="chip chip-warning">Revizyon istendi</span>{% else %}<span class="chip chip-primary">{{ t.get_status_display }}</span>{% endif %}
+  {% if t.status == "active" %}{% if t.revision_requested %}<span class="chip chip-solid-warning no-dot"><i class="bi bi-arrow-counterclockwise"></i> Revizyon istendi</span>{% else %}<span class="chip chip-primary">{{ t.get_status_display }}</span>{% endif %}
   {% elif t.status == "review" %}<span class="chip chip-info">{{ t.get_status_display }}</span>
   {% else %}<span class="chip chip-success">{{ t.get_status_display }}</span>{% endif %}
 {% else %}

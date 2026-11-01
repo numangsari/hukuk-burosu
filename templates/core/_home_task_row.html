@@ -1,0 +1,31 @@
+{# Ana sayfa görev satırı. Kullanım: include with t=task review=True|False approved=True|False #}
+<li class="task-row {% if approved %}is-approved{% elif t.revision_requested and not review %}is-revision{% elif not t.assignee_seen and not review %}is-new{% else %}urg-{{ t.urgency }}{% endif %}">
+  <a href="{{ t.get_absolute_url }}" class="task-link">
+    <div class="min-w-0 flex-grow-1">
+      <div class="task-title">{{ t.title }}</div>
+      <div class="task-meta task-meta-dotted">
+        <span>{{ t.task_type }}</span>
+        <span>{% if t.case.authority %}{{ t.case.authority }} {% endif %}<span class="tabular">{{ t.case.official_no|default:t.case.archive_no }}</span></span>
+        <span>{{ t.client }}</span>
+      </div>
+      {% if t.revision_requested and t.revision_note and not review and not approved %}
+        <div class="revision-note"><i class="bi bi-chat-left-text"></i>{{ t.revision_note|truncatechars:140 }}</div>
+      {% endif %}
+    </div>
+    <div class="task-side">
+      {% if approved %}
+        <span class="chip chip-solid-success no-dot"><i class="bi bi-check-circle-fill"></i> Onaylandı</span>
+        <span class="due due-closed">{{ t.reviewer.first_name }} onayladı</span>
+      {% else %}
+        {% if review %}
+          <span class="chip chip-info"><i class="bi bi-person"></i> {{ t.assignee.first_name }}</span>
+        {% elif t.revision_requested %}
+          <span class="chip chip-solid-warning no-dot"><i class="bi bi-arrow-counterclockwise"></i> Revizyon istendi</span>
+        {% elif not t.assignee_seen %}
+          <span class="chip chip-solid-new no-dot"><i class="bi bi-stars"></i> Yeni görev</span>
+        {% endif %}
+        {% include "tasks/_chips.html" with part="due" %}
+      {% endif %}
+    </div>
+  </a>
+</li>

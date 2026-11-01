@@ -10,7 +10,6 @@ urlpatterns = [
     path("dosyalar/", include("apps.cases.urls")),
     path("takvim/", include("apps.agenda.urls")),
     path("gorevler/", include("apps.tasks.urls")),
-    path("bildirimler/", include("apps.notifications.urls")),
     path("muhasebe/", include("apps.accounting.urls")),
     path("ara/", include("apps.search.urls")),
     path("aktivite/", include("apps.activity.urls")),

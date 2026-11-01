@@ -80,16 +80,6 @@
                 onclick="const h=document.documentElement; h.dataset.bsTheme = h.dataset.bsTheme === 'dark' ? 'light' : 'dark'">
           <i class="bi bi-moon-stars"></i>
         </button>
-        <div class="dropdown">
-          <button class="icon-btn position-relative" title="Bildirimler" data-bs-toggle="dropdown" data-bs-auto-close="outside"
-                  hx-get="{% url 'notifications:list' %}" hx-target="#notif-menu" hx-trigger="click">
-            <i class="bi bi-bell"></i>
-            {% if unread_notifications %}<span class="bell-badge">{{ unread_notifications|stringformat:"d" }}</span>{% endif %}
-          </button>
-          <div class="dropdown-menu dropdown-menu-end notif-menu" id="notif-menu">
-            <div class="text-center text-body-secondary small p-3">Yükleniyor…</div>
-          </div>
-        </div>
       </div>
     </header>
 

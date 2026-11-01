@@ -31,7 +31,6 @@ INSTALLED_APPS = [
     "apps.cases",
     "apps.agenda",
     "apps.tasks",
-    "apps.notifications",
     "apps.accounting",
     "apps.search",
     "apps.activity",

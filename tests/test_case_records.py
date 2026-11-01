@@ -6,8 +6,6 @@ from django.utils import timezone
 
 from apps.agenda.services import system_events
 from apps.cases.models import CaseEvent, Hearing, Service
-from apps.notifications.models import Notification
-from apps.notifications.services import send_daily_reminders
 
 pytestmark = pytest.mark.django_db
 
@@ -92,8 +90,6 @@ def test_system_events_in_agenda(case_factory, lawyer):
     )
     events = system_events(today, today + dt.timedelta(days=7))
     assert sorted(e.source for e in events) == ["deadline", "hearing"]
-    assert send_daily_reminders() == 2  # yarınki duruşma: avukat + stajyer
-    assert Notification.objects.filter(kind="hearing").count() == 2
 
 
 def test_case_detail_tabs_render(lawyer_client, case_factory):
