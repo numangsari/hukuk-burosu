@@ -34,7 +34,7 @@
         <span class="cal-day">{{ cell.date.day }}</span>
         {% for ev in cell.events %}
           <{% if ev.url %}a href="{{ ev.url }}"{% else %}span{% endif %} class="cal-ev src-{{ ev.source }}{% if ev.all_day %} all-day{% endif %}" title="{{ ev.time_label }} · {{ ev.title }}{% if ev.location %} · {{ ev.location }}{% endif %}">
-            {% if not ev.all_day %}<b>{{ ev.start|time:"H:i" }}</b>{% endif %}{{ ev.title }}
+            {% if ev.source == "task" %}<b>{{ ev.time_label }}</b>{% elif not ev.all_day %}<b>{{ ev.start|time:"H:i" }}</b>{% endif %}{{ ev.title }}
             {% if view == 'week' and ev.location %}<small class="d-block opacity-75"><i class="bi bi-geo-alt"></i> {{ ev.location }}</small>{% endif %}
           </{% if ev.url %}a{% else %}span{% endif %}>
         {% endfor %}

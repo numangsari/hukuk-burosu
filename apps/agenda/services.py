@@ -46,6 +46,8 @@ class Event:
 
     @property
     def time_label(self) -> str:
+        if self.source == "task":
+            return "GÖREV"
         if self.all_day:
             return "Tüm gün"
         label = f"{self.start:%H:%M}"
@@ -176,7 +178,7 @@ def task_events(start: dt.date, end: dt.date) -> list[Event]:
         responsible = task.reviewer if task.status == TaskStatus.REVIEW else task.assignee
         events.append(
             Event(
-                title=f"GÖREV: {task.title}",
+                title=task.title,
                 start=task.due_date,
                 end=None,
                 all_day=True,

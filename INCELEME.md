@@ -47,7 +47,7 @@ Kullanıcının henüz tek tek bakmadığı kontrol maddeleri (Adım 4'e geçmed
 - Yorumlar, geçmiş, silme yetkisi (oluşturan veya yönetici).
 
 ### 7. Takvim
-- Google Takvim iCal bağlantısı ve açık görevlerin son günleri: ana sayfada 7 gün, takvim sayfasında ay/hafta görünümü. Görevler son günlerinde `GÖREV: <görev adı>` başlığıyla görünür ve tıklanınca açılır; tamamlananlar gösterilmez. Google etkinliklerinin tümü gösterilir. Google bağlı değilken veya erişilemezken de görevler görünür. Duruşma ve randevu eklenmez; dosya eşleştirmesi veya etkinlikten görev oluşturma yapılmaz.
+- Google Takvim iCal bağlantısı ve açık görevlerin son günleri: ana sayfada 7 gün, takvim sayfasında ay/hafta görünümü. Görevler son günlerinde saat alanında `GÖREV`, başlıkta yalnızca görev adıyla görünür ve tıklanınca açılır; tamamlananlar gösterilmez. Google etkinliklerinin tümü gösterilir. Google bağlı değilken veya erişilemezken de görevler görünür. Duruşma ve randevu eklenmez; dosya eşleştirmesi veya etkinlikten görev oluşturma yapılmaz.
 - Google bağlantısı (Ayarlar > Google Takvim), erişilemeyince uyarıyla son kopya.
 
 ### 8. Muhasebe

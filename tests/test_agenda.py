@@ -153,12 +153,14 @@ def test_home_and_calendar_show_tasks_and_all_google_events(
         assert response.status_code == 200
         events = response.context["agenda"].events
         assert [e.title for e in events] == (
-            ["Google örnek etkinlik", f"GÖREV: {task.title}", "Google toplantı"]
-            if configured
-            else [f"GÖREV: {task.title}"]
+            ["Google örnek etkinlik", task.title, "Google toplantı"] if configured else [task.title]
         )
         task_event = next(e for e in events if e.source == "task")
         assert task_event.all_day and task_event.days == [today]
+        assert task_event.time_label == "GÖREV"
+        assert "GÖREV:" not in response.content.decode()
+        if url == "/":
+            assert '<span class="t">GÖREV</span>' in response.content.decode()
         assert task_event.url == task.get_absolute_url()
         assert task_event.url in response.content.decode()
         html = response.content.decode()
@@ -192,7 +194,7 @@ def test_task_deadlines_only_appear_on_due_date(case_factory, status):
     if status == "done":
         assert not events
     else:
-        assert len(events) == 1 and events[0].title == f"GÖREV: {task.title}"
+        assert len(events) == 1 and events[0].title == task.title
         responsible = task.reviewer if status == "review" else task.assignee
         assert str(responsible) in events[0].location
 
@@ -221,4 +223,4 @@ def test_google_connection_failure_does_not_hide_tasks(case_factory, monkeypatch
     monkeypatch.setattr(services, "fetch_ics", fail)
     result = services.combined_events(due, due + dt.timedelta(days=1))
     assert result.error and result.configured
-    assert [event.title for event in result.events] == [f"GÖREV: {task.title}"]
+    assert [event.title for event in result.events] == [task.title]
