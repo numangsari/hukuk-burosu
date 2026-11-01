@@ -16,6 +16,7 @@
 <div class="app-shell" x-data="{ nav: false }">
   <aside class="sidebar" :class="nav && 'open'">
     <div class="sidebar-head">
+    {% if office.logo %}<img class="sidebar-watermark" src="{{ office.logo.url }}" alt="" aria-hidden="true">{% endif %}
     <a href="{% url 'core:home' %}" class="head-row head-office">
       <span class="head-text"><strong>{{ office.name }}</strong></span>
     </a>

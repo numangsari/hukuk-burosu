@@ -4,5 +4,5 @@
   {% elif t.status == "review" %}<span class="chip chip-info">{{ t.get_status_display }}</span>
   {% else %}<span class="chip chip-success">{{ t.get_status_display }}</span>{% endif %}
 {% else %}
-  <span class="due due-{{ t.urgency }}"><i class="bi {% if t.urgency == 'overdue' %}bi-exclamation-circle-fill{% else %}bi-calendar-event{% endif %}"></i>{{ t.due_label }}</span>
+  <span class="due due-{{ t.urgency }}"><i class="bi {% if t.urgency == 'overdue' or t.urgency == 'today' %}bi-exclamation-circle-fill{% else %}bi-calendar-event{% endif %}"></i>{{ t.due_label }}</span>
 {% endif %}

@@ -1,7 +1,8 @@
-<div id="timeline" class="card">
-  <div class="card-header"><h2 class="card-title">Notlar ve olaylar</h2></div>
+<div id="case-notes" class="card">
+  <div class="card-header"><h2 class="card-title">Notlar</h2></div>
+  {% if case.notes %}<div class="card-body border-bottom"><div class="form-label">Dosya notu</div>{{ case.notes|linebreaksbr }}</div>{% endif %}
   <form class="inline-form row g-2 align-items-end" style="border-top: 0; border-bottom: 1px solid var(--line); border-radius: 0"
-        hx-post="{% url 'cases:event_add' case.pk %}" hx-target="#timeline" hx-swap="outerHTML">
+        hx-post="{% url 'cases:event_add' case.pk %}" hx-target="#case-notes" hx-swap="outerHTML">
     <div class="col-md-2">{% include "partials/field.html" with field=event_form.date wrap_class="" %}</div>
     <div class="col-md-4">{% include "partials/field.html" with field=event_form.title wrap_class="" label="Not başlığı" %}</div>
     <div class="col-md-4">{% include "partials/field.html" with field=event_form.description wrap_class="" %}</div>
@@ -15,11 +16,10 @@
           <div class="d-flex gap-2 align-items-start">
             <div>
               <span class="tl-date tabular">{{ e.date|date:"d.m.Y" }}</span>
-              <span class="chip no-dot ms-1">{{ e.get_kind_display }}</span>
               <strong class="ms-1">{{ e.title }}</strong>
             </div>
             {% if e.kind == "note" %}{% if e.created_by_id == request.user.pk or request.user.is_office_admin %}
-              <button class="btn-ghost-danger ms-auto" title="Sil" hx-post="{% url 'cases:event_delete' case.pk e.pk %}" hx-target="#timeline" hx-swap="outerHTML" hx-confirm="Not silinsin mi?"><i class="bi bi-trash"></i></button>
+              <button class="btn-ghost-danger ms-auto" title="Sil" hx-post="{% url 'cases:event_delete' case.pk e.pk %}" hx-target="#case-notes" hx-swap="outerHTML" hx-confirm="Not silinsin mi?"><i class="bi bi-trash"></i></button>
             {% endif %}{% endif %}
           </div>
           {% if e.description %}<div class="tl-comment">{{ e.description|linebreaksbr }}</div>{% endif %}
@@ -27,7 +27,7 @@
         </div>
       </li>
     {% empty %}
-      <li class="empty-state">Henüz kayıt yok. Duruşma sonuçları, aşama değişiklikleri ve tamamlanan görevler buraya otomatik düşer.</li>
+      <li class="empty-state">Henüz not eklenmedi.</li>
     {% endfor %}
   </ul>
 </div>

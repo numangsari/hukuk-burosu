@@ -34,6 +34,7 @@ from .forms import (
 from .models import (
     TYPE_LABELS,
     Case,
+    CaseEvent,
     CaseParty,
     CaseStatus,
     CaseType,
@@ -349,7 +350,7 @@ class CaseDetailView(DetailView):
         case = self.object
         ctx.update(
             event_form=CaseEventForm(initial={"date": timezone.localdate()}),
-            timeline=case.events.select_related("created_by"),
+            timeline=case.events.filter(kind=CaseEvent.Kind.NOTE).select_related("created_by"),
             flow_members=services.flow_members(case),
             can_unlink=can_unlink(self.request.user),
             tasks=case.tasks.select_related("task_type", "assignee", "reviewer").order_by(
@@ -369,7 +370,6 @@ class CaseDetailView(DetailView):
         ctx["party_tab_groups"] = summary.party_groups(
             case, list(ctx["party_links"]), include_empty=True
         )
-        ctx["recent_events"] = list(ctx["timeline"][:5])
         from apps.activity.views import history_for
 
         ctx["history"] = history_for(case)

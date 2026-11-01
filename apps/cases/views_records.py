@@ -30,7 +30,7 @@ def events_partial(request, case, form=None):
         {
             "case": case,
             "event_form": form or CaseEventForm(initial={"date": timezone.localdate()}),
-            "timeline": case.events.select_related("created_by"),
+            "timeline": case.events.filter(kind=CaseEvent.Kind.NOTE).select_related("created_by"),
         },
     )
 
@@ -93,7 +93,7 @@ class EventDeleteView(View):
 
     def post(self, request, pk, item_pk):
         case = get_object_or_404(Case, pk=pk)
-        e = get_object_or_404(CaseEvent, pk=item_pk, case=case)
+        e = get_object_or_404(CaseEvent, pk=item_pk, case=case, kind=CaseEvent.Kind.NOTE)
         if e.created_by_id == request.user.pk or is_admin(request.user):
             e.delete()
         return events_partial(request, case)

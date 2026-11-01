@@ -39,7 +39,6 @@
         {% if case.crime %}<div class="info-item"><div class="info-label">Suç</div><div class="info-value">{{ case.crime }}</div></div>{% endif %}
         {% if case.mediator %}<div class="info-item"><div class="info-label">Arabulucu</div><div class="info-value">{{ case.mediator }}</div></div>{% endif %}
         {% if case.labels.value and case.value %}<div class="info-item"><div class="info-label">{{ case.labels.value }}</div><div class="info-value tabular">{{ case.value|tl }}</div></div>{% endif %}
-        {% if case.notes %}<div class="info-item info-wide"><div class="info-label">Notlar</div><div class="info-value">{{ case.notes|linebreaksbr }}</div></div>{% endif %}
       </div>
     </div></div>
 
@@ -85,19 +84,7 @@
       {% else %}<div class="small text-body-secondary">Taraf eklenmemiş.</div>{% endif %}
     </div></div>
 
-    <div class="card"><div class="card-body">
-      <div class="d-flex align-items-center mb-3"><h2 class="section-title mb-0">Son hareketler</h2>
-        <a href="#" class="small ms-auto" onclick="goCaseTab('#t-gecmis'); return false">Geçmiş</a></div>
-      {% if recent_events %}
-      <ul class="recent-list">
-        {% for e in recent_events %}
-        <li><span class="recent-date tabular">{{ e.date|date:"d.m.Y" }}</span>
-          <div class="min-w-0"><div class="fw-medium">{{ e.title }}</div>
-            {% if e.description %}<div class="small text-body-secondary">{{ e.description|truncatechars:140 }}</div>{% endif %}</div></li>
-        {% endfor %}
-      </ul>
-      {% else %}<div class="small text-body-secondary">Henüz hareket yok.</div>{% endif %}
-    </div></div>
+
   </div>
 
   <div class="col-xl-4">
@@ -134,7 +121,7 @@
         {% endfor %}
       </ul>
       {% if summary.upcoming_more %}<div class="small text-body-secondary mt-2">+ {{ summary.upcoming_more }} iş daha</div>{% endif %}
-      {% else %}<div class="small text-body-secondary">Yaklaşan görev, duruşma veya son gün yok.</div>{% endif %}
+      {% else %}<div class="small text-body-secondary">Yaklaşan görev yok.</div>{% endif %}
     </div></div>
 
     <div class="card"><div class="card-body">
@@ -148,6 +135,7 @@
     </div></div>
   </div>
 </div>
+<div class="mt-3">{% include "cases/_timeline.html" %}</div>
 <script>
   function goCaseTab(target) {
     const tab = document.querySelector('.nav-underline-tabs [data-bs-target="' + target + '"]');
