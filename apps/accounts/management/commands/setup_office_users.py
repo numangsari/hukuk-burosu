@@ -15,9 +15,9 @@ from apps.accounts.models import User
 # (kullanıcı adı, ad, soyad, rol, unvan)
 OFFICE_USERS = [
     ("ali.samet.ozkurt", "Ali Samet", "ÖZKURT", User.Role.ADMIN, "Yönetici Avukat"),
+    ("irfan.mesut.baysal", "İrfan Mesut", "BAYSAL", User.Role.LAWYER, "Avukat"),
     ("nursu.ozkok", "Nursu", "ÖZKÖK", User.Role.LAWYER, "Koordinatör Avukat"),
     ("gokturk.kizilkaya", "Göktürk", "KIZILKAYA", User.Role.LAWYER, "Avukat"),
-    ("irfan.mesut.baysal", "İrfan Mesut", "BAYSAL", User.Role.LAWYER, "Avukat"),
     ("ecenur.kucuk", "Ecenur", "KÜÇÜK", User.Role.INTERN, "Stajyer Avukat"),
     ("omer.faruk.ozbakir", "Ömer Faruk", "ÖZBAKIR", User.Role.INTERN, "Stajyer Avukat"),
 ]

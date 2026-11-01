@@ -104,9 +104,10 @@ def test_setup_office_users():
     assert admin.is_office_admin and admin.is_superuser
     assert admin.check_password(TEST_PIN)
     assert admin.initials == "AÖ"
-    assert list(User.objects.values_list("title", flat=True))[:2] == [
-        "Yönetici Avukat",
-        "Koordinatör Avukat",
+    assert list(User.objects.values_list("username", flat=True))[:3] == [
+        "ali.samet.ozkurt",
+        "irfan.mesut.baysal",
+        "nursu.ozkok",
     ]
     # Tekrar çalıştırmak mevcut PIN'i değiştirmez.
     admin.set_password("999999")

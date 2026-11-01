@@ -463,7 +463,8 @@ a.stat-card:hover { box-shadow: var(--shadow); border-color: color-mix(in srgb, 
 .login-brand .brand-mark { width: 56px; height: 56px; font-size: 1.3rem; border-radius: 14px; margin: 0 auto 1rem; }
 .login-brand h1 { font-size: 1.6rem; font-weight: 700; letter-spacing: -.02em; margin: 0; }
 .login-brand p { color: rgba(255, 255, 255, .6); margin: .4rem 0 0; }
-.user-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 1rem; width: min(1000px, 100%); }
+.user-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; width: min(620px, 100%); }
+@media (max-width: 575.98px) { .user-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .user-card {
   background: rgba(255, 255, 255, .06);
   border: 1px solid rgba(255, 255, 255, .1);
