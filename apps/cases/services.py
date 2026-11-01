@@ -46,11 +46,37 @@ def change_stage(case, stage, user):
 
 
 @transaction.atomic
-def close_case(case, data, user):
+def close_case(case, data, user, collections=None):
     """data: CaseCloseForm.cleaned_data (kapanma nedeni, tarih, karar ve tutar bilgileri)."""
     case = _locked(case)
     if not case.is_open:
         raise StatusError("Dosya zaten kapalı.")
+    if collections and case.case_type != "enforcement":
+        raise StatusError("Bu tahsilat işlemi yalnızca icra dosyaları içindir.")
+    if case.case_type == "enforcement":
+        from decimal import Decimal
+
+        from django.core.exceptions import ValidationError
+
+        from apps.cases.forms import ClosingCollectionForm
+
+        validated = []
+        for row in collections or []:
+            form = ClosingCollectionForm(row)
+            if not form.is_valid():
+                raise StatusError("Tahsilat satırında geçerli tutar ve tarih girin.")
+            if form.cleaned_data["date"] > data["closed_on"]:
+                raise StatusError("Tahsilat tarihi kapanış tarihinden sonra olamaz.")
+            validated.append(form.cleaned_data)
+        total = sum((row["amount"] for row in validated), Decimal("0"))
+        if total > Decimal("99999999999999.99"):
+            raise StatusError("Tahsilat toplamı izin verilen tutarı aşıyor.")
+        data = dict(
+            data,
+            closing_amount=total or None,
+            closing_amount_date=None,
+            closing_accounted=True if validated else None,
+        )
     case.status = CaseStatus.CLOSED
     case.closing_reason = data["closing_reason"]
     case.closed_on = data["closed_on"]
@@ -78,7 +104,33 @@ def close_case(case, data, user):
         lines.append(f"Tutar: {case.closing_amount:,.2f} TL{when}, {accounted}")
     if case.closing_note:
         lines.append(case.closing_note)
-    _event(case, user, f"Dosya kapatıldı: {case.closing_label}", "\n".join(lines))
+    event = CaseEvent.objects.create(
+        case=case,
+        date=timezone.localdate(),
+        kind=CaseEvent.Kind.STATUS,
+        title=f"Dosya kapatıldı: {case.closing_label}",
+        description="\n".join(lines),
+        created_by=user,
+    )
+    if case.case_type == "enforcement":
+        from apps.accounting.models import EntryKind, LedgerEntry
+        from apps.accounting.services import create_entry
+
+        try:
+            for row in validated:
+                entry = LedgerEntry(
+                    client=case.client,
+                    case=case,
+                    kind=EntryKind.TRUST_IN,
+                    amount=row["amount"],
+                    date=row["date"],
+                    description=row["description"] or "İcra dosyası kapanış tahsilatı",
+                    closing_event=event,
+                )
+                entry.full_clean()
+                create_entry(entry)
+        except ValidationError as error:
+            raise StatusError(" ".join(error.messages)) from error
     return case
 
 

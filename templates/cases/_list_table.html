@@ -5,6 +5,7 @@
     <tr>
       <th>{% sort_link "archive_no" "Fiziki arşiv no" %}</th>
       <th>{% sort_link "status" "Durum" %}</th>
+      <th>{% sort_link "stage" "AŞAMA" %}</th>
       <th>{% sort_link "subject" "Dosya bilgisi" %}</th>
       <th>{% sort_link "client__name" "Müvekkil" %}</th>
       <th>{% sort_link "open_task_count" "Açık görev" %}</th>
@@ -16,7 +17,8 @@
   {% for k in cases %}
     <tr class="type-{{ k.case_type }}{% if k.chain_prev %} chain-prev{% endif %}{% if k.chain_next %} chain-next{% endif %}" data-href="{{ k.get_absolute_url }}" onclick="location.href=this.dataset.href">
       <td><a href="{{ k.get_absolute_url }}" class="fw-semibold tabular">{{ k.archive_reference }}</a></td>
-      <td>{% include "cases/_status_chip.html" %}{% if k.status_detail %}<div class="cell-sub mt-1">{{ k.status_detail }}</div>{% endif %}</td>
+      <td>{% include "cases/_status_chip.html" %}{% if not k.is_open %}<div class="cell-sub mt-1">{{ k.closing_label }}</div>{% endif %}</td>
+      <td>{% if k.is_open %}{{ k.stage_label|default:"—" }}{% else %}—{% endif %}</td>
       <td>
         <div class="cell-main">{% if k.chain_prev %}<i class="bi bi-link-45deg chain-icon" title="Bağlı dosya"></i>{% endif %}{{ k.display_name }}{% if k.linked_others %} <span class="chip chip-accent no-dot">+{{ k.linked_others }} dosya bağlı</span>{% endif %}</div>
         <div class="cell-sub"><span class="type-chip type-{{ k.case_type }}">{{ k.get_case_type_display }}</span>{% if k.authority and k.subject %} {{ k.subject }}{% endif %}</div>
@@ -27,7 +29,7 @@
       <td class="tabular">{{ k.opened_on|date:"d.m.Y" }}</td>
     </tr>
   {% empty %}
-    <tr><td colspan="7"><div class="empty-state"><i class="bi bi-folder2"></i><strong>Dosya bulunamadı</strong>Filtreleri değiştirin veya yeni dosya açın.</div></td></tr>
+    <tr><td colspan="8"><div class="empty-state"><i class="bi bi-folder2"></i><strong>Dosya bulunamadı</strong>Filtreleri değiştirin veya yeni dosya açın.</div></td></tr>
   {% endfor %}
   </tbody>
 </table>

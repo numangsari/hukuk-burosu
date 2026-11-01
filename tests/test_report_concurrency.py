@@ -94,3 +94,45 @@ def test_parallel_approvals_only_publish_once(case_factory, intern, lawyer):
     assert sorted(run_together(approve)) == [False, True]
     assert task.events.filter(kind="approved").count() == 1
     assert task.case.events.filter(kind="task").count() == 1
+
+
+def test_parallel_enforcement_closures_only_collect_once(case_factory, lawyer):
+    from apps.cases import services as cases
+    from apps.cases.models import Case
+
+    case = case_factory(case_type="enforcement")
+    today = timezone.localdate()
+
+    def close():
+        try:
+            cases.close_case(
+                Case.objects.get(pk=case.pk),
+                {"closing_reason": "fully_collected", "closed_on": today},
+                lawyer,
+                collections=[{"amount": "100", "date": today}, {"amount": "200", "date": today}],
+            )
+        except cases.StatusError as error:
+            raise ValidationError(str(error)) from error
+
+    assert sorted(run_together(close)) == [False, True]
+    assert LedgerEntry.objects.filter(case=case).count() == 2
+    assert case.events.filter(kind="status").count() == 1
+
+
+def test_parallel_seizure_checks_create_one_task(case_factory, lawyer):
+    from apps.cases.models import Seizure, SeizureRenewal
+    from apps.cases.seizures import create_due_tasks
+
+    case = case_factory(case_type="enforcement")
+    today = timezone.localdate()
+    item = Seizure.objects.create(
+        case=case,
+        debtor="Örnek borçlu",
+        asset="Örnek araç",
+        seized_on=today,
+        renewal_on=today,
+        created_by=lawyer,
+    )
+    assert run_together(lambda: create_due_tasks(today)) == [True, True]
+    assert Task.objects.filter(case=case).count() == 1
+    assert SeizureRenewal.objects.filter(seizure=item).count() == 1

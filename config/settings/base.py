@@ -55,6 +55,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.LoginRequiredMiddleware",
     "apps.accounts.middleware.IdleTimeoutMiddleware",
     "apps.accounts.middleware.ForcePinChangeMiddleware",
+    "apps.cases.middleware.SeizureTaskMiddleware",
 ]
 
 ROOT_URLCONF = "config.urls"

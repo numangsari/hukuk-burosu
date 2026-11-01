@@ -37,6 +37,17 @@
     </div>
   </div>
   {% endif %}
+  {% if form.is_enforcement %}
+  <div class="form-section">
+    <div class="form-section-head"><h2>Tahsilatlar</h2><p>{{ case.client }} adına karşı taraftan tahsilat olarak muhasebeye kaydedilir.</p></div>
+    {% if previous_collections %}<details class="mb-3"><summary>Önceki kapanışlarda kaydedilen tahsilatlar</summary><ul>{% for entry in previous_collections %}<li>{{ entry.date|date:"d.m.Y" }} · {{ entry.amount }} TL · {{ entry.description }}{% if entry.is_cancelled %} (İptal){% endif %}</li>{% endfor %}</ul></details>{% endif %}
+    {{ collections.management_form }}
+    {{ collections.non_form_errors }}
+    <div id="collection-rows">{% for row in collections %}{% include "cases/_collection_row.html" %}{% endfor %}</div>
+    <template id="empty-collection">{% include "cases/_collection_row.html" with row=collections.empty_form %}</template>
+    <button type="button" class="btn btn-light btn-sm" onclick="addCollectionRow()"><i class="bi bi-plus-lg"></i>Tahsilat ekle</button>
+  </div>
+  {% else %}
   <div class="form-section" x-show="money" x-cloak>
     <div class="form-section-head"><h2>Tahsil / ödeme</h2><p>Bu kapanma nedeninde tahsilat veya ödeme olduysa girin.</p></div>
     <div class="row">
@@ -46,6 +57,7 @@
     </div>
     <div class="alert alert-warning small mb-0">Bu tutar dosyaya yalnızca bilgi olarak yazılır, muhasebeye kendiliğinden işlenmez. Muhasebe hareketini ayrıca <a href="{% url 'accounting:create' %}?dosya={{ case.pk }}">Muhasebe &rsaquo; Yeni gelir / gider</a> ekranından girmeyi unutmayın.</div>
   </div>
+  {% endif %}
   <div class="form-section">
     {% include "partials/field.html" with field=form.closing_note wrap_class="" %}
     <div class="form-text" x-show="noteRequired" x-cloak>Bu kapanma nedeninde açıklama zorunludur.</div>
@@ -56,6 +68,19 @@
   </div>
 </form>
 <script>
+  function addCollectionRow() {
+    const total = document.getElementById('id_receipts-TOTAL_FORMS');
+    const index = Number(total.value);
+    if (index >= 100) return;
+    document.getElementById('collection-rows').insertAdjacentHTML('beforeend',
+      document.getElementById('empty-collection').innerHTML.replaceAll('__prefix__', index));
+    total.value = index + 1;
+  }
+  function removeCollectionRow(button) {
+    const row = button.closest('.collection-row');
+    row.querySelector('input[name$="-DELETE"]').checked = true;
+    row.hidden = true;
+  }
   function closeForm() {
     const flags = JSON.parse(document.getElementById("closing-flags").textContent);
     return {

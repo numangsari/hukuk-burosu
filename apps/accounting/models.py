@@ -112,6 +112,15 @@ class LedgerEntry(TimeStampedModel):
         null=True,
         blank=True,
     )
+    closing_event = models.ForeignKey(
+        "cases.CaseEvent",
+        verbose_name="kapanış kaydı",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="collections",
+        editable=False,
+    )
     kind = models.CharField("hareket türü", max_length=20, choices=EntryKind.choices)
     amount = models.DecimalField(
         "tutar (₺)",

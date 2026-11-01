@@ -3,6 +3,7 @@ import uuid
 from pathlib import Path
 
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.urls import reverse
 from django.utils import timezone
@@ -443,3 +444,56 @@ class CaseEvent(models.Model):
 
     def __str__(self):
         return self.title
+
+
+class Seizure(TimeStampedModel):
+    case = models.ForeignKey(Case, on_delete=models.CASCADE, related_name="seizures")
+    debtor = models.CharField("borçlu", max_length=300)
+    asset = models.CharField("haczedilen mal varlığı", max_length=500)
+    seized_on = models.DateField("haciz tarihi")
+    renewal_on = models.DateField("yenileme tarihi", db_index=True)
+    is_active = models.BooleanField("haciz takibi aktif", default=True)
+    notes = models.TextField("not", blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="created_seizures"
+    )
+
+    class Meta:
+        ordering = ["renewal_on", "pk"]
+        verbose_name = "haciz takibi"
+        verbose_name_plural = "haciz takipleri"
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(renewal_on__gte=models.F("seized_on")),
+                name="seizure_renewal_after_date",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.debtor} — {self.asset}"
+
+    def clean(self):
+        super().clean()
+        if self.case_id and self.case.case_type != CaseType.ENFORCEMENT:
+            raise ValidationError("Haciz takibi yalnızca icra dosyalarında kullanılabilir.")
+        if self.seized_on and self.renewal_on and self.renewal_on < self.seized_on:
+            raise ValidationError({"renewal_on": "Yenileme tarihi haciz tarihinden önce olamaz."})
+
+
+class SeizureRenewal(TimeStampedModel):
+    seizure = models.ForeignKey(Seizure, on_delete=models.CASCADE, related_name="renewals")
+    due_date = models.DateField("yenileme tarihi")
+    task = models.OneToOneField(
+        "tasks.Task",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="seizure_renewal",
+    )
+
+    class Meta:
+        verbose_name = "haciz yenileme görevi"
+        verbose_name_plural = "haciz yenileme görevleri"
+        constraints = [
+            models.UniqueConstraint(fields=["seizure", "due_date"], name="unique_seizure_renewal")
+        ]

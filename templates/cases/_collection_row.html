@@ -1,0 +1,7 @@
+<div class="row g-2 align-items-end collection-row mb-3" {% if row.DELETE.value %}hidden{% endif %}>
+  {{ row.non_field_errors }}
+  <div class="col-md-3">{% include "partials/field.html" with field=row.amount %}</div>
+  <div class="col-md-3">{% include "partials/field.html" with field=row.date %}</div>
+  <div class="col-md-5">{% include "partials/field.html" with field=row.description %}</div>
+  <div class="col-md-1 mb-3"><span class="visually-hidden">{{ row.DELETE }}</span><button type="button" class="btn btn-light btn-sm" onclick="removeCollectionRow(this)" aria-label="Tahsilat satırını kaldır"><i class="bi bi-x-lg"></i></button></div>
+</div>

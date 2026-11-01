@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Haciz takibi — {{ office.name }}{% endblock %}
+{% block content %}
+<div class="page-header"><div><div class="eyebrow"><a href="{{ case.get_absolute_url }}#t-haciz">{{ case.display_name }}</a></div><h1 class="page-title">{% if item.pk %}Haciz takibini düzenle{% else %}Yeni haciz takibi{% endif %}</h1></div></div>
+<form method="post" class="card">{% csrf_token %}
+  <div class="form-section">
+    {{ form.non_field_errors }}
+    <div class="row"><div class="col-md-6">{% include "partials/field.html" with field=form.debtor %}</div><div class="col-md-6">{% include "partials/field.html" with field=form.asset %}</div></div>
+    <div class="row"><div class="col-md-6">{% include "partials/field.html" with field=form.seized_on %}</div><div class="col-md-6">{% include "partials/field.html" with field=form.renewal_on %}</div></div>
+    {% include "partials/field.html" with field=form.notes %}
+    <div class="form-check mb-3">{{ form.is_active }}<label class="form-check-label" for="{{ form.is_active.id_for_label }}">{{ form.is_active.label }}</label>{{ form.is_active.errors }}</div>
+    <div class="form-text">Yenileme günü dosyanın sorumlu stajyerine görev, sorumlu avukatına kontrol atanır. Bilgisayar o gün kapalıysa açıldığında oluşturulur. Pasif hacizlerde ve kapalı dosyalarda görev oluşturulmaz.</div>
+  </div>
+  <div class="form-footer"><a class="btn btn-light" href="{{ case.get_absolute_url }}#t-haciz">Vazgeç</a><button class="btn btn-primary">Kaydet</button></div>
+</form>
+{% endblock %}

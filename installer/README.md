@@ -23,7 +23,7 @@ indirir, `installer\cache\` altında saklar ve SHA256 değerlerini `build\indiri
 - Servisler: `OzkurtHukukDB` (PostgreSQL, yalnızca 127.0.0.1) ve `OzkurtHukukApp` (port 80). PC açılınca kendiliğinden başlar.
 - Güvenlik duvarı: port 80 yalnızca Özel/Etki alanı ağ profili için açılır. Ofis ağının Windows'ta "Özel ağ" olarak işaretli olması gerekir.
 - Görev Zamanlayıcı: "Ozkurt Hukuk Yedek" 30 dakikada bir çalışır, Ayarlar'daki saatte günde bir yedek alır.
-- WhatsApp bağlantısı ve duruşma takibi kullanım dışıdır. Kurulum/güncelleme eski hatırlatma görevini kaldırır; eski yardımcı ve gönderim komutu mesaj göndermez. Google Takvim yalnızca iCal bağlantısıyla okunur.
+- WhatsApp bağlantısı ve duruşma takibi kullanım dışıdır. Kurulum/güncelleme eski hatırlatma görevini kaldırır; gönderim komutu mesaj göndermez. `Ozkurt Hukuk Haciz Takibi` başlangıçta ve beş dakikada bir `create_seizure_tasks` çağırır; `check-reminders.ps1` yalnızca bu kontrolü yapar. Google Takvim yalnızca iCal bağlantısıyla okunur.
 - İlk kurulumda masaüstüne **YEDEK PAROLASI** dosyası bırakılır: parola güvenli yerde saklanıp dosya silinmelidir.
 
 ## Güncelleme

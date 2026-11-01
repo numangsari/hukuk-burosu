@@ -127,6 +127,19 @@ Register-ScheduledTask -TaskName "Ozkurt Hukuk Yedek" -Action $action -Trigger $
 # WhatsApp bağlantısı kullanım dışı; önceki sürümün hatırlatma görevi kaldırılır.
 Unregister-ScheduledTask -TaskName "Ozkurt Hukuk Hatirlatma" -Confirm:$false -ErrorAction SilentlyContinue
 
+# Haciz yenileme günleri, sayfa açık olmasa da beş dakikada bir denetlenir.
+$seizureScript = Join-Path $InstallDir "tools\check-reminders.ps1"
+$seizureArguments = "-NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$seizureScript`""
+$seizureAction = New-ScheduledTaskAction -Execute "powershell.exe" -Argument $seizureArguments
+$seizureTriggers = @(
+    (New-ScheduledTaskTrigger -AtStartup),
+    (New-ScheduledTaskTrigger -Once -At (Get-Date).Date -RepetitionInterval (New-TimeSpan -Minutes 5))
+)
+$seizureSettings = New-ScheduledTaskSettingsSet -StartWhenAvailable -AllowStartIfOnBatteries `
+    -DontStopIfGoingOnBatteries -ExecutionTimeLimit (New-TimeSpan -Minutes 4) -MultipleInstances IgnoreNew
+Register-ScheduledTask -TaskName "Ozkurt Hukuk Haciz Takibi" -Action $seizureAction `
+    -Trigger $seizureTriggers -Settings $seizureSettings -User "SYSTEM" -RunLevel Highest -Force | Out-Null
+
 # 7) İstemci kısayolu (diğer PC'lerin masaüstüne kopyalanacak)
 $url = "http://$($env:COMPUTERNAME)/"
 $shortcut = "[InternetShortcut]`r`nURL=$url`r`n"

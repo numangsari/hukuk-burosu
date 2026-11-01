@@ -25,6 +25,7 @@ if ($LASTEXITCODE -ne 0) {
     exit 1
 }
 Stop-ScheduledTask -TaskName "Ozkurt Hukuk Hatirlatma" -ErrorAction SilentlyContinue
+Stop-ScheduledTask -TaskName "Ozkurt Hukuk Haciz Takibi" -ErrorAction SilentlyContinue
 try {
     & (Join-Path $tools "manage.cmd") restore $dlg.FileName --yes
     if ($LASTEXITCODE -ne 0) { throw "Geri yükleme başarısız." }

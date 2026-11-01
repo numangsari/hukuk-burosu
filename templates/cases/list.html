@@ -17,6 +17,12 @@
       <option value="">Tüm avukatlar</option>
       {% for u in lawyers %}<option value="{{ u.pk }}" {% if request.GET.lawyer == u.pk|stringformat:'s' %}selected{% endif %}>{{ u }}</option>{% endfor %}
     </select>
+    <select class="form-select" name="stage" aria-label="Aşama">
+      <option value="">Tüm aşamalar</option>
+      {% for kind, label, choices in stage_groups %}<optgroup label="{{ label }}">
+        {% for key, name in choices %}{% with value=kind|add:':'|add:key %}<option value="{{ value }}" {% if request.GET.stage == value %}selected{% endif %}>{{ name }}</option>{% endwith %}{% endfor %}
+      </optgroup>{% endfor %}
+    </select>
     {% if request.GET.mine %}<input type="hidden" name="mine" value="1"><span class="chip chip-primary no-dot">Sorumlu olduklarım</span>{% endif %}
     <div class="filter-chips w-100">
       <div class="chip-group" role="radiogroup" aria-label="Durum">

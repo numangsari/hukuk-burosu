@@ -10,7 +10,7 @@ from apps.core.text import tr_upper
 from apps.core.uploads import validate_upload
 
 from . import stages
-from .models import Case, CaseEvent, CaseParty, Document, Hearing, PartyRole
+from .models import Case, CaseEvent, CaseParty, Document, Hearing, PartyRole, Seizure
 from .party_roles import PARTY_ROLES
 
 
@@ -331,6 +331,10 @@ class CaseCloseForm(BootstrapMixin, forms.Form):
         ]
         self.initial.setdefault("closed_on", timezone.localdate())
         self.initial.setdefault("decision_year", timezone.localdate().year)
+        self.is_enforcement = case.case_type == "enforcement"
+        if self.is_enforcement:
+            for name in ("closing_amount", "closing_amount_date", "closing_accounted"):
+                del self.fields[name]
         self.has_decision = case.case_type in stages.DECISION_TYPES
         if not self.has_decision:
             del self.fields["decision_date"], self.fields["decision_year"]
@@ -351,6 +355,8 @@ class CaseCloseForm(BootstrapMixin, forms.Form):
         flags = self.flags.get(reason, "")
         if "n" in flags and not data.get("closing_note", "").strip():
             self.add_error("closing_note", "Bu kapanma nedeninde açıklama yazılmalıdır.")
+        if self.is_enforcement:
+            return data
         if "m" not in flags:
             data["closing_amount"] = data["closing_amount_date"] = None
             data["closing_accounted"] = None
@@ -452,3 +458,47 @@ class BaseCoClientFormSet(forms.BaseFormSet):
 CoClientFormSet = forms.formset_factory(
     CaseCoClientForm, formset=BaseCoClientFormSet, extra=0, max_num=20, validate_max=True
 )
+
+
+class ClosingCollectionForm(BootstrapMixin, forms.Form):
+    amount = forms.DecimalField(
+        label="Tahsilat tutarı (TL)", min_value=Decimal("0.01"), max_digits=16, decimal_places=2
+    )
+    date = forms.DateField(label="Tahsilat tarihi", widget=DateInput())
+    description = forms.CharField(label="Açıklama", max_length=300, required=False)
+
+
+class ClosingCollectionFormSet(forms.BaseFormSet):
+    def clean(self):
+        super().clean()
+        if any(self.errors):
+            return
+        total = sum(
+            row.cleaned_data.get("amount", Decimal("0"))
+            for row in self.forms
+            if row.cleaned_data and not row.cleaned_data.get("DELETE")
+        )
+        if total > Decimal("99999999999999.99"):
+            raise forms.ValidationError("Tahsilat toplamı izin verilen tutarı aşıyor.")
+
+
+CollectionFormSet = forms.formset_factory(
+    ClosingCollectionForm,
+    formset=ClosingCollectionFormSet,
+    extra=1,
+    can_delete=True,
+    max_num=100,
+    validate_max=True,
+    absolute_max=100,
+)
+
+
+class SeizureForm(BootstrapMixin, forms.ModelForm):
+    class Meta:
+        model = Seizure
+        fields = ["debtor", "asset", "seized_on", "renewal_on", "is_active", "notes"]
+        widgets = {
+            "seized_on": DateInput(),
+            "renewal_on": DateInput(),
+            "notes": forms.Textarea(attrs={"rows": 2}),
+        }

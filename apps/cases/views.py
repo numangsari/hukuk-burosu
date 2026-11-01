@@ -27,6 +27,7 @@ from .forms import (
     CasePartyForm,
     CaseStageForm,
     CoClientFormSet,
+    CollectionFormSet,
     DocumentForm,
     PartyFormSet,
 )
@@ -46,6 +47,7 @@ SORT_FIELDS = {
     "client__name",
     "case_type",
     "status",
+    "stage",
     "created_at",
     "opened_on",
     "open_task_count",
@@ -104,6 +106,11 @@ class CaseListView(ListView):
             qs = qs.filter(Q(responsible_lawyer=u) | Q(responsible_intern=u))
         if client := g.get("client"):
             qs = qs.filter(Q(client_id=client) | Q(co_clients=client)).distinct()
+        selected = g.get("stage", "").split(":", 1)
+        if len(selected) == 2 and selected[0] in CaseType.values:
+            kind, key = selected
+            if key in dict(stages.open_stages(kind)):
+                qs = qs.filter(case_type=kind, stage=key, status=CaseStatus.OPEN)
         sort = g.get("sort", "-created_at")
         if sort.lstrip("-") not in SORT_FIELDS:
             sort = "-created_at"
@@ -119,6 +126,9 @@ class CaseListView(ListView):
         ctx["lawyers"] = User.objects.filter(role__in=["admin", "lawyer"], is_active=True)
         ctx["types"] = CaseType.choices
         ctx["statuses"] = CaseStatus.choices
+        ctx["stage_groups"] = [
+            (kind, label, stages.open_stages(kind)) for kind, label in CaseType.choices
+        ]
         # Bağlı dosyalar sayfa içinde art arda ve bağ işaretiyle gösterilir.
         ctx["cases"] = ctx["object_list"] = flows.cluster(ctx["cases"])
         return ctx
@@ -331,6 +341,8 @@ class CaseDetailView(DetailView):
             }
             for i, (key, label) in enumerate(steps)
         ]
+        if self.object.case_type == CaseType.ENFORCEMENT:
+            ctx["seizures"] = self.object.seizures.prefetch_related("renewals__task")
         ctx["document_form"] = DocumentForm()
         ctx["party_links"] = self.object.party_links.select_related("party", "case")
         ctx["documents"] = self.object.documents.select_related("created_by")
@@ -490,11 +502,20 @@ class CaseStageView(View):
 class CaseCloseView(View):
     template_name = "cases/close.html"
 
-    def _render(self, request, case, form):
+    def _render(self, request, case, form, collections=None):
         return render(
             request,
             self.template_name,
-            {"case": case, "form": form, "flags": form.flags, "has_decision": form.has_decision},
+            {
+                "case": case,
+                "form": form,
+                "flags": form.flags,
+                "has_decision": form.has_decision,
+                "collections": collections
+                if collections is not None
+                else (CollectionFormSet(prefix="receipts") if form.is_enforcement else None),
+                "previous_collections": case.ledger_entries.filter(closing_event__isnull=False),
+            },
         )
 
     def get(self, request, pk):
@@ -507,13 +528,32 @@ class CaseCloseView(View):
     def post(self, request, pk):
         case = get_object_or_404(Case, pk=pk)
         form = CaseCloseForm(request.POST, case=case)
-        if not form.is_valid():
-            return self._render(request, case, form)
+        collections = (
+            CollectionFormSet(request.POST, prefix="receipts") if form.is_enforcement else None
+        )
+        valid = form.is_valid()
+        if collections is not None:
+            valid = collections.is_valid() and valid
+        if not valid:
+            return self._render(request, case, form, collections)
+        rows = (
+            [
+                row.cleaned_data
+                for row in collections
+                if row.cleaned_data and not row.cleaned_data.get("DELETE")
+            ]
+            if collections is not None
+            else None
+        )
         try:
-            closed = services.close_case(case, form.cleaned_data, request.user)
+            closed = services.close_case(case, form.cleaned_data, request.user, collections=rows)
         except services.StatusError as error:
-            messages.error(request, str(error))
-            return redirect(case)
+            case.refresh_from_db()
+            if not case.is_open:
+                messages.info(request, "Dosya zaten kapalı; tahsilatlar tekrar kaydedilmedi.")
+                return redirect(case)
+            form.add_error(None, str(error))
+            return self._render(request, case, form, collections)
         messages.success(request, "Dosya kapatıldı.")
         if closed.closing_amount and not closed.closing_accounted:
             messages.warning(

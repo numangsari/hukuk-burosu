@@ -13,4 +13,5 @@ if (Get-Service "OzkurtHukukDB" -ErrorAction SilentlyContinue) {
 }
 Unregister-ScheduledTask -TaskName "Ozkurt Hukuk Yedek" -Confirm:$false -ErrorAction SilentlyContinue
 Unregister-ScheduledTask -TaskName "Ozkurt Hukuk Hatirlatma" -Confirm:$false -ErrorAction SilentlyContinue
+Unregister-ScheduledTask -TaskName "Ozkurt Hukuk Haciz Takibi" -Confirm:$false -ErrorAction SilentlyContinue
 Remove-NetFirewallRule -DisplayName "Ozkurt Hukuk" -ErrorAction SilentlyContinue

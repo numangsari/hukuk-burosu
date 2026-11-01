@@ -17,5 +17,7 @@ class CasesConfig(AppConfig):
             models.Document,
             models.Hearing,
             models.CaseEvent,
+            models.Seizure,
+            models.SeizureRenewal,
         ):
             auditlog.register(m)
