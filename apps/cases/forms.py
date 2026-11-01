@@ -1,16 +1,16 @@
-import re
 from decimal import Decimal
 
 from django import forms
+from django.db.models import Q
 from django.utils import timezone
 
-from apps.clients.models import Party
+from apps.clients.models import Client, Party
 from apps.core.forms import BootstrapMixin, DateInput, DateTimeInput
 from apps.core.text import tr_upper
 from apps.core.uploads import validate_upload
 
-from . import decisions, stages
-from .models import Case, CaseEvent, CaseParty, CaseStep, Document, Hearing, PartyRole
+from . import stages
+from .models import Case, CaseEvent, CaseParty, Document, Hearing, PartyRole
 from .party_roles import PARTY_ROLES
 
 
@@ -56,8 +56,9 @@ class CaseForm(BootstrapMixin, forms.ModelForm):
         ]
         widgets = {"opened_on": DateInput()}
 
-    def __init__(self, *args, can_remove_parties=False, **kwargs):
+    def __init__(self, *args, can_remove_parties=False, related_case=None, **kwargs):
         super().__init__(*args, **kwargs)
+        self.related_case = related_case
         self.fields["archive_folder_no"].required = not self.instance.pk
         self.fields["opened_on"].required = True
         for name in ("responsible_lawyer", "responsible_intern"):
@@ -128,19 +129,31 @@ class CaseForm(BootstrapMixin, forms.ModelForm):
             )
         return client
 
+    def _linked_case_ids(self) -> set:
+        """Bu dosyayla bağlı (veya bağlanacak) dosyaların kimlikleri."""
+        anchor = self.related_case or (self.instance if self.instance.pk else None)
+        if anchor is None:
+            return set()
+        ids = {anchor.pk}
+        if anchor.flow_id:
+            ids |= set(Case.objects.filter(flow_id=anchor.flow_id).values_list("pk", flat=True))
+        return ids
+
     def clean(self):
         data = super().clean()
         folder = data.get("archive_folder_no", "").strip()
         number = data.get("archive_no", "").strip()
         data["archive_folder_no"] = folder
         data["archive_no"] = number
-        if (
-            number
-            and Case.objects.filter(archive_folder_no__iexact=folder, archive_no__iexact=number)
-            .exclude(pk=self.instance.pk)
-            .exists()
-        ):
-            self.add_error("archive_no", "Bu klasörde aynı dosya numarası zaten kullanılıyor.")
+        if number:
+            same = set(
+                Case.objects.filter(archive_folder_no__iexact=folder, archive_no__iexact=number)
+                .exclude(pk=self.instance.pk)
+                .values_list("pk", flat=True)
+            )
+            # Aynı hukuki olayın bağlı dosyaları aynı fiziki arşiv yerini paylaşabilir.
+            if same - self._linked_case_ids():
+                self.add_error("archive_no", "Bu klasörde aynı dosya numarası zaten kullanılıyor.")
         client = data.get("client")
         if client:
             for name in ("responsible_lawyer", "responsible_intern"):
@@ -182,6 +195,9 @@ class CasePartyForm(BootstrapMixin, forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields["role"].choices = [("", "Seçiniz…"), *PARTY_ROLES.get(case_type, [])]
         self.fields["role"].widget.attrs["data-party-role"] = ""
+
+    # "İlgili dosya oluştur" ile önceki dosyanın tarafı olduğu gibi aktarılırken kullanılır.
+    existing_party = forms.IntegerField(required=False, widget=forms.HiddenInput())
 
     class Meta:
         model = Party
@@ -351,86 +367,88 @@ class CaseCloseForm(BootstrapMixin, forms.Form):
 YEAR_WIDGET = {"inputmode": "numeric", "maxlength": "4", "pattern": "[0-9]{4}"}
 
 
-class CaseStepForm(BootstrapMixin, forms.ModelForm):
-    """Safahat adımı. Dosya ve karar numaraları yıl + numara olarak girilir."""
+class CaseLinkForm(BootstrapMixin, forms.Form):
+    """Dosyaya başka bir dosya bağlar. İki dosyanın en az bir ortak müvekkili olmalıdır."""
 
-    official_year = forms.IntegerField(
-        label="Yıl",
-        min_value=1000,
-        max_value=9999,
-        required=False,
-        widget=forms.TextInput(attrs={**YEAR_WIDGET, "placeholder": "Yıl"}),
-    )
-    official_sequence = forms.IntegerField(
-        label="Numara", min_value=1, max_value=999999999, required=False
-    )
-    decision_year = forms.IntegerField(
-        label="Yıl",
-        min_value=1000,
-        max_value=9999,
-        required=False,
-        widget=forms.TextInput(attrs={**YEAR_WIDGET, "placeholder": "Yıl"}),
-    )
-    decision_sequence = forms.IntegerField(
-        label="Numara", min_value=1, max_value=999999999, required=False
-    )
-    decision = forms.ChoiceField(label="Karar", choices=[], widget=forms.Select())
-    apply_to_case = forms.BooleanField(
-        label="Esas dosyadaki kurum adı ve dosya numarasını bu adıma göre güncelle",
-        required=False,
-    )
-
-    class Meta:
-        model = CaseStep
-        fields = ["authority", "decision_date", "decision", "note"]
-        labels = {"decision_date": "Karar tarihi", "decision": "Karar", "note": "Not"}
-        widgets = {"decision_date": DateInput(), "note": forms.Textarea(attrs={"rows": 2})}
+    related = forms.ModelChoiceField(label="Bağlanacak dosya", queryset=Case.objects.none())
+    note = forms.CharField(label="Not", required=False, widget=forms.Textarea(attrs={"rows": 2}))
 
     def __init__(self, *args, case, **kwargs):
         super().__init__(*args, **kwargs)
         self.case = case
-        self.fields["decision"].choices = [
-            ("", "Seçiniz…"),
-            *decisions.decisions_for(case.case_type),
-        ]
-        self.fields["authority"].widget.attrs["class"] += " text-uppercase-input"
-        self.fields["authority"].widget.attrs["list"] = "authority-options"
-        year = timezone.localdate().year
-        self.initial.setdefault("official_year", year)
-        self.initial.setdefault("decision_year", year)
-        if self.instance.pk:
-            for prefix, value in (
-                ("official", self.instance.official_no),
-                ("decision", self.instance.decision_no),
-            ):
-                match = re.fullmatch(r"([0-9]{4})/([0-9]+)", value or "")
-                if match:
-                    self.initial[f"{prefix}_year"] = int(match[1])
-                    self.initial[f"{prefix}_sequence"] = int(match[2])
-                elif value:
-                    self.initial[f"{prefix}_year"] = None
+        excluded = Case.objects.filter(pk=case.pk)
+        if case.flow_id:
+            excluded = Case.objects.filter(flow_id=case.flow_id) | excluded
+        ids = case.client_ids()
+        self.fields["related"].queryset = (
+            Case.objects.filter(Q(client_id__in=ids) | Q(co_clients__in=ids))
+            .exclude(pk__in=excluded.values("pk"))
+            .select_related("client")
+            .distinct()
+            .order_by("-created_at")
+        )
+        self.fields["related"].label_from_instance = lambda c: (
+            f"{c.archive_reference} · {c.display_name} · {c.client.name}"
+        )
+        self.fields["related"].empty_label = "Dosya seçin…"
+        self.fields["related"].help_text = "En az bir ortak müvekkili olan dosyalar listelenir."
+
+
+class CaseCoClientForm(BootstrapMixin, forms.Form):
+    """Dosyadaki ek müvekkil satırı: müvekkil ve onun sıfatı (asıl müvekkil gibi)."""
+
+    client = forms.ModelChoiceField(
+        label="Müvekkil",
+        queryset=Client.objects.all(),
+        required=False,
+        widget=forms.Select(attrs={"aria-label": "Müvekkil"}),
+    )
+    role = forms.ChoiceField(label="Müvekkilin sıfatı", required=False)
+
+    def __init__(self, *args, case_type="civil", **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["role"].choices = [("", "Seçiniz…"), *PARTY_ROLES.get(case_type, [])]
+        self.fields["role"].widget.attrs.update(
+            {"data-party-role": "", "aria-label": "Müvekkilin sıfatı"}
+        )
 
     def clean(self):
         data = super().clean()
-        for prefix, label in (("official", "Dosya numarası"), ("decision", "Karar numarası")):
-            if data.get(f"{prefix}_sequence") and not data.get(f"{prefix}_year"):
-                self.add_error(f"{prefix}_year", f"{label} için yıl girilmelidir.")
-        if data.get("decision") == "other" and not (data.get("note") or "").strip():
-            self.add_error("note", 'Karar "Diğer" ise açıklama yazılmalıdır.')
+        client, role = data.get("client"), data.get("role")
+        if client and not role:
+            self.add_error("role", "Müvekkilin sıfatını seçin.")
+        if role and not client:
+            self.add_error("client", "Müvekkili seçin.")
         return data
 
-    def save(self, commit=True):
-        step = super().save(commit=False)
-        year, seq = (
-            self.cleaned_data.get("official_year"),
-            self.cleaned_data.get("official_sequence"),
-        )
-        step.official_no = f"{year}/{seq}" if year and seq else ""
-        year, seq = (
-            self.cleaned_data.get("decision_year"),
-            self.cleaned_data.get("decision_sequence"),
-        )
-        step.decision_no = f"{year}/{seq}" if year and seq else ""
-        if commit:
-            step.save()
-        return step
+
+class BaseCoClientFormSet(forms.BaseFormSet):
+    """Ek müvekkiller: asıl müvekkil tekrar eklenemez, aynı müvekkil bir kez yazılır.
+    Görünüme `primary_id` ve (düzenlemede) `case` verilir."""
+
+    primary_id = None
+    case = None
+
+    def clean(self):
+        super().clean()
+        if any(self.errors):
+            return
+        chosen = [f.cleaned_data["client"] for f in self.forms if f.cleaned_data.get("client")]
+        ids = [c.pk for c in chosen]
+        if self.primary_id and self.primary_id in ids:
+            raise forms.ValidationError("Asıl müvekkil ek müvekkil olarak tekrar eklenemez.")
+        if len(ids) != len(set(ids)):
+            raise forms.ValidationError("Aynı müvekkil birden fazla kez eklenemiş.")
+        if self.case is not None and self.case.pk:
+            removed = self.case.co_clients.exclude(pk__in=ids)
+            blocked = removed.filter(ledger_entries__case=self.case).distinct()
+            if blocked.exists():
+                names = ", ".join(c.name for c in blocked)
+                raise forms.ValidationError(
+                    f"Bu dosyada muhasebe hareketi olan müvekkil çıkarılamaz: {names}."
+                )
+
+
+CoClientFormSet = forms.formset_factory(
+    CaseCoClientForm, formset=BaseCoClientFormSet, extra=0, max_num=20, validate_max=True
+)

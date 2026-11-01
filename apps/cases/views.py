@@ -1,12 +1,14 @@
 from django.contrib import messages
+from django.core.exceptions import PermissionDenied
 from django.db import transaction
 from django.db.models import Count, IntegerField, OuterRef, ProtectedError, Q, Subquery, Value
 from django.db.models.functions import Coalesce
-from django.http import Http404, HttpResponse
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.generic import CreateView, DetailView, ListView, UpdateView, View
 
+from apps.accounting.models import LedgerEntry
 from apps.accounting.permissions import can_view as can_view_accounting
 from apps.accounting.views import statement
 from apps.accounts.models import User
@@ -15,20 +17,28 @@ from apps.core.permissions import AdminRequiredMixin, is_admin
 from apps.core.text import fold
 from apps.office.models import Court
 
-from . import services, stages, summary
+from . import flows, services, stages, summary
 from .documents import mirror_document
 from .forms import (
     CaseCloseForm,
     CaseEventForm,
     CaseForm,
+    CaseLinkForm,
     CasePartyForm,
     CaseStageForm,
-    CaseStepForm,
+    CoClientFormSet,
     DocumentForm,
     HearingForm,
     PartyFormSet,
 )
-from .models import TYPE_LABELS, Case, CaseParty, CaseStatus, CaseStep, CaseType, Document
+from .models import (
+    TYPE_LABELS,
+    Case,
+    CaseParty,
+    CaseStatus,
+    CaseType,
+    Document,
+)
 from .party_roles import PARTY_ROLES, party_lanes
 
 SORT_FIELDS = {
@@ -62,10 +72,14 @@ class CaseListView(ListView):
             .annotate(n=Count("pk"))
             .values("n")
         )
-        qs = Case.objects.select_related(
-            "client", "responsible_lawyer", "responsible_intern"
-        ).annotate(
-            open_task_count=Coalesce(Subquery(open_tasks, output_field=IntegerField()), Value(0))
+        qs = (
+            Case.objects.select_related("client", "responsible_lawyer", "responsible_intern")
+            .prefetch_related("co_clients")
+            .annotate(
+                open_task_count=Coalesce(
+                    Subquery(open_tasks, output_field=IntegerField()), Value(0)
+                )
+            )
         )
         if q := g.get("q", "").strip():
             qs = qs.filter(
@@ -75,7 +89,8 @@ class CaseListView(ListView):
                 | Q(subject__icontains=q)
                 | Q(authority__icontains=q)
                 | Q(client__search_key__contains=fold(q))
-            )
+                | Q(co_clients__search_key__contains=fold(q))
+            ).distinct()
         if (t := g.get("type")) in CaseType.values:
             qs = qs.filter(case_type=t)
         status = g.get("status", "open")
@@ -89,7 +104,7 @@ class CaseListView(ListView):
             u = self.request.user
             qs = qs.filter(Q(responsible_lawyer=u) | Q(responsible_intern=u))
         if client := g.get("client"):
-            qs = qs.filter(client_id=client)
+            qs = qs.filter(Q(client_id=client) | Q(co_clients=client)).distinct()
         sort = g.get("sort", "-created_at")
         if sort.lstrip("-") not in SORT_FIELDS:
             sort = "-created_at"
@@ -105,6 +120,8 @@ class CaseListView(ListView):
         ctx["lawyers"] = User.objects.filter(role__in=["admin", "lawyer"], is_active=True)
         ctx["types"] = CaseType.choices
         ctx["statuses"] = CaseStatus.choices
+        # Bağlı dosyalar sayfa içinde art arda ve bağ işaretiyle gösterilir.
+        ctx["cases"] = ctx["object_list"] = flows.cluster(ctx["cases"])
         return ctx
 
 
@@ -118,33 +135,87 @@ class CaseFormMixin:
         ctx["type_labels"] = {str(k): v for k, v in TYPE_LABELS.items()}
         ctx["party_roles"] = PARTY_ROLES
         ctx["party_lanes"] = party_lanes()
+        kind = (
+            self.request.POST.get("case_type", "civil")
+            if self.request.method == "POST"
+            else ctx["form"]["case_type"].value() or "civil"
+        )
         if "party_formset" not in ctx:
-            kind = (
-                self.request.POST.get("case_type", "civil")
-                if self.request.method == "POST"
-                else ctx["form"]["case_type"].value() or "civil"
-            )
+            related = self._related_case()
+            party_initial = None
+            if related and self.request.method != "POST":
+                # İlgili dosya oluştururken önceki dosyanın tarafları satır olarak gelir.
+                party_initial = [
+                    {
+                        "role": link.role,
+                        "kind": link.party.kind,
+                        "name": link.party.name,
+                        "identity_no": link.party.identity_no,
+                        "lawyer": link.party.lawyer,
+                        "address": link.party.address,
+                        "existing_party": link.party_id,
+                    }
+                    for link in related.party_links.select_related("party")
+                ]
             ctx["party_formset"] = PartyFormSet(
                 self.request.POST if self.request.method == "POST" else None,
                 prefix="parties",
+                initial=party_initial,
+                form_kwargs={"case_type": kind},
+            )
+        if "co_formset" not in ctx:
+            instance = getattr(self, "object", None)
+            related = self._related_case()
+            source = instance if instance and instance.pk else related
+            initial = (
+                [
+                    {"client": link.client_id, "role": link.role}
+                    for link in source.co_client_links.all()
+                ]
+                if source and self.request.method != "POST"
+                else None
+            )
+            ctx["co_formset"] = CoClientFormSet(
+                self.request.POST if self.request.method == "POST" else None,
+                prefix="coclients",
+                initial=initial,
                 form_kwargs={"case_type": kind},
             )
         ctx["authorities"] = Court.objects.filter(is_active=True).values_list("name", flat=True)
+        ctx["related_case"] = self._related_case()
         return ctx
+
+    def _related_case(self):
+        """ "İlgili dosya oluştur" ile açılıyorsa bağlanacak dosya (aynı müvekkilin dosyası)."""
+        raw = self.request.POST.get("related_case") or self.request.GET.get("iliskili")
+        if not raw or getattr(self, "object", None) and self.object.pk:
+            return None
+        return (
+            Case.objects.select_related("client").filter(pk=raw).first()
+            if str(raw).isdigit()
+            else None
+        )
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
         kwargs["can_remove_parties"] = self.request.user.is_office_admin
+        kwargs["related_case"] = self._related_case_for_save() or self._related_case()
         return kwargs
 
     @transaction.atomic
     def form_valid(self, form):
-        formset = self.get_context_data(form=form)["party_formset"]
-        if not formset.is_valid():
-            return self.render_to_response(self.get_context_data(form=form, party_formset=formset))
+        context = self.get_context_data(form=form)
+        formset, co_formset = context["party_formset"], context["co_formset"]
+        co_formset.primary_id = form.cleaned_data["client"].pk
+        co_formset.case = form.instance if form.instance.pk else None
+        if not (formset.is_valid() and co_formset.is_valid()):
+            return self.render_to_response(
+                self.get_context_data(form=form, party_formset=formset, co_formset=co_formset)
+            )
         if not form.instance.pk:
             form.instance.created_by = self.request.user
         response = super().form_valid(form)
+        self._save_co_clients(co_formset)
         for link, field in form.existing_party_rows:
             if form.cleaned_data.get(f"party_remove_{link.pk}"):
                 link.delete()
@@ -155,11 +226,11 @@ class CaseFormMixin:
             if not row.cleaned_data or row.cleaned_data.get("DELETE"):
                 continue
             data = row.cleaned_data
-            party = (
-                Party.objects.filter(identity_no=data["identity_no"]).first()
-                if data["identity_no"]
-                else None
-            )
+            party = None
+            if data.get("existing_party"):
+                party = Party.objects.filter(pk=data["existing_party"]).first()
+            if party is None and data["identity_no"]:
+                party = Party.objects.filter(identity_no=data["identity_no"]).first()
             if party is None:
                 party = row.save(commit=False)
                 party.created_by = self.request.user
@@ -168,20 +239,64 @@ class CaseFormMixin:
                 case=self.object, party=party, defaults={"role": data["role"]}
             )
         messages.success(self.request, "Dosya kaydedildi.")
+        related = self._related_case_for_save()
+        if related:
+            try:
+                services.link_cases(related, self.object, "", self.request.user)
+                messages.success(
+                    self.request, f"Dosya, {related.archive_reference} dosyasına bağlandı."
+                )
+            except services.StatusError as error:
+                messages.warning(self.request, f"Dosya bağlanamadı: {error}")
         return response
+
+    def _save_co_clients(self, co_formset):
+        """Ek müvekkil satırlarını kayda eşitler (eklenen, değişen sıfat, çıkarılan)."""
+        desired = {
+            f.cleaned_data["client"].pk: f.cleaned_data["role"]
+            for f in co_formset.forms
+            if f.cleaned_data.get("client")
+        }
+        existing = {link.client_id: link for link in self.object.co_client_links.all()}
+        for client_id, link in existing.items():
+            if client_id not in desired:
+                link.delete()
+            elif link.role != desired[client_id]:
+                link.role = desired[client_id]
+                link.save(update_fields=["role"])
+        for client_id, role in desired.items():
+            if client_id not in existing:
+                self.object.co_client_links.create(client_id=client_id, role=role)
+
+    def _related_case_for_save(self):
+        raw = self.request.POST.get("related_case")
+        if not raw or not str(raw).isdigit():
+            return None
+        return Case.objects.filter(pk=raw).first()
 
 
 class CaseCreateView(CaseFormMixin, CreateView):
     def get_initial(self):
         initial = {"case_type": CaseType.CIVIL}
-        if client_id := self.request.GET.get("client"):
+        client_id = self.request.GET.get("client")
+        related = Case.objects.filter(pk=self.request.GET.get("iliskili") or 0).first()
+        if related:
+            # İlgili dosya: müvekkil, sıfat, fiziki arşiv yeri ve sorumlular önceki dosyadan gelir.
+            client_id = related.client_id
+            initial.update(
+                subject=related.subject,
+                client_role=related.client_role,
+                archive_folder_no=related.archive_folder_no,
+                archive_no=related.archive_no,
+                responsible_lawyer=related.responsible_lawyer_id,
+                responsible_intern=related.responsible_intern_id,
+            )
+        if client_id:
             client = Client.objects.filter(pk=client_id).first()
             if client:
-                initial.update(
-                    client=client,
-                    responsible_lawyer=client.responsible_lawyer_id,
-                    responsible_intern=client.responsible_intern_id,
-                )
+                initial.setdefault("client", client)
+                initial.setdefault("responsible_lawyer", client.responsible_lawyer_id)
+                initial.setdefault("responsible_intern", client.responsible_intern_id)
         return initial
 
 
@@ -226,7 +341,8 @@ class CaseDetailView(DetailView):
             hearings=case.hearings.order_by("-starts_at"),
             event_form=CaseEventForm(initial={"date": timezone.localdate()}),
             timeline=case.events.select_related("created_by"),
-            steps=case.steps.all(),
+            flow_members=services.flow_members(case),
+            can_unlink=can_unlink(self.request.user),
             tasks=case.tasks.select_related("task_type", "assignee", "reviewer").order_by(
                 "status", "due_date"
             ),
@@ -237,19 +353,30 @@ class CaseDetailView(DetailView):
             case,
             list(ctx["tasks"]),
             list(ctx["hearings"]),
-            list(ctx["steps"]),
+            list(ctx["flow_members"]),
             list(ctx["documents"]),
             ctx["now"],
             ctx["today"],
         )
         ctx["party_groups"] = summary.party_groups(case, list(ctx["party_links"]))
+        ctx["party_tab_groups"] = summary.party_groups(
+            case, list(ctx["party_links"]), include_empty=True
+        )
         ctx["recent_events"] = list(ctx["timeline"][:5])
         from apps.activity.views import history_for
 
         ctx["history"] = history_for(case)
         if can_view_accounting(self.request.user):
-            entries = case.ledger_entries.select_related("cancelled_by")
-            ctx["ledger_rows"] = statement(entries)
+            # Bağlı dosyalarda muhasebe ortaktır: gruptaki tüm dosyaların hareketleri görünür.
+            entries = LedgerEntry.objects.filter(
+                case_id__in=[m.pk for m in ctx["flow_members"]]
+            ).select_related("cancelled_by", "case")
+            # İptal edilen hareketler Muhasebe sekmesinde değil, Geçmiş sekmesinde görünür.
+            ctx["multi_client"] = (
+                len({cid for m in ctx["flow_members"] for cid in m.client_ids()}) > 1
+            )
+            ctx["ledger_rows"] = statement(entries.filter(is_cancelled=False))
+            ctx["cancelled_entries"] = entries.filter(is_cancelled=True).order_by("-cancelled_at")
             ctx["ledger_balances"] = entries.balances()
         return ctx
 
@@ -258,11 +385,13 @@ class CaseDeleteView(AdminRequiredMixin, View):
     def post(self, request, pk):
         case = get_object_or_404(Case, pk=pk)
         client = case.client
+        flow_id = case.flow_id
         try:
             case.delete()
         except ProtectedError:
             messages.error(request, "Bu dosyaya bağlı kayıtlar var, silinemez.")
             return redirect(case)
+        services.dissolve_if_single(flow_id)
         messages.success(request, "Dosya silindi.")
         return redirect(client)
 
@@ -275,6 +404,9 @@ def _parties_partial(request, case, form=None):
             "case": case,
             "party_form": form or CasePartyForm(case_type=case.case_type),
             "party_links": case.party_links.select_related("party"),
+            "party_groups": summary.party_groups(
+                case, list(case.party_links.select_related("party", "case")), include_empty=True
+            ),
         },
     )
 
@@ -412,70 +544,68 @@ class CaseReopenView(AdminRequiredMixin, View):
         return redirect(case)
 
 
-class StepFormView(View):
-    """Safahat adımı ekleme/düzenleme penceresi (HTMX); kayıttan sonra dosya sayfası yenilenir."""
+def can_unlink(user) -> bool:
+    """Bağlantıyı koparma yetkisi: yönetici ve avukatlar."""
+    return user.is_authenticated and (is_admin(user) or user.role == User.Role.LAWYER)
 
-    template_name = "cases/_step_form.html"
 
-    def _render(self, request, case, form, step=None):
-        return render(
-            request,
-            self.template_name,
-            {
-                "case": case,
-                "form": form,
-                "step": step,
-                "authorities": Court.objects.filter(is_active=True).values_list("name", flat=True),
-            },
-        )
+class LinkAddView(View):
+    """İlgili dosya bağlama penceresi (HTMX): iki dosyanın safahatı ve muhasebesi ortak olur."""
 
-    def _objects(self, pk, step_pk):
+    template_name = "cases/_link_form.html"
+
+    def _render(self, request, case, form):
+        return render(request, self.template_name, {"case": case, "form": form})
+
+    def get(self, request, pk):
         case = get_object_or_404(Case, pk=pk)
-        if not case.has_safahat:
-            raise Http404
-        step = get_object_or_404(CaseStep, pk=step_pk, case=case) if step_pk else None
-        return case, step
+        return self._render(request, case, CaseLinkForm(case=case))
 
-    def get(self, request, pk, step_pk=None):
-        case, step = self._objects(pk, step_pk)
-        return self._render(request, case, CaseStepForm(instance=step, case=case), step)
-
-    def post(self, request, pk, step_pk=None):
-        case, step = self._objects(pk, step_pk)
-        form = CaseStepForm(request.POST, instance=step, case=case)
+    def post(self, request, pk):
+        case = get_object_or_404(Case, pk=pk)
+        form = CaseLinkForm(request.POST, case=case)
         if not form.is_valid():
-            return self._render(request, case, form, step)
-        with transaction.atomic():
-            saved = form.save(commit=False)
-            saved.case = case
-            if not saved.pk:
-                saved.created_by = request.user
-            saved.save()
-            if form.cleaned_data.get("apply_to_case"):
-                services.apply_step_to_case(saved, request.user)
-        messages.success(request, "Safahat adımı kaydedildi.")
-        target = f"{case.get_absolute_url()}#t-safahat"
+            return self._render(request, case, form)
+        try:
+            services.link_cases(
+                case, form.cleaned_data["related"], form.cleaned_data["note"], request.user
+            )
+        except services.StatusError as error:
+            form.add_error(None, str(error))
+            return self._render(request, case, form)
+        messages.success(request, "Dosya bağlandı; safahat ve muhasebe ortak oldu.")
         if request.htmx:
             response = HttpResponse(status=204)
-            response["HX-Redirect"] = target
+            response["HX-Trigger"] = "flow-saved"
             return response
-        return redirect(target)
-
-
-class StepApplyView(View):
-    """Seçilen safahat adımının kurum ve dosya numarasını esas dosyaya yazar."""
-
-    def post(self, request, pk, step_pk):
-        case = get_object_or_404(Case, pk=pk)
-        step = get_object_or_404(CaseStep, pk=step_pk, case=case)
-        services.apply_step_to_case(step, request.user)
-        messages.success(request, "Esas dosya bilgisi güncellendi.")
         return redirect(f"{case.get_absolute_url()}#t-safahat")
 
 
-class StepDeleteView(AdminRequiredMixin, View):
-    def post(self, request, pk, step_pk):
+def _flow_member(case, member_pk):
+    members = services.flow_members(case)
+    return get_object_or_404(Case, pk=member_pk, pk__in=[m.pk for m in members])
+
+
+class LinkDeleteView(View):
+    """Dosyanın bağlantısını koparır (yönetici ve avukatlar)."""
+
+    def post(self, request, pk, member_pk):
         case = get_object_or_404(Case, pk=pk)
-        get_object_or_404(CaseStep, pk=step_pk, case=case).delete()
-        messages.success(request, "Safahat adımı silindi.")
+        member = _flow_member(case, member_pk)
+        if not can_unlink(request.user):
+            raise PermissionDenied
+        services.unlink_case(member, request.user)
+        messages.success(request, "Bağlantı koparıldı.")
+        return redirect(f"{case.get_absolute_url()}#t-safahat")
+
+
+class LinkMoveView(View):
+    """Dosyanın ortak akıştaki sırasını bir yukarı/aşağı değiştirir."""
+
+    def post(self, request, pk, member_pk):
+        case = get_object_or_404(Case, pk=pk)
+        member = _flow_member(case, member_pk)
+        direction = request.POST.get("yon")
+        if direction in ("up", "down") and services.move_member(member, direction):
+            messages.success(request, "Akıştaki sıra değiştirildi.")
         return redirect(f"{case.get_absolute_url()}#t-safahat")

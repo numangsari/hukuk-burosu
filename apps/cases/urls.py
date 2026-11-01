@@ -11,10 +11,6 @@ urlpatterns = [
     path("<int:pk>/duzenle/", views.CaseUpdateView.as_view(), name="update"),
     path("<int:pk>/sil/", views.CaseDeleteView.as_view(), name="delete"),
     path("<int:pk>/asama/", views.CaseStageView.as_view(), name="stage"),
-    path("<int:pk>/safahat/yeni/", views.StepFormView.as_view(), name="step_add"),
-    path("<int:pk>/safahat/<int:step_pk>/duzenle/", views.StepFormView.as_view(), name="step_edit"),
-    path("<int:pk>/safahat/<int:step_pk>/esas/", views.StepApplyView.as_view(), name="step_apply"),
-    path("<int:pk>/safahat/<int:step_pk>/sil/", views.StepDeleteView.as_view(), name="step_delete"),
     path("<int:pk>/kapat/", views.CaseCloseView.as_view(), name="close"),
     path("<int:pk>/yeniden-ac/", views.CaseReopenView.as_view(), name="reopen"),
     path("<int:pk>/taraf/", views.CasePartyAddView.as_view(), name="party_add"),
@@ -23,6 +19,11 @@ urlpatterns = [
         views.CasePartyRemoveView.as_view(),
         name="party_remove",
     ),
+    path("<int:pk>/ilgili/yeni/", views.LinkAddView.as_view(), name="link_add"),
+    path(
+        "<int:pk>/ilgili/<int:member_pk>/ayir/", views.LinkDeleteView.as_view(), name="link_delete"
+    ),
+    path("<int:pk>/ilgili/<int:member_pk>/tasi/", views.LinkMoveView.as_view(), name="link_move"),
     path("<int:pk>/belge/", views.DocumentUploadView.as_view(), name="document_upload"),
     path(
         "<int:pk>/belge/<int:doc_pk>/sil/",

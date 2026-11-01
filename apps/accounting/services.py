@@ -14,7 +14,7 @@ from .models import LedgerEntry
 def create_entry(entry: LedgerEntry) -> LedgerEntry:
     if entry.case_id:
         case = Case.objects.select_for_update().get(pk=entry.case_id)
-        if entry.client_id != case.client_id:
+        if entry.client_id not in case.client_ids():
             raise ValidationError("Dosyanın müvekkili değişti. Bilgileri yenileyip tekrar deneyin.")
     # Müvekkile ödeme ve mahsup emanet bakiyesini aşabilir (kullanıcı kararı).
     Client.objects.select_for_update().get(pk=entry.client_id)

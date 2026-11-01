@@ -7,7 +7,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from . import stages
-from .models import Case, CaseEvent, CaseStatus
+from .models import Case, CaseEvent, CaseFlow, CaseStatus
 
 
 class StatusError(Exception):
@@ -105,19 +105,93 @@ def reopen_case(case, stage, user):
     return case
 
 
-@transaction.atomic
-def apply_step_to_case(step, user):
-    """Safahat adımındaki kurum adı ve dosya numarasını esas dosyaya yazar."""
-    case = _locked(step.case)
-    previous = f"{case.authority} {case.official_no}".strip() or "boş"
-    case.authority = step.authority
-    if step.official_no:
-        case.official_no = step.official_no
-    case.save(update_fields=["authority", "official_no", "updated_at"])
-    _event(
-        case,
-        user,
-        f"Esas dosya bilgisi güncellendi: {case.authority} {case.official_no}".strip(),
-        f"Önceki bilgi: {previous}",
+def flow_members(case):
+    """Ortak safahattaki dosyalar (sıralı); bağlı dosyası yoksa yalnızca kendisi."""
+    if not case.flow_id:
+        return [case]
+    return list(
+        Case.objects.filter(flow_id=case.flow_id)
+        .select_related("client", "responsible_lawyer")
+        .order_by("flow_position", "opened_on", "pk")
     )
-    return case
+
+
+def _renumber(members):
+    for position, member in enumerate(members, start=1):
+        if member.flow_position != position:
+            Case.objects.filter(pk=member.pk).update(flow_position=position)
+            member.flow_position = position
+
+
+def _event_pair(left, right, user, text):
+    for one, other in ((left, right), (right, left)):
+        _event(one, user, f"{text}: {other.archive_reference} {other.display_name}")
+
+
+@transaction.atomic
+def link_cases(case, other, note, user):
+    """İki dosyayı bağlar; safahat ve muhasebeleri ortak olur (zincir bağlantılar tek grupta).
+    İki dosyanın en az bir ortak müvekkili olmalıdır."""
+    locked = {c.pk: c for c in Case.objects.select_for_update().filter(pk__in=[case.pk, other.pk])}
+    a, b = locked[case.pk], locked[other.pk]
+    if a.pk == b.pk:
+        raise StatusError("Bir dosya kendisine bağlanamaz.")
+    if not (a.client_ids() & b.client_ids()):
+        raise StatusError("Bağlanacak dosyaların en az bir ortak müvekkili olmalıdır.")
+    if a.flow_id and a.flow_id == b.flow_id:
+        raise StatusError("Bu dosyalar zaten bağlı.")
+    sequence = flow_members(a) + flow_members(b)
+    flow_id = a.flow_id or b.flow_id or CaseFlow.objects.create().pk
+    for old in {a.flow_id, b.flow_id} - {None, flow_id}:
+        Case.objects.filter(flow_id=old).update(flow_id=flow_id)
+    Case.objects.filter(pk__in=[m.pk for m in sequence]).update(flow_id=flow_id)
+    for member in sequence:
+        member.flow_id = flow_id
+    _renumber(sequence)
+    Case.objects.filter(pk=b.pk).update(flow_note=(note or "").strip())
+    _event_pair(a, b, user, "Dosya bağlandı")
+    return flow_id
+
+
+@transaction.atomic
+def unlink_case(case, user):
+    """Dosyanın bağlantısını koparır; geri kalan tek dosya kalırsa grup dağılır."""
+    locked = Case.objects.select_for_update().get(pk=case.pk)
+    if not locked.flow_id:
+        raise StatusError("Dosya başka bir dosyaya bağlı değil.")
+    remaining = [m for m in flow_members(locked) if m.pk != locked.pk]
+    Case.objects.filter(pk=locked.pk).update(flow=None, flow_position=0, flow_note="")
+    if len(remaining) <= 1:
+        Case.objects.filter(pk__in=[m.pk for m in remaining]).update(
+            flow=None, flow_position=0, flow_note=""
+        )
+    else:
+        _renumber(remaining)
+    for member in remaining:
+        _event(
+            member, user, f"Bağlantı koparıldı: {locked.archive_reference} {locked.display_name}"
+        )
+    _event(locked, user, "Bağlantı koparıldı: dosya ortak safahattan ayrıldı")
+
+
+def dissolve_if_single(flow_id):
+    """Silme sonrası grupta tek dosya kaldıysa grubu dağıtır."""
+    if not flow_id:
+        return
+    left = list(Case.objects.filter(flow_id=flow_id))
+    if len(left) <= 1:
+        Case.objects.filter(flow_id=flow_id).update(flow=None, flow_position=0, flow_note="")
+
+
+@transaction.atomic
+def move_member(case, direction):
+    """Dosyanın ortak akıştaki sırasını bir yukarı ("up") veya aşağı ("down") değiştirir."""
+    locked = Case.objects.select_for_update().get(pk=case.pk)
+    members = flow_members(locked)
+    index = next(i for i, m in enumerate(members) if m.pk == locked.pk)
+    other = index - 1 if direction == "up" else index + 1
+    if not locked.flow_id or other < 0 or other >= len(members):
+        return False
+    members[index], members[other] = members[other], members[index]
+    _renumber(members)
+    return True

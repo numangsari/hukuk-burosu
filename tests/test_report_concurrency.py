@@ -44,9 +44,9 @@ def run_together(operation):
         return [future.result(timeout=20) for future in futures]
 
 
-@pytest.mark.parametrize("kind", [EntryKind.TRUST_OUT, EntryKind.OFFSET])
+@pytest.mark.parametrize("kind", [EntryKind.TRUST_OUT])
 def test_parallel_payments_are_all_recorded(client_factory, kind):
-    # Emanet bakiyesini aşan ödeme/mahsup serbest; eşzamanlı iki kayıt da yazılır.
+    # Karşı taraftan tahsilatı aşan ödeme serbest; eşzamanlı iki kayıt da yazılır.
     owner = client_factory()
     LedgerEntry.objects.create(
         client=owner, kind=EntryKind.TRUST_IN, amount=10000, date=timezone.localdate()
@@ -61,7 +61,7 @@ def test_parallel_payments_are_all_recorded(client_factory, kind):
 
     assert sorted(run_together(pay)) == [True, True]
     assert owner.ledger_entries.filter(kind=kind).count() == 2
-    assert owner.ledger_entries.balances()["trust"] == Decimal("-4000")
+    assert owner.ledger_entries.balances()["balance"] == Decimal("4000")
 
 
 def test_parallel_cancellations_only_cancel_once(client_factory, admin_user):

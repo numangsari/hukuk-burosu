@@ -18,12 +18,10 @@
     </a>
   </div>
   <div class="col-sm-6 col-xl-3">
-    <a href="#" class="card stat-card" onclick="goCaseTab('{% if case.has_safahat %}#t-safahat{% else %}#t-gecmis{% endif %}'); return false">
+    <a href="#" class="card stat-card" onclick="goCaseTab('#t-safahat'); return false">
       <div class="stat-icon warning"><i class="bi bi-diagram-3"></i></div>
-      <div><div class="stat-label">Son karar</div>
-        {% if summary.last_step %}<div class="stat-value fs-6">{{ summary.last_step.decision_label|default:"—" }}</div>
-        <div class="stat-hint">{{ summary.last_step.authority }}{% if summary.last_step.decision_date %} · {{ summary.last_step.decision_date|date:"d.m.Y" }}{% endif %}</div>
-        {% else %}<div class="stat-value fs-5 text-body-secondary">—</div><div class="stat-hint">Safahat adımı yok</div>{% endif %}</div>
+      <div><div class="stat-label">Bağlı dosya</div><div class="stat-value">{{ summary.linked_count }}</div>
+        <div class="stat-hint">{% if summary.linked_count %}Safahat ve muhasebe ortak{% else %}Bağlı dosya yok{% endif %}</div></div>
     </a>
   </div>
   <div class="col-sm-6 col-xl-3">
@@ -40,9 +38,10 @@
     <div class="card mb-3"><div class="card-body">
       <h2 class="section-title">Dosya bilgileri</h2>
       <div class="info-grid">
+        <div class="info-item info-wide"><div class="info-label">Müvekkil</div><div class="info-value"><a href="{{ case.client.get_absolute_url }}">{{ case.client }}</a>{% for c in case.co_clients.all %}, <a href="{{ c.get_absolute_url }}">{{ c }}</a>{% endfor %}{% if case.client_role %} <span class="text-body-secondary fw-normal">· {{ case.get_client_role_display }}</span>{% endif %}</div></div>
         <div class="info-item info-wide"><div class="info-label">Konu</div><div class="info-value">{{ case.subject }}</div></div>
         {% if case.labels.authority %}<div class="info-item"><div class="info-label">{{ case.labels.authority }}</div><div class="info-value">{{ case.authority|default:"—" }}</div></div>{% endif %}
-        {% if case.labels.official_no %}<div class="info-item"><div class="info-label">{{ case.labels.official_no }}</div><div class="info-value tabular">{{ case.official_no|default:"—" }}</div></div>{% endif %}
+        {% if case.labels.official_no %}<div class="info-item"><div class="info-label">{{ case.labels.official_no }}</div><div class="info-value tabular">{{ case.official_no_display|default:"—" }}</div></div>{% endif %}
         <div class="info-item"><div class="info-label">Dosya türü</div><div class="info-value">{{ case.get_case_type_display }}</div></div>
         <div class="info-item"><div class="info-label">Fiziki arşiv yeri</div><div class="info-value tabular">{{ case.archive_reference }}</div></div>
         {% if case.enforcement_type %}<div class="info-item"><div class="info-label">Takip türü</div><div class="info-value">{{ case.get_enforcement_type_display }}</div></div>{% endif %}
@@ -60,7 +59,7 @@
         <div class="info-item info-wide"><div class="info-label">Kapanma nedeni</div><div class="info-value">{{ case.closing_label|default:"—" }}</div></div>
         {% if case.closed_on %}<div class="info-item"><div class="info-label">Kapanma tarihi</div><div class="info-value tabular">{{ case.closed_on|date:"d.m.Y" }}</div></div>{% endif %}
         {% if case.decision_date %}<div class="info-item"><div class="info-label">Karar tarihi</div><div class="info-value tabular">{{ case.decision_date|date:"d.m.Y" }}</div></div>{% endif %}
-        {% if case.decision_no %}<div class="info-item"><div class="info-label">Karar no</div><div class="info-value tabular">{{ case.decision_no }}</div></div>{% endif %}
+        {% if case.decision_no %}<div class="info-item"><div class="info-label">Karar no</div><div class="info-value tabular">{{ case.decision_no_display }}</div></div>{% endif %}
         {% if case.closing_amount %}
         <div class="info-item"><div class="info-label">Tahsil / ödeme</div><div class="info-value tabular">{{ case.closing_amount|tl }}{% if case.closing_amount_date %} · {{ case.closing_amount_date|date:"d.m.Y" }}{% endif %}</div></div>
         <div class="info-item"><div class="info-label">Muhasebe</div><div class="info-value">

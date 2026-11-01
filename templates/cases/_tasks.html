@@ -1,19 +1,73 @@
-<div class="card table-card">
-  <div class="card-header"><h2 class="card-title">Görevler</h2>
-    <a class="btn btn-sm btn-light ms-auto" href="{% url 'tasks:create' %}?dosya={{ case.pk }}"><i class="bi bi-plus-lg"></i>Yeni görev</a></div>
+{# Dosya detayı > Görevler: üstte aktif (aktif + kontrolde), altta tamamlanan görevler; sıralama seçenekli. #}
+<div class="card table-card mb-3" id="case-tasks">
+  <div class="card-header">
+    <h2 class="card-title">Görevler</h2>
+    <div class="ms-auto d-flex align-items-center gap-2">
+      <label class="small text-body-secondary mb-0" for="task-sort">Sırala</label>
+      <select id="task-sort" class="form-select form-select-sm w-auto" style="min-width: 15rem; padding-right: 2.25rem" onchange="sortCaseTasks(this.value)">
+        <option value="due">Son gün (yakın → uzak)</option>
+        <option value="due-desc">Son gün (uzak → yakın)</option>
+        <option value="title">Görev adı (A → Z)</option>
+        <option value="assignee">Sorumlu (A → Z)</option>
+        <option value="created">Yeni eklenen önce</option>
+      </select>
+      <a class="btn btn-sm btn-light" href="{% url 'tasks:create' %}?dosya={{ case.pk }}"><i class="bi bi-plus-lg"></i>Yeni görev</a>
+    </div>
+  </div>
+  <div class="px-3 pt-3 pb-1 info-label">Aktif görevler <span class="count">{{ summary.open_task_count }}</span></div>
   <div class="table-responsive">
   <table class="table table-hover">
     <thead><tr><th>Görev</th><th>Sorumlu → Kontrolcü</th><th>Durum</th><th>Son gün</th></tr></thead>
-    <tbody>
-    {% for t in tasks %}
-      <tr data-href="{{ t.get_absolute_url }}" onclick="location.href=this.dataset.href">
+    <tbody data-task-body>
+    {% for t in tasks %}{% if t.is_open %}
+      <tr data-href="{{ t.get_absolute_url }}" onclick="location.href=this.dataset.href"
+          data-due="{{ t.due_date|date:'Y-m-d' }}" data-title="{{ t.title }}" data-assignee="{{ t.assignee }}" data-created="{{ t.created_at|date:'U' }}">
         <td><a class="cell-main text-reset" href="{{ t.get_absolute_url }}">{{ t.title }}</a><div class="cell-sub">{{ t.task_type }}</div></td>
         <td>{{ t.assignee }}<div class="cell-sub">{{ t.reviewer }}</div></td>
         <td>{% include "tasks/_chips.html" with part="status" %}</td>
         <td>{% include "tasks/_chips.html" with part="due" %}</td>
       </tr>
-    {% empty %}<tr><td colspan="4"><div class="empty-state py-3"><strong>Görev yok</strong>Bu dosya için henüz görev oluşturulmamış.</div></td></tr>{% endfor %}
+    {% endif %}{% endfor %}
+    {% if not summary.open_task_count %}<tr data-static><td colspan="4"><div class="empty-state py-3"><strong>Aktif görev yok</strong>Bu dosya için açık görev bulunmuyor.</div></td></tr>{% endif %}
     </tbody>
   </table>
   </div>
 </div>
+
+<div class="card table-card">
+  <div class="card-header"><h2 class="card-title">Tamamlanan görevler</h2></div>
+  <div class="table-responsive">
+  <table class="table table-hover">
+    <thead><tr><th>Görev</th><th>Sorumlu → Kontrolcü</th><th>Durum</th><th>Son gün</th></tr></thead>
+    <tbody data-task-body>
+    {% for t in tasks %}{% if not t.is_open %}
+      <tr data-href="{{ t.get_absolute_url }}" onclick="location.href=this.dataset.href"
+          data-due="{{ t.due_date|date:'Y-m-d' }}" data-title="{{ t.title }}" data-assignee="{{ t.assignee }}" data-created="{{ t.created_at|date:'U' }}">
+        <td><a class="cell-main text-reset" href="{{ t.get_absolute_url }}">{{ t.title }}</a><div class="cell-sub">{{ t.task_type }}</div></td>
+        <td>{{ t.assignee }}<div class="cell-sub">{{ t.reviewer }}</div></td>
+        <td>{% include "tasks/_chips.html" with part="status" %}</td>
+        <td>{% include "tasks/_chips.html" with part="due" %}</td>
+      </tr>
+    {% endif %}{% endfor %}
+    {% if summary.open_task_count == tasks|length %}<tr data-static><td colspan="4"><div class="empty-state py-3"><strong>Tamamlanan görev yok</strong>Tamamlanan görevler burada listelenir.</div></td></tr>{% endif %}
+    </tbody>
+  </table>
+  </div>
+</div>
+<script>
+  function sortCaseTasks(mode) {
+    const collator = new Intl.Collator("tr");
+    const compare = {
+      "due": (a, b) => a.dataset.due.localeCompare(b.dataset.due),
+      "due-desc": (a, b) => b.dataset.due.localeCompare(a.dataset.due),
+      "title": (a, b) => collator.compare(a.dataset.title, b.dataset.title),
+      "assignee": (a, b) => collator.compare(a.dataset.assignee, b.dataset.assignee),
+      "created": (a, b) => Number(b.dataset.created) - Number(a.dataset.created),
+    }[mode];
+    document.querySelectorAll("#t-gorevler [data-task-body]").forEach(body => {
+      const rows = Array.from(body.querySelectorAll("tr[data-due]")).sort(compare);
+      rows.forEach(row => body.appendChild(row));
+    });
+  }
+  document.addEventListener("DOMContentLoaded", () => sortCaseTasks("due"));
+</script>

@@ -95,7 +95,7 @@ def add_entry(owner, kind, amount):
 
 
 def test_trust_income_can_be_cancelled_after_payment(admin_user, client_factory):
-    # Emanet girişi, ödeme yapılmış olsa da iptal edilebilir; emanet eksiye düşer.
+    # Karşı taraftan tahsilat, ödeme yapılmış olsa da iptal edilebilir.
     owner = client_factory()
     income = add_entry(owner, EntryKind.TRUST_IN, "10000")
     add_entry(owner, EntryKind.TRUST_OUT, "7000")
@@ -103,7 +103,7 @@ def test_trust_income_can_be_cancelled_after_payment(admin_user, client_factory)
     client.post(reverse("accounting:cancel", args=[income.pk]), {"reason": "Yanlış kayıt"})
     income.refresh_from_db()
     assert income.is_cancelled
-    assert owner.ledger_entries.balances()["trust"] == Decimal("-7000")
+    assert owner.ledger_entries.balances()["balance"] == Decimal("7000")
 
 
 def test_approve_rechecks_required_document(task, lawyer):

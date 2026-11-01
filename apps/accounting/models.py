@@ -1,8 +1,10 @@
 """Muhasebe hareketleri.
 
-Cari bakiye (müvekkilin ofise borcu) = vekalet ücreti + masraf − tahsilat − mahsup
-Emanet bakiyesi (ofiste duran müvekkil parası) = karşı taraftan tahsilat − müvekkile ödeme − mahsup
-Net durum = cari − emanet
+Müvekkilin ofise borcu = vekalet ücreti + masraf
+Müvekkilin ofisten alacağı = karşı taraftan tahsilat
+Bakiye = (müvekkilin ofise borcu − müvekkilden tahsilat) − karşı taraftan tahsilat
+         + müvekkile ödeme
+Pozitif bakiye müvekkilin ofise, negatif bakiye ofisin müvekkile borçlu olduğunu gösterir.
 Hareket silinmez, iptal edilir; iptal edilenler bakiyeye girmez.
 """
 
@@ -26,27 +28,31 @@ class EntryKind(models.TextChoices):
     COLLECTION = "collection", "Tahsilat (müvekkilden)"
     TRUST_IN = "trust_in", "Karşı taraftan tahsilat"
     TRUST_OUT = "trust_out", "Müvekkile ödeme"
-    OFFSET = "offset", "Mahsup"
 
 
-# Bakiyeye etkisi: (cari işareti, emanet işareti)
+# Bakiyeye etkisi (+: müvekkilin borcunu artırır, −: azaltır).
 EFFECTS = {
-    EntryKind.FEE: (1, 0),
-    EntryKind.EXPENSE: (1, 0),
-    EntryKind.COLLECTION: (-1, 0),
-    EntryKind.TRUST_IN: (0, 1),
-    EntryKind.TRUST_OUT: (0, -1),
-    EntryKind.OFFSET: (-1, -1),
+    EntryKind.FEE: 1,
+    EntryKind.EXPENSE: 1,
+    EntryKind.COLLECTION: -1,
+    EntryKind.TRUST_IN: -1,
+    EntryKind.TRUST_OUT: 1,
 }
 
+# Müvekkilin ofise borcunu oluşturan hareketler ve ofisten alacağını oluşturan hareket.
+DEBT_KINDS = (EntryKind.FEE, EntryKind.EXPENSE)
+CREDIT_KINDS = (EntryKind.TRUST_IN,)
+
 KIND_HELP = {
-    EntryKind.FEE: "Dosya için belirlenen vekalet ücreti. Müvekkilin borcunu artırır.",
-    EntryKind.EXPENSE: "Müvekkil adına yapılan harç, masraf vb. Müvekkilin borcunu artırır.",
-    EntryKind.COLLECTION: "Müvekkilden alınan ücret veya masraf. Müvekkilin borcunu azaltır.",
-    EntryKind.TRUST_IN: "Müvekkil adına karşı taraftan tahsil edilen para. Emanete girer.",
-    EntryKind.TRUST_OUT: "Emanetteki paranın müvekkile aktarılması. Emanetten düşer.",
-    EntryKind.OFFSET: (
-        "Emanetteki paradan ücret/masraf alacağının düşülmesi. Cari ve emanet birlikte azalır."
+    EntryKind.FEE: "Dosya için belirlenen vekalet ücreti. Müvekkilin ofise borcunu artırır.",
+    EntryKind.EXPENSE: "Müvekkil adına yapılan harç, masraf vb. Müvekkilin ofise borcunu artırır.",
+    EntryKind.COLLECTION: "Müvekkilden alınan ücret veya masraf. Bakiyeyi azaltır.",
+    EntryKind.TRUST_IN: (
+        "Müvekkil adına karşı taraftan tahsil edilen para. Müvekkilin ofisten alacağıdır; "
+        "bakiyeyi azaltır."
+    ),
+    EntryKind.TRUST_OUT: (
+        "Müvekkile yapılan ödeme. Müvekkilin ofisten alacağını kapatır, bakiyeyi artırır."
     ),
 }
 
@@ -54,18 +60,20 @@ ZERO = Decimal("0.00")
 _MONEY = DecimalField(max_digits=16, decimal_places=2)
 
 
-def _signed(index: int):
-    """Hareket türüne göre işaretli tutar ifadesi (0: cari, 1: emanet)."""
-    whens = [
-        When(kind=k, then=F("amount") * Value(eff[index]))
-        for k, eff in EFFECTS.items()
-        if eff[index]
-    ]
+def _signed():
+    """Hareket türüne göre işaretli tutar ifadesi (bakiye)."""
+    whens = [When(kind=k, then=F("amount") * Value(sign)) for k, sign in EFFECTS.items()]
     return DbCase(*whens, default=Value(ZERO), output_field=_MONEY)
 
 
-CARI_EXPR = _signed(0)
-TRUST_EXPR = _signed(1)
+def _only(kinds):
+    whens = [When(kind=k, then=F("amount")) for k in kinds]
+    return DbCase(*whens, default=Value(ZERO), output_field=_MONEY)
+
+
+BALANCE_EXPR = _signed()
+DEBT_EXPR = _only(DEBT_KINDS)
+CREDIT_EXPR = _only(CREDIT_KINDS)
 
 
 class LedgerQuerySet(models.QuerySet):
@@ -73,12 +81,17 @@ class LedgerQuerySet(models.QuerySet):
         return self.filter(is_cancelled=False)
 
     def balances(self) -> dict:
-        agg = self.active().aggregate(
-            cari=Coalesce(Sum(CARI_EXPR), Value(ZERO), output_field=_MONEY),
-            trust=Coalesce(Sum(TRUST_EXPR), Value(ZERO), output_field=_MONEY),
+        """debt: müvekkilin ofise borcu, credit: müvekkilin ofisten alacağı, balance: bakiye;
+        collection (müvekkilden tahsilat) ve payout (müvekkile ödeme) bakiyenin kalemleridir."""
+        return self.active().aggregate(
+            debt=Coalesce(Sum(DEBT_EXPR), Value(ZERO), output_field=_MONEY),
+            credit=Coalesce(Sum(CREDIT_EXPR), Value(ZERO), output_field=_MONEY),
+            collection=Coalesce(
+                Sum(_only((EntryKind.COLLECTION,))), Value(ZERO), output_field=_MONEY
+            ),
+            payout=Coalesce(Sum(_only((EntryKind.TRUST_OUT,))), Value(ZERO), output_field=_MONEY),
+            balance=Coalesce(Sum(BALANCE_EXPR), Value(ZERO), output_field=_MONEY),
         )
-        agg["net"] = agg["cari"] - agg["trust"]
-        return agg
 
     def totals_by_kind(self) -> dict:
         rows = self.active().values("kind").annotate(total=Sum("amount"))
@@ -129,13 +142,13 @@ class LedgerEntry(TimeStampedModel):
 
     def save(self, *args, **kwargs):
         if self.case_id:
-            self.client_id = Case.objects.values_list("client_id", flat=True).get(pk=self.case_id)
+            # Çok müvekkilli dosyada hareket seçilen müvekkile yazılır; müvekkil dosyanın
+            # müvekkillerinden değilse asıl müvekkile düşer.
+            case = Case.objects.get(pk=self.case_id)
+            if self.client_id not in case.client_ids():
+                self.client_id = case.client_id
         super().save(*args, **kwargs)
 
     @property
-    def cari_effect(self) -> Decimal:
-        return self.amount * EFFECTS[EntryKind(self.kind)][0]
-
-    @property
-    def trust_effect(self) -> Decimal:
-        return self.amount * EFFECTS[EntryKind(self.kind)][1]
+    def balance_effect(self) -> Decimal:
+        return self.amount * EFFECTS[EntryKind(self.kind)]

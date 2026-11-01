@@ -69,6 +69,21 @@
             </tbody>
           </table></div>
         </div>
+
+        <div class="card table-card">
+          <div class="card-header"><h2 class="card-title">Avukatlık sözleşmeleri</h2></div>
+          <div class="table-responsive"><table class="table mb-0">
+            <thead><tr><th>Tarih</th><th>Dosya</th><th class="text-end">Vekalet ücreti</th><th>Belge</th></tr></thead>
+            <tbody>
+            {% for i in client.retainer_agreements.all %}
+              <tr><td class="tabular cell-main">{{ i.signed_on|date:"d.m.Y" }}{% if i.notes %}<div class="cell-sub fw-normal">{{ i.notes }}</div>{% endif %}</td>
+                <td>{% if i.case %}<a href="{{ i.case.get_absolute_url }}">{{ i.case.archive_reference }}</a>{% else %}<span class="text-body-secondary">Dosyaya bağlı değil</span>{% endif %}</td>
+                <td class="text-end tabular">{{ i.fee_amount|tl }}</td>
+                <td>{% if i.pdf %}<a href="{{ i.pdf.url }}" target="_blank" class="chip chip-danger no-dot"><i class="bi bi-file-earmark-pdf"></i>PDF</a>{% else %}<span class="text-body-secondary">—</span>{% endif %}</td></tr>
+            {% empty %}<tr><td colspan="4" class="text-body-secondary small py-3">Avukatlık sözleşmesi eklenmemiş.</td></tr>{% endfor %}
+            </tbody>
+          </table></div>
+        </div>
       </div>
 
       <div class="col-xl-6 d-flex flex-column gap-3">
@@ -133,10 +148,10 @@
 
   <div class="tab-pane fade" id="t-muhasebe">
     <div class="card table-card">
-      <div class="card-header"><h2 class="card-title">{% if can_view_balances %}Cari hesap ekstresi{% else %}Muhasebe hareketleri{% endif %}</h2>
+      <div class="card-header"><h2 class="card-title">{% if can_view_balances %}Hesap ekstresi{% else %}Muhasebe hareketleri{% endif %}</h2>
         {% if can_edit_accounting %}<a class="btn btn-sm btn-primary ms-auto" href="{% url 'accounting:create' %}?musteri={{ client.pk }}&next={{ client.get_absolute_url|urlencode }}%23muhasebe"><i class="bi bi-plus-lg"></i>Yeni gelir / gider</a>{% endif %}</div>
       {% if can_view_balances %}{% include "accounting/_balances.html" with b=ledger_balances %}{% endif %}
-      {% include "accounting/_statement.html" with rows=ledger_rows show_case=True next=client.get_absolute_url %}
+      {% include "accounting/_statement.html" with rows=ledger_rows show_case=True next=client.get_absolute_url|add:'#muhasebe' %}
     </div>
   </div>
 
@@ -160,7 +175,10 @@
     </div>
   </div>
 
-  <div class="tab-pane fade" id="t-gecmis">{% include "activity/_history.html" %}</div>
+  <div class="tab-pane fade" id="t-gecmis">
+    {% include "accounting/_cancelled.html" %}
+    {% include "activity/_history.html" %}
+  </div>
 </div>
 <script>
   // #muhasebe (eski #cari) ile gelindiğinde muhasebe sekmesini aç

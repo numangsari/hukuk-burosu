@@ -12,7 +12,8 @@
             <span class="hero-icon" style="width: 36px; height: 36px; font-size: 1rem; border-radius: 10px; background: var(--danger-soft); color: var(--danger-ink)"><i class="bi bi-file-earmark-text"></i></span>
             <div class="min-w-0">
               <a class="cell-main text-reset" href="{{ d.file.url }}" target="_blank">{{ d.title }}</a>
-              <div class="cell-sub text-truncate">{{ d.original_name }} · {{ d.size|filesizeformat }}{% if d.notes %} · {{ d.notes }}{% endif %}</div>
+              <div class="cell-sub text-truncate">{{ d.original_name }} · {{ d.size|filesizeformat }}</div>
+              {% if d.notes %}<div class="small mt-1"><i class="bi bi-sticky me-1 text-body-secondary"></i>{{ d.notes|linebreaksbr }}</div>{% endif %}
               {% if d.folder_path %}<div class="cell-sub text-truncate" title="{{ d.folder_path }}"><i class="bi bi-folder-check" style="color: var(--success-ink)"></i> Ofis klasöründe</div>{% endif %}
             </div>
           </div>
@@ -28,11 +29,11 @@
     </tbody>
   </table>
   </div>
-  <form class="inline-form row g-2 align-items-end" hx-post="{% url 'cases:document_upload' case.pk %}" hx-target="#documents" hx-swap="outerHTML" hx-encoding="multipart/form-data">
+  <form class="inline-form row g-2 align-items-start" hx-post="{% url 'cases:document_upload' case.pk %}" hx-target="#documents" hx-swap="outerHTML" hx-encoding="multipart/form-data">
     <div class="col-md-3">{% include "partials/field.html" with field=document_form.title wrap_class="" %}</div>
     <div class="col-md-2">{% include "partials/field.html" with field=document_form.category wrap_class="" %}</div>
     <div class="col-md-3">{% include "partials/field.html" with field=document_form.file wrap_class="" %}</div>
     <div class="col-md-2">{% include "partials/field.html" with field=document_form.notes wrap_class="" %}</div>
-    <div class="col-md-2"><button class="btn btn-primary w-100"><i class="bi bi-upload"></i>Yükle</button></div>
+    <div class="col-md-2"><label class="form-label d-block" aria-hidden="true">&nbsp;</label><button class="btn btn-primary w-100"><i class="bi bi-upload"></i>Yükle</button></div>
   </form>
 </div>

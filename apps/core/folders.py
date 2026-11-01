@@ -21,6 +21,7 @@ log = logging.getLogger(__name__)
 
 CLIENTS_DIR = "Müvekkiller"
 POA_DIR = "Vekaletler"
+RETAINER_DIR = "Sözleşmeler"
 _INVALID = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
 _RESERVED = {
     "CON",
@@ -112,8 +113,11 @@ def case_dir(case) -> Path:
     parent = client_dir(stored.client)
     others = type(case).objects.filter(client_id=stored.client_id).exclude(pk=case.pk)
     others = others.exclude(folder_name="")
-    if stored.folder_name and fold(sanitize(stored.folder_name)) == fold(POA_DIR):
-        raise FolderError("Dosya klasörü için Vekaletler adı kullanılamaz. Farklı bir ad seçin.")
+    reserved = {fold(POA_DIR), fold(RETAINER_DIR)}
+    if stored.folder_name and fold(sanitize(stored.folder_name)) in reserved:
+        raise FolderError(
+            "Dosya klasörü için Vekaletler veya Sözleşmeler adı kullanılamaz. Farklı bir ad seçin."
+        )
     wanted = f"D{stored.pk:06d} - {stored.archive_reference} - {stored.subject}"
     path = _record_dir(stored, parent, wanted, others, "dosya")
     case.folder_name = stored.folder_name
@@ -122,6 +126,10 @@ def case_dir(case) -> Path:
 
 def poa_dir(client) -> Path:
     return _ensure(client_dir(client) / POA_DIR)
+
+
+def retainer_dir(client) -> Path:
+    return _ensure(client_dir(client) / RETAINER_DIR)
 
 
 def unique_path(directory: Path, filename: str) -> Path:

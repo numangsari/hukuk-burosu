@@ -1,0 +1,24 @@
+{% load ui %}
+{# Geçmiş sekmesi: iptal edilen muhasebe hareketleri (cancelled_entries); yalnızca bu listeyi gören kullanıcıda dolu gelir. #}
+{% if cancelled_entries %}
+<div class="card table-card mb-3">
+  <div class="card-header"><h2 class="card-title">İptal edilen muhasebe hareketleri</h2></div>
+  <div class="table-responsive">
+  <table class="table mb-0">
+    <thead><tr><th>Tarih</th><th>Hareket</th><th>Dosya</th><th class="text-end">Tutar</th><th>İptal nedeni</th><th>İptal eden</th></tr></thead>
+    <tbody>
+    {% for e in cancelled_entries %}
+      <tr class="row-cancelled">
+        <td class="tabular text-nowrap">{{ e.date|date:"d.m.Y" }}</td>
+        <td>{% include "accounting/_kind_chip.html" %}</td>
+        <td class="small">{% if e.case %}<a href="{{ e.case.get_absolute_url }}">{{ e.case.archive_reference }}</a>{% else %}—{% endif %}</td>
+        <td class="text-end tabular">{{ e.amount|tl }}</td>
+        <td class="small">{{ e.cancel_reason|default:"—" }}</td>
+        <td class="small text-body-secondary">{{ e.cancelled_by|default:"—" }}{% if e.cancelled_at %} · {{ e.cancelled_at|date:"d.m.Y H:i" }}{% endif %}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+{% endif %}

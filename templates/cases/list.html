@@ -13,20 +13,27 @@
   <form class="filter-bar" hx-get="{% url 'cases:list' %}" hx-target="#list-table" hx-push-url="true"
         hx-trigger="input changed delay:300ms from:input[name=q], change" hx-indicator="#list-card">
     <div class="grow"><i class="bi bi-search"></i><input class="form-control" type="search" name="q" value="{{ request.GET.q }}" placeholder="Arşiv no, resmi no, konu, merci, müvekkil ara"></div>
-    <select class="form-select" name="type">
-      <option value="">Tüm türler</option>
-      {% for v, l in types %}<option value="{{ v }}" {% if request.GET.type == v %}selected{% endif %}>{{ l }}</option>{% endfor %}
-    </select>
-    <select class="form-select" name="status">
-      <option value="open">Açık dosyalar</option>
-      <option value="closed" {% if request.GET.status == 'closed' %}selected{% endif %}>Kapalı dosyalar</option>
-      <option value="all" {% if request.GET.status == 'all' %}selected{% endif %}>Tümü</option>
-    </select>
     <select class="form-select" name="lawyer">
       <option value="">Tüm avukatlar</option>
       {% for u in lawyers %}<option value="{{ u.pk }}" {% if request.GET.lawyer == u.pk|stringformat:'s' %}selected{% endif %}>{{ u }}</option>{% endfor %}
     </select>
     {% if request.GET.mine %}<input type="hidden" name="mine" value="1"><span class="chip chip-primary no-dot">Sorumlu olduklarım</span>{% endif %}
+    <div class="filter-chips w-100">
+      <div class="chip-group" role="radiogroup" aria-label="Durum">
+        {% with st=request.GET.status|default:"open" %}
+        <input type="radio" class="btn-check" name="status" id="st-open" value="open" {% if st == "open" %}checked{% endif %}><label class="chip-btn" for="st-open">Açık</label>
+        <input type="radio" class="btn-check" name="status" id="st-closed" value="closed" {% if st == "closed" %}checked{% endif %}><label class="chip-btn" for="st-closed">Kapalı</label>
+        <input type="radio" class="btn-check" name="status" id="st-all" value="all" {% if st == "all" %}checked{% endif %}><label class="chip-btn" for="st-all">Tümü</label>
+        {% endwith %}
+      </div>
+      <span class="chip-sep"></span>
+      <div class="chip-group" role="radiogroup" aria-label="Dosya türü">
+        <input type="radio" class="btn-check" name="type" id="ty-all" value="" {% if not request.GET.type %}checked{% endif %}><label class="chip-btn" for="ty-all">Tüm türler</label>
+        {% for v, l in types %}
+        <input type="radio" class="btn-check" name="type" id="ty-{{ v }}" value="{{ v }}" {% if request.GET.type == v %}checked{% endif %}><label class="chip-btn type-{{ v }}" for="ty-{{ v }}"><span class="type-dot"></span>{{ l }}</label>
+        {% endfor %}
+      </div>
+    </div>
     {% if request.GET.sort %}<input type="hidden" name="sort" value="{{ request.GET.sort }}">{% endif %}
   </form>
   <div id="list-table">{% include "cases/_list_table.html" %}</div>

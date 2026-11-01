@@ -6,13 +6,19 @@
     <div class="eyebrow"><a href="{% url 'accounting:list' %}"><i class="bi bi-chevron-left"></i> Muhasebe</a></div>
     <h1 class="page-title">Yeni gelir / gider</h1>
   </div>
+  <div class="page-actions">
+    <a class="btn btn-light" href="{% url 'accounting:list' %}">Vazgeç</a>
+    <button type="submit" form="entry-form" class="btn btn-primary"><i class="bi bi-check2"></i>Kaydet</button>
+  </div>
 </div>
 {{ kind_help|json_script:"kind-help" }}
-<form method="post" enctype="multipart/form-data" class="card" style="max-width: 900px"
+<form method="post" id="entry-form" enctype="multipart/form-data" class="card"
       x-data="entryForm('{{ form.kind.value|default:'fee' }}')">
   {% csrf_token %}
   <input type="hidden" name="next" value="{{ request.GET.next }}">
   {% if form.non_field_errors %}<div class="alert alert-danger m-3 mb-0">{{ form.non_field_errors }}</div>{% endif %}
+  <div class="form-cols">
+  <div class="form-col">
   <div class="form-section">
     <div class="form-section-head"><h2>Hareket türü</h2></div>
     <div class="kind-grid">
@@ -32,24 +38,24 @@
       <div class="col-md-7">{% include "partials/field.html" with field=form.case %}</div>
     </div>
   </div>
+  </div>
+  <div class="form-col">
   <div class="form-section">
     <div class="form-section-head"><h2>Tutar</h2></div>
     <div class="row">
-      <div class="col-md-4">
+      <div class="col-md-6">
         <div class="mb-3">
           <label class="form-label fw-semibold" for="{{ form.amount.id_for_label }}">Tutar</label>
           <div class="input-group">{{ form.amount }}<span class="input-group-text">₺</span></div>
           {% for e in form.amount.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}
         </div>
       </div>
-      <div class="col-md-3">{% include "partials/field.html" with field=form.date %}</div>
-      <div class="col-md-5">{% include "partials/field.html" with field=form.receipt %}</div>
+      <div class="col-md-6">{% include "partials/field.html" with field=form.date %}</div>
+      <div class="col-12">{% include "partials/field.html" with field=form.receipt %}</div>
       <div class="col-12">{% include "partials/field.html" with field=form.description wrap_class="" %}</div>
     </div>
   </div>
-  <div class="form-footer">
-    <a class="btn btn-light" href="{% url 'accounting:list' %}">Vazgeç</a>
-    <button class="btn btn-primary"><i class="bi bi-check2"></i>Kaydet</button>
+  </div>
   </div>
 </form>
 <script>

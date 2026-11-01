@@ -13,9 +13,9 @@ class CasesConfig(AppConfig):
         for m in (
             models.Case,
             models.CaseParty,
+            models.CaseCoClient,
             models.Document,
             models.Hearing,
             models.CaseEvent,
-            models.CaseStep,
         ):
             auditlog.register(m)

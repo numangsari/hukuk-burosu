@@ -3,7 +3,7 @@
 {% block content %}
 <div class="page-header">
   <div>
-    <div class="eyebrow"><a href="{{ case.get_absolute_url }}"><i class="bi bi-chevron-left"></i> {{ case.archive_reference }}</a></div>
+    <div class="eyebrow"><a href="{{ case.get_absolute_url }}"><i class="bi bi-chevron-left"></i> {{ case.display_name }}</a></div>
     <h1 class="page-title">Dosyayı kapat</h1>
   </div>
 </div>
@@ -25,16 +25,14 @@
       <div class="col-md-6">{% include "partials/field.html" with field=form.decision_date %}</div>
       <div class="col-md-6">
         <div class="form-label" id="decision-number-label">Karar numarası</div>
-        <div class="row g-2 mb-3" role="group" aria-labelledby="decision-number-label">
-          <div class="col-5">
-            <label class="visually-hidden" for="{{ form.decision_year.id_for_label }}">Yıl</label>{{ form.decision_year }}
-            {% for e in form.decision_year.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}
-          </div>
-          <div class="col-7">
-            <label class="visually-hidden" for="{{ form.decision_sequence.id_for_label }}">Numara</label>{{ form.decision_sequence }}
-            {% for e in form.decision_sequence.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}
-          </div>
+        <div class="input-group year-seq mb-1" role="group" aria-labelledby="decision-number-label">
+          <label class="visually-hidden" for="{{ form.decision_year.id_for_label }}">Yıl</label>{{ form.decision_year }}
+          <span class="input-group-text">/</span>
+          <label class="visually-hidden" for="{{ form.decision_sequence.id_for_label }}">Numara</label>{{ form.decision_sequence }}
         </div>
+        {% for e in form.decision_year.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}
+        {% for e in form.decision_sequence.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}
+        <div class="mb-3"></div>
       </div>
     </div>
   </div>

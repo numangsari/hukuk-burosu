@@ -16,6 +16,7 @@ class ClientsConfig(AppConfig):
             models.ClientIban,
             models.ClientRepresentative,
             models.PowerOfAttorney,
+            models.RetainerAgreement,
             models.Party,
             models.WhatsAppSettings,
             models.WhatsAppContact,

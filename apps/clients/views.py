@@ -1,3 +1,5 @@
+from urllib.parse import urlencode
+
 from django.contrib import messages
 from django.db import transaction
 from django.db.models import (
@@ -15,11 +17,14 @@ from django.db.models import (
 from django.db.models.functions import Coalesce
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.views.generic import CreateView, DetailView, ListView, UpdateView, View
 
-from apps.accounting.models import CARI_EXPR, ZERO, LedgerEntry
+from apps.accounting.models import BALANCE_EXPR, ZERO, LedgerEntry
 from apps.accounting.permissions import can_view_balances
 from apps.accounts.models import User
+from apps.cases.flows import cluster
+from apps.cases.models import Case
 from apps.core.permissions import AdminRequiredMixin, is_admin
 from apps.core.text import fold
 
@@ -63,7 +68,7 @@ def client_ordering(sort: str) -> list:
 
 
 def annotate_list_values(qs):
-    """Liste satırları: dosya sayısı, açık görev sayısı, cari bakiye (alt sorgularla)."""
+    """Liste satırları: dosya sayısı, açık görev sayısı, bakiye (alt sorgularla)."""
     from apps.tasks.models import OPEN_STATUSES, Task
 
     open_tasks = (
@@ -77,7 +82,7 @@ def annotate_list_values(qs):
         LedgerEntry.objects.filter(client=OuterRef("pk"), is_cancelled=False)
         .order_by()
         .values("client")
-        .annotate(b=Sum(CARI_EXPR))
+        .annotate(b=Sum(BALANCE_EXPR))
         .values("b")
     )
     money = DecimalField(max_digits=16, decimal_places=2)
@@ -152,9 +157,6 @@ class ClientListView(ListView):
 
 def client_reports(user, client) -> list[dict]:
     """Müvekkil detayındaki Raporlar sekmesi: müvekkile göre süzülmüş hazır raporlar."""
-    from urllib.parse import urlencode
-
-    from django.urls import reverse
 
     from apps.reports.views import visible_reports
 
@@ -192,7 +194,7 @@ class ClientFormMixin:
         can_delete = is_admin(self.request.user)
         formsets = {}
         for prefix in CLIENT_SUBRECORDS:
-            extra, initial = 1, None
+            extra, initial = (0 if prefix == "sozlesme" else 1), None
             if prefix == "iletisim":
                 # Telefon, e-posta ve adres için eksik türlerin boş satırı hazır gelir.
                 have = (
@@ -226,11 +228,15 @@ class ClientFormMixin:
         if not obj.pk:
             obj.created_by = self.request.user
         warnings = []
+        fee_suggestions = []
+        new_retainers = set()
         with transaction.atomic():
             self.object = form.save()
             for prefix, (fs, _) in active.items():
                 fs.instance = self.object
                 items = fs.save(commit=False)
+                if prefix == "sozlesme":
+                    new_retainers = {id(item) for item in items if not item.pk}
                 for item in fs.deleted_objects:
                     item.delete()
                 for item in items:
@@ -248,6 +254,13 @@ class ClientFormMixin:
 
                         if warning := mirror_poa(item):
                             warnings.append(warning)
+                    if prefix == "sozlesme":
+                        from apps.cases.documents import mirror_retainer
+
+                        if warning := mirror_retainer(item):
+                            warnings.append(warning)
+                        if id(item) in new_retainers and item.fee_amount:
+                            fee_suggestions.append(item)
             # Vekaleti olan müvekkile numara verilmemişse sıradaki V-numarası atanır.
             if not self.object.poa_no and self.object.powers_of_attorney.exists():
                 locked = Client.objects.select_for_update().get(pk=self.object.pk)
@@ -257,6 +270,26 @@ class ClientFormMixin:
         messages.success(self.request, "Müvekkil kaydedildi.")
         for warning in warnings:
             messages.warning(self.request, warning)
+        if fee_suggestions:
+            # Ücretli yeni sözleşme için vekalet ücretini muhasebeye kaydetme önerisi sunulur;
+            # kullanıcı Vazgeç diyerek müvekkil sayfasına dönebilir.
+            item = fee_suggestions[0]
+            messages.info(
+                self.request,
+                "Avukatlık sözleşmesi kaydedildi. Vekalet ücreti muhasebeye henüz kaydedilmedi; "
+                "aşağıdaki formla kaydedebilir veya Vazgeç diyebilirsiniz.",
+            )
+            query = urlencode(
+                {
+                    "tur": "fee",
+                    "musteri": self.object.pk,
+                    "dosya": item.case_id or "",
+                    "tutar": f"{item.fee_amount:.2f}",
+                    "aciklama": "Avukatlık sözleşmesi vekalet ücreti",
+                    "next": self.object.get_absolute_url() + "#muhasebe",
+                }
+            )
+            return redirect(f"{reverse('accounting:create')}?{query}")
         return redirect(self.object)
 
 
@@ -280,15 +313,22 @@ class ClientDetailView(DetailView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         c = self.object
-        ctx["cases"] = c.cases.select_related("responsible_lawyer").order_by("-created_at")
+        ctx["cases"] = (
+            Case.objects.filter(Q(client=c) | Q(co_clients=c))
+            .distinct()
+            .select_related("responsible_lawyer")
+            .order_by("-created_at")
+        )
         from apps.activity.views import history_for
 
         ctx["history"] = history_for(c)
-        # Muhasebe sekmesi herkese açık; bakiye ve yürüyen cari/emanet yalnızca yetkiliye.
+        # Muhasebe sekmesi herkese açık; bakiye ve yürüyen bakiye yalnızca yetkiliye.
         from apps.accounting.views import statement
 
         entries = c.ledger_entries.select_related("case", "cancelled_by")
-        ctx["ledger_rows"] = statement(entries)
+        # İptal edilen hareketler Muhasebe sekmesinde değil, Geçmiş sekmesinde görünür.
+        ctx["ledger_rows"] = statement(entries.filter(is_cancelled=False))
+        ctx["cancelled_entries"] = entries.filter(is_cancelled=True).order_by("-cancelled_at")
         if can_view_balances(self.request.user):
             ctx["ledger_balances"] = entries.balances()
         ctx["open_case_count"] = sum(1 for k in ctx["cases"] if k.is_open)
@@ -310,9 +350,13 @@ CASE_SORTS = {
 
 
 def client_cases(client, params):
-    from apps.cases.models import CaseStatus, CaseType
+    from apps.cases.models import Case, CaseStatus, CaseType
 
-    qs = client.cases.select_related("responsible_lawyer")
+    qs = (
+        Case.objects.filter(Q(client=client) | Q(co_clients=client))
+        .distinct()
+        .select_related("responsible_lawyer")
+    )
     if q := params.get("q", "").strip():
         qs = qs.filter(
             Q(archive_no__unaccent__icontains=q)
@@ -340,7 +384,7 @@ def case_filter_context(client, params) -> dict:
     cases, sort = client_cases(client, params)
     return {
         "client": client,
-        "client_cases": cases,
+        "client_cases": cluster(cases),
         "case_sort": sort,
         "case_sorts": CASE_SORTS.items(),
         "case_types": CaseType.choices,

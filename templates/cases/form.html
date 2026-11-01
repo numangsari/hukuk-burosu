@@ -3,8 +3,13 @@
 {% block content %}
 <div class="page-header">
   <div>
-    <div class="eyebrow"><a href="{% if object %}{{ object.get_absolute_url }}{% else %}{% url 'cases:list' %}{% endif %}"><i class="bi bi-chevron-left"></i> {% if object %}{{ object.archive_reference }}{% else %}Dosyalar{% endif %}</a></div>
+    <div class="eyebrow"><a href="{% if object %}{{ object.get_absolute_url }}{% else %}{% url 'cases:list' %}{% endif %}"><i class="bi bi-chevron-left"></i> {% if object %}{{ object.display_name }}{% else %}Dosyalar{% endif %}</a></div>
     <h1 class="page-title">{% if object %}Dosyayı düzenle{% else %}Yeni dosya{% endif %}</h1>
+  </div>
+  <div class="page-actions">
+    {% if object and request.user.is_office_admin %}<button type="submit" form="case-delete-form" class="btn btn-outline-danger" onclick="return confirm('Dosya ve belgeleri silinsin mi?')"><i class="bi bi-trash"></i>Sil</button>{% endif %}
+    <a class="btn btn-light" href="{% if object %}{{ object.get_absolute_url }}{% else %}{% url 'cases:list' %}{% endif %}">Vazgeç</a>
+    <button type="submit" form="case-form" class="btn btn-primary"><i class="bi bi-check2"></i>Kaydet</button>
   </div>
 </div>
 {{ type_labels|json_script:"type-labels" }}
@@ -12,8 +17,10 @@
 {{ party_lanes|json_script:"party-lanes" }}
 <datalist id="authority-options">{% for a in authorities %}<option value="{{ a }}">{% endfor %}</datalist>
 {{ form.intern_map|json_script:"intern-by-lawyer" }}
-<form method="post" class="card" @change="formChanged($event)" x-data="caseForm('{{ form.case_type.value|default:'civil' }}')">
+<form method="post" id="case-form" class="card" @change="formChanged($event)" x-data="caseForm('{{ form.case_type.value|default:'civil' }}')">
   {% csrf_token %}
+  {% if related_case %}<input type="hidden" name="related_case" value="{{ related_case.pk }}">
+  <div class="alert alert-info m-3 mb-0 py-2 small"><i class="bi bi-link-45deg me-1"></i>Bu dosya, <strong>{{ related_case.display_name }}</strong> dosyasının ilgili dosyası olarak oluşturulacak; safahat ve muhasebe ortak olur.</div>{% endif %}
   {% if form.non_field_errors %}<div class="alert alert-danger m-3 mb-0">{{ form.non_field_errors }}</div>{% endif %}
 
   <div class="form-cols">
@@ -22,6 +29,13 @@
     <div class="row">
       <div class="col-md-7">{% include "partials/field.html" with field=form.client %}</div>
       <div class="col-md-5">{% include "partials/field.html" with field=form.client_role %}</div>
+      <div class="col-12">
+        {{ co_formset.management_form }}
+        {% if co_formset.non_form_errors %}<div class="alert alert-danger py-2">{{ co_formset.non_form_errors }}</div>{% endif %}
+        <div id="co-rows">{% for f in co_formset %}{% include "cases/_co_row.html" %}{% endfor %}</div>
+        <template id="co-empty">{% include "cases/_co_row.html" with f=co_formset.empty_form %}</template>
+        <button type="button" class="btn btn-light btn-sm mb-3" @click="addCoClient()"><i class="bi bi-plus-lg"></i>Müvekkil ekle</button>
+      </div>
       <div class="col-md-6">{% include "partials/field.html" with field=form.case_type %}</div>
       <div class="col-md-6">{% include "partials/field.html" with field=form.opened_on %}</div>
     </div>
@@ -38,19 +52,17 @@
       </div>
       <div class="col-md-6" x-show="labels.official_no" x-cloak>
         <div class="form-label" id="official-number-label">Dosya Numarası</div>
-        <div class="row g-2 mb-3" role="group" aria-labelledby="official-number-label">
-          <div class="col-5">
-            <label class="visually-hidden" for="{{ form.official_year.id_for_label }}">Yıl</label>
-            {{ form.official_year }}
-            {% for e in form.official_year.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}
-          </div>
-          <div class="col-7">
-            <label class="visually-hidden" for="{{ form.official_sequence.id_for_label }}">Numara</label>
-            {{ form.official_sequence }}
-            {% if form.official_sequence.help_text %}<div class="form-text">{{ form.official_sequence.help_text }}</div>{% endif %}
-            {% for e in form.official_sequence.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}
-          </div>
+        <div class="input-group year-seq" role="group" aria-labelledby="official-number-label">
+          <label class="visually-hidden" for="{{ form.official_year.id_for_label }}">Yıl</label>
+          {{ form.official_year }}
+          <span class="input-group-text">/</span>
+          <label class="visually-hidden" for="{{ form.official_sequence.id_for_label }}">Numara</label>
+          {{ form.official_sequence }}
         </div>
+        {% for e in form.official_year.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}
+        {% for e in form.official_sequence.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}
+        {% if form.official_sequence.help_text %}<div class="form-text">{{ form.official_sequence.help_text }}</div>{% endif %}
+        <div class="mb-3"></div>
       </div>
       <div class="col-12">{% include "partials/field.html" with field=form.subject %}</div>
       <div class="col-md-4" x-show="caseType === 'enforcement'" x-cloak>{% include "partials/field.html" with field=form.enforcement_type %}</div>
@@ -126,11 +138,6 @@
       </div>
     </div>
   </div>
-  <div class="form-footer">
-    {% if object and request.user.is_office_admin %}<button type="submit" form="case-delete-form" class="btn btn-outline-danger me-auto" onclick="return confirm('Dosya ve belgeleri silinsin mi?')"><i class="bi bi-trash"></i>Dosyayı sil</button>{% endif %}
-    <a class="btn btn-light" href="{% if object %}{{ object.get_absolute_url }}{% else %}{% url 'cases:list' %}{% endif %}">Vazgeç</a>
-    <button class="btn btn-primary"><i class="bi bi-check2"></i>Kaydet</button>
-  </div>
 </form>
 {% if object and request.user.is_office_admin %}<form id="case-delete-form" method="post" action="{% url 'cases:delete' object.pk %}">{% csrf_token %}</form>{% endif %}
 <script>
@@ -184,6 +191,16 @@
             `<div class="party-item"><div class="party-item-main"><strong>${esc(this.clientName || "Müvekkil")}</strong> <span class="text-body-secondary">(müvekkil)</span>` +
             `<div class="small text-body-secondary">${esc(this.roleLabel(this.clientRole))}</div></div></div>`);
         }
+        this.$root.querySelectorAll("[data-co-row]").forEach(row => {
+          const select = row.querySelector('select[name$="-client"]');
+          const role = row.querySelector("[data-party-role]");
+          const key = role ? this.laneKeyOf(role.value) : null;
+          if (!select || !select.value || !key) return;
+          const name = select.options[select.selectedIndex].text;
+          items[key].push(
+            `<div class="party-item"><div class="party-item-main"><strong>${esc(name)}</strong> <span class="text-body-secondary">(müvekkil)</span>` +
+            `<div class="small text-body-secondary">${esc(this.roleLabel(role.value))}</div></div></div>`);
+        });
         this.$root.querySelectorAll("[data-party-card]").forEach(card => {
           const info = this.cardInfo(card);
           if (info.deleted || card === this.editing) return;
@@ -247,6 +264,7 @@
       },
       formChanged(event) {
         if (event.target.id === "id_client_role") this.clientRole = event.target.value;
+        else if (event.target.name && event.target.name.startsWith("coclients-")) this.renderList();
       },
       updateRoles() {
         const roles = JSON.parse(document.getElementById("party-roles").textContent)[this.caseType] || [];
@@ -257,6 +275,29 @@
         });
         const client = this.$root.querySelector("#id_client_role");
         this.clientRole = client ? client.value : "";
+        this.renderList();
+      },
+      // Ek müvekkil satırı: asıl müvekkil gibi müvekkil + sıfat; varsayılan sıfat asıl müvekkilinkidir.
+      addCoClient() {
+        const total = this.$root.querySelector("#id_coclients-TOTAL_FORMS");
+        if (Number(total.value) >= 20) return;
+        const html = this.$root.querySelector("#co-empty").innerHTML.replaceAll("__prefix__", total.value);
+        const rows = this.$root.querySelector("#co-rows");
+        rows.insertAdjacentHTML("beforeend", html);
+        total.value = Number(total.value) + 1;
+        this.updateRoles();
+        const role = rows.lastElementChild.querySelector("[data-party-role]");
+        const main = this.$root.querySelector("#id_client_role");
+        if (role && main) role.value = main.value;
+        this.renderList();
+      },
+      removeCoClient(el) {
+        const row = el.closest("[data-co-row]");
+        const select = row.querySelector('select[name$="-client"]');
+        const name = select && select.value ? select.options[select.selectedIndex].text : "";
+        const text = name ? `${name} müvekkili dosyadan çıkarılsın mı?` : "Bu müvekkil satırı kaldırılsın mı?";
+        if (!window.confirm(text)) return;
+        row.remove();
         this.renderList();
       },
       addParty(key) {

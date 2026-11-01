@@ -871,3 +871,59 @@ a.agenda-item:hover { background: var(--surface-2); text-decoration: none; color
 .safahat-title { font-weight: 650; overflow-wrap: anywhere; }
 .safahat-meta { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; margin-top: .5rem; font-size: .85rem; }
 .safahat-actions { display: flex; gap: .25rem; flex-shrink: 0; }
+
+.party-detail { display: flex; align-items: flex-start; gap: .65rem; padding: .6rem 0; border-top: 1px solid var(--line); }
+.party-lane-head + .party-detail { border-top: 0; }
+
+.safahat-card.is-current { border-color: var(--accent); background: var(--accent-soft); }
+.safahat-item-current > .safahat-dot { background: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+.safahat-card .btn:disabled { opacity: .35; }
+
+/* Dosya türü renkleri */
+.type-civil { --tc: #2563eb; }
+.type-criminal { --tc: #dc2626; }
+.type-administrative { --tc: #0d9488; }
+.type-enforcement { --tc: #d97706; }
+.type-investigation { --tc: #7c3aed; }
+.type-consultancy { --tc: #16a34a; }
+.type-mediation { --tc: #db2777; }
+.type-notice { --tc: #ea580c; }
+.type-other { --tc: #64748b; }
+.type-chip { display: inline-block; padding: .05rem .5rem; border-radius: 999px; font-size: .72rem; font-weight: 600; background: color-mix(in srgb, var(--tc) 14%, transparent); color: color-mix(in srgb, var(--tc) 75%, var(--ink)); }
+tr[class*="type-"] > td:first-child { box-shadow: inset 3px 0 0 var(--tc); }
+.hero-icon[class*="type-"] { background: color-mix(in srgb, var(--tc) 14%, transparent); color: var(--tc); }
+.filter-chips { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem .75rem; }
+.chip-group { display: flex; flex-wrap: wrap; gap: .35rem; }
+.chip-sep { width: 1px; height: 1.5rem; background: var(--line); }
+.chip-btn { --tc: var(--brand); display: inline-flex; align-items: center; gap: .4rem; padding: .3rem .8rem; border: 1px solid var(--line); border-radius: 999px; font-size: .82rem; font-weight: 500; color: var(--ink-2, var(--ink)); background: var(--surface); cursor: pointer; user-select: none; }
+.chip-btn:hover { border-color: var(--tc); }
+.btn-check:checked + .chip-btn { background: color-mix(in srgb, var(--tc) 16%, var(--surface)); border-color: var(--tc); color: color-mix(in srgb, var(--tc) 80%, var(--ink)); font-weight: 650; }
+.btn-check:focus-visible + .chip-btn { outline: 2px solid var(--tc); outline-offset: 2px; }
+.type-dot { width: .6rem; height: .6rem; border-radius: 50%; background: var(--tc); }
+
+.sub-row-deleted .row { opacity: .45; text-decoration: line-through; }
+
+.safahat-current-label { color: var(--accent-ink, #8a6a3c); margin-bottom: .2rem; }
+
+.balance-strip-5 { grid-template-columns: repeat(5, 1fr); }
+.bal-op { display: inline-block; min-width: .9em; font-weight: 800; color: var(--brand); }
+.bal-total { background: color-mix(in srgb, var(--brand) 6%, transparent); }
+@media (max-width: 1199.98px) { .balance-strip-5 { grid-template-columns: repeat(2, 1fr); } .balance-strip-5 .bal:nth-child(even) { border-left: 1px solid var(--line); } .balance-strip-5 .bal:nth-child(n+3) { border-top: 1px solid var(--line); } }
+@media (max-width: 767.98px) { .balance-strip-5 { grid-template-columns: 1fr; } .balance-strip-5 .bal:nth-child(even) { border-left: 0; } .balance-strip-5 .bal + .bal { border-top: 1px solid var(--line); } }
+
+.related-item { padding: .85rem 0 .85rem .85rem; border-top: 1px solid var(--line); box-shadow: inset 3px 0 0 var(--tc, var(--line)); }
+.related-item:first-child { border-top: 0; }
+
+.safahat-card.is-link { border-style: dashed; }
+.safahat-item-link > .safahat-dot { background: var(--surface); box-shadow: 0 0 0 2px var(--muted); }
+.related-line { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; padding: .15rem 0; }
+
+/* Bağlı dosyalar */
+.flow-head { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; margin-bottom: .2rem; }
+.flow-detail { font-size: .8rem; font-weight: 600; color: var(--ink-2, var(--ink)); }
+.chain-icon { color: var(--accent); margin-right: .25rem; }
+tr.chain-prev > td { border-top-style: dashed; }
+tr.chain-prev > td:first-child { position: relative; }
+
+.year-seq > .form-control:first-of-type { flex: 0 0 38%; }
+.year-seq > .form-control:last-of-type { flex: 1 1 auto; }

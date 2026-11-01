@@ -6,7 +6,11 @@
     <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}">
       <a class="page-link" href="{% if page_obj.has_previous %}{% query_with page=page_obj.previous_page_number %}{% else %}#{% endif %}"><i class="bi bi-chevron-left"></i></a>
     </li>
-    <li class="page-item active"><span class="page-link">{{ page_obj.number }} / {{ paginator.num_pages }}</span></li>
+    {% for n in paginator.page_range %}
+    <li class="page-item {% if n == page_obj.number %}active{% endif %}">
+      {% if n == page_obj.number %}<span class="page-link">{{ n }}</span>{% else %}<a class="page-link" href="{% query_with page=n %}">{{ n }}</a>{% endif %}
+    </li>
+    {% endfor %}
     <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
       <a class="page-link" href="{% if page_obj.has_next %}{% query_with page=page_obj.next_page_number %}{% else %}#{% endif %}"><i class="bi bi-chevron-right"></i></a>
     </li>

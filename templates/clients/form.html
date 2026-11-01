@@ -66,6 +66,12 @@
     </div>
     <div class="card">
       <div class="form-section">
+        <div class="form-section-head"><h2>Avukatlık sözleşmesi</h2><p>PDF olarak yüklenir; isterse bir dosyayla ilişkilendirilir. Vekalet ücreti girilirse kaydettikten sonra muhasebeye kaydetmeniz önerilir.</p></div>
+        {% include "clients/_formset.html" with fs=formsets.sozlesme.0 prefix="sozlesme" add_label="Sözleşme ekle" %}
+      </div>
+    </div>
+    <div class="card">
+      <div class="form-section">
         <div class="form-section-head"><h2>İletişim bilgileri</h2></div>
         {% include "clients/_formset.html" with fs=formsets.iletisim.0 prefix="iletisim" add_label="İletişim ekle" %}
       </div>
@@ -113,6 +119,16 @@
         total.value = Number(total.value) + 1;
       },
     };
+  }
+  // Kayıtlı satırı silmek için işaretler (Kaydet'e basınca silinir); tekrar basınca geri alır.
+  function toggleRowDelete(button) {
+    const row = button.closest(".sub-row");
+    const box = row.querySelector('input[type="checkbox"][name$="-DELETE"]');
+    if (!box) return;
+    box.checked = !box.checked;
+    row.classList.toggle("sub-row-deleted", box.checked);
+    row.querySelector(".sub-row-delete-note").hidden = !box.checked;
+    button.querySelector("span").textContent = box.checked ? "Geri al" : "Sil";
   }
 </script>
 {% endblock %}

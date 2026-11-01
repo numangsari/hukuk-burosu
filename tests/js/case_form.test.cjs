@@ -62,7 +62,9 @@ function openForm() {
   form.openCard = (card, fresh) => opened.push({ card, fresh });
   form.$root = {
     querySelector(selector) { return elements[selector]; },
-    querySelectorAll(selector) { return selector === "[data-party-card]" ? cards : selects; },
+    querySelectorAll(selector) {
+      return selector === "[data-party-card]" ? cards : selector === "[data-co-row]" ? [] : selects;
+    },
   };
   return { form, total, inserted, selects, clientRole, opened };
 }

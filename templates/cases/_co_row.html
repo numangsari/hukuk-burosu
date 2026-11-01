@@ -1,0 +1,10 @@
+{# Ek müvekkil satırı: asıl müvekkil gibi müvekkil + sıfat. f = CaseCoClientForm #}
+<div class="row g-2 mb-2" data-co-row>
+  <div class="col-md-7">{{ f.client }}{% for e in f.client.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}</div>
+  <div class="col-md-5">
+    <div class="d-flex gap-2">
+      <div class="flex-grow-1">{{ f.role }}{% for e in f.role.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}</div>
+      <button type="button" class="btn btn-light" title="Müvekkili çıkar" @click="removeCoClient($el)"><i class="bi bi-x-lg"></i></button>
+    </div>
+  </div>
+</div>

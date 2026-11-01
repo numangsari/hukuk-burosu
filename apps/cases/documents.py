@@ -51,6 +51,22 @@ def mirror_poa(poa) -> str:
     return ""
 
 
+def mirror_retainer(agreement) -> str:
+    """Avukatlık sözleşmesi PDF'ini müvekkilin Sözleşmeler klasörüne kopyalar."""
+    if not agreement.pdf:
+        return ""
+    if folders.root() is None:
+        return NOT_CONFIGURED
+    name = f"{agreement.signed_on:%Y-%m-%d} Avukatlık sözleşmesi{Path(agreement.pdf.name).suffix}"
+    try:
+        target = folders.copy_file(agreement.pdf, folders.retainer_dir(agreement.client), name)
+    except folders.FolderError as e:
+        log.warning("Avukatlık sözleşmesi klasöre kopyalanamadı: %s", e)
+        return str(e)
+    type(agreement).objects.filter(pk=agreement.pk).update(folder_path=str(target))
+    return ""
+
+
 def publish_task_documents(task, user) -> tuple[list[Document], list[str]]:
     """Onaylanan görevin güncel belgelerini dosyanın Belgeler'ine ekler ve klasöre kopyalar."""
     current = list(task.documents.filter(is_current=True).order_by("created_at"))

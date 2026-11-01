@@ -179,7 +179,7 @@ def test_report_values(admin_user, report_data):
     )
     res = r.context["result"]
     assert res.rows[0][1] == "Devir" and res.rows[0][5] == Decimal("10500")
-    assert res.rows[-1][5] == Decimal("7500") and res.rows[-1][6] == Decimal("2000")
+    assert res.rows[-1][5] == Decimal("5500")
     r = c.get(reverse("reports:report", args=["gorevler"]), {"goster": 1, "status": "overdue"})
     assert [row[1] for row in r.context["result"].rows] == ["GECİKMİŞ İŞ"]
     r = c.get(reverse("reports:report", args=["dosya-son-durum"]), {"goster": 1})
@@ -212,7 +212,7 @@ def test_reports_do_not_query_per_row(
 
     with django_assert_max_num_queries(4):
         res = build_debtors({}, admin_user)
-    assert len(res.rows) == 12 and res.rows[0][4] == Decimal("40")
+    assert len(res.rows) == 12 and res.rows[0][3] == Decimal("40")
     with django_assert_max_num_queries(3):
         res = build_client_cases({}, admin_user)
     assert len(res.rows) == 12

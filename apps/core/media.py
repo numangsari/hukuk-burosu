@@ -25,7 +25,7 @@ def _record_exists(path: str) -> bool:
     from apps.accounting.models import LedgerEntry
     from apps.accounts.models import User
     from apps.cases.models import Document
-    from apps.clients.models import PowerOfAttorney
+    from apps.clients.models import PowerOfAttorney, RetainerAgreement
     from apps.office.models import OfficeSettings
     from apps.tasks.models import TaskDocument
 
@@ -37,7 +37,10 @@ def _record_exists(path: str) -> bool:
         "avatars": (User, "avatar"),
         "office": (OfficeSettings, "logo"),
     }
-    model, field = owners[path.split("/", 1)[0]]
+    prefix = path.split("/", 1)[0]
+    model, field = owners[prefix]
+    if prefix == "clients" and "/sozlesme/" in path:
+        model = RetainerAgreement
     return model.objects.filter(**{field: path}).exists()
 
 

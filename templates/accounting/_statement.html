@@ -2,7 +2,7 @@
 {# Ekstre: rows = statement(entries); show_client: müvekkil sütunu; next: iptal sonrası dönülecek adres #}
 <div class="table-responsive">
 <table class="table">
-  <thead><tr><th>Tarih</th><th>Hareket</th><th>Açıklama</th>{% if show_case %}<th>Dosya</th>{% endif %}<th class="text-end">Tutar</th>{% if can_view_balances %}<th class="text-end">Cari</th><th class="text-end">Emanet</th>{% endif %}<th></th></tr></thead>
+  <thead><tr><th>Tarih</th><th>Hareket</th><th>Açıklama</th>{% if show_case %}<th>Dosya</th>{% endif %}{% if show_client %}<th>Müvekkil</th>{% endif %}<th class="text-end">Tutar</th>{% if can_view_balances %}<th class="text-end">Bakiye</th>{% endif %}<th></th></tr></thead>
   <tbody>
   {% for r in rows %}{% with e=r.entry %}
     <tr class="{% if e.is_cancelled %}row-cancelled{% endif %}">
@@ -11,9 +11,9 @@
       <td class="small">{{ e.description|default:"—" }}{% if e.is_cancelled %}<div class="cell-sub">İptal: {{ e.cancel_reason }} · {{ e.cancelled_by }}</div>{% endif %}
         {% if e.receipt %}<a class="ms-1" href="{{ e.receipt.url }}" target="_blank" title="Belge"><i class="bi bi-paperclip"></i></a>{% endif %}</td>
       {% if show_case %}<td class="small">{% if e.case %}<a href="{{ e.case.get_absolute_url }}">{{ e.case.archive_reference }}</a>{% else %}—{% endif %}</td>{% endif %}
+      {% if show_client %}<td class="small">{{ e.client }}</td>{% endif %}
       <td class="text-end tabular fw-semibold">{{ e.amount|tl }}</td>
-      {% if can_view_balances %}<td class="text-end tabular">{{ r.cari|tl }}</td>
-      <td class="text-end tabular">{{ r.trust|tl }}</td>{% endif %}
+      {% if can_view_balances %}<td class="text-end tabular">{{ r.balance|tl }}</td>{% endif %}
       <td class="text-end">
         {% if can_edit_accounting and not e.is_cancelled %}
         {% include "accounting/_cancel.html" with next=next %}
@@ -21,7 +21,7 @@
       </td>
     </tr>
   {% endwith %}{% empty %}
-    <tr><td colspan="8"><div class="empty-state py-3"><strong>Hareket yok</strong>Vekalet ücreti, masraf veya tahsilat girildiğinde burada listelenir.</div></td></tr>
+    <tr><td colspan="7"><div class="empty-state py-3"><strong>Hareket yok</strong>Vekalet ücreti, masraf veya tahsilat girildiğinde burada listelenir.</div></td></tr>
   {% endfor %}
   </tbody>
 </table>

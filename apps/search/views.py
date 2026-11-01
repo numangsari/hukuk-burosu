@@ -66,7 +66,9 @@ def search_querysets(q: str) -> dict:
             | Q(subject__unaccent__icontains=q)
             | Q(authority__unaccent__icontains=q)
             | Q(client__search_key__contains=key)
+            | Q(co_clients__search_key__contains=key)
         )
+        .distinct()
         .select_related("client")
         .order_by("-created_at"),
         "parties": Party.objects.filter(Q(search_key__contains=key) | Q(identity_no=q))

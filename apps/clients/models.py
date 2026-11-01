@@ -211,6 +211,39 @@ class PowerOfAttorney(TimeStampedModel):
         return f"{self.notary} — {self.date:%d.%m.%Y} / {self.journal_no}"
 
 
+def retainer_upload_to(instance, filename):
+    return f"clients/{instance.client_id}/sozlesme/{filename}"
+
+
+class RetainerAgreement(TimeStampedModel):
+    """Avukatlık sözleşmesi. Müvekkile bağlıdır; isteğe bağlı olarak bir dosyaya bağlanır."""
+
+    client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name="retainer_agreements")
+    case = models.ForeignKey(
+        "cases.Case",
+        verbose_name="ilişkili dosya",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="retainer_agreements",
+    )
+    signed_on = models.DateField("sözleşme tarihi")
+    fee_amount = models.DecimalField(
+        "vekalet ücreti (₺)", max_digits=16, decimal_places=2, null=True, blank=True
+    )
+    pdf = models.FileField("PDF", upload_to=retainer_upload_to, blank=True)
+    notes = models.TextField("notlar", blank=True)
+    folder_path = models.CharField("klasördeki kopya", max_length=500, blank=True, editable=False)
+
+    class Meta:
+        verbose_name = "avukatlık sözleşmesi"
+        verbose_name_plural = "avukatlık sözleşmeleri"
+        ordering = ["-signed_on", "-pk"]
+
+    def __str__(self):
+        return f"Avukatlık sözleşmesi — {self.signed_on:%d.%m.%Y}"
+
+
 class Party(TimeStampedModel):
     """Karşı taraf: davalı, borçlu, şüpheli vb."""
 

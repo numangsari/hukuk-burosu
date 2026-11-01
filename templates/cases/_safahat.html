@@ -1,55 +1,62 @@
-{# Dosya detayı > Safahat sekmesi: esas dosyanın üst derece, bozma sonrası ve görevsizlik sonrası adımları. #}
+{# Dosya detayı > Safahat: bağlı dosyaların tek akışı. Her satır bir dosyadır. #}
 <div class="card">
   <div class="card-header">
     <h2 class="card-title">Safahat</h2>
-    <button type="button" class="btn btn-sm btn-primary ms-auto"
-            hx-get="{% url 'cases:step_add' case.pk %}" hx-target="#step-modal-dialog" hx-swap="innerHTML"
-            hx-on::after-request="bootstrap.Modal.getOrCreateInstance(document.getElementById('step-modal')).show()">
-      <i class="bi bi-plus-lg"></i>Adım ekle
-    </button>
+    <div class="ms-auto d-flex gap-2">
+      <a class="btn btn-sm btn-primary" href="{% url 'cases:create' %}?iliskili={{ case.pk }}"><i class="bi bi-folder-plus"></i>İlgili dosya oluştur</a>
+      <button type="button" class="btn btn-sm btn-light"
+              hx-get="{% url 'cases:link_add' case.pk %}" hx-target="#flow-modal-dialog" hx-swap="innerHTML"
+              hx-on::after-request="bootstrap.Modal.getOrCreateInstance(document.getElementById('flow-modal')).show()">
+        <i class="bi bi-link-45deg"></i>İlgili dosya bağla
+      </button>
+    </div>
   </div>
   <div class="card-body">
-    <div class="safahat-current">
-      <div class="info-label">Güncel esas dosya</div>
-      <div class="safahat-title">{{ case.authority|default:"Kurum girilmemiş" }}{% if case.official_no %} <span class="tabular">· {{ case.official_no }}</span>{% endif %}</div>
-    </div>
-    {% if steps %}
+    {% if flow_members|length > 1 %}
+    <div class="small text-body-secondary mb-3"><i class="bi bi-diagram-3 me-1"></i>Bu dosya {{ flow_members|length|add:"-1" }} dosyayla bağlı. Safahat ve muhasebe bağlı dosyalarla ortaktır.</div>
+    {% endif %}
     <ol class="safahat-list">
-      {% for step in steps %}
-      <li class="safahat-item">
+      {% for m in flow_members %}
+      <li class="safahat-item type-{{ m.case_type }}{% if m.pk == case.pk %} safahat-item-current{% endif %}">
         <span class="safahat-dot"></span>
-        <div class="safahat-card">
+        <div class="safahat-card{% if m.pk == case.pk %} is-current{% endif %}">
           <div class="d-flex align-items-start gap-2 flex-wrap">
             <div class="min-w-0 flex-grow-1">
-              <div class="safahat-date tabular">{{ step.decision_date|date:"d.m.Y"|default:"Tarihsiz" }}</div>
-              <div class="safahat-title">{{ step.authority }}{% if step.official_no %} <span class="tabular">· {{ step.official_no }}</span>{% endif %}</div>
+              <div class="flow-head">
+                {% if m.status == "open" %}<span class="chip chip-primary">AÇIK</span>{% else %}<span class="chip">KAPALI</span>{% endif %}
+                <span class="type-chip type-{{ m.case_type }}">{{ m.get_case_type_display }}</span>
+                <span class="flow-detail">{{ m.status_detail|default:"—" }}</span>
+              </div>
+              <div class="safahat-title">{% if m.pk == case.pk %}{{ m.display_name }}{% else %}<a href="{{ m.get_absolute_url }}">{{ m.display_name }}</a>{% endif %}</div>
+              <div class="small text-body-secondary tabular">
+                Arşiv {{ m.archive_reference }}{% if m.opened_on %} · Açılış {{ m.opened_on|date:"d.m.Y" }}{% endif %}{% if m.closed_on %} · Kapanış {{ m.closed_on|date:"d.m.Y" }}{% endif %}{% if m.decision_no %} · {{ m.decision_no_display }}{% endif %}
+              </div>
+              {% if m.flow_note %}<div class="small mt-2"><i class="bi bi-sticky me-1 text-body-secondary"></i>{{ m.flow_note|linebreaksbr }}</div>{% endif %}
             </div>
+            {% if flow_members|length > 1 %}
             <div class="safahat-actions">
-              <button type="button" class="btn btn-light btn-sm" title="Düzenle"
-                      hx-get="{% url 'cases:step_edit' case.pk step.pk %}" hx-target="#step-modal-dialog" hx-swap="innerHTML"
-                      hx-on::after-request="bootstrap.Modal.getOrCreateInstance(document.getElementById('step-modal')).show()"><i class="bi bi-pencil"></i></button>
-              <form method="post" action="{% url 'cases:step_apply' case.pk step.pk %}" class="d-inline"
-                    onsubmit="return confirm('Esas dosyadaki kurum adı ve dosya numarası bu adımdaki bilgilerle değiştirilsin mi? Önceki bilgi dosya geçmişinde saklanır.')">{% csrf_token %}
-                <button class="btn btn-light btn-sm" title="Esas dosya bilgisi olarak ayarla"><i class="bi bi-arrow-repeat"></i></button>
+              <form method="post" action="{% url 'cases:link_move' case.pk m.pk %}" class="d-inline" onsubmit="return confirm('Dosyanın akıştaki sırası bir yukarı taşınsın mı?')">{% csrf_token %}
+                <input type="hidden" name="yon" value="up">
+                <button class="btn btn-light btn-sm" title="Yukarı taşı" {% if forloop.first %}disabled{% endif %}><i class="bi bi-arrow-up"></i></button>
               </form>
-              {% if request.user.is_office_admin %}
-              <form method="post" action="{% url 'cases:step_delete' case.pk step.pk %}" class="d-inline" onsubmit="return confirm('Safahat adımı silinsin mi?')">{% csrf_token %}
-                <button class="btn btn-light btn-sm text-danger" title="Sil"><i class="bi bi-trash"></i></button>
+              <form method="post" action="{% url 'cases:link_move' case.pk m.pk %}" class="d-inline" onsubmit="return confirm('Dosyanın akıştaki sırası bir aşağı taşınsın mı?')">{% csrf_token %}
+                <input type="hidden" name="yon" value="down">
+                <button class="btn btn-light btn-sm" title="Aşağı taşı" {% if forloop.last %}disabled{% endif %}><i class="bi bi-arrow-down"></i></button>
+              </form>
+              {% if can_unlink %}
+              <form method="post" action="{% url 'cases:link_delete' case.pk m.pk %}" class="d-inline" onsubmit="return confirm('Bu dosyanın bağlantısı koparılsın mı? Dosya silinmez; yalnızca safahat ve muhasebe ortaklığı kalkar.')">{% csrf_token %}
+                <button class="btn btn-light btn-sm text-danger" title="Bağlantıyı kopar"><i class="bi bi-x-lg"></i> Bağlantıyı kopar</button>
               </form>
               {% endif %}
             </div>
+            {% endif %}
           </div>
-          <div class="safahat-meta">
-            {% if step.decision_no %}<span><span class="text-body-secondary">Karar No</span> <strong class="tabular">{{ step.decision_no }}</strong></span>{% endif %}
-            <span class="chip chip-primary no-dot">{{ step.decision_label|default:step.decision }}</span>
-          </div>
-          {% if step.note %}<div class="small text-body-secondary mt-2">{{ step.note|linebreaksbr }}</div>{% endif %}
         </div>
       </li>
       {% endfor %}
     </ol>
-    {% else %}
-    <div class="empty-state"><i class="bi bi-diagram-3"></i><strong>Safahat adımı yok</strong>İstinaf, temyiz, bozma sonrası yeni esas veya görevsizlikle gönderilen mahkeme bilgilerini buraya ekleyin.</div>
+    {% if flow_members|length == 1 %}
+    <div class="empty-state"><i class="bi bi-diagram-3"></i><strong>Bağlı dosya yok</strong>Aynı hukuki olaya ait başka bir dosya (ihtarname, arabuluculuk, istinaf, icra vb.) oluşturun veya mevcut bir dosyayı bağlayın; safahat ve muhasebe ortak olur.</div>
     {% endif %}
   </div>
 </div>

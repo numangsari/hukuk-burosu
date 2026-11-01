@@ -213,7 +213,8 @@ def case_options(request):
     if case_id := request.GET.get("id"):
         qs = qs.filter(pk=case_id if case_id.isdigit() else 0)
     elif client := request.GET.get("client"):
-        qs = qs.filter(client_id=client if client.isdigit() else 0)
+        cid = client if client.isdigit() else 0
+        qs = qs.filter(Q(client_id=cid) | Q(co_clients=cid)).distinct()
     else:
         qs = qs.none()
     if not request.GET.get("all"):

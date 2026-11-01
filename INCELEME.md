@@ -29,21 +29,11 @@ Kullanıcının henüz tek tek bakmadığı kontrol maddeleri (Adım 4'e geçmed
 - Detay: başlık (ad, V-kodu / "Vekalet yok", açık/kapalı dosya sayısı), Genel bilgiler iki sütun, Dosyalar sekmesi süzgeç/sıralama, Muhasebe sekmesi (bakiye yalnızca yetkiliye), Raporlar (önizle/Excel/PDF), Geçmiş.
 - Silme: yalnızca yönetici, düzenleme ekranının altındaki düğme, onay sayfası ve birlikte silinecek kayıt sayıları.
 
-### 4. Dosyalar — inceleme sürüyor
-**Devam noktası:** Yeni dosya formunun son düzenlemeleri kullanıcıyla ekranda doğrulanacak; bu adım henüz onaylanmadı. Son istekte kurum adı ile yıl/numara girişlerinin hizası düzeltildi, notlar iki sütunun dışına ve kaydetme çubuğunun hemen üstüne taşındı. Taraf ekleme kodu form alanlarını `$root` üzerinden bulacak şekilde değiştirildi; canlı tarayıcıda çalıştığı henüz doğrulanmadı.
-
-- İlk kontrol: kurum ve dosya numarası hizası, Sorumlular bölümünün bölünmemesi, notların en altta olması; Taraf ekle ile art arda satır ekleme ve tür değişince sıfat seçenekleri.
-- Son kod denetimi: 271 deneme ve iki biçim/yazım denetimi geçti. Düğme için ayrı çalıştırılan üç JavaScript denemesi canlı tarayıcı kontrolünün yerine geçmez.
-- Chrome bağlantısında pencere görülüyor, fakat tarayıcı bağlantı aracı kullanılamıyor; adres doğrulanamadığı için bilgisayar kullanım aracı da kontrolü durdurdu. Bağlantı çözülmedi. Kullanıcı bağlantı incelemesini durdurdu; yeniden istemeden bu incelemeye devam etme.
-- Çalışma alanında önceki oturumlardan da çok sayıda değişiklik var; bu oturumdaki işler ayrı bir commit veya push yapılmadan yerelde duruyor. Mevcut değişiklikleri koru.
-
-- Liste: sütunlar, süzgeçler (tür, durum, avukat, "benim dosyalarım", müvekkil), arama, sıralama, sayfalama.
-- Yeni dosya formu: her türde Konu; Sözleşme/Diğer dışında büyük harf Kurum Adı ve yıl + sayısal Dosya Numarası; bu türlerde görünen dosya adı kurum + numara, Sözleşme/Diğer için konu; varsayılanı bugün olan açılış tarihi; değer/durum/aşama/kapanış alanları formda yok; fiziki arşiv için klasör no + dosya no ve birleşimin tekrar reddi; türe göre değişen alanlar (icra türü, suç, arabulucu); müvekkil seçince avukat/stajyer gelmesi; avukat seçince bağlı stajyer; konu büyük harf; kurum önerileri.
-- Düzenleme: bağlı görev/muhasebe hareketi varsa müvekkil değiştirilemez; klasör adı.
-- Taraflar: müvekkilin sıfatı ve diğer taraflar aynı bölümde; sıfatlar dosya türüne göre; oluşturma/düzenlemede yeni taraf satırları ve hata halinde korunmaları.
-- Detay: başlık ve sekmeler, taraf ekleme (aynı TCKN/VKN'de mevcut kayıt kullanılır), karşı taraf çıkarma yalnızca yönetici; belgeler (yükleme, izinli türler, ofis klasörüne kopya, silme yetkisi); zaman çizelgesi (elle not); muhasebe sekmesi; geçmiş.
-- Silme: yalnızca yönetici; bağlı kayıt varken davranış (müvekkil silmeyle tutarlı olmalı mı, kullanıcıya sor).
-- Bilgi yoğun ekranları iki sütuna yayma kuralını uygula.
+### 4. Dosyalar — inceleme büyük ölçüde tamam, son sekmeler kaldı
+**Devam noktası:** Aşağıdakiler kullanıcıyla canlı ekranda gözden geçirildi ve onaylandı: yeni dosya formu (iki sütun, taraflar listesi + pop-up, ek müvekkiller, ilgili dosya oluştur), dosya listesi (sütun sırası, renkli tür/durum düğmeleri, bağlı dosya kümeleme ve "+X dosya bağlı"), açık/kapalı + aşama/kapanma modeli (kaynak `aşamalar.txt`), dosya özeti, Taraflar (sol/sağ yan), Görevler (aktif/tamamlanan, sıralama), Safahat (bağlı dosyaların tek akışı, ortak muhasebe), avukatlık sözleşmesi, numara ekleri (Esas/İcra/Soruşturma/Arabuluculuk/Karar), tebligatın kaldırılması.
+- Kalan kontroller: Duruşmalar sekmesi (Google Takvim entegrasyonu Adım 7'de yapılacak), Belgeler (yükleme düzeni düzeltildi, ofis klasörü kopyası denenmedi), Geçmiş sekmesi, dosya silinince bağlı grup ve ek müvekkil davranışı, arama ve süzgeç ayrıntıları, silme yetkileri.
+- Bilinen sınırlar: bağlı dosya kümelemesi yalnızca gösterilen sayfa içinde; klasör yapısı ve WhatsApp hatırlatması yalnızca asıl müvekkili kullanır; sözleşmedeki vekalet ücreti muhasebe kaydıyla bağlı değildir (yalnızca öneri).
+- Kullanıcı kararları (uygulandı): tebligat kaldırıldı; safahat aşama kaydı değil bağlı dosyalardır; bağlantıyı koparma yönetici ve avukatlarda; bağlanacak dosyaların en az bir ortak müvekkili olmalı; ek müvekkilin kendi sıfatı vardır; bağlı dosyalar aynı fiziki arşiv yerini paylaşabilir (veritabanı tekillik kısıtı kaldırıldı, form denetler).
 
 ### 5. Duruşma ve tebligat
 - Duruşma/keşif/bilirkişi ekleme, düzenleme; sonuç girilince zaman çizelgesine düşmesi; silme yalnızca yönetici.

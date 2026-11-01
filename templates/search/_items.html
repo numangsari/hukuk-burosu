@@ -4,7 +4,7 @@
   {% if more.clients %}<a class="sr-more" href="{{ more.clients.1 }}">{{ more.clients.0 }} müvekkilin tümünü gör <i class="bi bi-arrow-right"></i></a>{% endif %}
 {% endif %}
 {% if r.cases %}<div class="sr-group">Dosyalar</div>
-  {% for k in r.cases %}<a class="sr-item" href="{{ k.get_absolute_url }}"><i class="bi bi-folder2-open"></i><span><strong>{{ k.archive_reference }} · {{ k.display_name }}</strong><small>{{ k.client }} · {{ k.get_case_type_display }}{% if k.official_no %} · {{ k.official_no }}{% endif %}</small></span></a>{% endfor %}
+  {% for k in r.cases %}<a class="sr-item" href="{{ k.get_absolute_url }}"><i class="bi bi-folder2-open"></i><span><strong>{{ k.archive_reference }} · {{ k.display_name }}</strong><small>{{ k.client }} · {{ k.get_case_type_display }}{% if k.official_no %} · {{ k.official_no_display }}{% endif %}</small></span></a>{% endfor %}
   {% if more.cases %}<a class="sr-more" href="{{ more.cases.1 }}">{{ more.cases.0 }} dosyanın tümünü gör <i class="bi bi-arrow-right"></i></a>{% endif %}
 {% endif %}
 {% if r.tasks %}<div class="sr-group">Görevler</div>

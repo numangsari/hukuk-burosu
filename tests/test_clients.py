@@ -14,7 +14,7 @@ pytestmark = pytest.mark.django_db
 def formsets(**rows):
     """Müvekkil formundaki alt kayıt gruplarının yönetim alanları (+ isteğe bağlı satırlar)."""
     data = {}
-    for prefix in ("iletisim", "iban", "yetkili", "vekalet"):
+    for prefix in ("iletisim", "iban", "yetkili", "vekalet", "sozlesme"):
         items = rows.get(prefix, [])
         data[f"{prefix}-TOTAL_FORMS"] = str(len(items))
         data[f"{prefix}-INITIAL_FORMS"] = "0"

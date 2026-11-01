@@ -23,7 +23,6 @@ TRACKED = [
     ("cases", "case"),
     ("cases", "document"),
     ("cases", "hearing"),
-    ("cases", "casestep"),
     ("tasks", "task"),
     ("accounting", "ledgerentry"),
     ("accounts", "user"),

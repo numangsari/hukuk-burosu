@@ -29,6 +29,8 @@ def _case_data(client_obj, **kw):
         "official_sequence": 1,
         "client_role": "plaintiff",
         "parties-TOTAL_FORMS": "0",
+        "coclients-TOTAL_FORMS": "0",
+        "coclients-INITIAL_FORMS": "0",
         "parties-INITIAL_FORMS": "0",
         "subject": "Tazminat",
         "opened_on": timezone.localdate().isoformat(),
@@ -195,7 +197,7 @@ def test_client_required_and_responsibles_default(lawyer_client, client_factory,
     assert case.responsible_lawyer == owner.responsible_lawyer
     assert case.responsible_intern == owner.responsible_intern
     assert case.subject == "TAZMİNAT"
-    assert case.display_name == "ÖRNEK KURUM - 2026/1"
+    assert case.display_name == "ÖRNEK KURUM - 2026/1 Esas"
     data.update(archive_no="101", responsible_lawyer=admin_user.pk)
     assert lawyer_client.post(reverse("cases:create"), data).status_code == 302
     assert Case.objects.get(archive_no="101").responsible_lawyer == admin_user
@@ -218,7 +220,9 @@ def test_case_display_name_and_subject_are_independent(case_factory, case_type):
     case = case_factory(
         case_type=case_type, authority="Örnek Kurum", official_no="2026/42", subject="Örnek konu"
     )
-    expected = "ÖRNEK KONU" if case_type in ("consultancy", "other") else "ÖRNEK KURUM - 2026/42"
+    expected = (
+        "ÖRNEK KONU" if case_type in ("consultancy", "other") else "ÖRNEK KURUM - 2026/42 Esas"
+    )
     assert case.display_name == expected
     assert str(case) == expected
 

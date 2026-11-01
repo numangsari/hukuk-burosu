@@ -1,19 +1,30 @@
 {% load ui %}
-{# Kullanım: include with b=balances #}
-<div class="balance-strip">
+{# Kullanım: include with b=balances. Bakiyenin tüm kalemleri soldan sağa görünür. #}
+<div class="balance-strip balance-strip-5">
   <div class="bal">
-    <span class="bal-label">Cari bakiye</span>
-    <span class="bal-value {% if b.cari > 0 %}neg{% elif b.cari < 0 %}pos{% endif %}">{{ b.cari|tl }}</span>
-    <span class="bal-hint">{% if b.cari > 0 %}Müvekkil borçlu{% elif b.cari < 0 %}Müvekkil alacaklı{% else %}Borç yok{% endif %}</span>
+    <span class="bal-label">Müvekkilin ofise borcu</span>
+    <span class="bal-value">{{ b.debt|tl }}</span>
+    <span class="bal-hint">Vekalet ücreti + masraf</span>
   </div>
   <div class="bal">
-    <span class="bal-label">Emanet</span>
-    <span class="bal-value">{{ b.trust|tl }}</span>
-    <span class="bal-hint">Ofiste duran müvekkil parası</span>
+    <span class="bal-label"><span class="bal-op">−</span> Müvekkilden tahsilat</span>
+    <span class="bal-value">{{ b.collection|tl }}</span>
+    <span class="bal-hint">Müvekkilin ofise ödediği</span>
   </div>
   <div class="bal">
-    <span class="bal-label">Net durum</span>
-    <span class="bal-value {% if b.net > 0 %}neg{% elif b.net < 0 %}pos{% endif %}">{{ b.net|tl }}</span>
-    <span class="bal-hint">Cari − emanet</span>
+    <span class="bal-label"><span class="bal-op">−</span> Müvekkilin ofisten alacağı</span>
+    <span class="bal-value">{{ b.credit|tl }}</span>
+    <span class="bal-hint">Karşı taraftan tahsilat</span>
+  </div>
+  <div class="bal">
+    <span class="bal-label"><span class="bal-op">+</span> Müvekkile ödeme</span>
+    <span class="bal-value">{{ b.payout|tl }}</span>
+    <span class="bal-hint">Ofisin müvekkile ödediği</span>
+  </div>
+  <div class="bal bal-total">
+    <span class="bal-label"><span class="bal-op">=</span> Bakiye tutar</span>
+    <span class="bal-value {% if b.balance > 0 %}neg{% elif b.balance < 0 %}pos{% endif %}">{{ b.balance|tl }}</span>
+    <span class="bal-hint">{% if b.balance > 0 %}Müvekkil ofise borçlu{% elif b.balance < 0 %}Ofis müvekkile borçlu{% else %}Borç / alacak yok{% endif %}</span>
   </div>
 </div>
+<div class="small text-body-secondary px-3 py-2 border-bottom">Bakiye = (borç − müvekkilden tahsilat) − karşı taraftan tahsilat + müvekkile ödeme · iptal edilen hareketler hesaba katılmaz.</div>

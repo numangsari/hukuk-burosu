@@ -8,13 +8,14 @@
 
 <div class="card mb-3">
   <div class="detail-hero">
-    <div class="hero-icon"><i class="bi bi-folder2-open"></i></div>
+    <div class="hero-icon type-{{ case.case_type }}"><i class="bi bi-folder2-open"></i></div>
     <div class="min-w-0">
       <div class="d-flex align-items-center gap-2 flex-wrap">
         <h1 class="page-title">{{ case.display_name }}</h1>
+        {% if flow_members|length > 1 %}<a class="chip chip-accent no-dot" href="#t-safahat" onclick="goCaseTab('#t-safahat'); return false"><i class="bi bi-link-45deg"></i>+{{ flow_members|length|add:"-1" }} dosya bağlı</a>{% endif %}
       </div>
       <div class="meta">
-        <span><i class="bi bi-person"></i>Müvekkil <a class="fw-medium" href="{{ case.client.get_absolute_url }}">{{ case.client }}</a></span>
+        <span><i class="bi bi-person"></i>Müvekkil{% if case.co_clients.all %}ler{% endif %} <a class="fw-medium" href="{{ case.client.get_absolute_url }}">{{ case.client }}</a>{% for c in case.co_clients.all %}, <a class="fw-medium" href="{{ c.get_absolute_url }}">{{ c }}</a>{% endfor %}</span>
       </div>
     </div>
     <div class="page-actions">
@@ -54,7 +55,7 @@
     <div class="case-status-body case-closing">
       <div class="case-closing-info">
         <div class="case-closing-reason">{{ case.closing_label|default:"—" }}</div>
-        {% if case.decision_date or case.decision_no %}<div class="case-closing-date tabular">{% if case.decision_date %}Karar Tarihi: {{ case.decision_date|date:"d.m.Y" }}{% endif %}{% if case.decision_date and case.decision_no %} - {% endif %}{% if case.decision_no %}Karar No: {{ case.decision_no }}{% endif %}</div>{% endif %}
+        {% if case.decision_date or case.decision_no %}<div class="case-closing-date tabular">{% if case.decision_date %}Karar Tarihi: {{ case.decision_date|date:"d.m.Y" }}{% endif %}{% if case.decision_date and case.decision_no %} - {% endif %}{% if case.decision_no %}Karar No: {{ case.decision_no_display }}{% endif %}</div>{% endif %}
         {% if case.closed_on %}<div class="case-closing-date tabular">Kapanma Tarihi: {{ case.closed_on|date:"d.m.Y" }}</div>{% endif %}
       </div>
       {% if request.user.is_office_admin %}
@@ -81,7 +82,7 @@
   <ul class="nav nav-underline-tabs">
     <li><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#t-ozet">Özet</button></li>
     <li><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-taraflar">Taraflar<span class="count">{{ party_links|length }}</span></button></li>
-    {% if case.has_safahat %}<li><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-safahat">Safahat<span class="count">{{ steps|length }}</span></button></li>{% endif %}
+    <li><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-safahat">Safahat<span class="count">{{ flow_members|length }}</span></button></li>
     <li><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-gorevler">Görevler<span class="count">{{ tasks|length }}</span></button></li>
     <li><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-durusmalar">Duruşmalar<span class="count">{{ hearings|length }}</span></button></li>
     <li><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-belgeler">Belgeler<span class="count">{{ documents|length }}</span></button></li>
@@ -93,27 +94,33 @@
 <div class="tab-content">
   <div class="tab-pane fade show active" id="t-ozet">{% include "cases/_summary.html" %}</div>
   <div class="tab-pane fade" id="t-taraflar">{% include "cases/_parties.html" %}</div>
-  {% if case.has_safahat %}<div class="tab-pane fade" id="t-safahat">{% include "cases/_safahat.html" %}</div>{% endif %}
+  <div class="tab-pane fade" id="t-safahat">{% include "cases/_safahat.html" %}</div>
   <div class="tab-pane fade" id="t-gorevler">{% include "cases/_tasks.html" %}</div>
   <div class="tab-pane fade" id="t-durusmalar">{% include "cases/_hearings.html" %}</div>
   <div class="tab-pane fade" id="t-belgeler">{% include "cases/_documents.html" %}</div>
   <div class="tab-pane fade" id="t-gecmis">
     <div class="mb-3">{% include "cases/_timeline.html" %}</div>
+    {% include "accounting/_cancelled.html" %}
     {% include "activity/_history.html" %}
   </div>
   {% if can_view_accounting %}
   <div class="tab-pane fade" id="t-muhasebe">
     <div class="card table-card">
       <div class="card-header"><h2 class="card-title">Dosya hareketleri</h2>
-        {% if can_edit_accounting %}<a class="btn btn-sm btn-primary ms-auto" href="{% url 'accounting:create' %}?dosya={{ case.pk }}&next={{ case.get_absolute_url|urlencode }}"><i class="bi bi-plus-lg"></i>Yeni gelir / gider</a>{% endif %}</div>
+        {% if can_edit_accounting %}<a class="btn btn-sm btn-primary ms-auto" href="{% url 'accounting:create' %}?dosya={{ case.pk }}&next={{ case.get_absolute_url|urlencode }}%23t-muhasebe"><i class="bi bi-plus-lg"></i>Yeni gelir / gider</a>{% endif %}</div>
       {% if can_view_balances %}{% include "accounting/_balances.html" with b=ledger_balances %}{% endif %}
-      {% include "accounting/_statement.html" with rows=ledger_rows next=case.get_absolute_url %}
+      {% include "accounting/_statement.html" with rows=ledger_rows show_case=flow_members|length|add:'-1' show_client=multi_client next=case.get_absolute_url|add:'#t-muhasebe' %}
     </div>
   </div>
   {% endif %}
 </div>
-<div class="modal fade" id="step-modal" tabindex="-1" aria-hidden="true"><div class="modal-dialog modal-lg" id="step-modal-dialog"></div></div>
+<div class="modal fade" id="flow-modal" tabindex="-1" aria-hidden="true"><div class="modal-dialog modal-lg" id="flow-modal-dialog"></div></div>
 <script>
+  // Dosya bağlanınca sayfa safahat sekmesi açık olarak yenilenir.
+  document.body.addEventListener("flow-saved", () => {
+    location.hash = "#t-safahat";
+    location.reload();
+  });
   // Adres #t-... ile açılırsa ilgili sekme açılır (ör. safahat adımı kaydından sonra).
   document.addEventListener("DOMContentLoaded", () => {
     const tab = location.hash && document.querySelector('.nav-underline-tabs [data-bs-target="' + location.hash + '"]');

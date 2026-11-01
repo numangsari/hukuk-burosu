@@ -50,7 +50,7 @@ class LedgerEntryForm(BootstrapMixin, forms.ModelForm):
     def clean(self):
         data = super().clean()
         client, case = data.get("client"), data.get("case")
-        if case and client and case.client_id != client.pk:
+        if case and client and client.pk not in case.client_ids():
             self.add_error("case", "Seçilen dosya bu müvekkile ait değil.")
         return data
 

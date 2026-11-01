@@ -1,26 +1,42 @@
-<div id="parties" class="card table-card">
+<div id="parties" class="card">
   <div class="card-header"><h2 class="card-title">Taraflar</h2></div>
-  <div class="table-responsive">
-  <table class="table">
-    <thead><tr><th>Ad / Unvan</th><th>Taraf sıfatı</th><th>TCKN / VKN</th><th>Vekili</th><th>Adres</th><th></th></tr></thead>
-    <tbody>
-    <tr><td class="cell-main">{{ case.client }} <span class="small text-body-secondary">(Müvekkil)</span></td><td>{{ case.get_client_role_display|default:"—" }}</td><td colspan="4"></td></tr>
-    {% for l in party_links %}
-      <tr><td class="cell-main">{{ l.party.name }}</td><td><span class="chip no-dot">{{ l.get_role_display }}</span></td>
-        <td class="tabular">{{ l.party.identity_no|default:"—" }}</td><td>{{ l.party.lawyer|default:"—" }}</td><td class="small text-body-secondary">{{ l.party.address|default:"—" }}</td>
-        <td class="text-end">{% if request.user.is_office_admin %}<button class="btn-ghost-danger" title="Dosyadan çıkar" hx-post="{% url 'cases:party_remove' case.pk l.pk %}" hx-target="#parties" hx-swap="outerHTML" hx-confirm="Taraf dosyadan çıkarılsın mı?"><i class="bi bi-x-lg"></i></button>{% endif %}</td></tr>
-    {% empty %}<tr><td colspan="6"><div class="empty-state py-3"><strong>Diğer taraflar eklenmemiş</strong>Davalı, borçlu, şüpheli gibi tarafları aşağıdan ekleyin.</div></td></tr>{% endfor %}
-    </tbody>
-  </table>
+  {% with groups=party_tab_groups|default:party_groups %}
+  <div class="card-body">
+    <div class="row g-3">
+      {% for group in groups %}
+      <div class="{% if groups|length == 1 %}col-12{% else %}col-lg-6{% endif %}">
+        <div class="party-lane h-100">
+          <div class="party-lane-head">{{ group.label }}</div>
+          {% for item in group.items %}
+          <div class="party-detail">
+            <span class="avatar avatar-sm party-avatar"><i class="bi {% if item.is_client %}bi-person-check{% else %}bi-person{% endif %}"></i></span>
+            <div class="min-w-0 flex-grow-1">
+              <div class="fw-medium">{% if item.url %}<a href="{{ item.url }}">{{ item.name }}</a>{% else %}{{ item.name }}{% endif %}{% if item.is_client %} <span class="text-body-secondary fw-normal">(müvekkil)</span>{% endif %} <span class="chip no-dot ms-1">{{ item.role }}</span></div>
+              <div class="small text-body-secondary">
+                {% if item.identity %}<span class="me-3">TCKN / VKN <span class="tabular">{{ item.identity }}</span></span>{% endif %}
+                {% if item.lawyer %}<span class="me-3">Vekili {{ item.lawyer }}</span>{% endif %}
+                {% if item.address %}<span>{{ item.address }}</span>{% endif %}
+              </div>
+            </div>
+            {% if item.link_pk and request.user.is_office_admin %}
+            <button class="btn-ghost-danger" title="Dosyadan çıkar" hx-post="{% url 'cases:party_remove' case.pk item.link_pk %}" hx-target="#parties" hx-swap="outerHTML" hx-confirm="Taraf dosyadan çıkarılsın mı?"><i class="bi bi-x-lg"></i></button>
+            {% endif %}
+          </div>
+          {% empty %}<div class="small text-body-secondary">Bu tarafta kayıt yok.</div>{% endfor %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
   </div>
-  <form class="inline-form row g-2 align-items-end" hx-post="{% url 'cases:party_add' case.pk %}" hx-target="#parties" hx-swap="outerHTML">
+  {% endwith %}
+  <form class="inline-form row g-2 align-items-start" hx-post="{% url 'cases:party_add' case.pk %}" hx-target="#parties" hx-swap="outerHTML">
     <div class="col-md-2">{% include "partials/field.html" with field=party_form.role wrap_class="" %}</div>
     <div class="col-md-2">{% include "partials/field.html" with field=party_form.kind wrap_class="" %}</div>
     <div class="col-md-3">{% include "partials/field.html" with field=party_form.name wrap_class="" %}</div>
     <div class="col-md-2">{% include "partials/field.html" with field=party_form.identity_no wrap_class="" %}</div>
     <div class="col-md-3">{% include "partials/field.html" with field=party_form.lawyer wrap_class="" %}</div>
     <div class="col-md-10">{% include "partials/field.html" with field=party_form.address wrap_class="" %}</div>
-    <div class="col-md-2"><button class="btn btn-primary w-100"><i class="bi bi-plus-lg"></i>Ekle</button></div>
+    <div class="col-md-2"><label class="form-label d-block" aria-hidden="true">&nbsp;</label><button class="btn btn-primary w-100"><i class="bi bi-plus-lg"></i>Ekle</button></div>
     <div class="col-12 form-text">Aynı TCKN/VKN ile daha önce kaydedilmiş karşı taraf varsa mevcut kayıt kullanılır.</div>
   </form>
 </div>

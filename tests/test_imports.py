@@ -70,7 +70,11 @@ def test_plan_and_execute(lawyer, intern, admin_user):
     assert case.value == Decimal("150000.50") and case.stage == "appeal" and case.client == ayse
     assert Case.objects.get(archive_no="2026/0901").case_type == "enforcement"
     b = LedgerEntry.objects.filter(client=ayse).balances()
-    assert (b["cari"], b["trust"]) == (Decimal("25000"), Decimal("1000"))
+    assert (b["debt"], b["credit"], b["balance"]) == (
+        Decimal("25000"),
+        Decimal("1000"),
+        Decimal("24000"),
+    )
 
 
 def test_duplicates_and_errors_reported(lawyer, intern, client_factory, case_factory):

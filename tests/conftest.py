@@ -104,6 +104,7 @@ def client_form_data(client=None, delete=(), **new_rows):
         "iban": "ibans",
         "yetkili": "representatives",
         "vekalet": "powers_of_attorney",
+        "sozlesme": "retainer_agreements",
     }
     for prefix, (_, form) in CLIENT_SUBRECORDS.items():
         existing = list(getattr(client, related[prefix]).order_by("pk")) if client else []

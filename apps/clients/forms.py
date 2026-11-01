@@ -11,6 +11,7 @@ from .models import (
     Party,
     PersonKind,
     PowerOfAttorney,
+    RetainerAgreement,
 )
 
 
@@ -120,12 +121,44 @@ class ClientPoaForm(OptionalRowMixin, PowerOfAttorneyForm):
         fields = ["notary", "date", "journal_no", "pdf", "notes"]
 
 
+class RetainerAgreementForm(OptionalRowMixin, BootstrapMixin, forms.ModelForm):
+    """Müvekkil formundaki avukatlık sözleşmesi satırı."""
+
+    class Meta:
+        model = RetainerAgreement
+        fields = ["signed_on", "case", "fee_amount", "pdf", "notes"]
+        widgets = {"signed_on": DateInput(), "notes": forms.Textarea(attrs={"rows": 1})}
+
+    def clean_pdf(self):
+        f = self.cleaned_data.get("pdf")
+        validate_upload(f, PDF_OR_IMAGE, 20 * 1024 * 1024)
+        return f
+
+
+class RetainerFormSet(forms.BaseInlineFormSet):
+    """İlişkili dosya seçeneği yalnızca müvekkilin kendi dosyalarıdır."""
+
+    def add_fields(self, form, index):
+        super().add_fields(form, index)
+        if "case" in form.fields:
+            from apps.cases.models import Case
+
+            cases = (
+                Case.objects.filter(client=self.instance)
+                if self.instance.pk
+                else Case.objects.none()
+            )
+            form.fields["case"].queryset = cases
+            form.fields["case"].empty_label = "Dosyaya bağlı değil"
+
+
 # Müvekkil oluşturma/düzenleme ekranındaki alt kayıt grupları: önek -> (model, satır formu)
 CLIENT_SUBRECORDS = {
     "iletisim": (ClientContact, ContactForm),
     "iban": (ClientIban, IbanForm),
     "yetkili": (ClientRepresentative, RepresentativeForm),
     "vekalet": (PowerOfAttorney, ClientPoaForm),
+    "sozlesme": (RetainerAgreement, RetainerAgreementForm),
 }
 
 
@@ -136,4 +169,7 @@ DEFAULT_CONTACT_KINDS = ["phone", "email", "address"]
 def client_formset(prefix: str, can_delete: bool, extra: int = 1):
     """Alt kayıt grubu. Mevcut satırı yalnızca yönetici silebilir."""
     model, form = CLIENT_SUBRECORDS[prefix]
-    return forms.inlineformset_factory(Client, model, form=form, extra=extra, can_delete=can_delete)
+    kwargs = {"formset": RetainerFormSet} if prefix == "sozlesme" else {}
+    return forms.inlineformset_factory(
+        Client, model, form=form, extra=extra, can_delete=can_delete, **kwargs
+    )

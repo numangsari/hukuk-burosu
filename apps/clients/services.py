@@ -18,6 +18,7 @@ def deletion_summary(client) -> list[tuple[str, int]]:
         ("Duruşma", Hearing.objects.filter(case__in=cases).count()),
         ("Randevu", client.appointments.count()),
         ("Vekalet", client.powers_of_attorney.count()),
+        ("Avukatlık sözleşmesi", client.retainer_agreements.count()),
         (
             "İletişim / IBAN / yetkili",
             client.contacts.count() + client.ibans.count() + client.representatives.count(),

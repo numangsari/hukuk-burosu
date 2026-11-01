@@ -39,31 +39,27 @@ def test_balance_formulas_example_from_spec(client_factory):
     add(c, EntryKind.TRUST_IN, "100000")
     add(c, EntryKind.TRUST_OUT, "70000")
     b = c.ledger_entries.balances()
-    assert (b["cari"], b["trust"], b["net"]) == (D("35000"), D("30000"), D("5000"))
-
-    add(c, EntryKind.OFFSET, "30000")  # emanetteki 30.000 cari borçtan düşülür
-    b = c.ledger_entries.balances()
-    assert (b["cari"], b["trust"], b["net"]) == (D("5000"), D("0"), D("5000"))
+    assert (b["debt"], b["credit"], b["balance"]) == (D("55000"), D("100000"), D("5000"))
 
 
 def test_cancelled_entries_excluded(client_factory):
     c = client_factory()
     add(c, EntryKind.FEE, "1000")
     add(c, EntryKind.FEE, "500", is_cancelled=True)
-    assert c.ledger_entries.balances()["cari"] == D("1000")
+    assert c.ledger_entries.balances()["balance"] == D("1000")
 
 
 def test_statement_running_balances(client_factory):
     c = client_factory()
     add(c, EntryKind.FEE, "1000", date=dt.date(2026, 1, 1))
     add(c, EntryKind.TRUST_IN, "400", date=dt.date(2026, 1, 2))
-    add(c, EntryKind.OFFSET, "300", date=dt.date(2026, 1, 3))
+    add(c, EntryKind.TRUST_OUT, "300", date=dt.date(2026, 1, 3))
     rows = statement(c.ledger_entries.all())
-    assert [(r["cari"], r["trust"]) for r in rows] == [
-        (D("700"), D("100")),
-        (D("1000"), D("400")),
-        (D("1000"), D("0")),
-    ]
+    assert [r["balance"] for r in rows] == [D("900"), D("600"), D("1000")]
+
+
+def test_offset_kind_removed():
+    assert "offset" not in EntryKind.values
 
 
 def test_create_entry_requires_client_case_optional_no_trust_limit(admin_user, case_factory):
@@ -89,13 +85,13 @@ def test_create_entry_requires_client_case_optional_no_trust_limit(admin_user, c
     assert LedgerEntry.objects.filter(case__isnull=True, kind="expense").count() == 1
     LedgerEntry.objects.filter(kind="expense").delete()
 
-    # Emanet bakiyesi yetmese de müvekkile ödeme / mahsup yapılabilir.
-    for kind in ("trust_out", "offset"):
+    # Karşı taraftan tahsilat yetmese de müvekkile ödeme yapılabilir.
+    for kind in ("trust_out",):
         r = c.post(
             url, {"kind": kind, "client": case.client_id, "amount": "10", "date": "2026-11-01"}
         )
         assert r.status_code == 302
-    assert LedgerEntry.objects.count() == 3
+    assert LedgerEntry.objects.count() == 2
 
 
 def test_case_must_belong_to_client(admin_user, case_factory, client_factory):
@@ -135,8 +131,7 @@ def test_records_for_everyone_balances_for_selected(lawyer, intern, client_facto
     r = login(lawyer).get(reverse("clients:list"), {"sort": "-balance", "debt": "yes"})
     assert r.status_code == 200 and len(r.context["clients"]) == 1  # süzgeç yok sayılır
     assert (
-        "Cari hesap ekstresi"
-        not in login(lawyer).get(case.client.get_absolute_url()).content.decode()
+        "Hesap ekstresi" not in login(lawyer).get(case.client.get_absolute_url()).content.decode()
     )
     lawyer.can_view_balances = True
     lawyer.save()
@@ -176,7 +171,7 @@ def test_detail_tabs_show_statement(admin_user, case_factory):
     add(case.client, EntryKind.FEE, "750", case=case)
     c = login(admin_user)
     html = c.get(case.client.get_absolute_url()).content.decode()
-    assert "Cari hesap ekstresi" in html and "750,00 ₺" in html
+    assert "Hesap ekstresi" in html and "750,00 ₺" in html
     html = c.get(case.get_absolute_url()).content.decode()
     assert "Dosya hareketleri" in html
 
@@ -196,3 +191,15 @@ def test_settings_sections_render(admin_user, intern):
     assert r.status_code == 200 and "Bakiye görme yetkisi" in r.content.decode()
     r = c.get(reverse("accounts:settings"), {"bolum": "kullanicilar", "id": intern.pk})
     assert r.status_code == 200 and "Kontrolcü" in r.content.decode()
+
+
+def test_cancelled_entries_only_in_history_tab(admin_user, case_factory):
+    case = case_factory()
+    kept = add(case.client, EntryKind.FEE, "800", case=case)
+    gone = add(case.client, EntryKind.EXPENSE, "123", case=case, is_cancelled=True)
+    c = login(admin_user)
+    for url in (case.get_absolute_url(), case.client.get_absolute_url()):
+        response = c.get(url)
+        assert [r["entry"].pk for r in response.context["ledger_rows"]] == [kept.pk]
+        assert [e.pk for e in response.context["cancelled_entries"]] == [gone.pk]
+        assert "İptal edilen muhasebe hareketleri" in response.content.decode()

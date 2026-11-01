@@ -4,7 +4,6 @@ from pathlib import Path
 
 from django.conf import settings
 from django.db import models
-from django.db.models.functions import Lower
 from django.urls import reverse
 from django.utils import timezone
 
@@ -12,7 +11,7 @@ from apps.clients.models import Client, Party, intern_choices, lawyer_choices
 from apps.core.models import TimeStampedModel
 from apps.core.text import tr_upper
 
-from . import decisions, stages
+from . import stages
 from .party_roles import PARTY_ROLE_CHOICES, PARTY_ROLES
 
 
@@ -54,6 +53,37 @@ class EnforcementType(models.TextChoices):
     MORTGAGE = "mortgage", "İpoteğin paraya çevrilmesi"
     PLEDGE = "pledge", "Rehnin paraya çevrilmesi"
     EVICTION = "eviction", "Tahliye"
+
+
+NUMBER_SUFFIX = {
+    CaseType.CIVIL: "Esas",
+    CaseType.CRIMINAL: "Esas",
+    CaseType.ADMINISTRATIVE: "Esas",
+    CaseType.ENFORCEMENT: "İcra",
+    CaseType.INVESTIGATION: "Soruşturma",
+    CaseType.MEDIATION: "Arabuluculuk",
+}
+_YEAR_NUMBER = re.compile(r"^\d{4}/\d+$")
+
+
+def _with_suffix(value: str, suffix: str) -> str:
+    """Yalnızca yıl/numara biçimindeki numaraya ek getirilir (eski biçimli numaralar değişmez)."""
+    if suffix and value and _YEAR_NUMBER.match(value):
+        return f"{value} {suffix}"
+    return value
+
+
+class CaseFlow(models.Model):
+    """Birbirine bağlanan dosyaların ortak safahat grubu. Gruptaki dosyalar aynı akışı görür."""
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "ortak safahat"
+        verbose_name_plural = "ortak safahatlar"
+
+    def __str__(self):
+        return f"Ortak safahat {self.pk}"
 
 
 class Case(TimeStampedModel):
@@ -106,6 +136,25 @@ class Case(TimeStampedModel):
     opened_on = models.DateField(
         "dosya açılış tarihi", default=timezone.localdate, null=True, blank=True
     )
+    flow = models.ForeignKey(
+        CaseFlow,
+        verbose_name="ortak safahat",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="cases",
+    )
+    # Asıl müvekkil `client`dir; dosyada birden fazla müvekkil varsa diğerleri burada tutulur.
+    co_clients = models.ManyToManyField(
+        Client,
+        through="CaseCoClient",
+        verbose_name="ek müvekkiller",
+        blank=True,
+        related_name="co_cases",
+    )
+    # Ortak safahattaki sıra ve bu dosyanın akışa neden eklendiğini anlatan not.
+    flow_position = models.PositiveIntegerField("akıştaki sıra", default=0)
+    flow_note = models.TextField("bağlantı notu", blank=True)
     closed_on = models.DateField("kapanış tarihi", null=True, blank=True)
     notes = models.TextField("notlar", blank=True)
     folder_name = models.CharField(
@@ -122,11 +171,6 @@ class Case(TimeStampedModel):
         verbose_name = "dosya"
         verbose_name_plural = "dosyalar"
         ordering = ["-created_at"]
-        constraints = [
-            models.UniqueConstraint(
-                Lower("archive_folder_no"), Lower("archive_no"), name="unique_case_archive_location"
-            ),
-        ]
 
     def get_client_role_display(self):
         return dict(PARTY_ROLES.get(self.case_type, [])).get(
@@ -139,12 +183,30 @@ class Case(TimeStampedModel):
             return f"{self.archive_folder_no} / {self.archive_no}"
         return self.archive_no
 
+    def client_ids(self) -> set:
+        """Dosyanın tüm müvekkillerinin (asıl + ek) kimlikleri."""
+        return {self.client_id, *self.co_clients.values_list("pk", flat=True)}
+
+    @property
+    def all_clients(self) -> list:
+        return [self.client, *self.co_clients.all()]
+
+    @property
+    def official_no_display(self) -> str:
+        """Dosya numarası; türüne göre sonuna Esas / İcra / Soruşturma / Arabuluculuk eklenir."""
+        return _with_suffix(self.official_no, NUMBER_SUFFIX.get(self.case_type, ""))
+
+    @property
+    def decision_no_display(self) -> str:
+        return _with_suffix(self.decision_no, "Karar")
+
     @property
     def display_name(self):
         if self.case_type in {CaseType.CONSULTANCY, CaseType.OTHER}:
             return self.subject
         return (
-            " - ".join(part for part in (self.authority, self.official_no) if part) or self.subject
+            " - ".join(part for part in (self.authority, self.official_no_display) if part)
+            or self.subject
         )
 
     def __str__(self):
@@ -173,10 +235,6 @@ class Case(TimeStampedModel):
     @property
     def is_open(self) -> bool:
         return self.status != CaseStatus.CLOSED
-
-    @property
-    def has_safahat(self) -> bool:
-        return self.case_type in decisions.SAFAHAT_TYPES
 
     @property
     def stage_label(self) -> str:
@@ -225,6 +283,30 @@ class PartyRole(models.TextChoices):
     COMPLAINANT = "complainant", "Müşteki"
     ADDRESSEE = "addressee", "Muhatap"
     OTHER = "other", "Karşı taraf"
+
+
+class CaseCoClient(models.Model):
+    """Dosyanın asıl müvekkili dışındaki müvekkilleri ve her birinin sıfatı."""
+
+    case = models.ForeignKey(Case, on_delete=models.CASCADE, related_name="co_client_links")
+    client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name="co_case_links")
+    role = models.CharField("müvekkilin sıfatı", max_length=32, blank=True)
+
+    class Meta:
+        verbose_name = "dosya müvekkili"
+        verbose_name_plural = "dosya müvekkilleri"
+        ordering = ["pk"]
+        constraints = [
+            models.UniqueConstraint(fields=["case", "client"], name="unique_case_co_client")
+        ]
+
+    def __str__(self):
+        return f"{self.client} ({self.case_id})"
+
+    @property
+    def role_label(self) -> str:
+        labels = dict(PARTY_ROLES.get(self.case.case_type, []))
+        return labels.get(self.role, dict(PARTY_ROLE_CHOICES).get(self.role, self.role))
 
 
 class CaseParty(models.Model):
@@ -331,37 +413,6 @@ class Hearing(TimeStampedModel):
 
     def __str__(self):
         return f"{self.get_kind_display()} — {self.starts_at:%d.%m.%Y %H:%M}"
-
-
-class CaseStep(TimeStampedModel):
-    """Safahat adımı: esas dosyanın istinaf, temyiz, bozma sonrası veya görevsizlik sonrası kaydı.
-
-    Bağımsız dosya değildir; yalnızca kurum, dosya no, karar no ve karar bilgisini tutar.
-    """
-
-    case = models.ForeignKey(Case, on_delete=models.CASCADE, related_name="steps")
-    authority = models.CharField("kurum adı", max_length=200)
-    official_no = models.CharField("dosya numarası", max_length=100, blank=True)
-    decision_date = models.DateField("karar tarihi", null=True, blank=True)
-    decision_no = models.CharField("karar numarası", max_length=100, blank=True)
-    decision = models.CharField("karar", max_length=40)
-    note = models.TextField("not", blank=True)
-
-    class Meta:
-        verbose_name = "safahat adımı"
-        verbose_name_plural = "safahat"
-        ordering = ["decision_date", "created_at", "pk"]
-
-    def __str__(self):
-        return f"{self.authority} {self.official_no}".strip()
-
-    def save(self, *args, **kwargs):
-        self.authority = tr_upper(self.authority).strip()
-        super().save(*args, **kwargs)
-
-    @property
-    def decision_label(self) -> str:
-        return decisions.decision_label(self.case.case_type, self.decision)
 
 
 class CaseEvent(models.Model):

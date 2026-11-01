@@ -23,14 +23,13 @@ def _date(value):
 
 
 def statement(entries):
-    """Tarih sırasıyla hareketler ve her satırdan sonraki cari/emanet bakiyesi (ekstre)."""
-    cari = trust = 0
+    """Tarih sırasıyla hareketler ve her satırdan sonraki bakiye (ekstre)."""
+    balance = 0
     rows = []
     for e in sorted(entries, key=lambda x: (x.date, x.pk)):
         if not e.is_cancelled:
-            cari += e.cari_effect
-            trust += e.trust_effect
-        rows.append({"entry": e, "cari": cari, "trust": trust})
+            balance += e.balance_effect
+        rows.append({"entry": e, "balance": balance})
     rows.reverse()  # en yeni üstte
     return rows
 
@@ -87,6 +86,10 @@ class EntryCreateView(EditRequiredMixin, CreateView):
     def get_initial(self):
         g = self.request.GET
         initial = {"date": timezone.localdate(), "kind": g.get("tur") or EntryKind.FEE}
+        if g.get("tutar"):
+            initial["amount"] = g["tutar"]
+        if g.get("aciklama"):
+            initial["description"] = g["aciklama"][:300]
         if case := Case.objects.filter(pk=g.get("dosya")).first():
             initial.update(case=case, client=case.client_id)
         elif client := Client.objects.filter(pk=g.get("musteri")).first():

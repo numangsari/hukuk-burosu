@@ -9,8 +9,9 @@ from django.db.models.functions import Coalesce
 from django.utils import timezone
 
 from apps.accounting.models import _MONEY as MONEY
-from apps.accounting.models import TRUST_EXPR, EntryKind, LedgerEntry
+from apps.accounting.models import CREDIT_EXPR, EntryKind, LedgerEntry
 from apps.accounts.models import User
+from apps.cases.flows import cluster
 from apps.cases.models import Case, CaseEvent, CaseStatus, CaseType, Hearing, HearingStatus
 from apps.clients.models import Client
 from apps.core.forms import BootstrapMixin, DateInput
@@ -55,18 +56,15 @@ class StatementForm(PeriodForm):
 def build_statement(d, user):
     client = d["client"]
     entries = client.ledger_entries.active().select_related("case").order_by("date", "pk")
-    opening_cari = opening_trust = ZERO
+    balance = ZERO
     if d.get("start"):
-        before = entries.filter(date__lt=d["start"]).balances()
-        opening_cari, opening_trust = before["cari"], before["trust"]
+        balance = entries.filter(date__lt=d["start"]).balances()["balance"]
     entries = _date_filter(entries, d)
-    cari, trust = opening_cari, opening_trust
     rows = []
     if d.get("start"):
-        rows.append([d["start"], "Devir", "", "", None, cari, trust])
+        rows.append([d["start"], "Devir", "", "", None, balance])
     for e in entries:
-        cari += e.cari_effect
-        trust += e.trust_effect
+        balance += e.balance_effect
         rows.append(
             [
                 e.date,
@@ -74,12 +72,11 @@ def build_statement(d, user):
                 e.case.archive_reference if e.case else "",
                 e.description,
                 e.amount,
-                cari,
-                trust,
+                balance,
             ]
         )
     return ReportResult(
-        title="Müvekkil Cari Hesap Ekstresi",
+        title="Müvekkil Hesap Ekstresi",
         subtitle=f"{client.name} · {_period(d)}",
         columns=[
             Column("Tarih", "date", 0.8),
@@ -87,15 +84,13 @@ def build_statement(d, user):
             Column("Dosya", "text", 0.8),
             Column("Açıklama", "text", 2.2),
             Column("Tutar", "money", 1),
-            Column("Cari bakiye", "money", 1),
-            Column("Emanet", "money", 1),
+            Column("Bakiye", "money", 1),
         ],  # fmt: skip
         rows=rows,
         summary=[
             ("Müvekkil", client.name),
             ("Kimlik no", client.identity_no or "—"),
-            ("Dönem sonu cari bakiye", _tl(cari)),
-            ("Dönem sonu emanet", _tl(trust)),
+            ("Dönem sonu bakiye", _tl(balance)),
         ],
     )
 
@@ -119,18 +114,15 @@ def build_debtors(d, user):
     if not d.get("include_zero"):
         qs = qs.filter(balance__gt=0)
     rows, total = [], ZERO
-    trust_sq = (
+    credit_sq = (
         LedgerEntry.objects.filter(client=OuterRef("pk"), is_cancelled=False)
-        .order_by().values("client").annotate(t=Sum(TRUST_EXPR)).values("t")
+        .order_by().values("client").annotate(t=Sum(CREDIT_EXPR)).values("t")
     )  # fmt: skip
     qs = qs.annotate(
-        trust=Coalesce(Subquery(trust_sq, output_field=MONEY), Value(ZERO), output_field=MONEY)
+        credit=Coalesce(Subquery(credit_sq, output_field=MONEY), Value(ZERO), output_field=MONEY)
     )
     for c in qs.order_by("-balance", "name"):
-        trust = c.trust
-        rows.append(
-            [c.name, c.responsible_lawyer, c.case_count, c.balance, trust, c.balance - trust]
-        )
+        rows.append([c.name, c.responsible_lawyer, c.case_count, c.credit, c.balance])
         total += c.balance
     return ReportResult(
         title="Borçlu Müvekkiller / Alacak Listesi",
@@ -140,12 +132,11 @@ def build_debtors(d, user):
             Column("Müvekkil", "text", 2.2),
             Column("Sorumlu avukat", "text", 1.4),
             Column("Dosya", "int", 0.6),
-            Column("Cari bakiye", "money", 1.1),
-            Column("Emanet", "money", 1.1),
-            Column("Net", "money", 1.1),
+            Column("Ofisten alacağı", "money", 1.1),
+            Column("Bakiye (borç)", "money", 1.1),
         ],  # fmt: skip
         rows=rows,
-        totals=["Toplam", "", "", total, None, None],
+        totals=["Toplam", "", "", None, total],
         landscape=False,
     )
 
@@ -221,6 +212,16 @@ class CaseListForm(BootstrapMixin, forms.Form):
     )
 
 
+def _linked_name(case) -> str:
+    """Bağlı dosyalar raporlarda art arda gelir; ad önüne bağ işareti, sonuna bağlı sayısı eklenir."""
+    name = case.display_name
+    if getattr(case, "chain_prev", False):
+        name = "↔ " + name
+    if getattr(case, "linked_others", 0):
+        name += f" (+{case.linked_others} dosya bağlı)"
+    return name
+
+
 def build_cases(d, user):
     qs = Case.objects.select_related("client", "responsible_lawyer", "responsible_intern")
     if d.get("case_type"):
@@ -236,9 +237,9 @@ def build_cases(d, user):
         "archive_no"
     )
     rows = [
-        [k.archive_reference, k.get_case_type_display(), k.display_name, k.client.name, f"{k.authority} {k.official_no}".strip(),
+        [k.archive_reference, k.get_case_type_display(), _linked_name(k), k.client.name, f"{k.authority} {k.official_no_display}".strip(),
          k.status_summary, k.responsible_lawyer, k.open_tasks]
-        for k in qs
+        for k in cluster(qs)
     ]  # fmt: skip
     return ReportResult(
         title="Dosya Listesi",
@@ -293,10 +294,10 @@ def build_period_accounting(d, user):
         totals=["Toplam", *[totals[k] for k in kinds]],
         summary=[
             ("Müvekkilden tahsilat (ücret ve masraf karşılığı)", _tl(t["collection"])),
-            ("Emanetten mahsup edilen", _tl(t["offset"])),
             ("Tahakkuk eden vekalet ücreti", _tl(t["fee"])),
             ("Müvekkil adına masraf", _tl(t["expense"])),
-            ("Emanet hareketi (giren / çıkan)", f"{_tl(t['trust_in'])} / {_tl(t['trust_out'])}"),
+            ("Karşı taraftan tahsilat (müvekkilin ofisten alacağı)", _tl(t["trust_in"])),
+            ("Müvekkile ödeme", _tl(t["trust_out"])),
         ],
     )
 
@@ -340,10 +341,10 @@ def build_client_cases(d, user):
         last_title=Subquery(last_sq.values("title")[:1]),
     ).order_by("client__name", "archive_no")
     rows = [
-        [k.client.name, k.archive_reference, k.display_name, k.status_summary,
+        [k.client.name, k.archive_reference, _linked_name(k), k.status_summary,
          f"{timezone.localtime(k.next_hearing):%d.%m.%Y %H:%M}" if k.next_hearing else "",
          k.open_tasks, f"{k.last_date:%d.%m.%Y} {k.last_title}" if k.last_date else ""]
-        for k in cases
+        for k in cluster(cases)
     ]  # fmt: skip
     return ReportResult(
         title="Dosyaların Son Durumu",
@@ -365,12 +366,12 @@ def build_client_cases(d, user):
 
 REPORTS = {
     "cari-ekstre": {
-        "title": "Müvekkil cari ekstresi", "icon": "bi-journal-text", "financial": True, "form": StatementForm,
+        "title": "Müvekkil hesap ekstresi", "icon": "bi-journal-text", "financial": True, "form": StatementForm,
         "build": build_statement, "desc": "Bir müvekkilin dönem içindeki tüm hareketleri, devir ve bakiyeleri.",
     },
     "borclu-muvekkiller": {
         "title": "Borçlu müvekkiller / alacak listesi", "icon": "bi-cash-stack", "financial": True,
-        "form": DebtorsForm, "build": build_debtors, "desc": "Cari bakiyesi olan müvekkiller ve toplam alacak.",
+        "form": DebtorsForm, "build": build_debtors, "desc": "Bakiyesi (müvekkilin ofise borcu) olan müvekkiller ve toplam alacak.",
     },
     "gorevler": {
         "title": "Görev raporu", "icon": "bi-check2-square", "financial": False, "form": TaskReportForm,
@@ -383,7 +384,7 @@ REPORTS = {
     "donem-muhasebe": {
         "title": "Dönem muhasebe raporu", "icon": "bi-bar-chart-line", "financial": True,
         "form": PeriodAccountingForm, "build": build_period_accounting,
-        "desc": "Aylara göre vekalet ücreti, masraf, tahsilat, emanet ve mahsup toplamları.",
+        "desc": "Aylara göre vekalet ücreti, masraf, tahsilat ve ödeme toplamları.",
     },
     "dosya-son-durum": {
         "title": "Müvekkil bazlı dosya son durumu", "icon": "bi-clipboard-data", "financial": False,
