@@ -2,6 +2,7 @@
 
 import hashlib
 import io
+import re
 import unicodedata
 from collections import Counter, defaultdict
 from dataclasses import dataclass
@@ -343,6 +344,57 @@ def evaluate(row, index, location_counts, cases):
         if row.kind == "enforcement" and existing.enforcement_amount not in (None, principal):
             return None, "Mevcut dosyanın esas alacak tutarı kaynakla uyuşmuyor."
     return (client, case_type, role, principal, existing), ""
+
+
+def source_row(record):
+    """Kayıtlı satırı kaynak dosyada bulur; dosya değişmişse None döner."""
+    _, rows = read_sources()
+    for row in rows:
+        if (
+            row.source_hash == record.source_sha256
+            and row.sheet == record.sheet
+            and row.number == record.row_number
+        ):
+            return row
+    return None
+
+
+def case_initial(record):
+    """Yeni dosya formunu kaynak satırdan önceden doldurur; kesin olmayanı boş bırakır."""
+    row = source_row(record)
+    if row is None:
+        return {}
+    initial = {
+        "authority": row.authority,
+        "archive_folder_no": row.folder,
+        "archive_no": row.archive_no,
+    }
+    case_type = CaseType.ENFORCEMENT if row.kind == "enforcement" else archive_type(row.authority)
+    if case_type:
+        initial["case_type"] = case_type
+    match = re.fullmatch(r"(\d{4})/(\d+)", row.official_no.strip())
+    if match:
+        initial["official_year"], initial["official_sequence"] = map(int, match.groups())
+    index = _client_index()
+    if row.kind == "enforcement":
+        client = _single(index, row.client_name)
+    else:
+        left, right = _single(index, row.left), _single(index, row.right)
+        client = (left or right) if bool(left) != bool(right) else None
+    if client:
+        initial["client"] = client
+        role = _role(row, client)
+        if role:
+            initial["client_role"] = role
+    if row.opened_on:
+        initial["opened_on"] = row.opened_on
+    if row.kind == "enforcement":
+        try:
+            if (principal := amount(row.principal)) is not None:
+                initial["enforcement_amount"] = principal
+        except ValueError:
+            pass
+    return initial
 
 
 @transaction.atomic

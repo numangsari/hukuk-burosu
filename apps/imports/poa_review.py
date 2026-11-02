@@ -74,7 +74,8 @@ def read_source():
         for index, record in enumerate(records, 2):
             values = list(record[:3]) + [None] * max(0, 3 - len(record))
             reference, name, note = (_text(value) for value in values[:3])
-            if reference or name or note:
+            # Adı ve notu boş satır (yalnızca V-numarası) bilgi taşımaz; incelemeye alınmaz.
+            if name or note:
                 rows.append(SourceRow(index, reference, name, note))
         workbook.close()
     except FileNotFoundError as exc:

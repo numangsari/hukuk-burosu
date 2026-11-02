@@ -301,6 +301,16 @@ class CaseCreateView(CaseFormMixin, CreateView):
                 responsible_lawyer=related.responsible_lawyer_id,
                 responsible_intern=related.responsible_intern_id,
             )
+        record = self._source_record()
+        if record:
+            # Ofis listesi satırından açılıyorsa kaynak bilgiler önceden dolar.
+            from apps.imports.office_sources import case_initial
+
+            source = case_initial(record)
+            source_client = source.pop("client", None)
+            if source_client:
+                client_id = source_client.pk
+            initial.update(source)
         if client_id:
             client = Client.objects.filter(pk=client_id).first()
             if client:
@@ -308,6 +318,38 @@ class CaseCreateView(CaseFormMixin, CreateView):
                 initial.setdefault("responsible_lawyer", client.responsible_lawyer_id)
                 initial.setdefault("responsible_intern", client.responsible_intern_id)
         return initial
+
+    def _source_record(self):
+        """Yalnızca yöneticinin, henüz dosyaya bağlanmamış ofis listesi satırı."""
+        from apps.imports.models import OfficeSourceRecord
+
+        raw = self.request.POST.get("source_record") or self.request.GET.get("kaynak")
+        if not self.request.user.is_office_admin or not str(raw or "").isdigit():
+            return None
+        return OfficeSourceRecord.objects.filter(pk=raw, case__isnull=True).first()
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["source_record"] = self._source_record()
+        return ctx
+
+    def form_valid(self, form):
+        with transaction.atomic():
+            response = super().form_valid(form)
+            case = getattr(self, "object", None)
+            record = self._source_record()
+            if record and case and case.pk:
+                from apps.imports.models import OfficeSourceRecord
+
+                locked = OfficeSourceRecord.objects.select_for_update().get(pk=record.pk)
+                if not locked.case_id:
+                    locked.case, locked.reason = case, ""
+                    locked.save(update_fields=["case", "reason"])
+                    if record.sheet in ("KAPALI", "KAPALI1"):
+                        case.status, case.stage = CaseStatus.CLOSED, ""
+                        case.save(update_fields=["status", "stage"], preserve_unknown_stage=True)
+                    messages.success(self.request, "Liste satırı bu dosyaya bağlandı.")
+        return response
 
 
 class CaseUpdateView(CaseFormMixin, UpdateView):

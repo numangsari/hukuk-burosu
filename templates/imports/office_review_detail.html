@@ -18,7 +18,8 @@
     {% else %}
       <h2 class="section-title">Dosya seç</h2>
       <p>Bu satıra ait dosyayı seçin. Listedeki bilgiler dosyada görünür; dosyanın mevcut bilgileri değiştirilmez.</p>
-      <p>Dosya henüz yoksa <a href="{% url 'cases:create' %}" target="_blank" rel="noopener">yeni dosya açın</a>, ardından bu sayfayı yenileyin.</p>
+      <p><a class="btn btn-outline-primary btn-sm" href="{% url 'cases:create' %}?kaynak={{ row.pk }}"><i class="bi bi-plus-lg me-1"></i>Bu satırdan yeni dosya oluştur</a>
+      <span class="text-body-secondary small ms-2">Tür, kurum, numara ve arşiv yeri önceden dolar; müvekkili ve dosya türünü siz seçersiniz.</span></p>
       <form method="post">{% csrf_token %}
         {% include "partials/field.html" with field=form.case %}
         <button class="btn btn-primary">Seçilen dosyaya bağla</button>

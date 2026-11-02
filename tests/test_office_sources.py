@@ -177,3 +177,49 @@ def test_user_can_link_a_review_row_without_changing_the_case(office_files, clie
 def test_ambiguous_amount_is_not_guessed(value):
     with pytest.raises(ValueError):
         amount(value)
+
+
+def test_new_case_can_be_created_from_a_review_row(office_files, client, admin_user):
+    execute()
+    row = OfficeSourceRecord.objects.get(case__isnull=True)
+    client.force_login(admin_user)
+    url = reverse("cases:create") + f"?kaynak={row.pk}"
+    page = client.get(url)
+    assert page.status_code == 200
+    html = page.content.decode()
+    assert f'name="source_record" value="{row.pk}"' in html
+    assert "ÖRNEK HUKUK MAHKEMESİ" in html
+    assert 'value="2024"' in html and 'value="2"' in html
+    response = client.post(
+        reverse("cases:create"),
+        {
+            "source_record": row.pk,
+            "client": office_files.pk,
+            "case_type": "civil",
+            "client_role": "plaintiff",
+            "archive_folder_no": "Açık 1",
+            "archive_no": "3",
+            "official_year": "2024",
+            "official_sequence": "2",
+            "authority": "ÖRNEK HUKUK MAHKEMESİ",
+            "subject": "ALACAK",
+            "opened_on": "2024-03-01",
+            "parties-TOTAL_FORMS": "0",
+            "parties-INITIAL_FORMS": "0",
+            "coclients-TOTAL_FORMS": "0",
+            "coclients-INITIAL_FORMS": "0",
+        },
+    )
+    assert response.status_code == 302, response.content.decode()[:500]
+    row.refresh_from_db()
+    assert row.case and row.case.subject == "ALACAK" and not row.reason
+    assert not OfficeSourceRecord.objects.filter(case__isnull=True).exists()
+
+
+def test_source_prefill_is_ignored_for_non_admin(office_files, client):
+    execute()
+    row = OfficeSourceRecord.objects.get(case__isnull=True)
+    user = User.objects.create_user(username="test_stajyer2", role="intern")
+    client.force_login(user)
+    response = client.get(reverse("cases:create") + f"?kaynak={row.pk}")
+    assert 'name="source_record"' not in response.content.decode()
