@@ -268,3 +268,21 @@ def test_bulk_list_requires_admin(office_files, client):
     user = User.objects.create_user(username="test_stajyer3", role="intern")
     client.force_login(user)
     assert client.get(reverse("imports:office_bulk")).status_code in (302, 403)
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ("2026/151", "2026/151"),
+        ("2026/151 E", "2026/151"),
+        ("2026/151 E.", "2026/151"),
+        ("2026/151 Esas", "2026/151"),
+        ("2025/ 46 E", "2025/46"),
+        ("2018/7977 D. İŞ", "2018/7977 D. İŞ"),
+        ("YEVMİYE NO: 22060", "YEVMİYE NO: 22060"),
+    ],
+)
+def test_normalize_number(raw, expected):
+    from apps.imports.office_sources import normalize_number
+
+    assert normalize_number(raw) == expected

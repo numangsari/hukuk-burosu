@@ -33,13 +33,26 @@ LITIGATION_TYPES = {CaseType.CIVIL, CaseType.CRIMINAL, CaseType.ADMINISTRATIVE}
 # Türe göre form etiketleri. Boş değer alanın o türde gizleneceğini belirtir.
 TYPE_LABELS = {
     kind: {
-        "official_no": "" if kind in {CaseType.CONSULTANCY, CaseType.OTHER} else "Dosya Numarası",
+        "official_no": ""
+        if kind in {CaseType.CONSULTANCY, CaseType.OTHER}
+        else ("Tarih ve Yevmiye No" if kind == CaseType.NOTICE else "Dosya Numarası"),
         "authority": "" if kind in {CaseType.CONSULTANCY, CaseType.OTHER} else "Kurum Adı",
         "subject": "Konu",
         "value": "",
     }
     for kind in CaseType
 }
+
+
+class NumberKind(models.TextChoices):
+    """Esas türündeki dosyalarda numaranın türü; varsayılan Esas."""
+
+    ESAS = "esas", "Esas"
+    MISC = "d_is", "D.İş"
+    COMMISSION = "talimat", "Talimat"
+
+
+NUMBER_KIND_TYPES = {CaseType.CIVIL, CaseType.CRIMINAL, CaseType.ADMINISTRATIVE}
 
 
 class CaseStatus(models.TextChoices):
@@ -98,6 +111,15 @@ class Case(TimeStampedModel):
     archive_folder_no = models.CharField("klasör no", max_length=50, blank=True)
     archive_no = models.CharField("dosya no", max_length=50)
     official_no = models.CharField("dosya numarası", max_length=100, blank=True)
+    # İhtarnamede noterin düzenleme tarihi (numara yalnızca yevmiye numarasıdır).
+    official_date = models.DateField("ihtarname tarihi", null=True, blank=True)
+    # İhtarnamede tebligat bilgisi: tebligat numarası, tebliğ edilip edilmediği ve tebliğ tarihi.
+    notice_service_no = models.CharField("tebligat no", max_length=50, blank=True)
+    notice_served = models.BooleanField("tebliğ edildi", default=False)
+    notice_served_on = models.DateField("tebliğ tarihi", null=True, blank=True)
+    official_no_kind = models.CharField(
+        "numara türü", max_length=10, choices=NumberKind.choices, default=NumberKind.ESAS
+    )
     authority = models.CharField("kurum adı", max_length=200, blank=True)
     subject = models.CharField("konu", max_length=300)
     value = models.DecimalField("değer", max_digits=16, decimal_places=2, null=True, blank=True)
@@ -199,7 +221,20 @@ class Case(TimeStampedModel):
     @property
     def official_no_display(self) -> str:
         """Dosya numarası; türüne göre sonuna Esas / İcra / Soruşturma / Arabuluculuk eklenir."""
-        return _with_suffix(self.official_no, NUMBER_SUFFIX.get(self.case_type, ""))
+        if self.case_type == CaseType.NOTICE:
+            # İhtarnamede numara yalnızca noterin yevmiye numarasıdır.
+            number = (
+                f"{self.official_no} Yevmiye" if self.official_no.isdigit() else self.official_no
+            )
+            date = self.official_date.strftime("%d.%m.%Y") if self.official_date else ""
+            return " / ".join(part for part in (date, number) if part)
+        suffix = NUMBER_SUFFIX.get(self.case_type, "")
+        if self.case_type in NUMBER_KIND_TYPES and self.official_no_kind in (
+            NumberKind.MISC,
+            NumberKind.COMMISSION,
+        ):
+            suffix = NumberKind(self.official_no_kind).label
+        return _with_suffix(self.official_no, suffix)
 
     @property
     def decision_no_display(self) -> str:

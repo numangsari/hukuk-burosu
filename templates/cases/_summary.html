@@ -33,6 +33,7 @@
         <div class="info-item"><div class="info-label">Konu</div><div class="info-value">{{ case.subject }}</div></div>
         {% if case.labels.authority %}<div class="info-item"><div class="info-label">{{ case.labels.authority }}</div><div class="info-value">{{ case.authority|default:"—" }}</div></div>{% endif %}
         {% if case.labels.official_no %}<div class="info-item"><div class="info-label">{{ case.labels.official_no }}</div><div class="info-value tabular">{{ case.official_no_display|default:"—" }}</div></div>{% endif %}
+        {% if case.case_type == 'notice' %}<div class="info-item"><div class="info-label">Tebligat</div><div class="info-value">{% if case.notice_service_no %}No: {{ case.notice_service_no }} · {% endif %}{% if case.notice_served %}Tebliğ edildi{% if case.notice_served_on %} ({{ case.notice_served_on|date:"d.m.Y" }}){% endif %}{% else %}Tebliğ edilmedi{% endif %}</div></div>{% endif %}
         <div class="info-item"><div class="info-label">Dosya türü</div><div class="info-value">{{ case.get_case_type_display }}</div></div>
         <div class="info-item"><div class="info-label">Fiziki arşiv yeri</div><div class="info-value tabular">{{ case.archive_reference }}</div></div>
         {% if case.enforcement_type %}<div class="info-item"><div class="info-label">Takip türü</div><div class="info-value">{{ case.get_enforcement_type_display }}</div></div>{% endif %}

@@ -26,11 +26,23 @@ class CaseForm(BootstrapMixin, forms.ModelForm):
                 "maxlength": "4",
                 "pattern": "[0-9]{4}",
                 "placeholder": "Yıl",
+                "@input": r"$el.value = $el.value.replace(/\D/g, '')",
             }
         ),
     )
     official_sequence = forms.IntegerField(
-        label="Numara", min_value=1, max_value=999999999999, required=False
+        label="Numara",
+        min_value=1,
+        max_value=999999999999,
+        required=False,
+        widget=forms.TextInput(
+            attrs={
+                "inputmode": "numeric",
+                "pattern": "[0-9]*",
+                "maxlength": "12",
+                "@input": r"$el.value = $el.value.replace(/\D/g, '')",
+            }
+        ),
     )
 
     class Meta:
@@ -42,6 +54,11 @@ class CaseForm(BootstrapMixin, forms.ModelForm):
             "archive_no",
             "official_year",
             "official_sequence",
+            "official_no_kind",
+            "official_date",
+            "notice_service_no",
+            "notice_served",
+            "notice_served_on",
             "client_role",
             "authority",
             "subject",
@@ -56,7 +73,11 @@ class CaseForm(BootstrapMixin, forms.ModelForm):
             "notes",
             "folder_name",
         ]
-        widgets = {"opened_on": DateInput()}
+        widgets = {
+            "opened_on": DateInput(),
+            "official_date": DateInput(),
+            "notice_served_on": DateInput(),
+        }
 
     def __init__(self, *args, can_remove_parties=False, related_case=None, **kwargs):
         super().__init__(*args, **kwargs)
@@ -64,6 +85,10 @@ class CaseForm(BootstrapMixin, forms.ModelForm):
         imported = bool(self.instance.pk and self.instance.office_sources.exists())
         self.imported_incomplete = imported
         self.fields["archive_folder_no"].required = not self.instance.pk
+        self.fields["official_no_kind"].required = False
+        self.fields["official_date"].required = False
+        self.fields["official_date"].label = "Tarih"
+        self.fields["official_no_kind"].initial = "esas"
         self.fields["opened_on"].required = True
         if imported:
             for name in ("archive_no", "opened_on", "subject", "client_role"):
@@ -110,13 +135,21 @@ class CaseForm(BootstrapMixin, forms.ModelForm):
             match = re.fullmatch(r"([0-9]{4})/([0-9]+)", self.instance.official_no)
             if match:
                 self.initial.update(official_year=int(match[1]), official_sequence=int(match[2]))
+            elif self.instance.case_type == "notice" and self.instance.official_no.isdigit():
+                self.initial.update(
+                    official_year=None, official_sequence=int(self.instance.official_no)
+                )
             elif self.instance.official_no:
                 self.fields[
                     "official_sequence"
                 ].help_text = f"Eski dosya numarası: {self.instance.official_no}"
         for name in ("authority", "official_year", "official_sequence"):
             if not imported:
-                self.fields[name].widget.attrs[":required"] = "Boolean(labels.authority)"
+                self.fields[name].widget.attrs[":required"] = (
+                    "Boolean(labels.authority) && caseType !== 'notice'"
+                    if name == "official_year"
+                    else "Boolean(labels.authority)"
+                )
         if imported and not self.instance.authority:
             self.fields["authority"].required = False
         self.fields["case_type"].widget.attrs["x-model"] = "caseType"
@@ -183,6 +216,8 @@ class CaseForm(BootstrapMixin, forms.ModelForm):
         case_type = data.get("case_type")
         if case_type not in ("consultancy", "other"):
             for name, label in (("official_year", "Yıl"), ("official_sequence", "Numara")):
+                if case_type == "notice" and name == "official_year":
+                    continue  # İhtarnamede yıl yok, yalnızca yevmiye numarası girilir.
                 empty_pair = not data.get("official_year") and not data.get("official_sequence")
                 if (
                     data.get(name) is None
@@ -190,9 +225,27 @@ class CaseForm(BootstrapMixin, forms.ModelForm):
                     and not (self.imported_incomplete and empty_pair)
                 ):
                     self.add_error(name, f"{label} zorunludur.")
-            if data.get("official_year") and data.get("official_sequence"):
+            if case_type == "notice":
+                if not data.get("official_date") and not (
+                    self.instance.pk and not self.instance.official_date
+                ):
+                    self.add_error("official_date", "Tarih zorunludur.")
+                if data.get("official_sequence"):
+                    data["official_no"] = str(data["official_sequence"])
+                    self.instance.official_no = data["official_no"]
+            elif data.get("official_year") and data.get("official_sequence"):
                 data["official_no"] = f"{data['official_year']}/{data['official_sequence']}"
                 self.instance.official_no = data["official_no"]
+        if case_type != "notice":
+            data["official_date"] = None
+            data["notice_service_no"] = ""
+            data["notice_served"] = False
+        if case_type != "notice" or not data.get("notice_served"):
+            data["notice_served_on"] = None
+        if case_type not in ("civil", "criminal", "administrative") or not data.get(
+            "official_no_kind"
+        ):
+            data["official_no_kind"] = "esas"
         if data.get("authority"):
             data["authority"] = tr_upper(data["authority"]).strip()
         if case_type in ("consultancy", "other"):

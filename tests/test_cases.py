@@ -178,8 +178,64 @@ def test_institution_and_number_required(client_factory, case_type):
     )
     form = CaseForm(data)
     assert not form.is_valid()
-    assert {"authority", "official_year", "official_sequence"} <= form.errors.keys()
+    required = {"authority", "official_sequence"}
+    # İhtarnamede yıl yok; tarih ve yevmiye numarası girilir.
+    required.add("official_date" if case_type == "notice" else "official_year")
+    assert required <= form.errors.keys()
+    assert ("official_year" in form.errors) == (case_type != "notice")
     assert "subject" in form.errors
+
+
+def test_notice_uses_date_and_yevmiye_number(lawyer_client, client_factory):
+    data = _case_data(
+        client_factory(), case_type="notice", official_no="", subject="ihtar", official_year=""
+    )
+    data.update(
+        authority="SAKARYA 3. NOTERLİĞİ", official_sequence="4545", official_date="2026-12-12"
+    )
+    assert lawyer_client.post(reverse("cases:create"), data).status_code == 302
+    case = Case.objects.get()
+    assert case.official_no == "4545"
+    assert case.official_date.isoformat() == "2026-12-12"
+    assert case.official_no_display == "12.12.2026 / 4545 Yevmiye"
+
+
+def test_notice_service_info_is_saved_and_cleared_for_other_types(lawyer_client, client_factory):
+    data = _case_data(
+        client_factory(), case_type="notice", official_no="", subject="ihtar", official_year=""
+    )
+    data.update(
+        authority="SAKARYA 3. NOTERLİĞİ",
+        official_sequence="4545",
+        official_date="2026-12-12",
+        notice_service_no="4200558110633",
+        notice_served="on",
+        notice_served_on="2026-12-20",
+    )
+    assert lawyer_client.post(reverse("cases:create"), data).status_code == 302
+    case = Case.objects.get()
+    assert case.notice_service_no == "4200558110633" and case.notice_served
+    assert case.notice_served_on.isoformat() == "2026-12-20"
+    page = lawyer_client.get(case.get_absolute_url())
+    assert "Tebliğ edildi" in page.content.decode()
+
+
+def test_commission_number_kind_shows_talimat(lawyer_client, client_factory):
+    data = _case_data(client_factory(), case_type="criminal", subject="talimat")
+    data.update(official_year="2018", official_sequence="113", official_no_kind="talimat")
+    assert lawyer_client.post(reverse("cases:create"), data).status_code == 302
+    assert Case.objects.get().official_no_display == "2018/113 Talimat"
+
+
+def test_misc_number_kind_is_selectable_for_esas_types(lawyer_client, client_factory):
+    data = _case_data(client_factory(), case_type="criminal", subject="değişik iş")
+    data.update(official_year="2018", official_sequence="7977", official_no_kind="d_is")
+    assert lawyer_client.post(reverse("cases:create"), data).status_code == 302
+    case = Case.objects.get()
+    assert case.official_no == "2018/7977" and case.official_no_kind == "d_is"
+    assert case.official_no_display == "2018/7977 D.İş"
+    case.official_no_kind = "esas"
+    assert case.official_no_display == "2018/7977 Esas"
 
 
 @pytest.mark.parametrize("case_type", ["consultancy", "other"])

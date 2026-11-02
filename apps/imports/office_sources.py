@@ -22,6 +22,14 @@ from apps.core.text import fold, tr_upper
 from .models import OfficeSourceRecord
 from .poa_review import get_teams
 
+_NUMBER = re.compile(r"\s*(\d{4})\s*/\s*(\d+)\s*(?:E\.?|ESAS)?\s*", re.IGNORECASE)
+
+
+def normalize_number(value):
+    """`2026/151 E.`, `2026/151 E`, `2026/151 Esas` yazımlarını `2026/151` yapar; diğerine dokunmaz."""
+    match = _NUMBER.fullmatch(value or "")
+    return f"{match.group(1)}/{match.group(2)}" if match else value
+
 
 def key(value):
     return tr_upper(unicodedata.normalize("NFC", " ".join(str(value or "").split())))
@@ -167,7 +175,7 @@ def read_sources():
                             place,
                             file_no,
                             authority,
-                            official,
+                            normalize_number(official),
                             left,
                             right,
                         )
@@ -205,7 +213,7 @@ def read_sources():
                         "",
                         "",
                         authority,
-                        official,
+                        normalize_number(official),
                         left,
                         right,
                         client,
