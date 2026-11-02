@@ -57,11 +57,9 @@ class PowerOfAttorneyReviewListView(AdminRequiredMixin, View):
 
 class PowerOfAttorneyReviewDetailView(AdminRequiredMixin, View):
     def _context(self, source_hash, rows, row, form=None):
-        matches = (
-            Client.objects.filter(search_key=fold(" ".join(row.name.split())))
-            if row.name
-            else Client.objects.none()
-        )
+        matches = Client.objects.filter(search_key__in=poa_review.row_match_keys(row))
+        if row.status == "incomplete":
+            matches = matches.exclude(pk__in=row.client_ids)
         linked_clients = (
             Client.objects.filter(pk__in=row.client_ids)
             if row.status in ("done", "incomplete")

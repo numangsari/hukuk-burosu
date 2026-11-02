@@ -238,6 +238,49 @@ def test_same_poa_number_can_be_used_by_different_clients(client_factory, lawyer
     assert Client.suggest_poa_no() == 43
 
 
+def test_poa_filter_includes_linked_reference_without_primary_number(
+    lawyer_client, client_factory, admin_user
+):
+    from apps.imports.models import PowerOfAttorneyReview
+
+    linked = client_factory(first_name="İlişkili")
+    absent = client_factory(first_name="Vekaletsiz")
+    PowerOfAttorneyReview.objects.create(
+        source_sha256="a" * 64,
+        source_row=2,
+        source_reference="V - 007",
+        client=linked,
+        created_by=admin_user,
+    )
+    with_poa = lawyer_client.get(reverse("clients:list"), {"poa": "yes"})
+    assert {c.pk for c in with_poa.context["clients"]} == {linked.pk}
+    assert "V-7" in with_poa.content.decode()
+    without_poa = lawyer_client.get(reverse("clients:list"), {"poa": "no"})
+    assert {c.pk for c in without_poa.context["clients"]} == {absent.pk}
+
+
+def test_shared_reference_is_visible_for_each_linked_client(
+    lawyer_client, client_factory, admin_user
+):
+    from apps.imports.models import PowerOfAttorneyReview, PowerOfAttorneyReviewMember
+
+    first = client_factory(first_name="Birinci", poa_no=7)
+    second = client_factory(first_name="İkinci")
+    review = PowerOfAttorneyReview.objects.create(
+        source_sha256="b" * 64,
+        source_row=3,
+        source_reference="V-007",
+        client=first,
+        expected_clients=2,
+        created_by=admin_user,
+    )
+    PowerOfAttorneyReviewMember.objects.create(review=review, client=second)
+    assert first.poa_labels == ["V-7"]
+    assert second.poa_labels == ["V-7"]
+    with_poa = lawyer_client.get(reverse("clients:list"), {"poa": "yes"})
+    assert {c.pk for c in with_poa.context["clients"]} == {first.pk, second.pk}
+
+
 def test_intern_supervisor_fills_form_defaults(lawyer, intern):
     from apps.clients.views import intern_by_lawyer
 

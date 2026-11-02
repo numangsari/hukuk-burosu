@@ -2,7 +2,6 @@
 
 import hashlib
 import io
-import re
 import unicodedata
 from collections import defaultdict
 from dataclasses import dataclass
@@ -17,7 +16,7 @@ from openpyxl.utils.exceptions import InvalidFileException
 
 from apps.accounts.models import User
 from apps.clients.models import Client
-from apps.core.text import fold, tr_upper
+from apps.core.text import fold, poa_reference_number, tr_upper
 
 from .models import PowerOfAttorneyReview, PowerOfAttorneyReviewMember
 
@@ -40,8 +39,7 @@ class SourceRow:
 
     @property
     def poa_no(self):
-        match = re.fullmatch(r"V\s*-\s*([0-9]+)", self.reference.strip(), re.IGNORECASE)
-        return int(match.group(1)) if match and int(match.group(1)) > 0 else None
+        return poa_reference_number(self.reference)
 
 
 def _text(value):
@@ -88,6 +86,16 @@ def read_source():
 
 def _exact_name(value):
     return tr_upper(unicodedata.normalize("NFC", " ".join(value.split())))
+
+
+def row_match_keys(row):
+    """Kullanıcının seçebileceği tam isim ve virgülle ayrılmış bölüm anahtarları."""
+    values = [row.name, *row.name.split(",")]
+    return {
+        fold(unicodedata.normalize("NFC", " ".join(value.split())))
+        for value in values
+        if value.strip()
+    }
 
 
 def mark_processed(source_hash, rows):
@@ -239,8 +247,7 @@ def link_existing(*, client_id, source_hash, row, user):
         raise ValidationError("Kaynak liste değişmiş. Sayfayı yenileyip satırı yeniden inceleyin.")
     client = Client.objects.select_for_update().filter(pk=client_id).first()
     if not client or not (
-        (row.name and client.search_key == fold(" ".join(row.name.split())))
-        or (row.poa_no and client.poa_no == row.poa_no)
+        client.search_key in row_match_keys(row) or (row.poa_no and client.poa_no == row.poa_no)
     ):
         raise ValidationError("Bu satır için seçilen müvekkil bulunamadı. Sayfayı yenileyin.")
     existing = (

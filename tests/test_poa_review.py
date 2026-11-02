@@ -7,10 +7,26 @@ from openpyxl import Workbook
 
 from apps.accounts.models import User
 from apps.clients.models import Client
+from apps.core.text import poa_reference_number
 from apps.imports.models import PowerOfAttorneyReview
 from apps.imports.poa_review import read_source
 
 pytestmark = pytest.mark.django_db
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("V - 000000000007", 7),
+        ("v-001", 1),
+        ("V-0", None),
+        ("V-2147483648", 2147483648),
+        ("V-12345678901", None),
+        ("V-x", None),
+    ],
+)
+def test_source_reference_number(value, expected):
+    assert poa_reference_number(value) == expected
 
 
 @pytest.fixture
@@ -228,3 +244,36 @@ def test_unrelated_client_cannot_be_linked(review_client, review_teams):
     )
     assert response.status_code == 302
     assert not PowerOfAttorneyReview.objects.exists()
+
+
+def test_incomplete_mixed_row_can_link_existing_person_without_changing_number(
+    review_client, review_teams, source_file
+):
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.append(["SIRA NO", "İSİM", "NOT"])
+    sheet.append(["V-002", "AYŞE DENEME, ÖRNEK TİC. LTD. ŞTİ.", ""])
+    workbook.save(source_file)
+    source_hash, _ = read_source()
+    company = make_client(review_teams[0], kind="company", title="ÖRNEK TİC. LTD. ŞTİ.", poa_no=2)
+    person = make_client(
+        review_teams[1], kind="person", first_name="Ayşe", last_name="Deneme", poa_no=8
+    )
+    review = PowerOfAttorneyReview.objects.create(
+        source_sha256=source_hash,
+        source_row=2,
+        source_reference="V-002",
+        client=company,
+        expected_clients=2,
+        created_by=User.objects.get(role="admin"),
+    )
+    url = reverse("imports:poa_review_detail", args=[2])
+    detail = review_client.get(url)
+    assert detail.context["row"].status == "incomplete" and person in detail.context["matches"]
+    response = review_client.post(
+        url, {"action": "link", "source_hash": source_hash, "client_id": person.pk}
+    )
+    assert response.status_code == 302
+    person.refresh_from_db()
+    assert person.poa_no == 8 and person.poa_labels == ["V-8", "V-2"]
+    assert review.members.get().client == person

@@ -14,7 +14,7 @@
     <div class="min-w-0">
       <h1 class="page-title">{{ client.name }}</h1>
       <div class="meta">
-        {% if client.poa_no %}<span class="poa-no tabular">{{ client.poa_label }}</span>{% else %}<span class="chip chip-warning no-dot">Vekalet yok</span>{% endif %}
+        {% for label in client.poa_labels %}<span class="poa-no tabular">{{ label }}</span>{% empty %}{% if client.powers_of_attorney.all %}<span class="chip chip-success no-dot">Vekalet var</span>{% else %}<span class="chip chip-warning no-dot">Vekalet yok</span>{% endif %}{% endfor %}
         <span><i class="bi bi-folder2-open"></i><strong>{{ open_case_count }}</strong> açık dosya</span>
         <span><i class="bi bi-folder-check"></i><strong>{{ closed_case_count }}</strong> kapalı dosya</span>
       </div>
@@ -56,7 +56,7 @@
         </div></div>
 
         <div class="card table-card">
-          <div class="card-header"><h2 class="card-title">Vekaletler</h2>{% if client.poa_no %}<span class="poa-no tabular ms-2">{{ client.poa_label }}</span>{% endif %}</div>
+          <div class="card-header"><h2 class="card-title">Vekaletler</h2>{% for label in client.poa_labels %}<span class="poa-no tabular ms-2">{{ label }}</span>{% endfor %}</div>
           <div class="table-responsive"><table class="table mb-0">
             <thead><tr><th>Noter</th><th>Tarih</th><th>Yevmiye no</th><th>Belge</th></tr></thead>
             <tbody>

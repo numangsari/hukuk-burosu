@@ -69,6 +69,7 @@ def client_ordering(sort: str) -> list:
 
 def annotate_list_values(qs):
     """Liste satırları: dosya sayısı, açık görev sayısı, bakiye (alt sorgularla)."""
+    from apps.imports.models import PowerOfAttorneyReview, PowerOfAttorneyReviewMember
     from apps.tasks.models import OPEN_STATUSES, Task
 
     open_tasks = (
@@ -89,7 +90,18 @@ def annotate_list_values(qs):
     return qs.annotate(
         case_count=Count("cases", distinct=True),
         has_poa=Q(poa_no__isnull=False)
-        | Exists(PowerOfAttorney.objects.filter(client=OuterRef("pk"))),
+        | Exists(PowerOfAttorney.objects.filter(client=OuterRef("pk")))
+        | Exists(
+            PowerOfAttorneyReview.objects.filter(
+                client=OuterRef("pk"), source_reference__iregex=r"^V\s*-\s*0*[1-9][0-9]{0,9}\s*$"
+            )
+        )
+        | Exists(
+            PowerOfAttorneyReviewMember.objects.filter(
+                client=OuterRef("pk"),
+                review__source_reference__iregex=r"^V\s*-\s*0*[1-9][0-9]{0,9}\s*$",
+            )
+        ),
         open_task_count=Coalesce(Subquery(open_tasks, output_field=IntegerField()), Value(0)),
         balance=Coalesce(Subquery(balance, output_field=money), Value(ZERO), output_field=money),
     )
@@ -106,7 +118,9 @@ class ClientListView(ListView):
     def get_queryset(self):
         g = self.request.GET
         qs = annotate_list_values(
-            Client.objects.select_related("responsible_lawyer", "responsible_intern")
+            Client.objects.select_related(
+                "responsible_lawyer", "responsible_intern"
+            ).prefetch_related("imported_poa_rows", "imported_poa_members__review")
         )
         show_balance = can_view_balances(self.request.user)
         if q := g.get("q", "").strip():
@@ -313,7 +327,11 @@ class ClientDetailView(DetailView):
     context_object_name = "client"
 
     def get_queryset(self):
-        return Client.objects.select_related("responsible_lawyer", "responsible_intern")
+        return Client.objects.select_related(
+            "responsible_lawyer", "responsible_intern"
+        ).prefetch_related(
+            "imported_poa_rows", "imported_poa_members__review", "powers_of_attorney"
+        )
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)

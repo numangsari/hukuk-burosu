@@ -14,7 +14,7 @@
   <tbody>
   {% for c in clients %}
     <tr data-href="{{ c.get_absolute_url }}" onclick="location.href=this.dataset.href">
-      <td>{% if c.poa_no %}<span class="poa-no tabular">{{ c.poa_label }}</span>{% elif c.has_poa %}<span class="chip chip-success">Var</span>{% else %}<span class="chip chip-warning">Yok</span>{% endif %}</td>
+      <td>{% for label in c.poa_labels %}<span class="poa-no tabular">{{ label }}</span>{% empty %}{% if c.has_poa %}<span class="chip chip-success">Var</span>{% else %}<span class="chip chip-warning">Yok</span>{% endif %}{% endfor %}</td>
       <td>
         <div class="d-flex align-items-center gap-3">
           <span class="hero-icon" style="width: 36px; height: 36px; font-size: 1rem; border-radius: 10px;{% if c.kind == 'company' %} background: var(--accent-soft); color: var(--accent){% endif %}">

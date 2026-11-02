@@ -6,7 +6,7 @@ from django.db.models import Q
 from django.urls import reverse
 
 from apps.core.models import TimeStampedModel
-from apps.core.text import fold, tr_upper
+from apps.core.text import fold, poa_reference_number, tr_upper
 from apps.core.validators import normalize_iban, validate_iban, validate_tckn, validate_vkn
 
 
@@ -91,6 +91,18 @@ class Client(TimeStampedModel):
     @property
     def poa_label(self) -> str:
         return f"V-{self.poa_no}" if self.poa_no else ""
+
+    @property
+    def poa_labels(self) -> list[str]:
+        """Müvekkilin asıl ve kaynak listesinden ilişkilendirilen numaraları."""
+        numbers = [self.poa_no] if self.poa_no else []
+        reviews = list(self.imported_poa_rows.all())
+        reviews.extend(member.review for member in self.imported_poa_members.all())
+        for review in reviews:
+            number = poa_reference_number(review.source_reference)
+            if number and number not in numbers:
+                numbers.append(number)
+        return [f"V-{number}" for number in numbers]
 
     @staticmethod
     def suggest_poa_no() -> int:

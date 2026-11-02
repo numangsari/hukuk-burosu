@@ -1,5 +1,7 @@
 """Türkçe metin yardımcıları."""
 
+import re
+
 _TR_LOWER = str.maketrans({"I": "ı", "İ": "i"})
 _TR_UPPER = str.maketrans({"i": "İ", "ı": "I"})
 
@@ -28,3 +30,14 @@ def tr_lower(value: str) -> str:
 def fold(value: str) -> str:
     """Büyük/küçük harf ve Türkçe aksan farkını yok sayan karşılaştırma anahtarı."""
     return tr_lower(value).translate(_FOLD).strip()
+
+
+def poa_reference_number(value: str) -> int | None:
+    """V-123 biçimindeki kaynak numarasını, aradaki boşlukları gözetmeden okur."""
+    match = re.fullmatch(r"V\s*-\s*([0-9]+)", (value or "").strip(), re.IGNORECASE)
+    if not match:
+        return None
+    digits = match.group(1).lstrip("0")
+    if not digits or len(digits) > 10:
+        return None
+    return int(digits)
