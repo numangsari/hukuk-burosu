@@ -57,6 +57,7 @@ def test_create_task_via_form_notifies_assignee(lawyer, intern, case_factory):
             "assignee": intern.pk,
             "reviewer": lawyer.pk,
             "due_date": "2026-11-10",
+            "requires_accounting": "yes",
         },
     )
     assert r.status_code == 302
@@ -64,6 +65,25 @@ def test_create_task_via_form_notifies_assignee(lawyer, intern, case_factory):
     assert t.client_id == case.client_id and t.created_by == lawyer
     assert t.events.get().kind == "created"
     assert not t.assignee_seen  # avukat stajyere atadı: "Yeni görev"
+
+
+@pytest.mark.parametrize(("choice", "expected"), [("yes", True), ("no", False)])
+def test_task_accounting_choice_is_saved(lawyer, intern, case_factory, choice, expected):
+    case = case_factory()
+    response = login(lawyer).post(
+        reverse("tasks:create"),
+        {
+            "task_type": TaskType.objects.first().pk,
+            "title": "Örnek görev",
+            "case": case.pk,
+            "assignee": intern.pk,
+            "reviewer": lawyer.pk,
+            "due_date": "2026-11-10",
+            "requires_accounting": choice,
+        },
+    )
+    assert response.status_code == 302
+    assert Task.objects.get().requires_accounting is expected
 
 
 def test_task_types_are_grouped_and_searchable(lawyer):

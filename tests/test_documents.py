@@ -111,6 +111,7 @@ def test_document_on_task_creation_is_stored_and_copied(
         "assignee": intern.pk,
         "reviewer": lawyer.pk,
         "due_date": "2026-11-10",
+        "requires_accounting": "yes",
         "document": SimpleUploadedFile("ornek.pdf", b"ornek belge"),
     }
     with django_capture_on_commit_callbacks(execute=True):

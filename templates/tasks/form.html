@@ -34,6 +34,7 @@
       <div class="col-md-4">{% include "partials/field.html" with field=form.reviewer %}</div>
       <div class="col-md-4">{% include "partials/field.html" with field=form.due_date %}</div>
     </div>
+    {% include "partials/field.html" with field=form.requires_accounting wrap_class="" %}
     {% include "partials/field.html" with field=form.notes wrap_class="" %}
     {% if form.document %}{% include "partials/field.html" with field=form.document %}{% endif %}
   </div>

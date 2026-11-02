@@ -20,14 +20,33 @@ class TaskForm(BootstrapMixin, forms.ModelForm):
     client = forms.ModelChoiceField(label="müvekkil", queryset=Client.objects.all(), required=False)
     case = CaseChoiceField(label="dosya", queryset=Case.objects.none())
     document = forms.FileField(label="Belge", required=False)
+    requires_accounting = forms.TypedChoiceField(
+        label="Gelir/gider kaydı",
+        choices=[("", "Seçiniz…"), ("yes", "Var"), ("no", "Yok")],
+        coerce=lambda value: value == "yes",
+        required=True,
+    )
 
     class Meta:
         model = Task
-        fields = ["task_type", "title", "case", "assignee", "reviewer", "due_date", "notes"]
+        fields = [
+            "task_type",
+            "title",
+            "case",
+            "assignee",
+            "reviewer",
+            "due_date",
+            "notes",
+            "requires_accounting",
+        ]
         widgets = {"due_date": DateInput()}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        if self.instance.pk and self.instance.requires_accounting is not None:
+            self.initial["requires_accounting"] = (
+                "yes" if self.instance.requires_accounting else "no"
+            )
         types = TaskType.objects.filter(is_active=True)
         cases = Case.objects.exclude(status=CaseStatus.CLOSED)
         users = User.objects.filter(is_active=True)

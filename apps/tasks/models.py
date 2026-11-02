@@ -49,6 +49,7 @@ class Task(TimeStampedModel):
     )
     due_date = models.DateField("son gün")
     notes = models.TextField("notlar", blank=True)
+    requires_accounting = models.BooleanField("gelir/gider kaydı", null=True, blank=True)
     status = models.CharField(
         "durum", max_length=20, choices=TaskStatus.choices, default=TaskStatus.ACTIVE
     )
