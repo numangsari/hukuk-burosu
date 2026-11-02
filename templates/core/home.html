@@ -19,7 +19,7 @@
           {% for t in approved_tasks %}{% include "core/_home_task_row.html" with review=False approved=True %}{% endfor %}
           {% for t in own_tasks %}{% include "core/_home_task_row.html" with review=False approved=False %}{% endfor %}
         </ul>
-        {% if own_task_count > own_tasks|length %}<a class="d-block text-center small py-2 border-top" href="{% url 'tasks:list' %}?kapsam=bana">{{ own_task_count }} görevin tamamını gör</a>{% endif %}
+        {% with approved_count=approved_tasks|length %}{% with shown=own_tasks|length|add:approved_count %}{% if own_task_count > shown %}<a class="d-block text-center small py-2 border-top" href="{% url 'tasks:list' %}?kapsam=bana">{{ own_task_count }} görevin tamamını gör</a>{% endif %}{% endwith %}{% endwith %}
         {% else %}
         <div class="empty-state my-auto"><i class="bi bi-check2-circle"></i><strong>Açık göreviniz yok</strong>Size atanan görevler burada en acil olandan başlayarak listelenir.</div>
         {% endif %}
@@ -34,14 +34,14 @@
         <i class="bi bi-clipboard-check panel-icon-review"></i>
         <h2 class="card-title">Kontrolümü bekleyenler</h2>
         <span class="count-pill">{{ review_task_count }}</span>
-        <a class="ms-auto small" href="{% url 'tasks:list' %}?kapsam=kontrol&durum=review">Tümü <i class="bi bi-arrow-right"></i></a>
+        <a class="ms-auto small" href="{% url 'tasks:list' %}?kapsam=bana&amp;sekme=bekleyen">Tümü <i class="bi bi-arrow-right"></i></a>
       </div>
       <div class="panel-scroll">
         {% if review_tasks %}
         <ul class="task-list">
           {% for t in review_tasks %}{% include "core/_home_task_row.html" with review=True approved=False %}{% endfor %}
         </ul>
-        {% if review_task_count > review_tasks|length %}<a class="d-block text-center small py-2 border-top" href="{% url 'tasks:list' %}?kapsam=kontrol&durum=review">{{ review_task_count }} görevin tamamını gör</a>{% endif %}
+        {% if review_task_count > review_tasks|length %}<a class="d-block text-center small py-2 border-top" href="{% url 'tasks:list' %}?kapsam=bana&amp;sekme=bekleyen">{{ review_task_count }} görevin tamamını gör</a>{% endif %}
         {% else %}
         <div class="empty-state my-auto"><i class="bi bi-clipboard-check"></i><strong>Kontrol bekleyen görev yok</strong>Kontrolcüsü olduğunuz görevler kontrole gönderilince burada görünür.</div>
         {% endif %}

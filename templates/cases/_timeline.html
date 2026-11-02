@@ -1,30 +1,29 @@
 <div id="case-notes" class="card">
   <div class="card-header"><h2 class="card-title">Notlar</h2></div>
   {% if case.notes %}<div class="card-body border-bottom"><div class="form-label">Dosya notu</div>{{ case.notes|linebreaksbr }}</div>{% endif %}
-  <form class="inline-form row g-2 align-items-end" style="border-top: 0; border-bottom: 1px solid var(--line); border-radius: 0"
+  <form class="case-note-form"
         hx-post="{% url 'cases:event_add' case.pk %}" hx-target="#case-notes" hx-swap="outerHTML">
-    <div class="col-md-2">{% include "partials/field.html" with field=event_form.date wrap_class="" %}</div>
-    <div class="col-md-4">{% include "partials/field.html" with field=event_form.title wrap_class="" label="Not başlığı" %}</div>
-    <div class="col-md-4">{% include "partials/field.html" with field=event_form.description wrap_class="" %}</div>
-    <div class="col-md-2"><button class="btn btn-primary w-100"><i class="bi bi-plus-lg"></i>Not ekle</button></div>
+    {{ event_form.non_field_errors }}
+    <div class="row g-3 align-items-end">
+      <div class="col-md-3 col-xl-2">{% include "partials/field.html" with field=event_form.date wrap_class="mb-0" %}</div>
+      <div class="col-md-9 col-xl-4">{% include "partials/field.html" with field=event_form.title wrap_class="mb-0" label="Not başlığı" %}</div>
+      <div class="col-md-9 col-xl-4">{% include "partials/field.html" with field=event_form.description wrap_class="mb-0" %}</div>
+      <div class="col-md-3 col-xl-2"><button class="btn btn-primary w-100"><i class="bi bi-plus-lg"></i>Not ekle</button></div>
+    </div>
   </form>
-  <ul class="timeline">
+  <ul class="case-notes-list">
     {% for e in timeline %}
-      <li class="timeline-item tl-{{ e.kind }}">
-        <span class="tl-dot"></span>
-        <div class="tl-body">
+      <li class="case-note">
           <div class="d-flex gap-2 align-items-start">
-            <div>
-              <span class="tl-date tabular">{{ e.date|date:"d.m.Y" }}</span>
-              <strong class="ms-1">{{ e.title }}</strong>
+            <div class="case-note-content">
+              <div class="case-note-meta"><span class="tabular">{{ e.date|date:"d.m.Y" }}</span><span>{{ e.created_by|default:"Sistem" }}</span></div>
+              <strong>{{ e.title }}</strong>
+              {% if e.description %}<div class="case-note-description">{{ e.description|linebreaksbr }}</div>{% endif %}
             </div>
             {% if e.kind == "note" %}{% if e.created_by_id == request.user.pk or request.user.is_office_admin %}
               <button class="btn-ghost-danger ms-auto" title="Sil" hx-post="{% url 'cases:event_delete' case.pk e.pk %}" hx-target="#case-notes" hx-swap="outerHTML" hx-confirm="Not silinsin mi?"><i class="bi bi-trash"></i></button>
             {% endif %}{% endif %}
           </div>
-          {% if e.description %}<div class="tl-comment">{{ e.description|linebreaksbr }}</div>{% endif %}
-          <div class="tl-time">{{ e.created_by|default:"Sistem" }}</div>
-        </div>
       </li>
     {% empty %}
       <li class="empty-state">Henüz not eklenmedi.</li>

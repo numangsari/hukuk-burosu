@@ -6,7 +6,7 @@ from django.views.generic import TemplateView
 
 from apps.agenda.services import combined_events
 from apps.agenda.views import group_by_day
-from apps.tasks.models import OPEN_STATUSES, Task, TaskEvent, TaskStatus
+from apps.tasks.models import Task, TaskEvent, TaskStatus
 
 AGENDA_DAYS = 7
 HOME_TASK_LIMIT = 25
@@ -36,15 +36,15 @@ def own_tasks_for(user):
         .order_by("-created_at")
         .values("comment")[:1]
     )
-    return _home_tasks(
-        assignee=user, status__in=[s for s in OPEN_STATUSES if s != TaskStatus.REVIEW]
-    ).annotate(revision_note=Subquery(last_revision_note))
+    return _home_tasks(assignee=user, status=TaskStatus.ACTIVE, approval_seen=True).annotate(
+        revision_note=Subquery(last_revision_note)
+    )
 
 
 def approved_unseen_for(user):
     """Onaylanmış ama sorumlunun henüz açıp görmediği görevler."""
-    return _home_tasks(assignee=user, status=TaskStatus.DONE, approval_seen=False).order_by(
-        "-completed_at"
+    return _home_tasks(assignee=user, status=TaskStatus.ACTIVE, approval_seen=False).order_by(
+        "-updated_at"
     )
 
 
@@ -74,7 +74,7 @@ class HomeView(TemplateView):
             show_review=show_review,
             approved_tasks=approved_unseen_for(user)[:HOME_TASK_LIMIT],
             own_tasks=own[:HOME_TASK_LIMIT],
-            own_task_count=own.count(),
+            own_task_count=own.count() + approved_unseen_for(user).count(),
             agenda=result,
             agenda_days=[
                 {"date": d, "events": by_day[d]}

@@ -92,10 +92,54 @@ def test_approve_publishes_to_case_and_folder(task, intern, lawyer, office_root)
     doc = Document.objects.get(case=task.case)
     assert doc.category == "petition" and doc.title == "CEVAP DİLEKÇESİ"
     folder = office_root / "Müvekkiller" / "DENEME KİŞİ" / "ALACAK DAVASI"
-    files = list(folder.iterdir())
-    assert len(files) == 1 and files[0].read_bytes() == b"son hal"
-    assert files[0].name == f"{timezone.localdate():%Y-%m-%d} CEVAP DİLEKÇESİ.docx"
-    assert doc.folder_path == str(files[0])
+    published = folder / f"{timezone.localdate():%Y-%m-%d} CEVAP DİLEKÇESİ.docx"
+    assert published.read_bytes() == b"son hal"
+    assert (folder / "Görevler" / "dilekce.docx").read_bytes() == b"son hal"
+    assert doc.folder_path == str(published)
+
+
+def test_document_on_task_creation_is_stored_and_copied(
+    case_factory, lawyer, intern, office_root, django_capture_on_commit_callbacks
+):
+    case = case_factory(subject="Örnek dosya")
+    task_type = TaskType.objects.get(name="Dava Dosyası İnceleme")
+    data = {
+        "task_type": task_type.pk,
+        "title": "Dava dosyası inceleme",
+        "client": case.client_id,
+        "case": case.pk,
+        "assignee": intern.pk,
+        "reviewer": lawyer.pk,
+        "due_date": "2026-11-10",
+        "document": SimpleUploadedFile("ornek.pdf", b"ornek belge"),
+    }
+    with django_capture_on_commit_callbacks(execute=True):
+        response = login(lawyer).post(reverse("tasks:create"), data)
+    assert response.status_code == 302
+    doc = TaskDocument.objects.get(task__case=case)
+    assert doc.uploaded_by == lawyer
+    assert Path(doc.folder_path).parent.name == "Görevler"
+    assert Path(doc.folder_path).read_bytes() == b"ornek belge"
+
+
+def test_invalid_document_does_not_create_task(case_factory, lawyer, intern, office_root):
+    case = case_factory()
+    response = login(lawyer).post(
+        reverse("tasks:create"),
+        {
+            "task_type": TaskType.objects.get(name="Dava Dosyası İnceleme").pk,
+            "title": "Örnek",
+            "client": case.client_id,
+            "case": case.pk,
+            "assignee": intern.pk,
+            "reviewer": lawyer.pk,
+            "due_date": "2026-11-10",
+            "document": SimpleUploadedFile("tehlikeli.html", b"ornek"),
+        },
+    )
+    assert response.status_code == 200
+    assert "document" in response.context["form"].errors
+    assert not Task.objects.filter(case=case).exists()
 
 
 def test_existing_client_folder_is_reused_and_names_not_overwritten(
@@ -156,17 +200,29 @@ def test_settings_documents_root_validation(admin_user, tmp_path):
 
 
 def test_task_type_settings_formset(admin_user):
-    tt = TaskType.objects.get(name="Müvekkil görüşmesi")
+    tt = TaskType.objects.get(name="Müvekkil Görüşmesi")
     qs = list(TaskType.objects.all())
     data = {"section": "gorev_turleri", "tt-TOTAL_FORMS": len(qs) + 1, "tt-INITIAL_FORMS": len(qs)}
     for i, t in enumerate(qs):
-        data.update({f"tt-{i}-id": t.pk, f"tt-{i}-name": t.name, f"tt-{i}-order": t.order})
+        data.update(
+            {
+                f"tt-{i}-id": t.pk,
+                f"tt-{i}-name": t.name,
+                f"tt-{i}-order": t.order,
+                f"tt-{i}-points": t.points,
+            }
+        )
         if t.is_active:
             data[f"tt-{i}-is_active"] = "on"
         if t.requires_document or t.pk == tt.pk:
             data[f"tt-{i}-requires_document"] = "on"
     data.update(
-        {f"tt-{len(qs)}-name": "Temyiz", f"tt-{len(qs)}-order": 99, f"tt-{len(qs)}-is_active": "on"}
+        {
+            f"tt-{len(qs)}-name": "Temyiz",
+            f"tt-{len(qs)}-order": 99,
+            f"tt-{len(qs)}-points": 1,
+            f"tt-{len(qs)}-is_active": "on",
+        }
     )
     r = login(admin_user).post(reverse("accounts:settings"), data)
     assert r.status_code == 302

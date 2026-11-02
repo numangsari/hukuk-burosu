@@ -27,6 +27,8 @@
   <div class="form-col">
   <div class="form-section">
     <div class="row">
+      <div class="col-md-6">{% include "partials/field.html" with field=form.case_type %}</div>
+      <div class="col-md-6">{% include "partials/field.html" with field=form.opened_on %}</div>
       <div class="col-md-7">{% include "partials/field.html" with field=form.client %}</div>
       <div class="col-md-5">{% include "partials/field.html" with field=form.client_role %}</div>
       <div class="col-12">
@@ -36,8 +38,6 @@
         <template id="co-empty">{% include "cases/_co_row.html" with f=co_formset.empty_form %}</template>
         <button type="button" class="btn btn-light btn-sm mb-3" @click="addCoClient()"><i class="bi bi-plus-lg"></i>Müvekkil ekle</button>
       </div>
-      <div class="col-md-6">{% include "partials/field.html" with field=form.case_type %}</div>
-      <div class="col-md-6">{% include "partials/field.html" with field=form.opened_on %}</div>
     </div>
   </div>
 
@@ -66,6 +66,8 @@
       </div>
       <div class="col-12">{% include "partials/field.html" with field=form.subject %}</div>
       <div class="col-md-4" x-show="caseType === 'enforcement'" x-cloak>{% include "partials/field.html" with field=form.enforcement_type %}</div>
+      <div class="col-md-4" x-show="caseType === 'enforcement'" x-cloak>{% include "partials/field.html" with field=form.enforcement_amount %}</div>
+      <div class="col-12" x-show="caseType === 'enforcement'" x-cloak>{% include "partials/field.html" with field=form.enforcement_basis %}</div>
       <div class="col-md-6" x-show="['criminal','investigation'].includes(caseType)" x-cloak>{% include "partials/field.html" with field=form.crime %}</div>
       <div class="col-md-6" x-show="caseType === 'mediation'" x-cloak>{% include "partials/field.html" with field=form.mediator %}</div>
     </div>

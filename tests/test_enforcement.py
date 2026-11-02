@@ -209,7 +209,7 @@ def test_seizure_form_dates_and_case_scoping(lawyer_client, case_factory, lawyer
     )
     civil = case_factory()
     assert lawyer_client.get(reverse("cases:seizure_add", args=[civil.pk])).status_code == 404
-    assert "Haciz takibi" in lawyer_client.get(case.get_absolute_url()).content.decode()
+    assert "İcra takibi" in lawyer_client.get(case.get_absolute_url()).content.decode()
     assert 'id="t-haciz"' not in lawyer_client.get(civil.get_absolute_url()).content.decode()
     data["renewal_on"] = (timezone.localdate() + dt.timedelta(days=10)).isoformat()
     assert lawyer_client.post(url, data).status_code == 302

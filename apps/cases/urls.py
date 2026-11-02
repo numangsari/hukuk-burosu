@@ -2,7 +2,7 @@ from django.urls import path
 
 from . import views
 from . import views_records as rec
-from .views_seizures import SeizureSaveView
+from .views_seizures import SeizureDeleteView, SeizureSaveView
 
 app_name = "cases"
 urlpatterns = [
@@ -33,6 +33,7 @@ urlpatterns = [
     ),
     path("<int:pk>/haciz/yeni/", SeizureSaveView.as_view(), name="seizure_add"),
     path("<int:pk>/haciz/<int:item_pk>/", SeizureSaveView.as_view(), name="seizure_edit"),
+    path("<int:pk>/haciz/<int:item_pk>/sil/", SeizureDeleteView.as_view(), name="seizure_delete"),
     path("<int:pk>/not/", rec.EventAddView.as_view(), name="event_add"),
     path("<int:pk>/not/<int:item_pk>/sil/", rec.EventDeleteView.as_view(), name="event_delete"),
 ]

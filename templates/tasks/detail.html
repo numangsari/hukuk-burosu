@@ -115,7 +115,7 @@
       <h2 class="section-title mt-4">Notlar</h2>
       <div class="small">{{ task.notes|linebreaksbr|default:"—" }}</div>
       <h2 class="section-title mt-4">Kayıt</h2>
-      <div class="small text-body-secondary">{{ task.created_at|date:"d.m.Y H:i" }} · {{ task.created_by|default:"—" }}{% if task.completed_at %}<br>Tamamlandı: {{ task.completed_at|date:"d.m.Y H:i" }}{% endif %}</div>
+      <div class="small text-body-secondary">{{ task.created_at|date:"d.m.Y H:i" }} · {{ task.created_by|default:"—" }}{% if task.completed_at %}<br>Kapatıldı: {{ task.completed_at|date:"d.m.Y H:i" }}{% endif %}</div>
     </div></div>
   </div>
 </div>

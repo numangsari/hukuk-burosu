@@ -49,15 +49,15 @@ def test_tasks_filters_scope_deadlines_search_and_sort(lawyer_client, case_facto
         "sort": "-due_date",
     }
     response = lawyer_client.get(url, params)
-    assert [row.pk for row in response.context["tasks"]] == [second.pk, first.pk]
+    assert [row.pk for row in response.context["tasks"]] == [first.pk]
     html = response.content.decode()
     assert 'name="sorumlu"' in html and 'name="kontrolcu"' in html
-    assert "state-review" in html and 'name="sort"' in html
-    response = lawyer_client.get(url, {**params, "durum": "review"}, HTTP_HX_REQUEST="true")
+    assert "Kontrolde olanlar" in html and 'name="sort"' in html
+    response = lawyer_client.get(url, {**params, "sekme": "kontrolde"}, HTTP_HX_REQUEST="true")
     assert [row.pk for row in response.context["tasks"]] == [second.pk]
     assert lawyer_client.get(url, {"kapsam": "bana"}).context["paginator"].count == 0
-    response = lawyer_client.get(url, {"kapsam": "kontrol", "sort": "bad", "sorumlu": "bad"})
-    assert response.status_code == 200 and response.context["paginator"].count == 3
+    response = lawyer_client.get(url, {"sekme": "bekleyen", "sort": "bad", "sorumlu": "bad"})
+    assert response.status_code == 200 and response.context["paginator"].count == 1
 
 
 def test_accounting_search_case_cancelled_sort_and_filtered_totals(

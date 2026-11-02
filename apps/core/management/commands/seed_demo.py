@@ -16,8 +16,9 @@ from django.utils import timezone
 from apps.accounting.models import EntryKind, LedgerEntry
 from apps.accounting.services import create_entry
 from apps.accounts.models import User
-from apps.cases import stages
-from apps.cases.models import Case, CaseEvent, CaseParty, Hearing
+from apps.cases import seizure_types, stages
+from apps.cases.models import Case, CaseEvent, CaseParty, Seizure
+from apps.cases.party_roles import PARTY_ROLES
 from apps.clients.models import Client, ClientContact, ClientIban, Party, PowerOfAttorney
 from apps.office.models import TaskType
 from apps.tasks import services as task_services
@@ -42,17 +43,6 @@ SUBJECTS = {
     "consultancy": ["Sözleşme incelemesi", "Şirket danışmanlığı"],
     "mediation": ["İşçi alacağı arabuluculuk", "Ticari uyuşmazlık arabuluculuk"],
     "notice": ["Kira ihtarnamesi", "Ödeme ihtarnamesi"],
-}  # fmt: skip
-TASK_TITLES = {
-    "Dilekçe": ["Cevap dilekçesi hazırla", "Cevaba cevap dilekçesi", "İstinaf dilekçesi", "Bilirkişi raporuna itiraz dilekçesi"],
-    "Duruşma hazırlığı": ["Duruşma notlarını hazırla", "Tanık listesini güncelle"],
-    "Müvekkil görüşmesi": ["Müvekkille ön görüşme", "Müvekkile dosya durumunu bildir"],
-    "Harç / Masraf": ["Gider avansı yatır", "Harç makbuzunu dosyaya ekle"],
-    "İcra takibi": ["Haciz talebi", "Maaş haczi müzekkeresi", "Mal varlığı araştırması"],
-    "Keşif": ["Keşif masrafını yatır"],
-    "Tebligat takibi": ["UYAP tebligatlarını kontrol et", "Tebligat parçasını dosyaya işle"],
-    "Bilirkişi": ["Bilirkişi raporunu incele"],
-    "Diğer": ["Vekaletnameyi yenile"],
 }  # fmt: skip
 
 
@@ -85,7 +75,7 @@ class Command(BaseCommand):
 
     def seed(self, rnd, today, lawyers, interns):
         admin = next((u for u in lawyers if u.role == "admin"), lawyers[0])
-        counts = dict.fromkeys(["müvekkil", "dosya", "görev", "duruşma", "hareket"], 0)
+        counts = dict.fromkeys(["müvekkil", "dosya", "görev", "hareket"], 0)
         used_names = set()
         clients = []
         for i in range(18):
@@ -125,19 +115,30 @@ class Command(BaseCommand):
 
         types = list(SUBJECTS)
         cases = []
-        base_no = 200
         for n in range(32):
             c = clients[n % len(clients)] if n < len(clients) else rnd.choice(clients)
-            t = rnd.choice(types)
+            t = "enforcement" if n == 1 else rnd.choice(types)
             authority = rnd.choice(ENFORCEMENT) if t == "enforcement" else (
                 "Sakarya Cumhuriyet Başsavcılığı" if t == "investigation" else (
                     f"Sakarya {rnd.randint(1, 8)}. Noterliği" if t == "notice" else (
                         "Sakarya Arabuluculuk Bürosu" if t == "mediation" else ("" if t == "consultancy" else rnd.choice(COURTS)))))  # fmt: skip
-            status = rnd.choices(["open", "closed"], [90, 10])[0]
+            status = "closed" if n == 0 else rnd.choices(["open", "closed"], [90, 10])[0]
+            if n == 1:
+                status = "open"
+            folder, number = (
+                ("1", "58")
+                if n == 0
+                else ("15", "8")
+                if n == 1
+                else ("4", "85")
+                if n == 2
+                else (str(n % 15 + 1), str(58 + n))
+            )
             k = Case.objects.create(
-                client=c, case_type=t, archive_no=f"2026/{base_no + n:04d}",
-                official_no=f"2026/{rnd.randint(10, 999)} {'E.' if t in ('civil', 'criminal', 'administrative') else ''}".strip(),
+                client=c, case_type=t, archive_folder_no=folder, archive_no=number,
+                official_no=f"{today.year}/{rnd.randint(10, 999)}" if t != "consultancy" else "",
                 authority=authority, subject=rnd.choice(SUBJECTS[t]), status=status,
+                client_role=PARTY_ROLES[t][0][0],
                 closing_reason=stages.closing_reasons(t)[0].key if status == "closed" else "",
                 enforcement_type="negotiable" if t == "enforcement" else "",
                 value=Decimal(rnd.randrange(20_000, 900_000, 500)) if t in ("civil", "enforcement", "mediation") else None,
@@ -145,11 +146,7 @@ class Command(BaseCommand):
                 opened_on=today - dt.timedelta(days=rnd.randint(10, 500)), created_by=admin,
             )  # fmt: skip
             if t not in ("consultancy",):
-                role = {
-                    "enforcement": "debtor",
-                    "investigation": "suspect",
-                    "notice": "addressee",
-                }.get(t, "defendant")
+                role = "debtor" if t == "enforcement" else PARTY_ROLES[t][1][0]
                 p = Party.objects.create(kind=rnd.choice(["person", "company"]),
                                          name=f"{rnd.choice(FIRST)} {rnd.choice(LAST)}" if rnd.random() < 0.6 else rnd.choice(COMPANIES).replace("A.Ş.", "Ticaret A.Ş."),
                                          created_by=admin)  # fmt: skip
@@ -165,18 +162,39 @@ class Command(BaseCommand):
         counts["dosya"] = len(cases)
         open_cases = [k for k in cases if k.status != "closed"]
 
+        # İcra sekmesindeki örnekler gelecekte yenilenecek biçimde hazırlanır.
+        enforcement_case = cases[1]
+        debtor = enforcement_case.party_links.get(role="debtor").party
+        seizure_date = today - dt.timedelta(days=90)
+        for details in (
+            {"kind": "bank", "state": "bank_seized", "bank_name": "Örnek Bankası"},
+            {
+                "kind": "vehicle",
+                "state": "vehicle_seized",
+                "plate": "54 ABC 123",
+                "renewal_on": seizure_types.suggested_renewal(seizure_date),
+            },
+        ):
+            item = Seizure(
+                case=enforcement_case,
+                debtor=debtor.name,
+                debtor_party=debtor,
+                seized_on=seizure_date,
+                created_by=admin,
+                **details,
+            )
+            item.full_clean()
+            item.save()
+
         # Görevler
-        type_by_name = {t.name: t for t in TaskType.objects.all()}
-        no_doc_types = [
-            n for n in TASK_TITLES if n in type_by_name and not type_by_name[n].requires_document
-        ]
-        doc_types = [
-            n for n in TASK_TITLES if n in type_by_name and type_by_name[n].requires_document
-        ]
+        no_doc_types = list(TaskType.objects.filter(is_active=True, requires_document=False))
+        if not no_doc_types:
+            raise CommandError("Etkin görev türü bulunamadı.")
         everyone = lawyers + interns
+        closed_count = 0
         for _n in range(48):
             k = rnd.choice(open_cases)
-            tname = rnd.choice(no_doc_types if rnd.random() < 0.75 or not doc_types else doc_types)
+            task_type = rnd.choice(no_doc_types)
             assignee = rnd.choice(
                 [
                     k.responsible_intern,
@@ -193,13 +211,20 @@ class Command(BaseCommand):
             if reviewer == assignee:
                 continue
             due = today + dt.timedelta(days=rnd.randint(-8, 25))
-            t = Task.objects.create(task_type=type_by_name[tname], title=rnd.choice(TASK_TITLES[tname]), case=k,
+            t = Task.objects.create(task_type=task_type, title=task_type.name if task_type.name != "Diğer" else "Dosya belgelerini düzenle", case=k,
                                     assignee=assignee, reviewer=reviewer, due_date=due, created_by=reviewer,
                                     notes="Örnek görev." if rnd.random() < 0.3 else "")  # fmt: skip
             task_services.on_created(t, reviewer)
-            if type_by_name[tname].requires_document:
+            if closed_count < 5:
+                task_services.perform(t, "submit", assignee)
+                task_services.perform(t, "approve", reviewer)
+                t.status = "done"
+                t.completed_at = timezone.now() - dt.timedelta(days=(1, 3, 8, 20, 40)[closed_count])
+                t.save(update_fields=["status", "completed_at", "updated_at"])
+                task_services.award_closed_task_points(t)
+                closed_count += 1
                 counts["görev"] += 1
-                continue  # belge zorunlu türler aktif kalır
+                continue
             r = rnd.random()
             if r < 0.25:
                 task_services.perform(t, "submit", assignee)
@@ -208,37 +233,14 @@ class Command(BaseCommand):
                 task_services.perform(
                     t, "revise", reviewer, "Eksik noktaları tamamlayın (örnek revizyon)."
                 )
-            elif r < 0.55:
+            elif r < 0.45:
+                task_services.perform(t, "submit", assignee)
+                task_services.perform(t, "revise", reviewer, "Eksik bilgileri tamamlayın (örnek).")
+                task_services.perform(t, "submit", assignee)
+            elif r < 0.60:
                 task_services.perform(t, "submit", assignee)
                 task_services.perform(t, "approve", reviewer)
             counts["görev"] += 1
-
-        # Duruşmalar
-        court_cases = [
-            k for k in open_cases if k.case_type in ("civil", "criminal", "administrative")
-        ]
-        for k in rnd.sample(court_cases, min(14, len(court_cases))):
-            day = today + dt.timedelta(days=rnd.randint(1, 35))
-            if day.weekday() >= 5:
-                day += dt.timedelta(days=7 - day.weekday())
-            start = timezone.make_aware(
-                dt.datetime.combine(
-                    day, dt.time(rnd.choice([9, 10, 11, 13, 14, 15]), rnd.choice([0, 15, 30, 45]))
-                )
-            )
-            Hearing.objects.create(
-                case=k,
-                starts_at=start,
-                authority=k.authority,
-                room=str(rnd.randint(1, 20)),
-                created_by=admin,
-            )
-            past = start - dt.timedelta(days=rnd.randint(40, 90))
-            Hearing.objects.create(case=k, starts_at=past, authority=k.authority, status="postponed",
-                                   result="Tanıkların dinlenmesi için ertelendi (örnek).", created_by=admin)  # fmt: skip
-            CaseEvent.objects.create(case=k, date=past.date(), kind="hearing", title="Duruşma ertelendi",
-                                     description="Tanıkların dinlenmesi için ertelendi (örnek).", created_by=admin)  # fmt: skip
-            counts["duruşma"] += 2
 
         # Muhasebe
         for k in cases:

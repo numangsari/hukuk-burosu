@@ -19,7 +19,7 @@ def task_factory(case_factory, lawyer, intern):
     def factory(**kw):
         case = kw.pop("case", None) or case_factory()
         defaults = {
-            "task_type": TaskType.objects.get(name="Müvekkil görüşmesi"),  # belge zorunlu değil
+            "task_type": TaskType.objects.get(name="Müvekkil Görüşmesi"),  # belge zorunlu değil
             "title": "Cevap dilekçesi hazırla",
             "case": case,
             "assignee": intern,
@@ -66,6 +66,23 @@ def test_create_task_via_form_notifies_assignee(lawyer, intern, case_factory):
     assert not t.assignee_seen  # avukat stajyere atadı: "Yeni görev"
 
 
+def test_task_types_are_grouped_and_searchable(lawyer):
+    response = login(lawyer).get(reverse("tasks:create"))
+    html = response.content.decode()
+    assert 'data-searchable="Görev türü ara"' in html
+    assert '<optgroup label="Dava İşlemleri">' in html
+    assert '<optgroup label="Ceza ve Soruşturma İşlemleri">' in html
+    assert '<optgroup label="Ofis İçi İşlemler">' in html
+    assert 'label="Ofis İçi, Araştırma ve Diğer İşlemler"' not in html
+    assert html.count(">İstinaf Dilekçesi</option>") == 2
+
+
+def test_task_type_capitalizes_turkish_word_initials():
+    task_type = TaskType.objects.create(name="icra işlemi / ıslah (iade) E-SMM")
+    task_type.refresh_from_db()
+    assert task_type.name == "İcra İşlemi / Islah (İade) E-SMM"
+
+
 def test_form_rejects_same_assignee_reviewer_and_wrong_client(lawyer, case_factory, client_factory):
     case = case_factory()
     other = client_factory(first_name="Diğer")
@@ -91,23 +108,26 @@ def test_full_approval_cycle(task_factory, lawyer, intern):
     assert t.status == TaskStatus.ACTIVE  # oluşturulunca doğrudan aktif
     services.perform(t, "submit", intern)
     assert t.status == TaskStatus.REVIEW
+    assert t.stage_label == "Kontrolde"
 
     with pytest.raises(ValidationError):
         services.perform(t, "revise", lawyer, "")  # açıklama zorunlu
     services.perform(t, "revise", lawyer, "Emsal kararları ekle")
     assert t.status == TaskStatus.ACTIVE and t.revision_requested
+    assert t.stage_label == "Revize İstendi"
 
     services.perform(t, "submit", intern)
-    assert not t.revision_requested
+    assert t.stage_label == "Revize Edildi"
     services.perform(t, "approve", lawyer)
     t.refresh_from_db()
-    assert t.status == TaskStatus.DONE and t.completed_at
+    assert t.status == TaskStatus.ACTIVE and t.completed_at is None
+    assert t.stage_label == "Onaylandı"
     assert CaseEvent.objects.filter(case=t.case, kind="task").exists()
     kinds = list(t.events.order_by("created_at", "pk").values_list("kind", flat=True))
     assert kinds == ["submitted", "revision", "submitted", "approved"]
 
-    services.perform(t, "reopen", lawyer)
-    assert t.status == TaskStatus.ACTIVE and t.completed_at is None
+    with pytest.raises(PermissionDenied):
+        services.perform(t, "submit", intern)
 
 
 def test_permissions(task_factory, lawyer, intern, admin_user):
@@ -120,8 +140,8 @@ def test_permissions(task_factory, lawyer, intern, admin_user):
     with pytest.raises(ValidationError):
         services.perform(t, "cancel", lawyer)  # iptal işlemi yok
     services.perform(t, "approve", admin_user)  # yönetici her işlemi yapabilir
-    assert t.status == TaskStatus.DONE
-    assert [a.key for a in services.available_actions(t, lawyer)] == ["reopen"]
+    assert t.status == TaskStatus.ACTIVE and t.stage_label == "Onaylandı"
+    assert services.available_actions(t, lawyer) == []
     assert services.available_actions(t, intern) == []
 
 
@@ -157,9 +177,64 @@ def test_task_list_scopes(task_factory, intern, lawyer):
     services.perform(t2, "submit", intern)
     c = login(lawyer)
     titles = lambda r: [t.title for t in r.context["tasks"]]  # noqa: E731
-    assert titles(c.get(reverse("tasks:list"), {"kapsam": "kontrol"})) == ["A", "B"]
+    assert titles(c.get(reverse("tasks:list"), {"sekme": "bekleyen"})) == ["B"]
     assert titles(c.get(reverse("tasks:list"), {"kapsam": "bana"})) == []
-    assert titles(login(intern).get(reverse("tasks:list"))) == ["A", "B"]
+    assert titles(login(intern).get(reverse("tasks:list"))) == ["A"]
+    assert titles(login(intern).get(reverse("tasks:list"), {"sekme": "kontrolde"})) == ["B"]
+    assert titles(c.get(reverse("tasks:list"), {"kapsam": "tumu", "sekme": "bekleyen"})) == ["B"]
+
+
+def test_closed_tasks_scope_includes_both_roles(task_factory, lawyer, intern):
+    closed = task_factory(title="Kapalı iş", status=TaskStatus.DONE)
+    for user in (lawyer, intern):
+        response = login(user).get(reverse("tasks:list"), {"sekme": "kapali"})
+        assert [task.pk for task in response.context["tasks"]] == [closed.pk]
+        assert "Kapalı" in response.content.decode()
+
+
+def test_points_for_closed_task_are_recorded_once(task_factory, lawyer, intern, admin_user):
+    from apps.tasks.models import TaskPoint
+
+    task = task_factory()
+    task.task_type.points = 3
+    task.task_type.save(update_fields=["points"])
+    with pytest.raises(ValidationError):
+        services.award_closed_task_points(task)
+    task.status = TaskStatus.DONE
+    task.completed_at = timezone.now()
+    task.save(update_fields=["status", "completed_at"])
+    services.award_closed_task_points(task)
+    services.award_closed_task_points(task)
+    assert set(TaskPoint.objects.values_list("user_id", "points")) == {
+        (intern.pk, 3),
+        (lawyer.pk, 3),
+    }
+    task.task_type.points = 1
+    task.task_type.save(update_fields=["points"])
+    services.award_closed_task_points(task)
+    assert list(TaskPoint.objects.values_list("points", flat=True)) == [3, 3]
+    report = login(admin_user).get(reverse("accounts:settings"), {"bolum": "puanlar"})
+    rows = {person.pk: person for person in report.context["point_users"]}
+    assert rows[intern.pk].week_points == rows[lawyer.pk].month_points == 3
+    assert (
+        "point_users"
+        not in login(intern).get(reverse("accounts:settings"), {"bolum": "puanlar"}).context
+    )
+
+
+def test_tab_counts_follow_scope_and_filters(task_factory, lawyer, intern):
+    task_factory(title="Aranan aktif")
+    review = task_factory(title="Aranan kontrol")
+    services.perform(review, "submit", intern)
+    task_factory(title="Başka görev", status=TaskStatus.DONE)
+    url = reverse("tasks:list")
+    response = login(intern).get(url, {"q": "Aranan"}, HTTP_HX_REQUEST="true")
+    counts = {key: count for key, _, count in response.context["tabs"]}
+    assert counts == {"aktif": 1, "bekleyen": 0, "kontrolde": 1, "kapali": 0}
+    assert 'hx-swap-oob="outerHTML"' in response.content.decode()
+    response = login(lawyer).get(url, {"kapsam": "tumu"})
+    counts = {key: count for key, _, count in response.context["tabs"]}
+    assert counts == {"aktif": 1, "bekleyen": 1, "kontrolde": 1, "kapali": 1}
 
 
 def test_home_active_tasks_sorted_by_urgency(task_factory, intern, lawyer):
@@ -200,9 +275,9 @@ def test_home_shows_revision_note_and_approval_until_seen(task_factory, intern, 
     # Görevi açmak onay satırını kaldırmaz (tamamlama prosedürü ayrıca belirlenecek).
     c.get(t.get_absolute_url())
     assert list(c.get(reverse("core:home")).context["approved_tasks"]) != []
-    # Yeniden açılınca onay satırı kalkar.
-    services.perform(t, "reopen", lawyer)
-    assert list(c.get(reverse("core:home")).context["approved_tasks"]) == []
+    # Kapatma işlemi tanımlanana kadar onaylanan görev aktif kalır.
+    t.refresh_from_db()
+    assert t.status == TaskStatus.ACTIVE and t.stage_label == "Onaylandı"
 
 
 def test_new_task_flag_until_assignee_opens(task_factory, intern, lawyer):
@@ -243,9 +318,12 @@ def test_submit_only_assignee_or_admin(task_factory, admin_user, lawyer):
     assert "submit" in [a.key for a in services.available_actions(t, admin_user)]
 
 
-def test_own_task_is_not_marked_new(task_factory, intern):
+def test_own_task_is_new_until_opened(task_factory, intern):
     t = task_factory(title="Kendi işim")
     services.on_created(t, intern)  # stajyer kendine görev açtı
+    t.refresh_from_db()
+    assert not t.assignee_seen
+    login(intern).get(t.get_absolute_url())
     t.refresh_from_db()
     assert t.assignee_seen
 

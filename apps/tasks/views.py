@@ -10,6 +10,7 @@ from django.utils import timezone
 from django.views.generic import CreateView, DetailView, ListView, UpdateView, View
 
 from apps.accounts.models import User
+from apps.cases.documents import mirror_task_document
 from apps.cases.models import Case
 from apps.core.permissions import is_admin
 from apps.core.text import fold
@@ -21,10 +22,14 @@ from .forms import CommentForm, TaskForm
 from .models import OPEN_STATUSES, Task, TaskDocument, TaskEvent, TaskStatus
 
 SCOPES = {
-    "bana": "Bana atanan",
-    "kontrol": "Kontrolümde",
-    "olusturdugum": "Oluşturduklarım",
+    "bana": "Bana atanmış",
     "tumu": "Tümü",
+}
+TABS = {
+    "aktif": "Aktif görevlerim",
+    "bekleyen": "Kontrolümü bekleyenler",
+    "kontrolde": "Kontrolde olanlar",
+    "kapali": "Kapalı görevler",
 }
 
 
@@ -58,23 +63,30 @@ class TaskListView(ListView):
     def get_paginate_by(self, queryset):
         return self.request.user.page_size
 
-    def get_queryset(self):
+    def get_queryset(self, tab_override=None):
         g, u = self.request.GET, self.request.user
         qs = task_queryset()
         scope = g.get("kapsam", "bana")
         if scope not in SCOPES:
             scope = "bana"
+        tab = tab_override or g.get("sekme", "aktif")
+        if tab not in TABS:
+            tab = "aktif"
         if scope == "bana":
-            qs = qs.filter(assignee=u)
-        elif scope == "kontrol":
-            qs = qs.filter(reviewer=u)
-        elif scope == "olusturdugum":
-            qs = qs.filter(created_by=u)
-        status = g.get("durum", "acik")
-        if status == "acik":
-            qs = qs.filter(status__in=OPEN_STATUSES)
-        elif status in TaskStatus.values:
-            qs = qs.filter(status=status)
+            if tab == "bekleyen":
+                qs = qs.filter(reviewer=u)
+            elif tab in ("aktif", "kontrolde"):
+                qs = qs.filter(assignee=u)
+            else:
+                qs = qs.filter(Q(assignee=u) | Q(reviewer=u))
+        qs = qs.filter(
+            status={
+                "aktif": TaskStatus.ACTIVE,
+                "bekleyen": TaskStatus.REVIEW,
+                "kontrolde": TaskStatus.REVIEW,
+                "kapali": TaskStatus.DONE,
+            }[tab]
+        )
         if (t := g.get("tur", "")).isdecimal() and len(t) <= 18:
             qs = qs.filter(task_type_id=t)
         for parameter, field in (("sorumlu", "assignee_id"), ("kontrolcu", "reviewer_id")):
@@ -82,7 +94,7 @@ class TaskListView(ListView):
                 qs = qs.filter(**{field: value})
         today = timezone.localdate()
         deadline = g.get("son_gun")
-        if deadline in dict(DEADLINE_OPTIONS):
+        if tab != "kapali" and deadline in dict(DEADLINE_OPTIONS):
             qs = qs.filter(status__in=OPEN_STATUSES)
             if deadline == "overdue":
                 qs = qs.filter(due_date__lt=today)
@@ -118,16 +130,30 @@ class TaskListView(ListView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        u = self.request.user
-        counts = {
-            "bana": Task.objects.filter(assignee=u, status__in=OPEN_STATUSES).count(),
-            "kontrol": Task.objects.filter(reviewer=u, status=TaskStatus.REVIEW).count(),
-        }
+        scope = (
+            self.request.GET.get("kapsam") if self.request.GET.get("kapsam") in SCOPES else "bana"
+        )
+        tab = self.request.GET.get("sekme") if self.request.GET.get("sekme") in TABS else "aktif"
         ctx.update(
-            scopes=[(k, label, counts.get(k, 0)) for k, label in SCOPES.items()],
-            scope=self.request.GET.get("kapsam")
-            if self.request.GET.get("kapsam") in SCOPES
-            else "bana",
+            scopes=SCOPES.items(),
+            scope=scope,
+            tab=tab,
+            tabs=[
+                (
+                    key,
+                    (
+                        "Aktif görevler"
+                        if key == "aktif"
+                        else "Kontrol bekleyenler"
+                        if key == "bekleyen"
+                        else label
+                    )
+                    if scope == "tumu"
+                    else label,
+                    self.get_queryset(tab_override=key).count(),
+                )
+                for key, label in TABS.items()
+            ],
             people=User.objects.filter(is_active=True).order_by("first_name", "last_name"),
             deadline_options=DEADLINE_OPTIONS,
             sort_options=SORT_OPTIONS,
@@ -163,6 +189,27 @@ class TaskCreateView(CreateView):
             form.instance.case = Case.objects.select_for_update().get(pk=form.instance.case_id)
             response = super().form_valid(form)
             services.on_created(self.object, self.request.user)
+            if document := form.cleaned_data.get("document"):
+                doc = TaskDocument.objects.create(
+                    task=self.object,
+                    file=document,
+                    original_name=document.name[:300],
+                    size=document.size,
+                    uploaded_by=self.request.user,
+                )
+                TaskEvent.objects.create(
+                    task=self.object,
+                    actor=self.request.user,
+                    kind="updated",
+                    comment=f"{doc.original_name} — belge yükledi",
+                )
+
+                def mirror_after_commit():
+                    warning = mirror_task_document(doc)
+                    if warning:
+                        messages.warning(self.request, warning)
+
+                transaction.on_commit(mirror_after_commit)
         messages.success(self.request, "Görev oluşturuldu.")
         return response
 
@@ -209,6 +256,7 @@ class TaskDetailView(DetailView):
         if t.assignee_id == u.pk and not t.assignee_seen:
             # Sorumlu yeni görevi açtı; ana sayfadaki "Yeni görev" uyarısı kalkar.
             Task.objects.filter(pk=t.pk).update(assignee_seen=True)
+            t.assignee_seen = True
         ctx.update(
             actions=services.available_actions(t, u),
             can_edit=services.can_edit(t, u),
@@ -293,7 +341,7 @@ def case_options(request):
     )
 
 
-def documents_context(task, user, error=""):
+def documents_context(task, user, error="", warning=""):
     docs = list(task.documents.select_related("uploaded_by").order_by("-created_at"))
     current = [d for d in docs if d.is_current]
     return {
@@ -303,6 +351,7 @@ def documents_context(task, user, error=""):
         },
         "can_upload": services.can_upload(task, user),
         "doc_error": error,
+        "doc_warning": warning,
     }
 
 
@@ -314,11 +363,11 @@ def _root(doc, docs):
     return doc.pk
 
 
-def _docs_partial(request, task, error=""):
+def _docs_partial(request, task, error="", warning=""):
     return render(
         request,
         "tasks/_documents.html",
-        {"task": task, **documents_context(task, request.user, error)},
+        {"task": task, **documents_context(task, request.user, error, warning)},
     )
 
 
@@ -355,7 +404,8 @@ class TaskDocumentUploadView(View):
         TaskEvent.objects.create(
             task=task, actor=request.user, kind="updated", comment=f"{doc.original_name} — {verb}"
         )
-        return _docs_partial(request, task)
+        warning = mirror_task_document(doc)
+        return _docs_partial(request, task, warning=warning)
 
 
 class TaskDocumentDeleteView(View):
@@ -365,8 +415,10 @@ class TaskDocumentDeleteView(View):
     def post(self, request, pk, doc_pk):
         task = get_object_or_404(Task.objects.select_for_update(), pk=pk)
         doc = get_object_or_404(TaskDocument, pk=doc_pk, task=task, is_current=True)
-        if task.status != TaskStatus.ACTIVE or not (
-            doc.uploaded_by_id == request.user.pk or is_admin(request.user)
+        if (
+            task.status != TaskStatus.ACTIVE
+            or not task.approval_seen
+            or not (doc.uploaded_by_id == request.user.pk or is_admin(request.user))
         ):
             raise PermissionDenied
         previous = doc.previous

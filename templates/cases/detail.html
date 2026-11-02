@@ -84,7 +84,7 @@
     <li><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-taraflar">Taraflar<span class="count">{{ party_links|length }}</span></button></li>
     <li><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-safahat">Safahat<span class="count">{{ flow_members|length }}</span></button></li>
     <li><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-gorevler">Görevler<span class="count">{{ tasks|length }}</span></button></li>
-    {% if case.case_type == "enforcement" %}<li><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-haciz">Haciz takibi<span class="count">{{ seizures|length }}</span></button></li>{% endif %}
+    {% if case.case_type == "enforcement" %}<li><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-haciz">İcra takibi<span class="count">{{ seizures|length }}</span></button></li>{% endif %}
     <li><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-belgeler">Belgeler<span class="count">{{ documents|length }}</span></button></li>
     {% if can_view_accounting %}<li><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-muhasebe">Muhasebe</button></li>{% endif %}
     <li><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-gecmis">Geçmiş</button></li>

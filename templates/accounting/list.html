@@ -32,7 +32,7 @@
       <input class="btn-check" type="radio" name="durum" value="active" id="entry-active" {% if record_state == 'active' %}checked{% endif %}><label class="chip-btn" for="entry-active">Geçerli kayıtlar</label>
       <input class="btn-check" type="radio" name="durum" value="cancelled" id="entry-cancelled" {% if record_state == 'cancelled' %}checked{% endif %}><label class="chip-btn state-cancelled" for="entry-cancelled">İptal edilenler</label>
       <input class="btn-check" type="radio" name="durum" value="all" id="entry-all" {% if record_state == 'all' %}checked{% endif %}><label class="chip-btn" for="entry-all">Tümü</label>
-    </div><a class="small ms-auto" href="{% url 'accounting:list' %}">Süzgeçleri temizle</a></div>
+    </div><a class="small ms-auto" href="{% url 'accounting:list' %}">Filtreleri temizle</a></div>
   </form>
   <div id="list-table">{% include "accounting/_list_table.html" %}</div>
 </div>

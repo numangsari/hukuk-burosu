@@ -17,7 +17,7 @@ from apps.core.permissions import AdminRequiredMixin, is_admin
 from apps.core.text import fold
 from apps.office.models import Court
 
-from . import flows, services, stages, summary
+from . import flows, seizure_types, services, stages, summary
 from .documents import mirror_document
 from .forms import (
     CaseCloseForm,
@@ -343,9 +343,24 @@ class CaseDetailView(DetailView):
             for i, (key, label) in enumerate(steps)
         ]
         if self.object.case_type == CaseType.ENFORCEMENT:
-            ctx["seizures"] = self.object.seizures.select_related(
-                "debtor_party", "debtor_client"
-            ).prefetch_related("renewals__task")
+            ctx["seizures"] = list(
+                self.object.seizures.select_related(
+                    "debtor_party", "debtor_client"
+                ).prefetch_related("renewals__task")
+            )
+            ctx["seizure_groups"] = [
+                {
+                    "kind": kind,
+                    "label": label,
+                    "items": [s for s in ctx["seizures"] if s.kind == kind],
+                }
+                for kind, label in seizure_types.KINDS
+            ]
+            legacy = [s for s in ctx["seizures"] if not s.kind]
+            if legacy:
+                ctx["seizure_groups"].append(
+                    {"kind": "", "label": "Önceki kayıtlar", "items": legacy}
+                )
         ctx["document_form"] = DocumentForm()
         ctx["party_links"] = self.object.party_links.select_related("party", "case")
         ctx["documents"] = self.object.documents.select_related("created_by")

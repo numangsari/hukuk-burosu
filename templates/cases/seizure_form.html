@@ -10,7 +10,7 @@
     {% if item.asset %}<div class="small text-body-secondary mb-3">Önceki kayıt bilgisi: {{ item.debtor }} · {{ item.asset }}</div>{% endif %}
     <div class="row"><div class="col-md-4">{% include "partials/field.html" with field=form.debtor %}</div><div class="col-md-4">{% include "partials/field.html" with field=form.kind %}</div><div class="col-md-4">{% include "partials/field.html" with field=form.state %}</div></div>
     <div x-show="kind === 'salary'" x-cloak>{% include "partials/field.html" with field=form.employer %}</div>
-    <div x-show="kind === 'bank'" x-cloak>{% include "partials/field.html" with field=form.bank_name %}<div class="form-text mb-3">Her banka için ayrı haciz kaydı açın.</div></div>
+    <div x-show="kind === 'bank'" x-cloak>{% include "partials/field.html" with field=form.bank_name %}<div class="form-text mb-3">Birden fazla bankayı virgülle ayırın; her biri için ayrı kayıt oluşturulur.</div></div>
     <div x-show="kind === 'vehicle' && state !== 'vehicle_none'" x-cloak>{% include "partials/field.html" with field=form.plate %}<div class="form-text mb-3">Her plaka için ayrı haciz kaydı açın.</div></div>
     <div x-show="kind === 'property' && state !== 'property_none'" x-cloak>{% include "partials/field.html" with field=form.property_info %}</div>
     <div x-show="kind === 'location'" x-cloak>{% include "partials/field.html" with field=form.address %}</div>
@@ -24,8 +24,9 @@
     <div class="form-check mb-3">{{ form.is_active }}<label class="form-check-label" for="{{ form.is_active.id_for_label }}">{{ form.is_active.label }}</label>{{ form.is_active.errors }}</div>
     <div class="form-text">Yenileme tarihi girilmiş aktif kayıtlarda o gün dosyanın stajyerine görev, avukatına kontrol atanır. Bilgisayar kapalıysa ilk açılışta oluşturulur.</div>
   </div>
-  <div class="form-footer"><a class="btn btn-light" href="{{ case.get_absolute_url }}#t-haciz">Vazgeç</a><button class="btn btn-primary" {% if not form.borrowers %}disabled{% endif %}>Kaydet</button></div>
+  <div class="form-footer">{% if item.pk and request.user.is_office_admin %}<button type="submit" form="seizure-delete-form" class="btn btn-outline-danger me-auto" onclick="return confirm('Haciz kaydı silinsin mi? Varsa oluşturulmuş görevler korunur.')">Sil</button>{% endif %}<a class="btn btn-light" href="{{ case.get_absolute_url }}#t-haciz">Vazgeç</a><button class="btn btn-primary" {% if not form.borrowers %}disabled{% endif %}>Kaydet</button></div>
 </form>
+{% if item.pk and request.user.is_office_admin %}<form id="seizure-delete-form" method="post" action="{% url 'cases:seizure_delete' case.pk item.pk %}">{% csrf_token %}</form>{% endif %}
 <script>
   function seizureForm() {
     const config = JSON.parse(document.getElementById('seizure-config').textContent);

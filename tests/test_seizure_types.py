@@ -42,6 +42,39 @@ def payload(borrower, kind="vehicle", state="vehicle_seized", **kwargs):
     return data
 
 
+def test_multiple_banks_create_individual_records(debtor_case, lawyer_client):
+    case, debtor = debtor_case
+    response = lawyer_client.post(
+        reverse("cases:seizure_add", args=[case.pk]),
+        payload(debtor, "bank", "bank_letter", bank_name="Ziraat, Vakıf, İş"),
+    )
+    assert response.status_code == 302, response.context["form"].errors
+    assert list(case.seizures.order_by("pk").values_list("bank_name", flat=True)) == [
+        "Ziraat",
+        "Vakıf",
+        "İş",
+    ]
+    response = lawyer_client.post(
+        reverse("cases:seizure_add", args=[case.pk]),
+        payload(debtor, "bank", "bank_letter", bank_name="Banka, , Diğer"),
+    )
+    assert response.status_code == 200
+    assert case.seizures.count() == 3
+
+
+def test_seizure_delete_is_admin_only(debtor_case, lawyer, lawyer_client, admin_user):
+    case, debtor = debtor_case
+    form = SeizureForm(payload(debtor), instance=Seizure(case=case))
+    assert form.is_valid()
+    item = save_seizure(case, form, lawyer)
+    url = reverse("cases:seizure_delete", args=[case.pk, item.pk])
+    assert lawyer_client.post(url).status_code == 403
+    assert case.seizures.count() == 1
+    lawyer_client.force_login(admin_user)
+    assert lawyer_client.post(url).status_code == 302
+    assert not case.seizures.exists()
+
+
 @pytest.mark.parametrize(
     "kind,state",
     [(kind, state) for kind, states in seizure_types.STATES.items() for state, _ in states],
@@ -116,7 +149,7 @@ def test_borrower_is_checked_again_before_save(debtor_case, lawyer):
 @pytest.mark.parametrize(
     "kind,state,field,value",
     [
-        ("bank", "bank_letter", "bank_name", "A Bankası, B Bankası"),
+        ("bank", "bank_letter", "bank_name", "A Bankası; B Bankası"),
         ("vehicle", "vehicle_seized", "plate", "34 ABC 123 / 06 XYZ 456"),
         ("vehicle", "vehicle_seized", "plate", "34ABC123 06XYZ456"),
     ],

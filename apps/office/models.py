@@ -2,6 +2,8 @@ import datetime
 
 from django.db import models
 
+from apps.core.text import tr_capitalize_words
+
 
 class OfficeSettings(models.Model):
     """Tek satırlık ofis ayarları tablosu (singleton, pk=1)."""
@@ -66,10 +68,16 @@ class LookupModel(models.Model):
 
 class TaskType(LookupModel):
     requires_document = models.BooleanField("kontrole göndermek için belge zorunlu", default=False)
+    points = models.PositiveSmallIntegerField("puan", default=0)
+    categories = models.JSONField("kategoriler", default=list, blank=True)
 
     class Meta(LookupModel.Meta):
         verbose_name = "görev türü"
         verbose_name_plural = "görev türleri"
+
+    def save(self, *args, **kwargs):
+        self.name = tr_capitalize_words(self.name)
+        return super().save(*args, **kwargs)
 
 
 class Court(LookupModel):

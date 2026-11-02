@@ -18,8 +18,8 @@
   {% for k in cases %}
     <tr class="type-{{ k.case_type }}{% if k.chain_prev %} chain-prev{% endif %}{% if k.chain_next %} chain-next{% endif %}" data-href="{{ k.get_absolute_url }}" onclick="location.href=this.dataset.href">
       <td><a href="{{ k.get_absolute_url }}" class="fw-semibold tabular">{{ k.archive_reference }}</a></td>
-      <td><span class="type-chip type-{{ k.case_type }}">{{ k.get_case_type_display }}</span></td>
-      <td>{% include "cases/_status_chip.html" %}{% if not k.is_open %}<div class="cell-sub mt-1">{{ k.closing_label }}</div>{% endif %}</td>
+      <td><span class="case-list-type">{{ k.get_case_type_display }}</span></td>
+      <td><span class="case-list-status{% if not k.is_open %} case-list-status-closed{% endif %}">{{ k.get_status_display }}</span>{% if not k.is_open %}<div class="cell-sub mt-1">{{ k.closing_label }}</div>{% endif %}</td>
       <td>{% if k.is_open %}{{ k.stage_label|default:"—" }}{% else %}—{% endif %}</td>
       <td>
         <div class="cell-main">{% if k.chain_prev %}<i class="bi bi-link-45deg chain-icon" title="Bağlı dosya"></i>{% endif %}{{ k.display_name }}{% if k.linked_others %} <span class="chip chip-accent no-dot">+{{ k.linked_others }} dosya bağlı</span>{% endif %}</div>

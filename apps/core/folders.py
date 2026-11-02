@@ -22,6 +22,7 @@ log = logging.getLogger(__name__)
 CLIENTS_DIR = "Müvekkiller"
 POA_DIR = "Vekaletler"
 RETAINER_DIR = "Sözleşmeler"
+TASKS_DIR = "Görevler"
 _INVALID = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
 _RESERVED = {
     "CON",
@@ -163,6 +164,15 @@ def poa_dir(client) -> Path:
 
 def retainer_dir(client) -> Path:
     return _ensure(client_dir(client) / RETAINER_DIR)
+
+
+def task_dir(case) -> Path:
+    parent = case_dir(case)
+    path = parent / TASKS_DIR
+    base = root()
+    if path.is_symlink() or base is None or not path.resolve().is_relative_to(base.resolve()):
+        raise FolderError("Görev klasörü belge kökünün dışında veya güvenli değil.")
+    return _ensure(path)
 
 
 def unique_path(directory: Path, filename: str) -> Path:

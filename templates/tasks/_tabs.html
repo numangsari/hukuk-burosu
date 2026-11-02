@@ -1,0 +1,4 @@
+{% load ui %}
+<ul class="nav nav-underline-tabs" id="task-tabs" {% if update_tabs %}hx-swap-oob="outerHTML"{% endif %} style="border-top: 0; border-bottom: 1px solid var(--line)">
+  {% for key, label, count in tabs %}<li><a class="nav-link {% if tab == key %}active{% endif %}" href="{% query_with sekme=key page=None %}">{{ label }} <span class="count">{{ count }}</span></a></li>{% endfor %}
+</ul>

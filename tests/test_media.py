@@ -97,7 +97,7 @@ def test_dangerous_uploads_rejected(case_factory, client_factory, lawyer_client,
     )
     assert "pdf" in r.context["formsets"]["vekalet"][0].forms[0].errors
     task = Task.objects.create(
-        task_type=TaskType.objects.get(name="Müvekkil görüşmesi"), title="t", case=case, assignee=intern,
+        task_type=TaskType.objects.get(name="Müvekkil Görüşmesi"), title="t", case=case, assignee=intern,
         reviewer=lawyer, due_date=timezone.localdate(), created_by=lawyer,
     )  # fmt: skip
     login(intern).post(

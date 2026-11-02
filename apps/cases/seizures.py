@@ -1,5 +1,7 @@
 """İcra dosyalarında haciz takibi ve tarih geldiğinde görev oluşturma."""
 
+from copy import copy
+
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils import timezone
@@ -32,8 +34,18 @@ def save_seizure(case, form, user):
     item.case = locked
     if not item.pk:
         item.created_by = user
+    banks = [name.strip() for name in item.bank_name.split(",")] if item.kind == "bank" else []
+    if banks:
+        item.bank_name = banks[0]
     item.full_clean()
     item.save()
+    for bank in banks[1:]:
+        extra = copy(item)
+        extra.pk = None
+        extra.created_by = user
+        extra.bank_name = bank
+        extra.full_clean()
+        extra.save()
     return item
 
 
@@ -61,7 +73,9 @@ def _create_renewal(seizure_id, case_id, today):
         return 0
     if not (case.responsible_intern.is_active and case.responsible_lawyer.is_active):
         return -1
-    task_type, _ = TaskType.objects.get_or_create(name="Haciz yenileme")
+    task_type, _ = TaskType.objects.get_or_create(
+        name="Haciz Yenileme Talebi", defaults={"points": 1}
+    )
     task = Task(
         case=case,
         title=tr_upper(f"HACZİ YENİLE: {item.debtor_display} — {item.asset_label}")[:300],

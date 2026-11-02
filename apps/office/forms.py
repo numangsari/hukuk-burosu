@@ -74,7 +74,12 @@ class DocumentsRootForm(BootstrapMixin, forms.ModelForm):
 class TaskTypeForm(BootstrapMixin, forms.ModelForm):
     class Meta:
         model = TaskType
-        fields = ["name", "requires_document", "is_active", "order"]
+        fields = ["name", "points", "requires_document", "is_active", "order"]
+
+    def clean_name(self):
+        from apps.core.text import tr_capitalize_words
+
+        return tr_capitalize_words(self.cleaned_data["name"])
 
 
 TaskTypeFormSet = forms.modelformset_factory(TaskType, form=TaskTypeForm, extra=1)

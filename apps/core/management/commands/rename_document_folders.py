@@ -9,6 +9,7 @@ from apps.cases.models import Case, Document
 from apps.clients.models import Client, PowerOfAttorney, RetainerAgreement
 from apps.core import folders
 from apps.core.text import fold
+from apps.tasks.models import TaskDocument
 
 
 def checked_path(base, path):
@@ -100,7 +101,7 @@ class Command(BaseCommand):
                     raise CommandError("Dosyanın müvekkil klasörü kayıtlı değil; işlem durduruldu.")
                 changes = case_changes + client_changes
                 updates = []
-                for model in (Document, PowerOfAttorney, RetainerAgreement):
+                for model in (Document, PowerOfAttorney, RetainerAgreement, TaskDocument):
                     for item in model.objects.select_for_update().exclude(folder_path=""):
                         path = Path(item.folder_path)
                         for _record, source, target in changes:

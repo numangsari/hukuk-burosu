@@ -427,6 +427,24 @@ a.stat-card:hover { box-shadow: var(--shadow); border-color: color-mix(in srgb, 
 .table .cell-sub { font-size: .78rem; color: var(--muted); }
 .table-card { overflow: hidden; }
 .table-card .table-responsive { margin: 0; }
+.searchable-select { position: relative; }
+.form-section:focus-within { position: relative; z-index: 20; }
+.searchable-select-list { position: absolute; top: calc(100% + 3px); left: 0; right: 0; z-index: 30; max-height: 16rem; overflow-y: auto; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-sm); box-shadow: var(--shadow-lg); padding: .25rem; }
+.searchable-select-list[hidden] { display: none; }
+.searchable-select-option { padding: .45rem .65rem; border-radius: 5px; cursor: pointer; color: var(--ink); font-size: .875rem; }
+.searchable-select-option:hover, .searchable-select-option[aria-selected="true"] { background: var(--brand-soft); color: var(--brand); }
+.searchable-select-group { padding: .55rem .65rem .25rem; color: var(--muted); font-size: .75rem; font-weight: 650; }
+.searchable-select-empty { padding: .6rem .65rem; color: var(--muted); font-size: .875rem; }
+.seizure-group + .seizure-group { border-top: 3px solid var(--line); }
+.seizure-group-header { background: var(--brand-soft); border-left: 4px solid var(--brand); }
+.seizure-group-header .card-title { color: var(--brand); }
+.seizure-table { min-width: 1050px; table-layout: fixed; }
+.seizure-col-debtor, .seizure-col-detail { width: 20%; }
+.seizure-col-stage { width: 18%; }
+.seizure-col-date { width: 11%; }
+.seizure-col-status { width: 12%; }
+.seizure-col-action { width: 8%; }
+.seizure-table td { overflow-wrap: anywhere; }
 .table-footer { display: flex; justify-content: space-between; align-items: center; padding: .75rem 1.25rem; border-top: 1px solid var(--line); font-size: .8rem; color: var(--muted); }
 .pagination { --bs-pagination-border-color: var(--line); --bs-pagination-color: var(--ink-2); --bs-pagination-bg: var(--surface); --bs-pagination-active-bg: var(--brand); --bs-pagination-active-border-color: var(--brand); }
 
@@ -440,6 +458,11 @@ a.stat-card:hover { box-shadow: var(--shadow); border-color: color-mix(in srgb, 
 .chip::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: .8; }
 .chip.no-dot::before { display: none; }
 .chip-primary { background: var(--brand-soft); color: var(--brand); }
+.task-status-text { color: var(--brand); font-weight: 600; white-space: nowrap; }
+.task-status-review { color: var(--info-ink); }
+.task-status-approved { color: var(--success-ink); }
+.task-status-revision { color: var(--warning-ink); }
+.task-status-closed { color: var(--muted); }
 .chip-success { background: var(--success-soft); color: var(--success-ink); }
 .chip-warning { background: var(--warning-soft); color: var(--warning-ink); }
 .chip-danger { background: var(--danger-soft); color: var(--danger-ink); }
@@ -721,6 +744,16 @@ a.stat-card:hover { box-shadow: var(--shadow); border-color: color-mix(in srgb, 
 .tl-date { font-weight: 600; color: var(--ink-2); }
 .tl-comment { margin-top: .35rem; padding: .55rem .75rem; background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--radius-sm); font-size: .85rem; }
 
+/* Dosya özeti notları */
+.case-note-form { padding: 1rem 1.25rem; background: var(--surface-2); border-bottom: 1px solid var(--line); }
+.case-note-form textarea { min-height: 38px; }
+.case-notes-list { list-style: none; padding: 0; margin: 0; }
+.case-note { padding: .85rem 1.25rem; font-size: .875rem; }
+.case-note + .case-note { border-top: 1px solid var(--line); }
+.case-note-content { min-width: 0; overflow-wrap: anywhere; }
+.case-note-meta { display: flex; flex-wrap: wrap; gap: .25rem .75rem; color: var(--muted); font-size: .75rem; margin-bottom: .2rem; }
+.case-note-description { margin-top: .25rem; color: var(--ink-2); white-space: normal; }
+
 /* ---------- Takvim kaynak renkleri ---------- */
 a.cal-ev:hover { text-decoration: none; filter: brightness(.95); }
 .cal-ev.src-hearing { background: var(--accent-soft); color: #8a6a3c; }
@@ -908,6 +941,9 @@ a.agenda-item:hover { background: var(--surface-2); text-decoration: none; color
 .type-notice { --tc: #ea580c; }
 .type-other { --tc: #64748b; }
 .type-chip { display: inline-block; padding: .05rem .5rem; border-radius: 999px; font-size: .72rem; font-weight: 600; background: color-mix(in srgb, var(--tc) 14%, transparent); color: color-mix(in srgb, var(--tc) 75%, var(--ink)); }
+.case-list-type { color: var(--ink); white-space: nowrap; }
+.case-list-status { color: var(--ink-2); white-space: nowrap; }
+.case-list-status-closed { color: var(--muted); }
 tr[class*="type-"] > td:first-child { box-shadow: inset 3px 0 0 var(--tc); }
 .hero-icon[class*="type-"] { background: color-mix(in srgb, var(--tc) 14%, transparent); color: var(--tc); }
 .filter-chips { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem .75rem; }

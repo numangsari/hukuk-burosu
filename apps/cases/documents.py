@@ -35,6 +35,22 @@ def mirror_document(doc: Document, filename: str | None = None) -> str:
     return ""
 
 
+def mirror_task_document(doc) -> str:
+    """Görev belgesini dosyanın Görevler klasörüne kopyalar."""
+    if folders.root() is None:
+        return NOT_CONFIGURED
+    try:
+        target = folders.copy_file(doc.file, folders.task_dir(doc.task.case), doc.original_name)
+    except folders.FolderError as e:
+        log.warning("Görev belgesi klasöre kopyalanamadı: %s", e)
+        return str(e)
+    if len(str(target)) > doc._meta.get_field("folder_path").max_length:
+        return "Belge klasör yolu çok uzun; kopya yolu kaydedilemedi."
+    type(doc).objects.filter(pk=doc.pk).update(folder_path=str(target))
+    doc.folder_path = str(target)
+    return ""
+
+
 def mirror_poa(poa) -> str:
     """Vekalet PDF'ini müvekkilin Vekaletler klasörüne kopyalar."""
     if not poa.pdf:

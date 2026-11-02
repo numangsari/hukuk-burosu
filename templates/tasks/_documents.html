@@ -5,6 +5,7 @@
     {% if task.task_type.requires_document %}<span class="chip chip-warning no-dot">Kontrol için belge zorunlu</span>{% endif %}
   </div>
   {% if doc_error %}<div class="alert alert-danger small m-3 mb-0 py-2">{{ doc_error }}</div>{% endif %}
+  {% if doc_warning %}<div class="alert alert-warning small m-3 mb-0 py-2">{{ doc_warning }}</div>{% endif %}
   {% if task.status == "review" %}<div class="alert alert-info small m-3 mb-0 py-2">Kontroldeki belgeler değiştirilemez. Değişiklik gerekiyorsa önce revizyon istenmelidir.</div>{% endif %}
   {% if task_docs %}
   <ul class="doc-list">
@@ -41,7 +42,7 @@
     <input type="hidden" name="replaces" :value="replaces">
     <input type="file" name="file" class="form-control" style="max-width: 420px" x-ref="file" @change="if (replaces) $refs.form.requestSubmit()">
     <button class="btn btn-primary" @click="replaces = ''"><i class="bi bi-upload"></i>Belge yükle</button>
-    <span class="small text-body-secondary">Onaylanınca belge dosyanın Belgeler'ine ve ofis klasörüne kaydedilir.</span>
+    <span class="small text-body-secondary">Belge görev klasörüne kopyalanır; onaylanınca dosyanın Belgeler bölümüne de eklenir.</span>
   </form>
   {% endif %}
 </div>

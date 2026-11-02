@@ -118,6 +118,10 @@ class Case(TimeStampedModel):
     enforcement_type = models.CharField(
         "takip türü", max_length=20, choices=EnforcementType.choices, blank=True
     )
+    enforcement_basis = models.TextField("takibin dayanağı", blank=True)
+    enforcement_amount = models.DecimalField(
+        "takipte kesinleşen miktar", max_digits=16, decimal_places=2, null=True, blank=True
+    )
     crime = models.CharField("suç", max_length=200, blank=True)
     mediator = models.CharField("arabulucu", max_length=200, blank=True)
     responsible_lawyer = models.ForeignKey(

@@ -74,18 +74,23 @@
         if (!client) {
           sel.innerHTML = this.allOptions;
           sel.value = keep;
+          sel.dispatchEvent(new Event("searchable:refresh"));
           return;
         }
         const list = await this.load({ client, all: 1 });
+        if (this.$refs.client.value !== client) return;
         sel.innerHTML = '<option value="">Seçiniz…</option>' +
           list.map(c => `<option value="${c.id}">${c.label.replace(/</g, "&lt;")}</option>`).join("");
         if (list.some(c => String(c.id) === keep)) sel.value = keep;
+        sel.dispatchEvent(new Event("searchable:refresh"));
       },
       async caseChanged() {
         if (!this.$refs.case.value) return;
-        const [c] = await this.load({ id: this.$refs.case.value, all: 1 });
-        if (!c) return;
+        const id = this.$refs.case.value;
+        const [c] = await this.load({ id, all: 1 });
+        if (!c || this.$refs.case.value !== id) return;
         this.$refs.client.value = c.client;
+        this.$refs.client.dispatchEvent(new Event("searchable:refresh"));
       },
     };
   }

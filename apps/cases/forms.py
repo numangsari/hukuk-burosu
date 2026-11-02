@@ -46,6 +46,8 @@ class CaseForm(BootstrapMixin, forms.ModelForm):
             "authority",
             "subject",
             "enforcement_type",
+            "enforcement_basis",
+            "enforcement_amount",
             "crime",
             "mediator",
             "responsible_lawyer",
@@ -61,6 +63,9 @@ class CaseForm(BootstrapMixin, forms.ModelForm):
         self.related_case = related_case
         self.fields["archive_folder_no"].required = not self.instance.pk
         self.fields["opened_on"].required = True
+        self.fields["client"].widget.attrs["data-searchable"] = "Müvekkil ara"
+        self.fields["enforcement_amount"].min_value = Decimal("0")
+        self.fields["enforcement_basis"].widget.attrs["rows"] = 2
         for name in ("responsible_lawyer", "responsible_intern"):
             self.fields[name].required = False
         kind = (
@@ -129,6 +134,12 @@ class CaseForm(BootstrapMixin, forms.ModelForm):
             )
         return client
 
+    def clean_enforcement_amount(self):
+        amount = self.cleaned_data.get("enforcement_amount")
+        if amount is not None and amount < 0:
+            raise forms.ValidationError("Miktar negatif olamaz.")
+        return amount
+
     def _linked_case_ids(self) -> set:
         """Bu dosyayla bağlı (veya bağlanacak) dosyaların kimlikleri."""
         anchor = self.related_case or (self.instance if self.instance.pk else None)
@@ -179,6 +190,8 @@ class CaseForm(BootstrapMixin, forms.ModelForm):
                     self.add_error(name, f"{label} zorunludur.")
         if data.get("case_type") != "enforcement":
             data["enforcement_type"] = ""
+            data["enforcement_basis"] = self.instance.enforcement_basis
+            data["enforcement_amount"] = self.instance.enforcement_amount
         if data.get("case_type") not in ("criminal", "investigation"):
             data["crime"] = ""
         if data.get("case_type") != "mediation":
@@ -546,11 +559,15 @@ class SeizureForm(BootstrapMixin, forms.ModelForm):
         else:
             self.initial["debtor"] = ""
         self.fields["kind"].required = True
-        kind = self.data.get("kind", "") if self.is_bound else self.instance.kind
+        kind = (
+            self.data.get("kind", "")
+            if self.is_bound
+            else self.initial.get("kind", self.instance.kind)
+        )
         state = self.data.get("state", "") if self.is_bound else self.instance.state
         self.fields["state"].choices = [("", "Seçiniz…"), *seizure_types.STATES.get(kind, [])]
         self.fields["seized_on"].required = state in seizure_types.SEIZED_STATES
-        self.fields["bank_name"].label = "Banka adı (tek banka)"
+        self.fields["bank_name"].label = "Banka adı"
         self.fields["plate"].label = "Plaka (tek araç)"
         self.fields["property_info"].label = "Taşınmaz bilgisi (il, ilçe, ada/parsel)"
         self.fields["related_case_info"].label = "Alacaklı olduğu dosya (kurum ve numara)"
@@ -589,6 +606,12 @@ class SeizureForm(BootstrapMixin, forms.ModelForm):
             value = self.config[key]
             self.config[key] = value.isoformat() if hasattr(value, "isoformat") else (value or "")
 
+    def clean_bank_name(self):
+        value = self.cleaned_data.get("bank_name", "")
+        if value and any(not name.strip() for name in value.split(",")):
+            raise forms.ValidationError("Banka adlarını virgülle ayırın; boş ad bırakmayın.")
+        return value
+
     def clean(self):
         import re
 
@@ -619,9 +642,9 @@ class SeizureForm(BootstrapMixin, forms.ModelForm):
         ):
             data["renewal_on"] = seizure_types.suggested_renewal(data["seized_on"])
         if kind == "bank" and any(
-            separator in data.get("bank_name", "") for separator in (",", ";", "\n", "\r")
+            separator in data.get("bank_name", "") for separator in (";", "\n", "\r")
         ):
-            self.add_error("bank_name", "Her bankayı ayrı bir haciz kaydı olarak girin.")
+            self.add_error("bank_name", "Banka adlarını virgülle ayırın.")
         if kind == "vehicle" and state != "vehicle_none":
             plate = data.get("plate", "").upper().replace("İ", "I").strip()
             data["plate"] = re.sub(r"\s+", " ", plate)

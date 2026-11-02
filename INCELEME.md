@@ -30,11 +30,11 @@ Kullanıcının henüz tek tek bakmadığı kontrol maddeleri (Adım 4'e geçmed
 - Silme: yalnızca yönetici, düzenleme ekranının altındaki düğme, onay sayfası ve birlikte silinecek kayıt sayıları.
 
 ### 4. Dosyalar — inceleme büyük ölçüde tamam, son sekmeler kaldı
-**Devam noktası:** Yeni haciz takibi ekranının borçlu/tür/aşama/ayrıntı ve yenileme önerisi kullanıcıyla denenerek devam edilecek. Logo zemini ve Dosya türü sütunu görsel olarak kontrol edilecek. Ardından güncellenen Görevler, Muhasebe ve Raporlar ekranları gözden geçirilecek; görev tamamlama prosedürü henüz kararlaştırılmadı. Önceden onaylanan dosya formu, liste, açık/kapalı + aşama, Taraflar, Safahat ve ortak muhasebe kararları korunur.
-- Haciz takibi tür/aşama düzenine geçirildi: dosyanın borçlularından seçim, türe özel alanlar, ayrı banka/plaka kayıtları, araç/tapu için değiştirilebilir yenileme önerisi ve tek kayıtta 89 ihbarnamesi. Kullanıcıyla görsel kontrol yapılacak.
+**Devam noktası:** Görevler adımında sorumlu ve kontrolcüyle oluşturma → kontrole gönderme → revizyon → tekrar gönderme → onay döngüsü incelenecek. Sonra sorumlunun onaylanan görevi kapatırken gireceği bilgiler, yapılacak işlemler ve puan verilmesi kullanıcıyla tasarlanacak. Dosya silinince bağlı grup ve ek müvekkil davranışı ile silme yetkileri daha sonra kontrol edilecek; ardından Takvim, Muhasebe ve Raporlar incelenecek.
+- İcra takibi ve Özet notlarının düzeni kullanıcıyla gözden geçirildi; Belgeler ve Geçmiş kullanıcı tarafından uygun bulundu.
 - İcra ekleri: kapanışta çoklu tahsilat ve otomatik muhasebe; Haciz takibi sekmesi ve yenileme günü görev oluşturma; dosya listesinde ayrı AŞAMA sütunu/süzgeci. Bu ekranlar kullanıcıyla gözden geçirilecek.
 - Dosya notları Özet’in en altındadır; Geçmiş’te yalnızca işlem geçmişi ve iptal hareketleri kalır. Otomatik olaylar silinmez.
-- Kalan kontroller: Belgeler (yükleme ve doğru klasöre kopya kullanıcıyla doğrulandı; klasör adları müvekkil adı ve kurum/numara düzenine çevrilir), Geçmiş sekmesi, dosya silinince bağlı grup ve ek müvekkil davranışı, arama ve süzgeç ayrıntıları, silme yetkileri.
+- Kalan kontroller: dosya silinince bağlı grup ve ek müvekkil davranışı, silme yetkileri. Dosya listesi, arama ve süzgeçler ile belge yükleme ve doğru klasöre kopya kullanıcıyla gözden geçirildi.
 - Bilinen sınırlar: bağlı dosya kümelemesi yalnızca gösterilen sayfa içinde; klasör yapısı yalnızca asıl müvekkili kullanır; sözleşmedeki vekalet ücreti muhasebe kaydıyla bağlı değildir (yalnızca öneri).
 - Kullanıcı kararları (uygulandı): tebligat kaldırıldı; safahat aşama kaydı değil bağlı dosyalardır; bağlantıyı koparma yönetici ve avukatlarda; bağlanacak dosyaların en az bir ortak müvekkili olmalı; ek müvekkilin kendi sıfatı vardır; bağlı dosyalar aynı fiziki arşiv yerini paylaşabilir (veritabanı tekillik kısıtı kaldırıldı, form denetler).
 
@@ -42,12 +42,13 @@ Kullanıcının henüz tek tek bakmadığı kontrol maddeleri (Adım 4'e geçmed
 - Kullanıcı kararıyla duruşma bölümü kaldırıldı; eski kayıtlar korunur. Tebligat daha önce kaldırılmıştı.
 
 ### 6. Görevler
-- Ortak görünüme geçildi: durum düğmeleri, sorumlu/kontrolcü/son gün süzgeçleri, sıralama, ayrı sütunlar, iki sütun form ve Belgeler/Yorumlar/Geçmiş sekmeleri. Kullanıcıyla görsel inceleme yapılacak.
-- Liste kapsamları (Bana atanan, Kontrolümde, Oluşturduklarım, Tümü), durum/tür süzgeci, arama.
-- Form: müvekkile göre dosya süzme; dosya seçince müvekkil ve varsayılan sorumlu/kontrolcü; stajyer sorumluysa kontrolcü bağlı avukatı; ad büyük harf; kontrolcü ≠ sorumlu.
-- Onay döngüsü: kontrole gönder (sorumlu veya yönetici), onayla/revizyon (açıklama zorunlu), yeniden aç; "Yeni görev", "Revizyon istendi", "Onaylandı" rozetleri.
-- **Planlanan:** onaylanan görevin "tamamlanma" prosedürünü kullanıcıyla tasarla; "Onaylandı" satırının ana sayfadan ne zaman kalkacağı buna bağlı (şimdilik yalnızca yeniden açılınca kalkar).
-- Görev belgeleri: sürümler, belge zorunlu türler, onayda dosyaya ve ofis klasörüne yayın.
+- Sorumlu/kontrolcü/son gün filtreleri, sıralama, ayrı sütunlar, iki sütun form ve Belgeler/Yorumlar/Geçmiş sekmeleri vardır; kullanıcıyla işleyiş incelenecek.
+- Liste kapsamları Bana atanmış/Tümü; sekmeler Aktif görevlerim, Kontrolümü bekleyenler, Kontrolde olanlar ve Kapalı görevler. Yeni düzen kullanıcıyla incelenecek.
+- Form: görev türleri kategorili ve aranabilir; tür seçimi görev adını doldurur, Diğer serbest yazılır. Müvekkil ve dosya da tek kutuda aranır; seçimler birbiriyle bağlıdır. Görev oluştururken notların altında isteğe bağlı belge yüklenir. Dosya seçince varsayılan sorumlu/kontrolcü gelir; stajyer sorumluysa kontrolcü bağlı avukatı; ad büyük harf; kontrolcü ≠ sorumlu. Yeni arama ve belge akışı kullanıcıyla denenecek.
+- Onay döngüsü: kontrole gönder, onayla/revizyon (açıklama zorunlu); aşamalar Yeni Görev, Kontrolde, Onaylandı, Revize İstendi ve Revize Edildi. Onaylanan görev aktif olarak sorumluya döner.
+- **Planlanan:** sorumlunun onaylanan görevi kapatırken gireceği bilgiler ve yapılacak işlemler kullanıcıyla tasarlanacak; kapatma düğmesi henüz yok.
+- Personel puanları kapatma anında hem sorumluya hem kontrolcüye tam puan verilmesi için hazırlandı; geçmiş görevler sayılmaz. Kapatma henüz yapılmadığından puan verme işlemi henüz bağlanmadı. Kapatma ve olası yeniden açma/silme etkileri kararlaştırılıp puan verme aynı işlemde tamamlanacak.
+- Görev belgeleri: ilk yüklemede dosyanın Görevler klasörüne kopya, sürümler, belge zorunlu türler, onayda dosyaya yayın.
 - Yorumlar, geçmiş, silme yetkisi (oluşturan veya yönetici).
 
 ### 7. Takvim

@@ -9,6 +9,15 @@ def tr_upper(value: str) -> str:
     return (value or "").translate(_TR_UPPER).upper()
 
 
+def tr_capitalize_words(value: str) -> str:
+    """Her kelimenin ilk harfini Türkçe kurallarla büyütür; diğer harfleri korur."""
+    value = value or ""
+    return "".join(
+        tr_upper(char) if char.isalpha() and (i == 0 or not value[i - 1].isalpha()) else char
+        for i, char in enumerate(value)
+    )
+
+
 _FOLD = str.maketrans("çğıöşüâîû", "cgiosuaiu")
 
 

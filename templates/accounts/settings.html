@@ -18,6 +18,7 @@
       <a class="{% if active == 'klasor' %}active{% endif %}" href="?bolum=klasor"><i class="bi bi-folder2"></i>Belge klasörü
         {% if office.documents_root %}<span class="chip chip-success ms-auto">Ayarlı</span>{% endif %}</a>
       <a class="{% if active == 'gorev_turleri' %}active{% endif %}" href="?bolum=gorev_turleri"><i class="bi bi-list-check"></i>Görev türleri</a>
+      <a class="{% if active == 'puanlar' %}active{% endif %}" href="?bolum=puanlar"><i class="bi bi-bar-chart"></i>Personel puanları</a>
       <a href="{% url 'imports:import' %}"><i class="bi bi-file-earmark-arrow-up"></i>Excel'den veri aktarımı</a>
       <a class="{% if active == 'yetkiler' %}active{% endif %}" href="?bolum=yetkiler"><i class="bi bi-shield-check"></i>Bakiye görme yetkisi</a>
       <a class="{% if active == 'takvim' %}active{% endif %}" href="?bolum=takvim"><i class="bi bi-calendar3"></i>Google Takvim
@@ -202,6 +203,14 @@
     </form>
     {% endwith %}
 
+  {% elif active == "puanlar" %}
+    <div class="card table-card">
+      <div class="card-header"><h2 class="card-title">Personel puanları</h2></div>
+      <div class="table-responsive"><table class="table"><thead><tr><th>Personel</th><th>Bu hafta</th><th>Bu ay</th><th>Toplam</th></tr></thead><tbody>
+        {% for person in point_users %}<tr><td>{{ person }}{% if not person.is_active %} <span class="text-body-secondary">(Pasif)</span>{% endif %}</td><td>{{ person.week_points|default_if_none:0 }}</td><td>{{ person.month_points|default_if_none:0 }}</td><td>{{ person.total_points|default_if_none:0 }}</td></tr>{% endfor %}
+      </tbody></table></div>
+    </div>
+
   {% elif active == "gorev_turleri" %}
     {% with fs=forms.gorev_turleri %}
     <form method="post" class="card" style="max-width: 860px">{% csrf_token %}<input type="hidden" name="section" value="gorev_turleri">
@@ -210,11 +219,12 @@
         <div class="form-section-head"><h2>Görev türleri</h2><p>"Belge zorunlu" işaretli türlerde görev, belge yüklenmeden kontrole gönderilemez. Kullanılmayan türü pasife alın; son satırdan yeni tür ekleyin.</p></div>
         {% if fs.non_form_errors %}<div class="alert alert-danger">{{ fs.non_form_errors }}</div>{% endif %}
         <table class="table perm-table mb-0">
-          <thead><tr><th>Tür adı</th><th class="text-center">Belge zorunlu</th><th class="text-center">Aktif</th><th style="width: 90px">Sıra</th></tr></thead>
+          <thead><tr><th>Tür adı</th><th>Puan</th><th class="text-center">Belge zorunlu</th><th class="text-center">Aktif</th><th style="width: 90px">Sıra</th></tr></thead>
           <tbody>
           {% for f in fs %}
             <tr>
               <td>{{ f.id }}{{ f.name }}{% for e in f.name.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}</td>
+              <td>{{ f.points }}{% for e in f.points.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}</td>
               <td class="text-center">{{ f.requires_document }}</td>
               <td class="text-center">{{ f.is_active }}</td>
               <td>{{ f.order }}</td>
@@ -231,7 +241,7 @@
     {% with form=forms.yetkiler %}
     <form method="post" class="card" style="max-width: 640px">{% csrf_token %}<input type="hidden" name="section" value="yetkiler">
       <div class="form-section">
-        <div class="form-section-head"><h2>Bakiye görme yetkisi</h2><p>Herkes muhasebe kaydı görür ve girer. Müvekkil bakiyesi, borçlu süzgeci, cari hesap ve finansal raporlar yalnızca yöneticilere ve aşağıda işaretlenen kişilere görünür.</p></div>
+        <div class="form-section-head"><h2>Bakiye görme yetkisi</h2><p>Herkes muhasebe kaydı görür ve girer. Müvekkil bakiyesi, borçlu filtresi, cari hesap ve finansal raporlar yalnızca yöneticilere ve aşağıda işaretlenen kişilere görünür.</p></div>
         <div class="balance-viewers">
           {% for cb in form.viewers %}<label class="form-check">{{ cb.tag }}<span class="form-check-label">{{ cb.choice_label }}</span></label>{% endfor %}
         </div>

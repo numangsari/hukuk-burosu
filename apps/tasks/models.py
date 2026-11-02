@@ -14,7 +14,7 @@ from apps.office.models import TaskType
 class TaskStatus(models.TextChoices):
     ACTIVE = "active", "Aktif"
     REVIEW = "review", "Kontrolde"
-    DONE = "done", "Tamamlandı"
+    DONE = "done", "Kapalı"
 
 
 OPEN_STATUSES = [TaskStatus.ACTIVE, TaskStatus.REVIEW]
@@ -52,12 +52,11 @@ class Task(TimeStampedModel):
     status = models.CharField(
         "durum", max_length=20, choices=TaskStatus.choices, default=TaskStatus.ACTIVE
     )
-    # Kontrolcü revizyon istediğinde işaretlenir, sorumlu tekrar kontrole gönderince kalkar.
+    # Revizyon istendiğinde işaretlenir; yeniden kontrolde "Revize Edildi" aşamasını korur.
     revision_requested = models.BooleanField("revizyon istendi", default=False)
-    # Onaylanan görev sorumlunun ana sayfasında "Onaylandı" olarak kalır. Ne zaman kalkacağı
-    # görev tamamlama prosedürüyle belirlenecek; şimdilik yalnızca yeniden açılınca kalkar.
+    # Onaylanan aktif görev, kapatma prosedürü belirlenene kadar "Onaylandı" olarak kalır.
     approval_seen = models.BooleanField("onay görüldü", default=True)
-    # Başkasının atadığı görev, sorumlu açana kadar ana sayfada "Yeni görev" uyarısıyla durur.
+    # Yeni görev, sorumlu açana kadar "Yeni Görev" aşamasında görünür.
     assignee_seen = models.BooleanField("sorumlu gördü", default=True)
     completed_at = models.DateTimeField("tamamlanma", null=True, blank=True)
 
@@ -86,6 +85,20 @@ class Task(TimeStampedModel):
     @property
     def is_open(self) -> bool:
         return self.status in OPEN_STATUSES
+
+    @property
+    def stage_label(self):
+        if self.status == TaskStatus.DONE:
+            return ""
+        if self.status == TaskStatus.REVIEW:
+            return "Revize Edildi" if self.revision_requested else "Kontrolde"
+        if not self.assignee_seen:
+            return "Yeni Görev"
+        if self.revision_requested:
+            return "Revize İstendi"
+        if not self.approval_seen:
+            return "Onaylandı"
+        return ""
 
     @property
     def days_left(self) -> int:
@@ -148,6 +161,25 @@ class TaskEvent(models.Model):
         return f"{self.actor} {self.get_kind_display()}"
 
 
+class TaskPoint(models.Model):
+    task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name="points_awarded")
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="task_points"
+    )
+    points = models.PositiveSmallIntegerField("puan")
+    earned_at = models.DateTimeField("kazanılma zamanı")
+
+    class Meta:
+        verbose_name = "görev puanı"
+        verbose_name_plural = "görev puanları"
+        constraints = [
+            models.UniqueConstraint(fields=["task", "user"], name="unique_task_user_point")
+        ]
+
+    def __str__(self):
+        return f"{self.user} — {self.points}"
+
+
 def task_document_upload_to(instance, filename):
     from pathlib import Path
     from uuid import uuid4
@@ -162,6 +194,7 @@ class TaskDocument(models.Model):
     task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name="documents")
     file = models.FileField("belge", upload_to=task_document_upload_to)
     original_name = models.CharField(max_length=300)
+    folder_path = models.CharField("klasördeki kopya", max_length=500, blank=True, editable=False)
     size = models.PositiveBigIntegerField(default=0)
     version = models.PositiveSmallIntegerField(default=1)
     previous = models.OneToOneField(

@@ -4,6 +4,7 @@ from apps.accounts.models import User
 from apps.cases.models import Case, CaseStatus
 from apps.clients.models import Client
 from apps.core.forms import BootstrapMixin, DateInput
+from apps.core.uploads import validate_upload
 from apps.office.models import TaskType
 
 from .models import Task
@@ -18,6 +19,7 @@ class TaskForm(BootstrapMixin, forms.ModelForm):
     # Yalnızca dosya listesini süzmek için; kaydedilen müvekkil her zaman dosyanın müvekkilidir.
     client = forms.ModelChoiceField(label="müvekkil", queryset=Client.objects.all(), required=False)
     case = CaseChoiceField(label="dosya", queryset=Case.objects.none())
+    document = forms.FileField(label="Belge", required=False)
 
     class Meta:
         model = Task
@@ -30,6 +32,7 @@ class TaskForm(BootstrapMixin, forms.ModelForm):
         cases = Case.objects.exclude(status=CaseStatus.CLOSED)
         users = User.objects.filter(is_active=True)
         if self.instance.pk:
+            self.fields.pop("document")
             # Pasife alınmış tür/kapanmış dosya/pasif kullanıcı mevcut görevde seçili kalabilsin.
             types = types | TaskType.objects.filter(pk=self.instance.task_type_id)
             cases = cases | Case.objects.filter(pk=self.instance.case_id)
@@ -38,19 +41,49 @@ class TaskForm(BootstrapMixin, forms.ModelForm):
             )
             self.fields["client"].initial = self.instance.client_id
         self.fields["task_type"].queryset = types
+        categories = (
+            "Dava İşlemleri",
+            "İcra İşlemleri",
+            "Evrak ve Tebligat İşlemleri",
+            "Müvekkil İşlemleri",
+            "Mali İşlemler",
+            "Arabuluculuk ve Uzlaşma İşlemleri",
+            "Ceza ve Soruşturma İşlemleri",
+            "Ofis İçi İşlemler",
+            "Diğer",
+        )
+        groups = {name: [] for name in categories}
+        for task_type in types:
+            for category in task_type.categories or ["Diğer görevler"]:
+                if category == "Ofis İçi, Araştırma ve Diğer İşlemler":
+                    category = "Ofis İçi İşlemler"
+                groups.setdefault(category, []).append((task_type.pk, task_type.name))
+        self.fields["task_type"].choices = [
+            ("", "Seçiniz…"),
+            *[(name, options) for name, options in groups.items() if options],
+        ]
         self.fields["case"].queryset = cases.select_related("client").order_by("-created_at")
         self.fields["assignee"].queryset = users.distinct()
         self.fields["reviewer"].queryset = users.distinct()
         self.fields["client"].widget.attrs["x-ref"] = "client"
         self.fields["case"].widget.attrs["x-ref"] = "case"
+        self.fields["client"].widget.attrs["data-searchable"] = "Müvekkil ara"
+        self.fields["case"].widget.attrs["data-searchable"] = "Dosya ara"
         self.fields["client"].widget.attrs["@change"] = "filterCases()"
         self.fields["case"].widget.attrs["@change"] = "caseChanged()"
         self.fields["assignee"].widget.attrs["@change"] = "assigneeChanged()"
+        self.fields["task_type"].widget.attrs["@change"] = "taskTypeChanged($event)"
+        self.fields["task_type"].widget.attrs["data-searchable"] = "Görev türü ara"
         self.fields["title"].widget.attrs["class"] += " text-uppercase-input"
         # Sorumlu seçilince kontrolcü, sorumlunun kontrolcüsü olarak önerilir (değiştirilebilir).
         self.supervisor_map = dict(
             User.objects.filter(supervisor__isnull=False).values_list("pk", "supervisor_id")
         )
+
+    def clean_document(self):
+        document = self.cleaned_data.get("document")
+        validate_upload(document)
+        return document
 
     def clean(self):
         data = super().clean()

@@ -2,9 +2,11 @@ from django.contrib import messages
 from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.views import LoginView
 from django.core.cache import cache
+from django.db.models import Q, Sum
 from django.http import HttpResponse, HttpResponseForbidden
 from django.shortcuts import redirect, render
 from django.urls import reverse
+from django.utils import timezone
 from django.views import View
 
 from apps.core.permissions import is_admin
@@ -44,6 +46,7 @@ class SettingsView(View):
         "gorev_turleri",
         "kullanicilar",
         "yedek",
+        "puanlar",
     }
 
     def _forms(self, request, section=None, data=None, files=None):
@@ -88,12 +91,35 @@ class SettingsView(View):
 
             ctx["backups"] = BackupRecord.objects.all()[:20]
             ctx["backup_problem"] = backup_ready()
+        if active == "puanlar" and is_admin(request.user):
+            import datetime as dt
+
+            today = timezone.localdate()
+            week_start = today - dt.timedelta(days=today.weekday())
+            month_start = today.replace(day=1)
+            ctx["point_users"] = User.objects.annotate(
+                total_points=Sum("task_points__points"),
+                week_points=Sum(
+                    "task_points__points",
+                    filter=Q(
+                        task_points__earned_at__date__gte=week_start,
+                        task_points__earned_at__date__lte=today,
+                    ),
+                ),
+                month_points=Sum(
+                    "task_points__points",
+                    filter=Q(
+                        task_points__earned_at__date__gte=month_start,
+                        task_points__earned_at__date__lte=today,
+                    ),
+                ),
+            ).order_by("first_name", "last_name")
         return render(request, self.template_name, ctx)
 
     def get(self, request):
         active = request.GET.get("bolum", "profil")
         forms = self._forms(request)
-        if active not in forms:
+        if active not in forms and not (active == "puanlar" and is_admin(request.user)):
             active = "profil"
         return self._render(request, forms, active)
 

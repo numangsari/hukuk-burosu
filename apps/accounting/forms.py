@@ -38,6 +38,8 @@ class LedgerEntryForm(BootstrapMixin, forms.ModelForm):
         self.fields["kind"].widget.attrs.update({"class": "form-check-input", "x-model": "kind"})
         self.fields["client"].widget.attrs.update({"x-ref": "client", "@change": "filterCases()"})
         self.fields["case"].widget.attrs.update({"x-ref": "case", "@change": "caseChanged()"})
+        self.fields["client"].widget.attrs["data-searchable"] = "Müvekkil ara"
+        self.fields["case"].widget.attrs["data-searchable"] = "Dosya ara"
         self.fields["amount"].widget.attrs.update(
             {"step": "0.01", "min": "0.01", "inputmode": "decimal"}
         )

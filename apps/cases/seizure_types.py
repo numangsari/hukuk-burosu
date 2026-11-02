@@ -7,9 +7,9 @@ KINDS = [
     ("bank", "Banka Hesabı"),
     ("vehicle", "Araç Haczi"),
     ("property", "Tapu Haczi"),
+    ("claim", "Alacaklı Olduğu İcra Dosyası Haczi"),
     ("location", "Mahal Haczi"),
     ("notice", "89/1-2-3 Haczi"),
-    ("claim", "Alacaklı Olduğu İcra Dosyası Haczi"),
 ]
 STATES = {
     "salary": [

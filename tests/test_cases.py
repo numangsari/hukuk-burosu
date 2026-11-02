@@ -80,6 +80,28 @@ def test_type_specific_fields_cleared(lawyer_client, client_factory):
     assert case.labels["official_no"] == "Dosya Numarası"
 
 
+def test_enforcement_details_saved_and_shown(lawyer_client, client_factory):
+    client = client_factory()
+    response = lawyer_client.post(
+        reverse("cases:create"),
+        _case_data(
+            client,
+            case_type="enforcement",
+            enforcement_type="negotiable",
+            enforcement_basis="Örnek senet",
+            enforcement_amount="1250.50",
+        ),
+    )
+    assert response.status_code == 302
+    case = Case.objects.get()
+    response = lawyer_client.get(case.get_absolute_url())
+    assert "Örnek senet" in response.content.decode()
+    assert "1.250,50" in response.content.decode()
+    assert "Maaş Haczi" in response.content.decode()
+    response = lawyer_client.get(reverse("cases:seizure_add", args=[case.pk]), {"kind": "bank"})
+    assert response.context["form"]["kind"].value() == "bank"
+
+
 def test_create_prefills_from_client(lawyer_client, client_factory):
     c = client_factory()
     r = lawyer_client.get(reverse("cases:create"), {"client": c.pk})

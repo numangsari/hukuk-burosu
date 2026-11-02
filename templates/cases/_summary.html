@@ -30,12 +30,16 @@
       <h2 class="section-title">Dosya bilgileri</h2>
       <div class="info-grid">
         <div class="info-item info-wide"><div class="info-label">Müvekkil</div><div class="info-value"><a href="{{ case.client.get_absolute_url }}">{{ case.client }}</a>{% for c in case.co_clients.all %}, <a href="{{ c.get_absolute_url }}">{{ c }}</a>{% endfor %}{% if case.client_role %} <span class="text-body-secondary fw-normal">· {{ case.get_client_role_display }}</span>{% endif %}</div></div>
-        <div class="info-item info-wide"><div class="info-label">Konu</div><div class="info-value">{{ case.subject }}</div></div>
+        <div class="info-item"><div class="info-label">Konu</div><div class="info-value">{{ case.subject }}</div></div>
         {% if case.labels.authority %}<div class="info-item"><div class="info-label">{{ case.labels.authority }}</div><div class="info-value">{{ case.authority|default:"—" }}</div></div>{% endif %}
         {% if case.labels.official_no %}<div class="info-item"><div class="info-label">{{ case.labels.official_no }}</div><div class="info-value tabular">{{ case.official_no_display|default:"—" }}</div></div>{% endif %}
         <div class="info-item"><div class="info-label">Dosya türü</div><div class="info-value">{{ case.get_case_type_display }}</div></div>
         <div class="info-item"><div class="info-label">Fiziki arşiv yeri</div><div class="info-value tabular">{{ case.archive_reference }}</div></div>
         {% if case.enforcement_type %}<div class="info-item"><div class="info-label">Takip türü</div><div class="info-value">{{ case.get_enforcement_type_display }}</div></div>{% endif %}
+        {% if case.case_type == 'enforcement' %}
+        <div class="info-item"><div class="info-label">Takipte kesinleşen miktar</div><div class="info-value tabular">{% if case.enforcement_amount != None %}{{ case.enforcement_amount|tl }}{% else %}—{% endif %}</div></div>
+        <div class="info-item"><div class="info-label">Takibin dayanağı</div><div class="info-value">{{ case.enforcement_basis|default:"—"|linebreaksbr }}</div></div>
+        {% endif %}
         {% if case.crime %}<div class="info-item"><div class="info-label">Suç</div><div class="info-value">{{ case.crime }}</div></div>{% endif %}
         {% if case.mediator %}<div class="info-item"><div class="info-label">Arabulucu</div><div class="info-value">{{ case.mediator }}</div></div>{% endif %}
         {% if case.labels.value and case.value %}<div class="info-item"><div class="info-label">{{ case.labels.value }}</div><div class="info-value tabular">{{ case.value|tl }}</div></div>{% endif %}
