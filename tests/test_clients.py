@@ -201,6 +201,23 @@ def test_default_sort_by_poa_number_then_newest(lawyer_client, client_factory):
     assert [c.pk for c in r.context["clients"]][:2] == [old_poa.pk, new_poa.pk]
 
 
+def test_poa_filter_includes_archive_number_and_existing_powers(lawyer_client, client_factory):
+    numbered = client_factory(first_name="Numaralı", poa_no=42)
+    documented = client_factory(first_name="Belgeli")
+    without_poa = client_factory(first_name="Vekaletsiz")
+    PowerOfAttorney.objects.create(
+        client=documented,
+        notary="Örnek noter",
+        date=datetime.date(2026, 1, 2),
+        journal_no="123",
+    )
+    url = reverse("clients:list")
+    with_poa = lawyer_client.get(url, {"poa": "yes"})
+    assert {c.pk for c in with_poa.context["clients"]} == {numbered.pk, documented.pk}
+    without = lawyer_client.get(url, {"poa": "no"})
+    assert {c.pk for c in without.context["clients"]} == {without_poa.pk}
+
+
 def test_intern_supervisor_fills_form_defaults(lawyer, intern):
     from apps.clients.views import intern_by_lawyer
 

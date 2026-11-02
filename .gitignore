@@ -14,6 +14,7 @@ __pycache__/
 media/
 .test-media/
 /backups/
+/veritabanı entegrasyon/
 *.dump
 *.sql
 *.bak

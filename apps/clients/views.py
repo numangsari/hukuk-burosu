@@ -88,7 +88,8 @@ def annotate_list_values(qs):
     money = DecimalField(max_digits=16, decimal_places=2)
     return qs.annotate(
         case_count=Count("cases", distinct=True),
-        has_poa=Exists(PowerOfAttorney.objects.filter(client=OuterRef("pk"))),
+        has_poa=Q(poa_no__isnull=False)
+        | Exists(PowerOfAttorney.objects.filter(client=OuterRef("pk"))),
         open_task_count=Coalesce(Subquery(open_tasks, output_field=IntegerField()), Value(0)),
         balance=Coalesce(Subquery(balance, output_field=money), Value(ZERO), output_field=money),
     )
