@@ -15,7 +15,6 @@ urlpatterns = [
     path("aktivite/", include("apps.activity.urls")),
     path("raporlar/", include("apps.reports.urls")),
     path("yedek/", include("apps.backups.urls")),
-    path("aktar/", include("apps.imports.urls")),
     path("", include("apps.core.urls")),
     # Yüklenen belgeler kayıt bazında yetki kontrolüyle sunulur (apps/core/media.py).
     re_path(r"^media/(?P<path>.*)$", protected_media),

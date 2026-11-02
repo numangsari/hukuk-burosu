@@ -14,6 +14,12 @@ from apps.imports.poa_review import read_source
 pytestmark = pytest.mark.django_db
 
 
+@pytest.fixture(autouse=True)
+def _archived_imports_urls(settings):
+    """Veri aktarımı adresleri uygulamaya bağlı değildir; kodu yalnızca bu denemelerde açılır."""
+    settings.ROOT_URLCONF = "tests.urls_archived_imports"
+
+
 @pytest.mark.parametrize(
     ("value", "expected"),
     [
