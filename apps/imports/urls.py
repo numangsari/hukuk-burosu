@@ -13,6 +13,11 @@ urlpatterns = [
         name="office_review",
     ),
     path(
+        "dosya-listelerini-incele/liste/",
+        office_views.OfficeBulkView.as_view(),
+        name="office_bulk",
+    ),
+    path(
         "dosya-listelerini-incele/<int:pk>/",
         office_views.OfficeSourceDetailView.as_view(),
         name="office_review_detail",

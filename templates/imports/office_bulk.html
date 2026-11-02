@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Dosya listesi — {{ office.name }}{% endblock %}
+{% block content %}
+<div class="page-header"><div>
+  <div class="eyebrow"><a href="{% url 'imports:office_review' %}">Dosya listelerini incele</a></div>
+  <h1 class="page-title">Dosya listesi</h1>
+  <p class="text-body-secondary">{{ page_obj.paginator.count }} satır. Müvekkil ve tür seçin, kaydedin; seçmediğiniz satırlar beklemeye devam eder.</p>
+</div></div>
+<form method="get" class="filter-bar d-flex flex-wrap gap-2 mb-3">
+  <input class="form-control w-auto flex-grow-1" name="q" value="{{ query }}" placeholder="İsim, mahkeme veya numara ara" aria-label="Ara">
+  <select class="form-select w-auto" name="durum" aria-label="Durum">
+    <option value="pending"{% if status == "pending" %} selected{% endif %}>Bekleyenler</option>
+    <option value="skipped"{% if status == "skipped" %} selected{% endif %}>Atlananlar</option>
+  </select>
+  <select class="form-select w-auto" name="sayfa_adi" aria-label="Liste">
+    <option value="">Tüm listeler</option>
+    {% for s in sheets %}<option value="{{ s }}"{% if sheet == s %} selected{% endif %}>{{ s }}</option>{% endfor %}
+  </select>
+  <select class="form-select w-auto" name="neden" aria-label="Neden">
+    <option value="">Tüm nedenler</option>
+    {% for r in reasons %}<option value="{{ r }}"{% if reason == r %} selected{% endif %}>{{ r }}</option>{% endfor %}
+  </select>
+  <button class="btn btn-light">Filtrele</button>
+</form>
+<datalist id="client-options">{% for text, key in clients %}<option value="{{ text }}" label="{{ key }}">{% endfor %}</datalist>
+<form method="post" class="card table-card">
+  {% csrf_token %}
+  <input type="hidden" name="querystring" value="{{ querystring }}">
+  <div class="table-responsive">
+  <table class="table table-hover align-middle mb-0">
+    <thead><tr>
+      <th>Liste</th><th>Mahkeme / kurum</th><th>Dosya no</th><th>Taraflar</th><th>Arşiv yeri</th>
+      <th style="min-width:16rem">Müvekkil</th><th style="min-width:11rem">Tür</th>
+      <th>{% if status == "skipped" %}Atlamayı kaldır{% else %}Atla{% endif %}</th>
+    </tr></thead>
+    <tbody>
+    {% for item in items %}{% with r=item.record row=item.row %}
+    <tr>
+      <td class="small"><input type="hidden" name="rid" value="{{ r.pk }}">{{ r.sheet }}<br>{{ r.row_number }}. satır
+        <div class="text-body-secondary">{{ r.reason }}</div></td>
+      <td>{{ row.authority }}</td>
+      <td>{{ row.official_no }}</td>
+      <td class="small">
+        {% if row.kind == "enforcement" %}Alacaklı: {{ row.left }}<br>Borçlu: {{ row.right }}<br>Müvekkil: {{ row.client_name }}
+        {% elif row %}{{ row.left }}<br>{{ row.right }}
+        {% else %}<span class="text-warning">Kaynak okunamadı</span>{% endif %}
+      </td>
+      <td>{% if row.folder %}{{ row.folder }} / {{ row.archive_no }}{% endif %}</td>
+      <td><input class="form-control form-control-sm" name="client_{{ r.pk }}" list="client-options" value="{{ item.client_text }}" placeholder="Müvekkil ara" autocomplete="off"></td>
+      <td><select class="form-select form-select-sm" name="type_{{ r.pk }}">
+        <option value="">—</option>
+        {% for value, label in case_types %}<option value="{{ value }}"{% if item.case_type == value %} selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select></td>
+      <td class="text-center"><input class="form-check-input" type="checkbox" name="{% if status == 'skipped' %}unskip_{% else %}skip_{% endif %}{{ r.pk }}" aria-label="{% if status == 'skipped' %}Atlamayı kaldır{% else %}Atla{% endif %}"></td>
+    </tr>
+    {% endwith %}{% empty %}
+    <tr><td colspan="8" class="text-center text-body-secondary py-4">Satır bulunamadı.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  <div class="form-footer d-flex justify-content-between align-items-center">
+    <div class="small">
+      {% if page_obj.has_previous %}<a href="?{{ querystring }}&page={{ page_obj.previous_page_number }}">Önceki</a>{% endif %}
+      <span class="mx-2">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+      {% if page_obj.has_next %}<a href="?{{ querystring }}&page={{ page_obj.next_page_number }}">Sonraki</a>{% endif %}
+    </div>
+    <button class="btn btn-primary">Kaydet</button>
+  </div>
+</form>
+{% endblock %}

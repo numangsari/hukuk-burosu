@@ -6,6 +6,7 @@
   <h1 class="page-title">Dosya listelerini incele</h1>
   <p class="text-body-secondary">Eşleşmesi kesinleşmeyen {{ page_obj.paginator.count }} satır. Kaynaktaki bilgiler ve inceleme nedeni aşağıdadır.</p>
 </div></div>
+<p><a class="btn btn-primary btn-sm" href="{% url 'imports:office_bulk' %}"><i class="bi bi-list-check me-1"></i>Düz listede işle (müvekkil ve tür seç)</a></p>
 <form method="get" class="d-flex gap-2 mb-3">
   <input class="form-control" name="q" value="{{ query }}" placeholder="İsim, liste adı veya inceleme nedeni ara" aria-label="İsim, liste adı veya inceleme nedeni ara">
   <button class="btn btn-light">Ara</button>

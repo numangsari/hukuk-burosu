@@ -223,3 +223,48 @@ def test_source_prefill_is_ignored_for_non_admin(office_files, client):
     client.force_login(user)
     response = client.get(reverse("cases:create") + f"?kaynak={row.pk}")
     assert 'name="source_record"' not in response.content.decode()
+
+
+def test_bulk_list_creates_case_from_client_and_type(office_files, client, admin_user):
+    execute()
+    row = OfficeSourceRecord.objects.get(case__isnull=True)
+    client.force_login(admin_user)
+    page = client.get(reverse("imports:office_bulk"))
+    assert page.status_code == 200
+    assert "TANINMAYAN KİŞİ" in page.content.decode()
+    response = client.post(
+        reverse("imports:office_bulk"),
+        {
+            "rid": [row.pk],
+            f"client_{row.pk}": f"{office_files.name} [#{office_files.pk}]",
+            f"type_{row.pk}": "civil",
+        },
+    )
+    assert response.status_code == 302
+    row.refresh_from_db()
+    assert row.case and row.case.client == office_files and row.case.case_type == "civil"
+    assert row.case.archive_folder_no == "Açık 1" and row.case.archive_no == "3"
+    assert not row.reason
+
+
+def test_bulk_list_skip_is_remembered_and_import_ignores_it(office_files, client, admin_user):
+    execute()
+    row = OfficeSourceRecord.objects.get(case__isnull=True)
+    client.force_login(admin_user)
+    client.post(reverse("imports:office_bulk"), {"rid": [row.pk], f"skip_{row.pk}": "on"})
+    row.refresh_from_db()
+    assert row.skipped and not row.case_id
+    assert execute()["skipped"] == 1
+    listing = client.get(reverse("imports:office_review"))
+    assert "TANINMAYAN KİŞİ" not in listing.content.decode()
+    skipped = client.get(reverse("imports:office_bulk") + "?durum=skipped")
+    assert "TANINMAYAN KİŞİ" in skipped.content.decode()
+    client.post(reverse("imports:office_bulk"), {"rid": [row.pk], f"unskip_{row.pk}": "on"})
+    row.refresh_from_db()
+    assert not row.skipped
+
+
+def test_bulk_list_requires_admin(office_files, client):
+    user = User.objects.create_user(username="test_stajyer3", role="intern")
+    client.force_login(user)
+    assert client.get(reverse("imports:office_bulk")).status_code in (302, 403)

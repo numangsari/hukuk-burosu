@@ -82,6 +82,7 @@ class OfficeSourceRecord(models.Model):
     row_number = models.PositiveIntegerField()
     values = models.JSONField(default=dict)
     reason = models.CharField(max_length=300, blank=True)
+    skipped = models.BooleanField("atlandı", default=False)
     case = models.ForeignKey(
         "cases.Case",
         on_delete=models.SET_NULL,

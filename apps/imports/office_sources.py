@@ -397,6 +397,70 @@ def case_initial(record):
     return initial
 
 
+def suggest_client(row, index):
+    """Kaynak satırdan kesin müvekkil önerisi; belirsizse None."""
+    if row.kind == "enforcement":
+        return _single(index, row.client_name)
+    left, right = _single(index, row.left), _single(index, row.right)
+    return (left or right) if bool(left) != bool(right) else None
+
+
+def create_case(record, row, client, case_type):
+    """Kullanıcının seçtiği müvekkil ve türle dosya açar veya aynı dosyaya bağlar."""
+    folder, archive_no = row.folder, row.archive_no
+    if (
+        len(row.authority) > 200
+        or len(row.official_no) > 100
+        or len(folder) > 50
+        or len(archive_no) > 50
+    ):
+        raise ValidationError("Kaynak bilgisi ilgili alana sığmıyor.")
+    same_number = [
+        c
+        for c in Case.objects.filter(client=client)
+        if row.official_no and key(c.official_no) == key(row.official_no)
+    ]
+    matches = [c for c in same_number if key(c.authority) == key(row.authority)]
+    if len(matches) == 1:
+        return matches[0], "linked"
+    if matches or same_number:
+        raise ValidationError("Benzer dosya var; kurum veya kayıt eşleşmesi elle incelenmeli.")
+    if folder and archive_no:
+        used = [
+            c
+            for c in Case.objects.filter(archive_folder_no__iexact=folder)
+            if key(c.archive_no) == key(archive_no)
+        ]
+        if used:
+            raise ValidationError("Arşiv yeri başka bir dosyada kullanılıyor.")
+    document_type = case_type in (CaseType.OTHER, CaseType.CONSULTANCY)
+    subject = (row.authority or row.official_no) if document_type else ""
+    principal = None
+    if row.kind == "enforcement" and case_type == CaseType.ENFORCEMENT:
+        try:
+            principal = amount(row.principal)
+        except ValueError as exc:
+            raise ValidationError(str(exc)) from exc
+    role = _role(row, client) if case_type in (CaseType.CIVIL, CaseType.ENFORCEMENT) else ""
+    case = Case(
+        client=client,
+        case_type=case_type,
+        client_role=role,
+        archive_folder_no=folder,
+        archive_no=archive_no,
+        authority="" if document_type else row.authority,
+        official_no="" if document_type else row.official_no,
+        subject=subject,
+        status=row.status,
+        opened_on=row.opened_on,
+        responsible_lawyer=client.responsible_lawyer,
+        responsible_intern=client.responsible_intern,
+        enforcement_amount=principal,
+    )
+    case.save(preserve_unknown_stage=True)
+    return case, "created"
+
+
 @transaction.atomic
 def execute():
     """Tüm kaynaklar aynı kaldığında güvenli satırları kaydeder; diğerleri bekler."""
@@ -423,6 +487,9 @@ def execute():
         ).first()
         if record and record.case_id:
             counts["previous"] += 1
+            continue
+        if record and record.skipped:
+            counts["skipped"] += 1
             continue
         if record and not record.reason:
             record.reason = "Bağlı dosya silinmiş; satır yeniden incelenmeli."
