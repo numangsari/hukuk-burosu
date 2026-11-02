@@ -145,6 +145,8 @@ Bu oturumda uygulanan ve tekrarlanmayacak kararlar: (1) Vekalet satırları kull
 
 - Görev formunda gelir/gider kaydı Var/Yok seçimi zorunludur (`Task.requires_accounting`); eski görevlerde seçim belirsizdir. Var seçilen görevin kapanışında kayıt zorunlu olacak, Yok seçilende de kayıt eklenebilecek; kapatma henüz uygulanmadı.
 
+- UYAP/UETS bağlantısı için ayrı deneme kopyası `D:/Ozkurt-Hukuk-Deneme` klasöründedir; ayrı yerel veritabanı 5435 portundadır. Eklenti henüz geliştirilmedi; çalıştırma ayrıntıları kopyanın kendi `CLAUDE.md` dosyasındadır.
+
 ## Planlanan revizyonlar (kullanıcıyla adım adım inceleme sürüyor)
 - İnceleme süreci, adımların durumu ve kalan adımların kontrol listeleri `INCELEME.md`'dedir. Oturum başında oku; sıradaki adım oradan sürdürülür.
 - Duruşma/WhatsApp kararı: kullanıcı bu iki özelliği şimdilik kaldırdı. Duruşma sekmesi, özet ve rapor sütunu ile ekleme/sonuç/silme adresleri kapalıdır. WhatsApp ekranları ve gelen bildirim adresi uygulamaya bağlı değildir; `send_whatsapp` mesaj göndermez; Windows yardımcısı yalnızca haciz görevlerini kontrol eder, kurulum/güncelleme eski hatırlatma görevini kaldırır. Modeller, mevcut kayıtlar ve tekrar kullanılabilecek kod korunur; şema/veri silinmez. Arşivlenen WhatsApp kodunun denemeleri yalnızca `tests/urls_archived_messaging.py` adreslerini açar. Yan menüdeki WhatsApp Web kısayolu bağımsızdır ve korunur.
