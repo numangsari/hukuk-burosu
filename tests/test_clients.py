@@ -218,6 +218,26 @@ def test_poa_filter_includes_archive_number_and_existing_powers(lawyer_client, c
     assert {c.pk for c in without.context["clients"]} == {without_poa.pk}
 
 
+def test_same_poa_number_can_be_used_by_different_clients(client_factory, lawyer, intern):
+    from apps.clients.forms import ClientForm
+
+    first = client_factory(first_name="Örnek", last_name="Kişi", poa_no=42)
+    form = ClientForm(
+        data={
+            "kind": "person",
+            "first_name": "Başka",
+            "last_name": "Kişi",
+            "poa_no": 42,
+            "responsible_lawyer": lawyer.pk,
+            "responsible_intern": intern.pk,
+        }
+    )
+    assert form.is_valid(), form.errors
+    second = form.save()
+    assert first.pk != second.pk and Client.objects.filter(poa_no=42).count() == 2
+    assert Client.suggest_poa_no() == 43
+
+
 def test_intern_supervisor_fills_form_defaults(lawyer, intern):
     from apps.clients.views import intern_by_lawyer
 

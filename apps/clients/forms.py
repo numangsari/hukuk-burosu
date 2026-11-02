@@ -44,7 +44,7 @@ class ClientForm(BootstrapMixin, forms.ModelForm):
             self.fields[name].widget.attrs["class"] += " text-uppercase-input"
         self.fields["poa_no"].help_text = (
             f"Boş bırakılırsa vekalet eklendiğinde sıradaki numara (V-{Client.suggest_poa_no()}) "
-            "verilir."
+            "verilir. Aynı vekaleti paylaşan müvekkiller aynı numarayı kullanabilir."
         )
         self.fields["responsible_lawyer"].widget.attrs["x-on:change"] = "lawyerChanged($event)"
         self.fields["responsible_intern"].widget.attrs["x-ref"] = "intern"

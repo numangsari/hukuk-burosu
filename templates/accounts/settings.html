@@ -20,6 +20,7 @@
       <a class="{% if active == 'gorev_turleri' %}active{% endif %}" href="?bolum=gorev_turleri"><i class="bi bi-list-check"></i>Görev türleri</a>
       <a class="{% if active == 'puanlar' %}active{% endif %}" href="?bolum=puanlar"><i class="bi bi-bar-chart"></i>Personel puanları</a>
       <a href="{% url 'imports:import' %}"><i class="bi bi-file-earmark-arrow-up"></i>Excel'den veri aktarımı</a>
+      <a href="{% url 'imports:poa_review' %}"><i class="bi bi-list-check"></i>Vekalet listesini incele</a>
       <a class="{% if active == 'yetkiler' %}active{% endif %}" href="?bolum=yetkiler"><i class="bi bi-shield-check"></i>Bakiye görme yetkisi</a>
       <a class="{% if active == 'takvim' %}active{% endif %}" href="?bolum=takvim"><i class="bi bi-calendar3"></i>Google Takvim
         {% if calendar_connected %}<span class="chip chip-success ms-auto">Bağlı</span>{% endif %}</a>

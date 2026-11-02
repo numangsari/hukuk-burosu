@@ -67,6 +67,22 @@
             {% empty %}<tr><td colspan="4" class="text-body-secondary small py-3">Vekalet eklenmemiş.</td></tr>{% endfor %}
             </tbody>
           </table></div>
+          {% if client.imported_poa_rows.all %}
+          <div class="px-3 pb-3 small text-body-secondary">
+            <div class="fw-semibold mb-1">Vekalet listesinden ilişkilendirilen satırlar</div>
+            {% for item in client.imported_poa_rows.all %}
+              <div>{{ item.source_reference|default:"Numara yazılmamış" }}{% if item.source_note and item.source_note != '.' %} · {{ item.source_note }}{% endif %}</div>
+            {% endfor %}
+          </div>
+          {% endif %}
+          {% if client.imported_poa_members.all %}
+          <div class="px-3 pb-3 small text-body-secondary">
+            <div class="fw-semibold mb-1">Paylaşılan vekalet listesi satırları</div>
+            {% for item in client.imported_poa_members.all %}
+              <div>{{ item.review.source_reference|default:"Numara yazılmamış" }}{% if item.review.source_note and item.review.source_note != '.' %} · {{ item.review.source_note }}{% endif %}</div>
+            {% endfor %}
+          </div>
+          {% endif %}
         </div>
 
         <div class="card table-card">

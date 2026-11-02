@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}Vekalet satırını incele — {{ office.name }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="eyebrow"><a href="{% url 'imports:poa_review' %}"><i class="bi bi-chevron-left"></i> Vekalet listesine dön</a></div>
+    <h1 class="page-title">Vekalet satırını incele</h1>
+    <p class="text-body-secondary mb-0">{{ pending }} satır incelenmeyi bekliyor.</p>
+  </div>
+</div>
+<div class="row g-3" x-data="{ kind: '{{ form.kind.value|default:''|escapejs }}' }">
+  <div class="col-lg-5">
+    <div class="card form-section mb-3">
+      <div class="form-section-head"><h2>Listede yazan bilgiler</h2><p>Kaynak satır {{ row.number }}</p></div>
+      <div class="mb-3"><div class="text-body-secondary small">Vekalet numarası</div><strong>{{ row.reference|default:"Yazılmamış" }}</strong></div>
+      <div class="mb-3"><div class="text-body-secondary small">İsim veya unvan</div><strong x-ref="sourceName">{{ row.name|default:"" }}</strong>{% if not row.name %}<strong>Yazılmamış</strong>{% endif %}</div>
+      <div><div class="text-body-secondary small">Kaynak notu</div><span>{{ row.note|default:"Yok"|linebreaksbr }}</span></div>
+    </div>
+    {% if row.status == 'done' %}
+      <div class="alert alert-success">{% if row.automatic %}Bu satır öneriyle eklendi.{% else %}Bu satır daha önce işlendi.{% endif %}{% for client in linked_clients %} <a href="{% url 'clients:detail' client.pk %}">{{ client }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}</div>
+    {% else %}
+      {% if row.status == 'incomplete' %}
+      <div class="alert alert-warning">Bu satırdaki müvekkillerden birinin kaydı eksik. Önceden bağlı kişiler: {% for client in linked_clients %}<a href="{% url 'clients:detail' client.pk %}">{{ client }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}. Eksik kişiyi ekleyebilirsiniz.</div>
+      {% endif %}
+      {% if number_owner %}
+      <div class="alert alert-warning">Bu vekalet numarası <a href="{% url 'clients:detail' number_owner.pk %}">{{ number_owner }}</a> kaydında kullanılıyor. Farklı bir numara yazabilir veya aşağıdaki mevcut kaydı seçebilirsiniz.</div>
+      {% endif %}
+      {% if matches or number_owners %}
+      <div class="card form-section">
+        <div class="form-section-head"><h2>Mevcut kayıtlar</h2><p>Bu satır mevcut müvekkile aitse seçebilirsiniz. Mevcut bilgiler ve vekalet numarası değiştirilmez.</p></div>
+        {% for client in matches %}
+        <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
+          <a href="{% url 'clients:detail' client.pk %}">{{ client }}</a>{% if client.poa_no %}<span class="chip">{{ client.poa_label }}</span>{% endif %}
+          <form class="ms-auto" method="post">{% csrf_token %}<input type="hidden" name="action" value="link"><input type="hidden" name="source_hash" value="{{ source_hash }}"><input type="hidden" name="client_id" value="{{ client.pk }}"><button class="btn btn-sm btn-light">Bu müvekkili seç</button></form>
+        </div>
+        {% endfor %}
+        {% for number_owner in number_owners %}{% if number_owner not in matches %}
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+          <a href="{% url 'clients:detail' number_owner.pk %}">{{ number_owner }}</a><span class="chip">{{ number_owner.poa_label }}</span>
+          <form class="ms-auto" method="post">{% csrf_token %}<input type="hidden" name="action" value="link"><input type="hidden" name="source_hash" value="{{ source_hash }}"><input type="hidden" name="client_id" value="{{ number_owner.pk }}"><button class="btn btn-sm btn-light">Bu müvekkili seç</button></form>
+        </div>
+        {% endif %}{% endfor %}
+      </div>
+      {% endif %}
+    {% endif %}
+  </div>
+  {% if form %}
+  <div class="col-lg-7">
+    <form class="card" method="post">{% csrf_token %}<input type="hidden" name="source_hash" value="{{ source_hash }}">
+      <div class="form-section">
+        <div class="form-section-head"><h2>Yeni müvekkil ekle</h2><p>Türü seçin, bilgileri kontrol edin ve kaydedin.</p></div>
+        {% for error in form.non_field_errors %}<div class="alert alert-danger">{{ error }}</div>{% endfor %}
+        {% include "partials/field.html" with field=form.kind %}
+        <div x-show="kind === 'person'" x-cloak>
+          <p class="form-text">Ad ve soyadı yazın. İsterseniz son sözcüğü soyadı olarak önerip düzeltebilirsiniz.</p>
+          <button type="button" class="btn btn-sm btn-light mb-3" @click="const parts = $refs.sourceName.textContent.trim().split(/\s+/); if (parts.length > 1) { document.getElementById('id_last_name').value = parts.pop(); document.getElementById('id_first_name').value = parts.join(' '); }">Ad ve soyadı öner</button>
+          <div class="row"><div class="col-md-6">{% include "partials/field.html" with field=form.first_name %}</div><div class="col-md-6">{% include "partials/field.html" with field=form.last_name %}</div></div>
+        </div>
+        <div x-show="kind === 'company'" x-cloak>{% include "partials/field.html" with field=form.title %}</div>
+        <div class="row"><div class="col-md-5">{% include "partials/field.html" with field=form.poa_no %}</div><div class="col-md-7">{% include "partials/field.html" with field=form.team %}</div></div>
+        {% include "partials/field.html" with field=form.notes %}
+        {% include "partials/field.html" with field=form.confirm_duplicate %}
+        {% include "partials/field.html" with field=form.confirm_shared_poa %}
+      </div>
+      <div class="form-footer"><a class="btn btn-light" href="{% url 'imports:poa_review' %}">Listeye dön</a><button class="btn btn-primary" type="submit">Kaydet ve sonraki satıra geç</button></div>
+    </form>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

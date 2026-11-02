@@ -5,6 +5,8 @@ from threading import Barrier
 import pytest
 from django.core.exceptions import ValidationError
 from django.db import connection, connections
+from django.test import Client as HttpClient
+from django.urls import reverse
 from django.utils import timezone
 
 from apps.accounting.models import EntryKind, LedgerEntry
@@ -42,6 +44,39 @@ def run_together(operation):
     with ThreadPoolExecutor(max_workers=2) as pool:
         futures = [pool.submit(worker) for _ in range(2)]
         return [future.result(timeout=20) for future in futures]
+
+
+def test_parallel_new_powers_receive_distinct_numbers(lawyer, intern):
+    from apps.clients.models import Client
+    from apps.office.models import OfficeSettings
+
+    OfficeSettings.load()
+
+    def create_client():
+        browser = HttpClient()
+        browser.force_login(lawyer)
+        data = {
+            "kind": "person",
+            "first_name": "Deneme",
+            "last_name": "Kayıt",
+            "responsible_lawyer": lawyer.pk,
+            "responsible_intern": intern.pk,
+        }
+        for prefix in ("iletisim", "iban", "yetkili", "vekalet", "sozlesme"):
+            data[f"{prefix}-TOTAL_FORMS"] = "1" if prefix == "vekalet" else "0"
+            data[f"{prefix}-INITIAL_FORMS"] = "0"
+        data.update(
+            {
+                "vekalet-0-notary": "Örnek noter",
+                "vekalet-0-date": "2026-01-02",
+                "vekalet-0-journal_no": "55",
+            }
+        )
+        assert browser.post(reverse("clients:create"), data).status_code == 302
+
+    assert run_together(create_client) == [True, True]
+    numbers = sorted(Client.objects.filter(first_name="DENEME").values_list("poa_no", flat=True))
+    assert len(numbers) == 2 and numbers[1] == numbers[0] + 1
 
 
 @pytest.mark.parametrize("kind", [EntryKind.TRUST_OUT])

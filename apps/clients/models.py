@@ -52,8 +52,10 @@ class Client(TimeStampedModel):
         "vekalet no",
         null=True,
         blank=True,
-        unique=True,
-        help_text="Fiziki vekalet klasöründeki sıra numarası (V-121 için 121).",
+        help_text=(
+            "Fiziki vekalet klasöründeki sıra numarası (V-121 için 121). "
+            "Aynı vekaleti paylaşan müvekkillerde numara aynı olabilir."
+        ),
     )
     folder_name = models.CharField(
         "klasör adı",

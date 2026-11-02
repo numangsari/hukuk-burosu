@@ -1,0 +1,32 @@
+{% load ui %}
+{% if source_error %}
+<div class="alert alert-warning m-3">{{ source_error }}</div>
+{% else %}
+<div class="px-3 py-2 d-flex gap-2 flex-wrap">
+  <span class="chip">{{ pending }} bekleyen</span><span class="chip chip-success">{{ completed }} işlenen</span>
+</div>
+<div class="table-responsive"><table class="table">
+  <thead><tr><th>Vekalet no</th><th>Listede yazan isim</th><th>Kaynak notu</th><th>Durum</th><th><span class="visually-hidden">İşlem</span></th></tr></thead>
+  <tbody>
+  {% for row in rows %}
+    <tr>
+      <td class="tabular">{{ row.reference|default:"—" }}</td>
+      <td class="fw-medium">{{ row.name|default:"İsim yazılmamış" }}</td>
+      <td>{{ row.note|default:"—" }}</td>
+      <td>{% if row.status == 'done' %}<span class="chip chip-success">{% if row.automatic %}Öneriyle eklendi{% else %}İşlendi{% endif %}</span>{% elif row.status == 'incomplete' %}<span class="chip chip-warning">Eksik kayıt</span>{% elif row.status == 'conflict' %}<span class="chip chip-warning">Numara kullanılıyor</span>{% else %}<span class="chip">Bekliyor</span>{% endif %}</td>
+      <td class="text-end"><a class="btn btn-sm btn-light" href="{% url 'imports:poa_review_detail' row.number %}">{% if row.status == 'done' %}Gör{% else %}İncele{% endif %}</a></td>
+    </tr>
+  {% empty %}
+    <tr><td colspan="5"><div class="empty-state py-3"><strong>Gösterilecek satır yok.</strong></div></td></tr>
+  {% endfor %}
+  </tbody>
+</table></div>
+<div class="table-footer">
+  <span>{% if page_obj.paginator.count %}{{ page_obj.start_index }}–{{ page_obj.end_index }} / {{ page_obj.paginator.count }} satır{% else %}0 satır{% endif %}</span>
+  <div class="d-flex gap-2">
+    {% if page_obj.has_previous %}<a class="btn btn-sm btn-light" href="{% query_with page=page_obj.previous_page_number %}">Önceki</a>{% endif %}
+    <span class="small align-self-center">{{ page_obj.number }} / {{ paginator.num_pages }}</span>
+    {% if page_obj.has_next %}<a class="btn btn-sm btn-light" href="{% query_with page=page_obj.next_page_number %}">Sonraki</a>{% endif %}
+  </div>
+</div>
+{% endif %}

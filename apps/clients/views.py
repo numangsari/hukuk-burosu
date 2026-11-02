@@ -265,6 +265,10 @@ class ClientFormMixin:
             # Vekaleti olan müvekkile numara verilmemişse sıradaki V-numarası atanır.
             if not self.object.poa_no and self.object.powers_of_attorney.exists():
                 locked = Client.objects.select_for_update().get(pk=self.object.pk)
+                from apps.office.models import OfficeSettings
+
+                OfficeSettings.load()
+                OfficeSettings.objects.select_for_update().get(pk=1)
                 locked.poa_no = Client.suggest_poa_no()
                 locked.save(update_fields=["poa_no"])
                 self.object.poa_no = locked.poa_no

@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Vekalet listesini incele — {{ office.name }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="eyebrow"><a href="{% url 'imports:import' %}"><i class="bi bi-chevron-left"></i> Veri aktarımı</a></div>
+    <h1 class="page-title">Vekalet listesini incele</h1>
+    <p class="text-body-secondary mb-0">Listeden bir satır seçin; bilgileri kontrol edip kaydedin.</p>
+  </div>
+</div>
+{% if source_error %}
+<div class="alert alert-warning">{{ source_error }}</div>
+{% else %}
+<div class="card table-card">
+  <form class="filter-bar" method="get" action="{% url 'imports:poa_review' %}"
+        hx-get="{% url 'imports:poa_review' %}" hx-target="#review-results" hx-push-url="true"
+        hx-trigger="input changed delay:300ms from:input[name=q], change">
+    <div class="grow"><i class="bi bi-search"></i><input class="form-control" type="search" name="q" value="{{ query }}" placeholder="İsim, vekalet numarası veya not ara" aria-label="Listede ara"></div>
+    <select class="form-select" name="durum" aria-label="Kayıt durumu">
+      <option value="pending" {% if status == 'pending' %}selected{% endif %}>Bekleyenler</option>
+      <option value="done" {% if status == 'done' %}selected{% endif %}>İşlenenler</option>
+      <option value="all" {% if status == 'all' %}selected{% endif %}>Tüm satırlar</option>
+    </select>
+    <button class="btn btn-light" type="submit">Göster</button>
+  </form>
+  <div id="review-results">{% include "imports/_poa_list.html" %}</div>
+</div>
+{% endif %}
+{% endblock %}
