@@ -221,10 +221,17 @@ class Case(TimeStampedModel):
         return reverse("cases:detail", args=[self.pk])
 
     def save(self, *args, **kwargs):
+        preserve_unknown_stage = kwargs.pop("preserve_unknown_stage", False)
+        if self.pk and not self.stage:
+            preserve_unknown_stage = (
+                not type(self).objects.filter(pk=self.pk).exclude(stage="").exists()
+            )
         self.authority = tr_upper(self.authority).strip()
         self.subject = tr_upper(self.subject).strip()  # dosya adları büyük harf
-        if self.status == CaseStatus.OPEN and self.stage not in dict(
-            stages.open_stages(self.case_type)
+        if (
+            not preserve_unknown_stage
+            and self.status == CaseStatus.OPEN
+            and self.stage not in dict(stages.open_stages(self.case_type))
         ):
             self.stage = stages.default_stage(self.case_type)
         super().save(*args, **kwargs)

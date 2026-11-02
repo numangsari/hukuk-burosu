@@ -139,6 +139,15 @@
     </div></div>
   </div>
 </div>
+{% if case.office_sources.all %}
+<div class="card mb-3"><div class="card-body">
+  <h2 class="section-title">Eski listedeki bilgiler</h2>
+  {% for source in case.office_sources.all %}
+  <h3 class="fs-6">{{ source.source_name }} · {{ source.sheet }} · {{ source.row_number }}. satır</h3>
+  <dl class="row">{% for label, value in source.values.items %}<dt class="col-sm-3">{{ label }}</dt><dd class="col-sm-9">{{ value|linebreaksbr }}</dd>{% endfor %}</dl>
+  {% endfor %}
+</div></div>
+{% endif %}
 <div class="mt-3">{% include "cases/_timeline.html" %}</div>
 <script>
   function goCaseTab(target) {

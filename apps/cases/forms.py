@@ -61,8 +61,14 @@ class CaseForm(BootstrapMixin, forms.ModelForm):
     def __init__(self, *args, can_remove_parties=False, related_case=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.related_case = related_case
+        imported = bool(self.instance.pk and self.instance.office_sources.exists())
+        self.imported_incomplete = imported
         self.fields["archive_folder_no"].required = not self.instance.pk
         self.fields["opened_on"].required = True
+        if imported:
+            for name in ("archive_no", "opened_on", "subject", "client_role"):
+                if not getattr(self.instance, name):
+                    self.fields[name].required = False
         self.fields["client"].widget.attrs["data-searchable"] = "Müvekkil ara"
         self.fields["enforcement_amount"].min_value = Decimal("0")
         self.fields["enforcement_basis"].widget.attrs["rows"] = 2
@@ -75,7 +81,7 @@ class CaseForm(BootstrapMixin, forms.ModelForm):
         )
         self.fields["client_role"].choices = [("", "Seçiniz…"), *PARTY_ROLES.get(kind, [])]
         self.fields["client_role"].widget.attrs["data-party-role"] = ""
-        self.fields["client_role"].required = True
+        self.fields["client_role"].required = not (imported and not self.instance.client_role)
         self.existing_party_rows = []
         if self.instance.pk:
             for link in self.instance.party_links.select_related("party"):
@@ -96,7 +102,8 @@ class CaseForm(BootstrapMixin, forms.ModelForm):
                     self.fields[remove_name] = forms.BooleanField(required=False)
                     link.remove_field = self[remove_name]
         self.fields["authority"].widget.attrs["class"] += " text-uppercase-input"
-        self.initial.setdefault("official_year", timezone.localdate().year)
+        if not imported:
+            self.initial.setdefault("official_year", timezone.localdate().year)
         if self.instance.pk:
             import re
 
@@ -108,7 +115,10 @@ class CaseForm(BootstrapMixin, forms.ModelForm):
                     "official_sequence"
                 ].help_text = f"Eski dosya numarası: {self.instance.official_no}"
         for name in ("authority", "official_year", "official_sequence"):
-            self.fields[name].widget.attrs[":required"] = "Boolean(labels.authority)"
+            if not imported:
+                self.fields[name].widget.attrs[":required"] = "Boolean(labels.authority)"
+        if imported and not self.instance.authority:
+            self.fields["authority"].required = False
         self.fields["case_type"].widget.attrs["x-model"] = "caseType"
         self.fields["authority"].widget.attrs["list"] = "authority-options"
         self.fields["folder_name"].help_text = (
@@ -173,7 +183,12 @@ class CaseForm(BootstrapMixin, forms.ModelForm):
         case_type = data.get("case_type")
         if case_type not in ("consultancy", "other"):
             for name, label in (("official_year", "Yıl"), ("official_sequence", "Numara")):
-                if data.get(name) is None and name not in self.errors:
+                empty_pair = not data.get("official_year") and not data.get("official_sequence")
+                if (
+                    data.get(name) is None
+                    and name not in self.errors
+                    and not (self.imported_incomplete and empty_pair)
+                ):
                     self.add_error(name, f"{label} zorunludur.")
             if data.get("official_year") and data.get("official_sequence"):
                 data["official_no"] = f"{data['official_year']}/{data['official_sequence']}"
@@ -186,7 +201,9 @@ class CaseForm(BootstrapMixin, forms.ModelForm):
                 data[name] = getattr(self.instance, name)
         else:
             for name, label in (("authority", "Kurum adı"),):
-                if not data.get(name):
+                if not data.get(name) and not (
+                    self.imported_incomplete and not getattr(self.instance, name)
+                ):
                     self.add_error(name, f"{label} zorunludur.")
         if data.get("case_type") != "enforcement":
             data["enforcement_type"] = ""

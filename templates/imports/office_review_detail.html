@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Dosya satırını incele — {{ office.name }}{% endblock %}
+{% block content %}
+<div class="page-header"><div>
+  <div class="eyebrow"><a href="{% url 'imports:office_review' %}">Dosya listelerine dön</a></div>
+  <h1 class="page-title">Dosya satırını incele</h1>
+  <p class="text-body-secondary">{{ row.source_name }} · {{ row.sheet }} · {{ row.row_number }}. satır</p>
+</div></div>
+<div class="row g-3">
+  <div class="col-lg-6"><div class="card"><div class="card-body">
+    <h2 class="section-title">Listede yazan bilgiler</h2>
+    <p>{{ row.reason }}</p>
+    <dl class="row">{% for label, value in row.values.items %}<dt class="col-sm-4">{{ label }}</dt><dd class="col-sm-8">{{ value|linebreaksbr }}</dd>{% endfor %}</dl>
+  </div></div></div>
+  <div class="col-lg-6"><div class="card"><div class="card-body">
+    {% if row.case %}
+      <p>Bu satır <a href="{{ row.case.get_absolute_url }}">seçilen dosyaya</a> bağlı.</p>
+    {% else %}
+      <h2 class="section-title">Dosya seç</h2>
+      <p>Bu satıra ait dosyayı seçin. Listedeki bilgiler dosyada görünür; dosyanın mevcut bilgileri değiştirilmez.</p>
+      <p>Dosya henüz yoksa <a href="{% url 'cases:create' %}" target="_blank" rel="noopener">yeni dosya açın</a>, ardından bu sayfayı yenileyin.</p>
+      <form method="post">{% csrf_token %}
+        {% include "partials/field.html" with field=form.case %}
+        <button class="btn btn-primary">Seçilen dosyaya bağla</button>
+      </form>
+    {% endif %}
+  </div></div></div>
+</div>
+{% endblock %}

@@ -71,3 +71,34 @@ class PowerOfAttorneyReviewMember(models.Model):
 
     def __str__(self):
         return f"Vekalet listesi satır {self.review.source_row} ek müvekkili"
+
+
+class OfficeSourceRecord(models.Model):
+    """Arşiv ve icra listesindeki bir satırın aktarım durumu."""
+
+    source_sha256 = models.CharField(max_length=64)
+    source_name = models.CharField(max_length=200)
+    sheet = models.CharField(max_length=100)
+    row_number = models.PositiveIntegerField()
+    values = models.JSONField(default=dict)
+    reason = models.CharField(max_length=300, blank=True)
+    case = models.ForeignKey(
+        "cases.Case",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="office_sources",
+    )
+
+    class Meta:
+        ordering = ["source_name", "sheet", "row_number"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["source_sha256", "sheet", "row_number"], name="unique_office_source_row"
+            )
+        ]
+        verbose_name = "ofis listesi satırı"
+        verbose_name_plural = "ofis listesi satırları"
+
+    def __str__(self):
+        return f"{self.source_name} — {self.sheet} satır {self.row_number}"

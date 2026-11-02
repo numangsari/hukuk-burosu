@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Dosya listelerini incele — {{ office.name }}{% endblock %}
+{% block content %}
+<div class="page-header"><div>
+  <div class="eyebrow"><a href="{% url 'imports:import' %}">Veri aktarımı</a></div>
+  <h1 class="page-title">Dosya listelerini incele</h1>
+  <p class="text-body-secondary">Eşleşmesi kesinleşmeyen {{ page_obj.paginator.count }} satır. Kaynaktaki bilgiler ve inceleme nedeni aşağıdadır.</p>
+</div></div>
+<form method="get" class="d-flex gap-2 mb-3">
+  <input class="form-control" name="q" value="{{ query }}" placeholder="İsim, liste adı veya inceleme nedeni ara" aria-label="İsim, liste adı veya inceleme nedeni ara">
+  <button class="btn btn-light">Ara</button>
+</form>
+{% for row in page_obj %}
+<div class="card mb-3"><div class="card-body">
+  <h2 class="fs-6"><a href="{% url 'imports:office_review_detail' row.pk %}">{{ row.source_name }} · {{ row.sheet }} · {{ row.row_number }}. satır</a></h2>
+  <p class="text-body-secondary">{{ row.reason|default:"Bağlı dosya silinmiş; satır yeniden incelenmeli." }}</p>
+  <dl class="row mb-0">{% for label, value in row.values.items %}
+    <dt class="col-sm-3">{{ label }}</dt><dd class="col-sm-9">{{ value|linebreaksbr }}</dd>
+  {% endfor %}</dl>
+  <a class="btn btn-sm btn-light" href="{% url 'imports:office_review_detail' row.pk %}">Satırı incele ve dosya seç</a>
+</div></div>
+{% empty %}<div class="card"><div class="card-body">İncelenecek satır bulunamadı.</div></div>{% endfor %}
+{% if page_obj.has_other_pages %}<div class="d-flex gap-3 align-items-center">
+  {% if page_obj.has_previous %}<a href="?q={{ query|urlencode }}&page={{ page_obj.previous_page_number }}">Önceki</a>{% endif %}
+  <span>{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+  {% if page_obj.has_next %}<a href="?q={{ query|urlencode }}&page={{ page_obj.next_page_number }}">Sonraki</a>{% endif %}
+</div>{% endif %}
+{% endblock %}
