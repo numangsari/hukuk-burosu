@@ -40,9 +40,9 @@ def _person(value, row):
     return candidate if candidate and candidate.kind == "person" else None
 
 
-def split_row(row):
-    """Bir kişi ve şirketi veya iki şirketi yalnızca açık biçimde ayrılıyorsa bulur."""
-    if not row.poa_no or "," not in row.name:
+def split_row(row, person_prefix_words=None):
+    """Açık ayraçları veya kullanıcının belirlediği isim sınırını kullanır."""
+    if not row.poa_no or not row.name:
         return None
     text = unicodedata.normalize("NFC", row.name).strip()
     annotation = ""
@@ -50,6 +50,40 @@ def split_row(row):
     if match and fold(match.group(1)) in {"azil", "azilname"}:
         annotation = match.group(0).strip()
         text = text[: match.start()].strip()
+    if person_prefix_words is not None:
+        if person_prefix_words not in (2, 3):
+            return None
+        parts = text.split(None, person_prefix_words)
+        if len(parts) != person_prefix_words + 1:
+            return None
+        person = _person(" ".join(parts[:person_prefix_words]), row)
+        company = parts[-1].strip()
+        if person and _company(company):
+            return MixedEntry(
+                row, company, "person", person.name, person.first_name, person.last_name, annotation
+            )
+        return None
+    dash = re.search(r"\s+[-–—]\s+", text)
+    if dash and "," not in text[: dash.start()]:
+        first, remaining = text[: dash.start()].strip(), text[dash.end() :].strip()
+        person = _person(first, row)
+        if person and _company(remaining):
+            return MixedEntry(
+                row,
+                remaining,
+                "person",
+                person.name,
+                person.first_name,
+                person.last_name,
+                annotation,
+            )
+        person = _person(remaining, row)
+        if _company(first) and person:
+            return MixedEntry(
+                row, first, "person", person.name, person.first_name, person.last_name, annotation
+            )
+    if "," not in text:
+        return None
     first, _, remaining = text.partition(",")
     first, remaining = first.strip(), remaining.strip()
     person = _person(first, row)
@@ -86,9 +120,10 @@ def _unchanged(client):
     ).exists()
 
 
-def build_plan(source_hash, rows, approved_existing=None):
+def build_plan(source_hash, rows, approved_existing=None, approved_splits=None):
     """Yalnızca kaynakla aynı ve daha önce değiştirilmemiş birleşik kayıtları seçer."""
     approved_existing = approved_existing or {}
+    approved_splits = approved_splits or {}
     previously_reviewed = set(
         PowerOfAttorneyReview.objects.filter(source_sha256=source_hash).values_list(
             "source_row", flat=True
@@ -96,7 +131,7 @@ def build_plan(source_hash, rows, approved_existing=None):
     )
     plan = []
     for row in rows:
-        entry = split_row(row)
+        entry = split_row(row, person_prefix_words=approved_splits.get(row.number))
         if not entry or row.number in previously_reviewed:
             continue
         originals = [
@@ -130,7 +165,7 @@ def build_plan(source_hash, rows, approved_existing=None):
 
 
 @transaction.atomic
-def execute(source_hash, approved_existing=None):
+def execute(source_hash, approved_existing=None, approved_splits=None):
     """Unvanı düzeltir, diğer kişiyi ekler veya onaylı mevcut kayıtla ilişkilendirir."""
     teams = get_teams(lock=True)
     if connection.vendor == "postgresql":
@@ -143,7 +178,7 @@ def execute(source_hash, approved_existing=None):
     current_hash, rows = read_source()
     if current_hash != source_hash:
         raise ValidationError("Kaynak liste değişti; düzeltme yapılmadı.")
-    plan = build_plan(current_hash, rows, approved_existing)
+    plan = build_plan(current_hash, rows, approved_existing, approved_splits)
     counts = [
         Client.objects.filter(responsible_lawyer=lawyer, responsible_intern=intern).count()
         for lawyer, intern in teams
