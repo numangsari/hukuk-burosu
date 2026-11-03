@@ -1,0 +1,54 @@
+{# Tebligattan Görev Oluşturma Modalı (HTMX ile #notice-modal-dialog içine yüklenir) #}
+<form class="modal-content" method="post" action="{% url 'notice_task_create' notice.pk %}"
+      hx-post="{% url 'notice_task_create' notice.pk %}"
+      hx-target="#notice-modal-dialog"
+      hx-disabled-elt="find button[type=submit]">
+  {% csrf_token %}
+  <div class="modal-header">
+    <h2 class="modal-title fs-6">Tebligattan Görev Oluştur</h2>
+    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Kapat"></button>
+  </div>
+  <div class="modal-body">
+    <div class="alert alert-info py-2 px-3 small mb-3">
+      <strong>Tebligat:</strong> {{ notice.subject|default:notice.sender }}
+      <div class="text-body-secondary mt-1">Eklenen belgeler otomatik olarak bu görevin belgeleri arasına kopyalanacaktır.</div>
+    </div>
+    {% if form.non_field_errors %}
+      <div class="alert alert-danger py-2">{{ form.non_field_errors }}</div>
+    {% endif %}
+
+    <div class="row g-3">
+      <div class="col-md-5">
+        {% include "partials/field.html" with field=form.task_type %}
+      </div>
+      <div class="col-md-7">
+        {% include "partials/field.html" with field=form.title %}
+      </div>
+      <div class="col-md-6">
+        {% include "partials/field.html" with field=form.client %}
+      </div>
+      <div class="col-md-6">
+        {% include "partials/field.html" with field=form.case %}
+      </div>
+      <div class="col-md-4">
+        {% include "partials/field.html" with field=form.assignee %}
+      </div>
+      <div class="col-md-4">
+        {% include "partials/field.html" with field=form.reviewer %}
+      </div>
+      <div class="col-md-4">
+        {% include "partials/field.html" with field=form.due_date %}
+      </div>
+      <div class="col-12">
+        {% include "partials/field.html" with field=form.requires_accounting wrap_class="mb-0" %}
+      </div>
+      <div class="col-12">
+        {% include "partials/field.html" with field=form.notes wrap_class="mb-0" %}
+      </div>
+    </div>
+  </div>
+  <div class="modal-footer">
+    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Vazgeç</button>
+    <button type="submit" class="btn btn-primary"><i class="bi bi-check2"></i> Görevi Oluştur</button>
+  </div>
+</form>

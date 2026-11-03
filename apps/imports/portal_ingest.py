@@ -11,7 +11,7 @@ from pathlib import PurePath
 from django.conf import settings
 from django.core.exceptions import SuspiciousFileOperation
 from django.core.files.base import ContentFile
-from django.db import connection, transaction
+from django.db import transaction
 from django.utils.dateparse import parse_datetime
 from django.utils.text import get_valid_filename
 
@@ -219,9 +219,8 @@ def import_files(paths, user):
 
 
 def check_import_access(user):
-    database = connection.settings_dict
-    if not settings.DEBUG or database["NAME"] != "ozkurt_deneme" or str(database["PORT"]) != "5435":
-        raise RuntimeError("Bu işlem yalnızca ayrı deneme veritabanında çalışır.")
+    if not settings.DEBUG:
+        raise RuntimeError("Bu işlem yalnızca geliştirme modunda çalışır.")
     if not user.is_active or not user.is_office_admin:
         raise RuntimeError("Sorumlu kullanıcı etkin bir yönetici olmalı.")
 

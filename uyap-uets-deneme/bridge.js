@@ -39,7 +39,13 @@ window.addEventListener('message', event => {
   }
   if (event.source === window && event.origin === location.origin && event.data?.source === 'ozkurt-scan-status') {
     if (event.data.state !== 'basladi') { scanActive = false; expectedName = null; }
-    chrome.runtime.sendMessage({type: 'scan_status', state: event.data.state}).catch(() => {});
+    chrome.runtime.sendMessage({
+      type: 'scan_status',
+      state: event.data.state,
+      total: event.data.total,
+      processed: event.data.processed,
+      currentFile: event.data.currentFile
+    }).catch(() => {});
     return;
   }
   if (event.source === window && event.origin === location.origin && event.data?.source === 'ozkurt-diagnostic') {

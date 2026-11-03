@@ -6,6 +6,10 @@ DEBUG = True
 # tarayıcı CSS/JS değişikliğini Ctrl+F5 gerekmeden alır.
 INSTALLED_APPS = ["whitenoise.runserver_nostatic", *INSTALLED_APPS]  # noqa: F405
 SECRET_KEY = env("DJANGO_SECRET_KEY", default="dev-only-insecure-key")
+# UYAP/UETS aktarımı varsayılan olarak kapalıdır; yalnızca ayrı deneme veritabanında
+# (bkz. check_import_access) ve ortam değişkeniyle açıkça açılır.
+PORTAL_SYNC_ENABLED = env.bool("PORTAL_SYNC_ENABLED", default=False)
+PORTAL_UYAP_AUTOMATION_ENABLED = env.bool("PORTAL_UYAP_AUTOMATION_ENABLED", default=False)
 DATABASES = {
     "default": env.db("DATABASE_URL", default="postgres://ozkurt:ozkurt_dev@localhost:5434/ozkurt")
 }

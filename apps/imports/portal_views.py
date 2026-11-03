@@ -5,17 +5,25 @@ from django.core.files.base import ContentFile
 from django.core.paginator import Paginator
 from django.db import IntegrityError, transaction
 from django.db.models import Q
-from django.http import FileResponse, Http404
+from django.http import FileResponse, Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
 
 from apps.cases.models import Case
 from apps.clients.models import Client
+from apps.core.forms import BootstrapMixin
 from apps.tasks.models import TaskDocument
 from apps.tasks.views import TaskCreateView
 
 from .models import PortalCapture, PortalCase, PortalNotice, PortalNoticeDocument
+from .portal_matching import (
+    calculate_notice_due_date,
+    find_matching_case,
+    get_notice_urgency,
+    parse_notice_subject,
+)
 
 
 @login_required
@@ -65,6 +73,11 @@ def index(request):
     if query:
         cases = cases.filter(Q(authority__icontains=query) | Q(number__icontains=query))
     page = Paginator(cases, 50).get_page(request.GET.get("page"))
+    for rec in page.object_list:
+        if not rec.case_id:
+            rec.suggested_case = find_matching_case(rec.authority, rec.number)
+        else:
+            rec.suggested_case = None
     return render(
         request,
         "imports/portal_review.html",
@@ -153,12 +166,18 @@ def detail(request, pk):
         if key not in seen_hearings:
             seen_hearings.add(key)
             hearings.append(hearing)
+    suggested_case = None
+    if not record.case_id:
+        suggested_case = find_matching_case(record.authority, record.number)
+    initial_form = {"case": suggested_case.pk} if suggested_case else None
+
     return render(
         request,
         "imports/portal_detail.html",
         {
             "record": record,
-            "link_form": PortalCaseLinkForm(),
+            "link_form": PortalCaseLinkForm(initial=initial_form),
+            "suggested_case": suggested_case,
             "details": details,
             "parties": parties,
             "documents": document_rows,
@@ -197,14 +216,27 @@ def link_case(request, pk):
     except IntegrityError:
         messages.error(request, "Dosya başka bir kayıtla ilişkilendirilmiş.")
     else:
-        messages.success(request, "UYAP bilgileri dosyaya bağlandı.")
+        messages.success(request, f"UYAP bilgileri '{case.display_name}' dosyasına bağlandı.")
+        return redirect(case)
     return redirect("portal_review_detail", pk=pk)
 
 
-class NoTaskForm(forms.Form):
-    client = forms.ModelChoiceField(label="Müvekkil", queryset=Client.objects.all())
-    case = forms.ModelChoiceField(label="Dosya", queryset=Case.objects.all(), required=False)
-    reason = forms.CharField(label="Görev olmama nedeni", widget=forms.Textarea(attrs={"rows": 3}))
+class NoTaskForm(BootstrapMixin, forms.Form):
+    client = forms.ModelChoiceField(
+        label="Müvekkil",
+        queryset=Client.objects.all(),
+        widget=forms.Select(attrs={"data-searchable": "Müvekkil ara"})
+    )
+    case = forms.ModelChoiceField(
+        label="Dosya",
+        queryset=Case.objects.all(),
+        required=False,
+        widget=forms.Select(attrs={"data-searchable": "Dosya ara"})
+    )
+    reason = forms.CharField(
+        label="Görev olmama nedeni",
+        widget=forms.Textarea(attrs={"rows": 3, "placeholder": "Bu tebligat için neden görev oluşturulmadığını açıklayın..."})
+    )
 
     def clean(self):
         data = super().clean()
@@ -216,16 +248,34 @@ class NoTaskForm(forms.Form):
 
 @login_required
 def notice_list(request):
-    notices = PortalNotice.objects.select_related(
+    notices = list(PortalNotice.objects.select_related(
         "resolution_client", "resolution_case", "resolution_task", "resolved_by"
-    )
+    ).order_by("-delivered_at"))
+    for n in notices:
+        if not n.resolution_case:
+            auth, num = parse_notice_subject(n.subject)
+            n.suggested_case = find_matching_case(auth, num) if num else None
+        else:
+            n.suggested_case = None
+        n.suggested_due_date = calculate_notice_due_date(n.delivered_at)
+        urgency, due_label = get_notice_urgency(n.suggested_due_date)
+        n.due_urgency = urgency
+        n.due_label = due_label
     return render(request, "imports/notices.html", {"notices": notices})
 
 
 @login_required
 def notice_no_task(request, pk):
     notice = get_object_or_404(PortalNotice, pk=pk)
-    form = NoTaskForm(request.POST or None)
+    initial = {}
+    auth, num = parse_notice_subject(notice.subject)
+    suggested = find_matching_case(auth, num) if num else None
+    if suggested:
+        initial["case"] = suggested.pk
+        if suggested.client:
+            initial["client"] = suggested.client.pk
+
+    form = NoTaskForm(request.POST or None, initial=initial if not request.POST else None)
     if request.method == "POST" and form.is_valid():
         with transaction.atomic():
             notice = get_object_or_404(PortalNotice.objects.select_for_update(), pk=pk)
@@ -247,8 +297,13 @@ def notice_no_task(request, pk):
                     ]
                 )
                 messages.success(request, "Tebligat için görev olmadığı kaydedildi.")
+                if getattr(request, "htmx", False):
+                    response = HttpResponse(status=204)
+                    response["HX-Trigger"] = "notice-saved"
+                    return response
         return redirect("notice_list")
-    return render(request, "imports/notice_no_task.html", {"form": form, "notice": notice})
+    template_name = "imports/_notice_no_task_modal.html" if getattr(request, "htmx", False) else "imports/notice_no_task.html"
+    return render(request, template_name, {"form": form, "notice": notice})
 
 
 class NoticeTaskCreateView(TaskCreateView):
@@ -262,6 +317,27 @@ class NoticeTaskCreateView(TaskCreateView):
             messages.error(request, "Bu tebligat daha önce işlendi.")
             return redirect("notice_list")
         return super().dispatch(request, *args, **kwargs)
+
+    def get_success_url(self):
+        return reverse("notice_list")
+
+    def get_template_names(self):
+        if getattr(self.request, "htmx", False):
+            return ["imports/_notice_task_create_modal.html"]
+        return super().get_template_names()
+
+    def get_initial(self):
+        initial = super().get_initial()
+        if self.notice.delivered_at:
+            initial["due_date"] = calculate_notice_due_date(self.notice.delivered_at)
+        auth, num = parse_notice_subject(self.notice.subject)
+        suggested = find_matching_case(auth, num) if num else None
+        if suggested:
+            initial["case"] = suggested
+            if suggested.client:
+                initial["client"] = suggested.client
+        initial["title"] = f"Tebligat: {self.notice.subject[:100]}"
+        return initial
 
     def get_form(self, form_class=None):
         form = super().get_form(form_class)
@@ -314,6 +390,11 @@ class NoticeTaskCreateView(TaskCreateView):
                         "resolved_at",
                     ]
                 )
+                if getattr(self.request, "htmx", False):
+                    messages.success(self.request, "Görev başarıyla oluşturuldu.")
+                    resp = HttpResponse(status=204)
+                    resp["HX-Trigger"] = "notice-saved"
+                    return resp
                 return response
         except Exception:
             for storage, name in created_files:

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Özkurt Hukuk — Deneme Eklentisi",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Özkurt Hukuk deneme bağlantısı ve durum kontrolü.",
   "permissions": [
     "storage",
@@ -40,6 +40,29 @@
         "account-name.js"
       ],
       "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://avukat.uyap.gov.tr/*",
+        "https://avukatbeta.uyap.gov.tr/*",
+        "https://ptt.etebligat.gov.tr/*"
+      ],
+      "js": [
+        "bridge.js"
+      ],
+      "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "https://avukat.uyap.gov.tr/*",
+        "https://avukatbeta.uyap.gov.tr/*",
+        "https://ptt.etebligat.gov.tr/*"
+      ],
+      "js": [
+        "auto.js"
+      ],
+      "run_at": "document_start",
+      "world": "MAIN"
     }
   ]
 }

@@ -75,9 +75,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     const source = uyap ? 'uyap' : 'uets';
     const state = ['basladi', 'tamamlandi', 'eksik', 'oturum_yok', 'sunucu_yok', 'izin_yok'].includes(message.state) ? message.state : 'eksik';
     const updates = {['scan_' + source]: state};
-    if (state === 'basladi') updates['attempted_' + source] = Date.now();
+    if (state === 'basladi') {
+      updates['attempted_' + source] = Date.now();
+      if (message.processed != null) updates['progress_' + source] = {
+        total: message.total || 0,
+        processed: message.processed || 0,
+        currentFile: message.currentFile || ''
+      };
+    }
     if (state === 'oturum_yok') updates['attempted_' + source] = 0;
-    if (state === 'tamamlandi') updates['completed_' + source] = Date.now();
+    if (state === 'tamamlandi') {
+      updates['completed_' + source] = Date.now();
+      updates['progress_' + source] = null;
+    }
     chrome.storage.local.set(updates).then(() => reportHealth()).catch(() => {});
     if (state === 'oturum_yok' || state === 'sunucu_yok') chrome.alarms.create('portal-retry', {delayInMinutes: 5});
     return;
@@ -127,9 +137,9 @@ async function reportHealth() {
   } catch (_) { /* Sunucu kapalıysa sonraki kontrolde yeniden denenir. */ }
 }
 
-async function startScans() {
-  // Kaynak sahibi kayıtları ayrılana kadar veri aktarımı kapalıdır.
-  await chrome.storage.local.set({scan_uyap: 'durduruldu', scan_uets: 'durduruldu'});
+async function startScans(force = false) {
+  // Tarama, sayfadaki avukat adı sunucudaki izinli kişiyle eşleşmeden başlamaz (bridge.js).
+  await startScansWhenIdentityVerified(force);
   await reportHealth();
 }
 

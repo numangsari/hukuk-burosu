@@ -1,1 +1,103 @@
-{% extends "base.html" %}{% block title %}Tebligatlar{% endblock %}{% block content %}<h1 class="page-title">Tebligatlar</h1><div class="table-responsive"><table class="table table-hover"><thead><tr><th>Tarih</th><th>Gönderen</th><th>Konu</th><th>İşlem</th></tr></thead><tbody>{% for n in notices %}<tr><td>{{ n.delivered_at|date:"d.m.Y H:i" }}</td><td>{{ n.sender }}</td><td><a href="{% url 'portal_notice_detail' n.pk %}">{{ n.subject|default:"Tebligat" }}</a></td><td>{% if n.resolution_task %}<a class="btn btn-sm btn-light" href="{% url 'portal_notice_detail' n.pk %}">Görev oluşturuldu</a>{% elif n.resolved_at %}<a class="btn btn-sm btn-light" href="{% url 'portal_notice_detail' n.pk %}">Görev yok</a>{% else %}<a class="btn btn-sm btn-primary" href="{% url 'notice_task_create' n.pk %}">Görev oluştur</a> <a class="btn btn-sm btn-light" href="{% url 'notice_no_task' n.pk %}">Görev yok</a>{% endif %}</td></tr>{% empty %}<tr><td colspan="4">Tebligat yok.</td></tr>{% endfor %}</tbody></table></div>{% endblock %}
+{% extends "base.html" %}
+{% block title %}Tebligatlar{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="page-title mb-0">Tebligatlar</h1>
+</div>
+<div class="table-responsive">
+  <table class="table table-hover">
+    <thead>
+      <tr>
+        <th>Tarih</th>
+        <th>Olası Son Gün</th>
+        <th>Gönderen</th>
+        <th>Konu</th>
+        <th>Eşleşen Dosya</th>
+        <th>İşlem</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for n in notices %}
+      <tr>
+        <td class="text-nowrap">{{ n.delivered_at|date:"d.m.Y H:i" }}</td>
+        <td class="text-nowrap">
+          {% if n.suggested_due_date %}
+            <span class="due due-{{ n.due_urgency }}" title="Teslimden itibaren 14 gün">
+              <i class="bi {% if n.due_urgency == 'overdue' or n.due_urgency == 'today' %}bi-exclamation-circle-fill{% else %}bi-calendar-event{% endif %}"></i>
+              {{ n.due_label }}
+            </span>
+            <div class="cell-sub tabular">{{ n.suggested_due_date|date:"d.m.Y" }}</div>
+          {% else %}
+            —
+          {% endif %}
+        </td>
+        <td>{{ n.sender }}</td>
+        <td>
+          <a href="{% url 'portal_notice_detail' n.pk %}" class="fw-medium text-decoration-none">
+            {{ n.subject|default:"Tebligat" }}
+          </a>
+        </td>
+        <td>
+          {% if n.resolution_case %}
+            <a href="{{ n.resolution_case.get_absolute_url }}" class="badge bg-success-subtle text-success-emphasis text-decoration-none">
+              <i class="bi bi-folder-check me-1"></i>{{ n.resolution_case.authority }} {{ n.resolution_case.official_no }}
+            </a>
+          {% elif n.suggested_case %}
+            <a href="{{ n.suggested_case.get_absolute_url }}" class="badge bg-info-subtle text-info-emphasis text-decoration-none" title="Otomatik Öneri">
+              <i class="bi bi-magic me-1"></i>{{ n.suggested_case.authority }} {{ n.suggested_case.official_no }}
+            </a>
+            <div class="small text-body-secondary">{{ n.suggested_case.client.name }}</div>
+          {% else %}
+            <span class="text-body-secondary">—</span>
+          {% endif %}
+        </td>
+        <td class="text-nowrap">
+          {% if n.resolution_task %}
+            <a class="btn btn-sm btn-light" href="{% url 'portal_notice_detail' n.pk %}">
+              <i class="bi bi-check2-circle me-1 text-success"></i>Görev oluşturuldu
+            </a>
+          {% elif n.resolved_at %}
+            <a class="btn btn-sm btn-light" href="{% url 'portal_notice_detail' n.pk %}">Görev yok</a>
+          {% else %}
+            <button type="button" class="btn btn-sm btn-primary"
+                    hx-get="{% url 'notice_task_create' n.pk %}"
+                    hx-target="#notice-modal-dialog"
+                    hx-swap="innerHTML"
+                    hx-on::after-request="bootstrap.Modal.getOrCreateInstance(document.getElementById('notice-modal')).show()">
+              <i class="bi bi-plus-lg me-1"></i>Görev oluştur
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-secondary"
+                    hx-get="{% url 'notice_no_task' n.pk %}"
+                    hx-target="#notice-modal-dialog"
+                    hx-swap="innerHTML"
+                    hx-on::after-request="bootstrap.Modal.getOrCreateInstance(document.getElementById('notice-modal')).show()">
+              Görev yok
+            </button>
+          {% endif %}
+        </td>
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="6" class="text-center py-4 text-body-secondary">Tebligat bulunamadı.</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{# Pop-up Modal Konteyneri #}
+<div class="modal fade" id="notice-modal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg" id="notice-modal-dialog"></div>
+</div>
+
+<script>
+  document.body.addEventListener("notice-saved", () => {
+    const modalEl = document.getElementById("notice-modal");
+    if (modalEl) {
+      const modalInstance = bootstrap.Modal.getInstance(modalEl);
+      if (modalInstance) modalInstance.hide();
+    }
+    location.reload();
+  });
+</script>
+{% endblock %}

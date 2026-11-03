@@ -1,23 +1,29 @@
 <!doctype html><html lang="tr"><meta charset="utf-8"><title>Veri inceleme</title>
 <style>
 * { box-sizing: border-box; }
-body { margin: 0; width: 340px; background: #f4f6fa; color: #1b2940; font: 14px/1.45 system-ui, sans-serif; }
-main { padding: 20px; }
-header { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+body { margin: 0; width: 350px; background: #f4f6fa; color: #1b2940; font: 14px/1.45 system-ui, sans-serif; }
+main { padding: 18px; }
+header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
 .mark { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; background: #214d8e; color: white; font-weight: 700; }
 h1 { font-size: 16px; margin: 0; }
 .subtitle { color: #697992; font-size: 12px; margin: 2px 0 0; }
-.card { background: white; border: 1px solid #e0e6ef; border-radius: 12px; padding: 15px; margin-bottom: 12px; }
+.card { background: white; border: 1px solid #e0e6ef; border-radius: 12px; padding: 14px; margin-bottom: 12px; }
 .row { display: flex; justify-content: space-between; gap: 12px; align-items: center; }
 .label { color: #596a83; }
 .value { color: #33445f; font-size: 12px; font-weight: 600; text-align: right; }
-.rule { height: 1px; background: #edf0f5; margin: 12px 0; }
+.rule { height: 1px; background: #edf0f5; margin: 10px 0; }
 .notice { background: #fff8e9; border-color: #f2dfb8; color: #78530e; }
 .notice strong { display: block; margin-bottom: 4px; }
 .notice p { margin: 0; font-size: 12px; }
-button.settings { width: 100%; border: 0; border-radius: 9px; padding: 11px; background: #214d8e; color: white; font: inherit; font-weight: 600; cursor: pointer; }
+.progress-wrap { margin-top: 10px; display: none; }
+.progress-bar-bg { background: #e2e8f0; border-radius: 6px; height: 8px; overflow: hidden; width: 100%; margin: 6px 0; }
+.progress-bar-fill { background: #214d8e; height: 100%; width: 0%; transition: width 0.3s ease; }
+.progress-text { font-size: 11px; color: #64748b; display: flex; justify-content: space-between; }
+button.settings { width: 100%; border: 0; border-radius: 9px; padding: 10px; background: #214d8e; color: white; font: inherit; font-weight: 600; cursor: pointer; }
 button.settings:hover { background: #183d75; }
 button.settings:focus-visible { outline: 3px solid #8cb4ee; outline-offset: 2px; }
+button.secondary { background: #e2e8f0; color: #334155; }
+button.secondary:hover { background: #cbd5e1; }
 </style>
 <body>
 <main>
@@ -29,15 +35,18 @@ button.settings:focus-visible { outline: 3px solid #8cb4ee; outline-offset: 2px;
     <div class="rule"></div>
     <div class="row"><span class="label">UETS kişi izni</span><span class="value" id="uets-name-state">Bekliyor</span></div>
     <div class="rule"></div>
-    <div class="row"><span class="label">Otomatik aktarım</span><span class="value">Kapalı</span></div>
+    <div class="row"><span class="label">Aktarım</span><span class="value" id="auto-state">Bekliyor</span></div>
+    <div class="progress-wrap" id="progress-container">
+      <div class="progress-bar-bg"><div class="progress-bar-fill" id="progress-bar"></div></div>
+      <div class="progress-text"><span id="progress-desc">Taranıyor...</span><span id="progress-count">0%</span></div>
+    </div>
   </section>
-  <section class="card notice"><strong>Doğrulama bekleniyor</strong><p>Hesap sahibi doğrulanana kadar veri aktarımı yapılmaz. İzinleri ve bağlantı durumunu ayarlardan görebilirsiniz.</p></section>
-  <button class="settings" id="open-settings" type="button">Eklenti ayarlarını aç</button>
+  <section class="card notice"><strong>Tarama</strong><p id="auto-status">Açık UYAP ve UETS sekmeleri taranır. Önce portallara giriş yapın.</p></section>
+  <button class="settings" id="auto-scan" type="button" style="margin-bottom:8px">Taramayı başlat</button>
+  <button class="settings secondary" id="open-settings" type="button">Eklenti ayarlarını aç</button>
 </main>
 <div hidden>
 <h3>Veri inceleme</h3><p id="status">Kontrol ediliyor…</p>
-<p id="auto-status"></p><p>Kişi doğrulaması tamamlanana kadar portal sorguları kapalıdır.</p>
-<p><button id="auto-scan">Şimdi tara</button></p>
 <button id="query" disabled>Verileri sorgula</button> <button id="download">Verileri indir</button>
 <p><button id="notice-sample" disabled>Bir tebligatı ve belgelerini indir</button></p>
 <p><button id="diagnostics">Tebligat incelemesini indir</button></p>
@@ -47,5 +56,8 @@ button.settings:focus-visible { outline: 3px solid #8cb4ee; outline-offset: 2px;
 <p><button id="closed-types" disabled>Kapalı dosyaları incele</button></p>
 <p><button id="deep-metadata" disabled>Bağlantıları ve ayrıntıları incele</button></p>
 <p><button id="appeal-lists" disabled>İstinaf dosyalarını sorgula</button></p>
-<p><button id="appeal-details" disabled>İstinaf bağlantılarını incele</button></p>
-</div><script src="popup.js"></script></body></html>
+<p><button id="appeal-details" disabled>İstinaf ayrıntıları</button></p>
+</div>
+<script src="popup.js"></script>
+</body>
+</html>

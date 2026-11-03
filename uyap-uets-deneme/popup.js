@@ -20,8 +20,34 @@ async function refresh() {
   const status = await chrome.storage.local.get(['status_uyap', 'status_uets']);
   document.getElementById('status').textContent = `${captures.length} yanıt kaydedildi. UYAP: ${status.status_uyap || 'Bekliyor'}. UETS: ${status.status_uets || 'Bekliyor'}.`;
   document.getElementById('download').disabled = !captures.length;
-  document.getElementById('auto-status').textContent = 'Kişi doğrulaması tamamlanana kadar otomatik aktarım kapalı.';
-  document.getElementById('auto-scan').disabled = true;
+  const scan = await chrome.storage.local.get(['scan_uyap', 'scan_uets', 'progress_uyap', 'progress_uets']);
+  const scanLabels = {basladi:'Taranıyor', tamamlandi:'Tamamlandı', eksik:'Eksik tamamlandı', oturum_yok:'Oturum yok', sunucu_yok:'Sunucu yok', izin_yok:'İzin yok', sekme_yok:'Sekme açık değil', sekme_hazir_degil:'Sekme hazır değil', durduruldu:'Durduruldu'};
+  document.getElementById('auto-state').textContent = 'UYAP: ' + (scanLabels[scan.scan_uyap] || 'Bekliyor') + ' · UETS: ' + (scanLabels[scan.scan_uets] || 'Bekliyor');
+  document.getElementById('auto-scan').disabled = !connection.sync_key;
+
+  const progContainer = document.getElementById('progress-container');
+  const progBar = document.getElementById('progress-bar');
+  const progDesc = document.getElementById('progress-desc');
+  const progCount = document.getElementById('progress-count');
+
+  if (progContainer) {
+    if (scan.scan_uyap === 'basladi' && scan.progress_uyap) {
+      const p = scan.progress_uyap;
+      progContainer.style.display = 'block';
+      const percent = p.total > 0 ? Math.min(100, Math.round((p.processed / p.total) * 100)) : 0;
+      if (progBar) progBar.style.width = percent + '%';
+      if (progDesc) progDesc.textContent = p.currentFile ? ('İşlenen: ' + p.currentFile) : 'UYAP taranıyor...';
+      if (progCount) progCount.textContent = p.total > 0 ? (`${p.processed}/${p.total} (%${percent})`) : `${p.processed} dosya`;
+    } else if (scan.scan_uets === 'basladi' && scan.progress_uets) {
+      const p = scan.progress_uets;
+      progContainer.style.display = 'block';
+      if (progBar) progBar.style.width = '100%';
+      if (progDesc) progDesc.textContent = 'UETS tebligatları taranıyor...';
+      if (progCount) progCount.textContent = `${p.processed} tebligat`;
+    } else {
+      progContainer.style.display = 'none';
+    }
+  }
 }
 document.getElementById('auto-scan').addEventListener('click', async () => {
   await chrome.runtime.sendMessage({type:'start_scans'});
@@ -144,3 +170,4 @@ document.getElementById('open-settings').addEventListener('click', () => {
   chrome.tabs.create({url: 'http://127.0.0.1:3000/hesap/ayarlar/?bolum=eklenti'});
 });
 refresh();
+setInterval(refresh, 3000);

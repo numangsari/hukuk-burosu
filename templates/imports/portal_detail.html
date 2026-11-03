@@ -1,15 +1,114 @@
 {% extends "base.html" %}
 {% block title %}Dosya incelemesi{% endblock %}
 {% block content %}
-<h1 class="h3">{{ record.authority }} — {{ record.number }}</h1>
-<p>{{ record.category }} · {{ record.status }}</p>
-{% if record.case %}<p><a href="{{ record.case.get_absolute_url }}">Sistemdeki dosyayı aç</a></p>{% else %}<p>UYAP kaydı henüz bir büro dosyasına bağlanmadı. Önce müvekkil ve dosyayı sistemde kaydedin.</p><form method="post" action="{% url 'portal_case_link' record.pk %}">{% csrf_token %}{{ link_form.as_p }}<button class="btn btn-primary">Dosyaya bağla</button></form>{% endif %}
-<h2 class="h5 mt-4">Dosya bilgileri</h2><dl>{% for label, value in details %}<dt>{{ label }}</dt><dd>{{ value }}</dd>{% empty %}<dd>Ayrıntı alınamadı.</dd>{% endfor %}</dl>
-{% if parties %}<h2 class="h5 mt-4">Taraflar</h2><div class="table-responsive"><table class="table"><thead><tr><th>Ad / unvan</th><th>Sıfat</th><th>Vekil</th></tr></thead><tbody>{% for party in parties %}<tr><td>{{ party.adi }}</td><td>{{ party.rol }}</td><td>{{ party.vekil|default:"—" }}</td></tr>{% endfor %}</tbody></table></div>{% endif %}
-{% if hearings %}<h2 class="h5 mt-4">Duruşmalar</h2><ul>{% for hearing in hearings %}<li>{{ hearing.tarihSaat }} · {{ hearing.yerelBirimAd }}</li>{% endfor %}</ul>{% endif %}
-{% if finance %}<h2 class="h5 mt-4">Dosya hesabı</h2><dl>{% for item in finance %}{% if item.degerAlan != None %}<dt>{{ item.textAlan }}</dt><dd>{{ item.degerAlan }}</dd>{% endif %}{% endfor %}</dl>{% endif %}
-{% if transactions %}<h2 class="h5 mt-4">Tahsilat ve geri ödemeler</h2><ul>{% for item in transactions.tahsilatList %}<li>{{ item.tahsilatTarihi }} · {{ item.tahsilatTuru }} · {{ item.tahsilatTutari }}</li>{% endfor %}{% for item in transactions.reddiyatList %}<li>{{ item.reddiyatTarihi }} · {{ item.reddiyatNedeni }} · {{ item.odenecekMiktar }}</li>{% endfor %}</ul>{% endif %}
-{% if folders %}<h2 class="h5 mt-4">Evrak ağacındaki dosyalar</h2><ul>{% for name, entries in folders.items %}<li>{{ name }} — {{ entries|length }} belge bilgisi</li>{% endfor %}</ul>{% endif %}
-{% if documents %}<h2 class="h5 mt-4">Son belge bilgileri</h2><ul>{% for document in documents %}<li>{{ document.tur|default:document.tip }}{% if document.aciklama %} · {{ document.aciklama }}{% endif %}</li>{% endfor %}</ul>{% endif %}
-<p><a href="{% url 'portal_review' %}">Listeye dön</a></p>
+<div class="d-flex justify-content-between align-items-center mb-2">
+  <h1 class="h3 mb-0">{{ record.authority }} — {{ record.number }}</h1>
+</div>
+<p class="text-body-secondary">{{ record.category }} · {{ record.status }}</p>
+
+{% if record.case %}
+  <div class="alert alert-success d-flex align-items-center justify-content-between py-2 px-3">
+    <div>
+      <i class="bi bi-check-circle-fill me-2"></i>
+      Bu UYAP kaydı büro dosyasına bağlı: <strong>{{ record.case.authority }} {{ record.case.official_no }}</strong> ({{ record.case.client.name }})
+    </div>
+    <a class="btn btn-sm btn-success" href="{{ record.case.get_absolute_url }}">Dosyayı aç</a>
+  </div>
+{% else %}
+  <div class="card p-3 mb-4 bg-light border">
+    <h2 class="h6 mb-2">Büro Dosyasına Bağla</h2>
+    {% if suggested_case %}
+      <div class="alert alert-info py-2 px-3 mb-3">
+        <i class="bi bi-magic me-1"></i> Otomatik önerilen dosya: <strong>{{ suggested_case.authority }} {{ suggested_case.official_no }}</strong> — Müvekkil: {{ suggested_case.client.name }}
+      </div>
+    {% else %}
+      <p class="small text-body-secondary mb-2">UYAP kaydı henüz bir büro dosyasına bağlanmadı. Aşağıdan ilgili dosyayı seçerek bağlayabilirsiniz.</p>
+    {% endif %}
+    <form method="post" action="{% url 'portal_case_link' record.pk %}" class="d-flex gap-2 align-items-end">
+      {% csrf_token %}
+      <div class="flex-grow-1">
+        {{ link_form.case.label_tag }}
+        {{ link_form.case }}
+      </div>
+      <button class="btn btn-primary text-nowrap"><i class="bi bi-link-45deg me-1"></i>Dosyaya bağla</button>
+    </form>
+  </div>
+{% endif %}
+
+<h2 class="h5 mt-4">Dosya bilgileri</h2>
+<dl class="row">
+  {% for label, value in details %}
+    <dt class="col-sm-3 text-body-secondary">{{ label }}</dt>
+    <dd class="col-sm-9">{{ value }}</dd>
+  {% empty %}
+    <dd class="col-12 text-body-secondary">Ayrıntı alınamadı.</dd>
+  {% endfor %}
+</dl>
+
+{% if parties %}
+  <h2 class="h5 mt-4">Taraflar</h2>
+  <div class="table-responsive">
+    <table class="table table-sm">
+      <thead><tr><th>Ad / unvan</th><th>Sıfat</th><th>Vekil</th></tr></thead>
+      <tbody>
+        {% for party in parties %}
+          <tr><td>{{ party.adi }}</td><td>{{ party.rol }}</td><td>{{ party.vekil|default:"—" }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% endif %}
+
+{% if hearings %}
+  <h2 class="h5 mt-4">Duruşmalar</h2>
+  <ul class="list-group list-group-flush">
+    {% for hearing in hearings %}
+      <li class="list-group-item px-0">{{ hearing.tarihSaat }} · {{ hearing.yerelBirimAd }}</li>
+    {% endfor %}
+  </ul>
+{% endif %}
+
+{% if finance %}
+  <h2 class="h5 mt-4">Dosya hesabı</h2>
+  <dl class="row">
+    {% for item in finance %}
+      {% if item.degerAlan != None %}
+        <dt class="col-sm-3 text-body-secondary">{{ item.textAlan }}</dt>
+        <dd class="col-sm-9">{{ item.degerAlan }}</dd>
+      {% endif %}
+    {% endfor %}
+  </dl>
+{% endif %}
+
+{% if transactions %}
+  <h2 class="h5 mt-4">Tahsilat ve geri ödemeler</h2>
+  <ul class="list-group list-group-flush">
+    {% for item in transactions.tahsilatList %}
+      <li class="list-group-item px-0">{{ item.tahsilatTarihi }} · {{ item.tahsilatTuru }} · {{ item.tahsilatTutari }}</li>
+    {% endfor %}
+    {% for item in transactions.reddiyatList %}
+      <li class="list-group-item px-0">{{ item.reddiyatTarihi }} · {{ item.reddiyatNedeni }} · {{ item.odenecekMiktar }}</li>
+    {% endfor %}
+  </ul>
+{% endif %}
+
+{% if folders %}
+  <h2 class="h5 mt-4">Evrak ağacındaki dosyalar</h2>
+  <ul class="list-group list-group-flush">
+    {% for name, entries in folders.items %}
+      <li class="list-group-item px-0">{{ name }} — {{ entries|length }} belge bilgisi</li>
+    {% endfor %}
+  </ul>
+{% endif %}
+
+{% if documents %}
+  <h2 class="h5 mt-4">Son belge bilgileri</h2>
+  <ul class="list-group list-group-flush">
+    {% for document in documents %}
+      <li class="list-group-item px-0">{{ document.tur|default:document.tip }}{% if document.aciklama %} · {{ document.aciklama }}{% endif %}</li>
+    {% endfor %}
+  </ul>
+{% endif %}
+
+<p class="mt-4"><a href="{% url 'portal_review' %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Listeye dön</a></p>
 {% endblock %}

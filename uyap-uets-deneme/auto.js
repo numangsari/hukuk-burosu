@@ -1,7 +1,7 @@
 (() => {
   const nativeFetch = window.fetch.bind(window);
   let running = false;
-  const status = state => window.postMessage({source: 'ozkurt-scan-status', state}, location.origin);
+  const status = (state, extra = {}) => window.postMessage({source: 'ozkurt-scan-status', state, ...extra}, location.origin);
   const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
   const verify = () => new Promise((resolve, reject) => {
     const id = crypto.randomUUID();
@@ -70,7 +70,7 @@
         const id = row?.id || row?.messages_id;
         if (!id) { partial = true; continue; }
         if (seen.has(String(id))) continue;
-        seen.add(String(id)); newCount++;
+        seen.add(String(id)); newCount++; status('basladi', {processed: seen.size});
         let details;
         try { details = await jsonResponse(await get('/messages/' + encodeURIComponent(String(id)) + '?eyp_details=true')); }
         catch (error) { if (['oturum', 'izin'].includes(error.message)) throw error; partial = true; continue; }
@@ -135,7 +135,7 @@
         if (unit?.tablo == null || seenUnits.has(String(unit.tablo))) continue;
         seenUnits.add(String(unit.tablo));
         for (const state of ['acik', 'kapali']) {
-          if (sampleCounts[state] >= 3) continue;
+          
           const seenPages = new Set();
           for (let page = 1; page <= 2000; page++) {
             let result;
@@ -151,7 +151,7 @@
               if (typeof row?.dosyaId !== 'string' || !row.dosyaId) { partial = true; continue; }
               if (seenCases.has(row.dosyaId) || rows.some(item => item.dosyaId === row.dosyaId)) continue;
               rows.push(row);
-              if (rows.length + sampleCounts[state] >= 3) break;
+              
             }
             if (rows.length) {
               const capture = {source:'UYAP', path:'/search_phrase_detayli.ajx', data:{kategori:category.name, birim:unit.kod, durum:state, sonuc:[rows, result[1]]}};
@@ -163,7 +163,7 @@
               sampleCounts[state]++;
               const caseFingerprint = await fingerprint(caseId);
               if (completedCases.has(caseFingerprint)) continue;
-              let caseComplete = true;
+              let caseComplete = true; status('basladi', {total: result[1] || 0, processed: seenCases.size, currentFile: row?.dosyaNo || ''});
               const itemList = {source:'UYAP', path:'/search_phrase_detayli.ajx', data:{kategori:category.name, birim:unit.kod, durum:state, sonuc:[[row], 1]}};
               let captures = [itemList];
               for (const path of paths) {
@@ -193,7 +193,7 @@
               await send({type:'uyap', captures});
               if (caseComplete) { await checkpoint('add', caseFingerprint); completedCases.add(caseFingerprint); }
             }
-            if (sampleCounts[state] >= 3 || page * 10 >= result[1]) break;
+            if (page * 10 >= result[1]) break;
             if (!pageRows.length || page === 2000) { partial = true; break; }
           }
         }
