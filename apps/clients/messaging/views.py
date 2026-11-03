@@ -17,6 +17,7 @@ from apps.clients.models import (
     WhatsAppMessage,
     WhatsAppSettings,
 )
+from apps.core.pagination import page_size
 from apps.core.permissions import AdminRequiredMixin
 from apps.core.text import fold
 
@@ -30,7 +31,7 @@ class InboxView(ListView):
     context_object_name = "conversations"
 
     def get_paginate_by(self, queryset):
-        return self.request.user.page_size
+        return page_size(self.request)
 
     def get_queryset(self):
         last_ids = (

@@ -33,6 +33,9 @@
         {% endwith %}
       </div>
       <span class="chip-sep"></span>
+      <input type="checkbox" class="btn-check" name="missing" id="flt-missing" value="1" {% if request.GET.missing %}checked{% endif %}>
+      <label class="chip-btn" for="flt-missing"><i class="bi bi-exclamation-triangle me-1"></i>Eksik bilgisi olanlar</label>
+      <span class="chip-sep"></span>
       <div class="chip-group" role="radiogroup" aria-label="Dosya türü">
         <input type="radio" class="btn-check" name="type" id="ty-all" value="" {% if not request.GET.type %}checked{% endif %}><label class="chip-btn" for="ty-all">Tüm türler</label>
         {% for v, l in types %}

@@ -106,7 +106,7 @@ def build_statement(d, user):
 class DebtorsForm(BootstrapMixin, forms.Form):
     lawyer = forms.ModelChoiceField(
         label="Sorumlu avukat",
-        queryset=User.objects.filter(role__in=["admin", "lawyer"]),
+        queryset=User.objects.filter(role__in=["admin", "senior", "lawyer"]),
         required=False,
     )
     include_zero = forms.BooleanField(label="Borcu olmayanları da göster", required=False)
@@ -214,7 +214,7 @@ class CaseListForm(BootstrapMixin, forms.Form):
     )
     lawyer = forms.ModelChoiceField(
         label="Sorumlu avukat",
-        queryset=User.objects.filter(role__in=["admin", "lawyer"]),
+        queryset=User.objects.filter(role__in=["admin", "senior", "lawyer"]),
         required=False,
     )
 
@@ -275,9 +275,9 @@ def build_cases(d, user):
         "archive_no"
     )
     rows = [
-        [k.archive_reference, k.get_case_type_display(), _linked_name(k), k.client.name, f"{k.authority} {k.official_no_display}".strip(),
+        [k.archive_reference, k.get_case_type_display(), _linked_name(k), k.client.name if k.client else "—", f"{k.authority} {k.official_no_display}".strip(),
          k.get_status_display(), k.responsible_lawyer, k.open_tasks,
-         k.status_detail, k.active_seizures, k.next_renewal]
+         k.status_detail or k.uyap_stage, k.active_seizures, k.next_renewal]
         for k in cluster(qs)
     ]  # fmt: skip
     return ReportResult(
@@ -374,9 +374,9 @@ def build_client_cases(d, user):
         last_title=Subquery(last_sq.values("title")[:1]),
     ).order_by("client__name", "archive_no")
     rows = [
-        [k.client.name, k.archive_reference, _linked_name(k), k.get_status_display(),
+        [k.client.name if k.client else "—", k.archive_reference, _linked_name(k), k.get_status_display(),
          k.open_tasks, f"{k.last_date:%d.%m.%Y} {k.last_title}" if k.last_date else "",
-         k.status_detail, k.active_seizures, k.next_renewal]
+         k.status_detail or k.uyap_stage, k.active_seizures, k.next_renewal]
         for k in cluster(cases)
     ]  # fmt: skip
     return ReportResult(
@@ -403,7 +403,7 @@ class SeizureReportForm(PeriodForm):
     client = forms.ModelChoiceField(label="Müvekkil", queryset=Client.objects.all(), required=False)
     lawyer = forms.ModelChoiceField(
         label="Sorumlu avukat",
-        queryset=User.objects.filter(role__in=["admin", "lawyer"]),
+        queryset=User.objects.filter(role__in=["admin", "senior", "lawyer"]),
         required=False,
     )
     state = forms.ChoiceField(
@@ -458,7 +458,7 @@ def build_seizures(d, user):
         rows.append(
             [
                 item.case.display_name,
-                item.case.client.name,
+                item.case.client.name if item.case.client else "—",
                 item.debtor_display,
                 item.asset_label,
                 item.seized_on,

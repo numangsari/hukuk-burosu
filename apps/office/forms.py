@@ -17,6 +17,7 @@ class OfficeForm(BootstrapMixin, forms.ModelForm):
             "tax_number",
             "logo",
             "idle_minutes",
+            "use_assistant_assignee",
         ]
         widgets = {"address": forms.Textarea(attrs={"rows": 2})}
 
@@ -60,7 +61,39 @@ class CalendarForm(BootstrapMixin, forms.ModelForm):
 class DocumentsRootForm(BootstrapMixin, forms.ModelForm):
     class Meta:
         model = OfficeSettings
-        fields = ["documents_root"]
+        fields = ["documents_root", "backup_time"]
+        widgets = {"backup_time": forms.TimeInput(attrs={"type": "time"}, format="%H:%M")}
+        labels = {"documents_root": "Ofis klasörü", "backup_time": "Günlük yedek saati"}
+        help_texts = {"backup_time": "Bilgisayar bu saatte kapalıysa açılınca yedek alınır."}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["backup_time"].required = False
+        from django.conf import settings
+
+        if settings.DEBUG:
+            import os
+            from pathlib import Path
+
+            startup = (
+                Path(os.environ.get("APPDATA", ""))
+                / "Microsoft/Windows/Start Menu/Programs/Startup"
+            )
+            enabled = (startup / "Ozkurt Hukuk Gelistirme Yedek.lnk").is_file()
+            self.fields["backup_time"].help_text = (
+                (
+                    "Oturum açıkken otomatik kontrol çalışır; "
+                    "bilgisayar kapalıysa açılınca yedek alınır."
+                )
+                if enabled
+                else (
+                    "Bu deneme ortamında otomatik kontrol kurulu değil; "
+                    "Şimdi yedek al düğmesini kullanın."
+                )
+            )
+
+    def clean_backup_time(self):
+        return self.cleaned_data.get("backup_time") or self.instance.backup_time
 
     def clean_documents_root(self):
         from apps.core.folders import check_writable
@@ -118,7 +151,7 @@ class PortalLawyerAccessForm(BootstrapMixin, forms.ModelForm):
         from apps.accounts.models import User
 
         self.fields["user"].queryset = User.objects.filter(
-            is_active=True, role__in=[User.Role.ADMIN, User.Role.LAWYER]
+            is_active=True, role__in=[User.Role.ADMIN, User.Role.SENIOR, User.Role.LAWYER]
         )
 
     def clean_identity_number(self):

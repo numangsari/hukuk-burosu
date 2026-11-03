@@ -3,6 +3,7 @@ from django.contrib.auth import password_validation
 from django.contrib.auth.forms import AuthenticationForm
 
 from apps.core.forms import BootstrapMixin
+from apps.office.models import OfficeSettings
 
 from .models import User
 
@@ -57,7 +58,7 @@ class PinChangeForm(BootstrapMixin, forms.Form):
 class ProfileForm(BootstrapMixin, forms.ModelForm):
     class Meta:
         model = User
-        fields = ["first_name", "last_name", "email", "phone", "theme", "page_size"]
+        fields = ["first_name", "last_name", "email", "phone", "theme"]
         labels = {"first_name": "Ad", "last_name": "Soyad", "email": "E-posta"}
 
 
@@ -83,12 +84,12 @@ class UserAdminForm(BootstrapMixin, forms.ModelForm):
         self.fields["first_name"].required = True
         self.fields["last_name"].required = True
         self.fields["supervisor"].help_text = (
-            "Bu kişi görevde sorumlu olunca kontrolcü olarak bu kişi önerilir. Stajyerde ayrıca "
-            "müvekkil ve dosyada bu avukat seçilince stajyer otomatik dolar."
+            "Bu kişi görevde sorumlu olunca kontrolcü olarak bu kişi önerilir. Yardımcı sorumluda "
+            "ayrıca müvekkil ve dosyada bu avukat seçilince yardımcı sorumlu otomatik dolar."
         )
         self.fields["role"].widget.attrs["x-model"] = "role"
         self.fields["supervisor"].queryset = User.objects.filter(
-            role__in=[User.Role.ADMIN, User.Role.LAWYER], is_active=True
+            role__in=[User.Role.ADMIN, User.Role.SENIOR, User.Role.LAWYER], is_active=True
         ).exclude(pk=self.instance.pk)
 
     def clean_pin(self):
@@ -118,6 +119,9 @@ class UserAdminForm(BootstrapMixin, forms.ModelForm):
             while User.objects.filter(username=username).exists():
                 username, n = f"{base}{n}", n + 1
             user.username = username
+            if user.role == User.Role.ACCOUNTANT:
+                user.can_view_balances = True
+                user.can_manage_accounting = True
         user.is_staff = user.is_superuser = user.role == User.Role.ADMIN
         if self.cleaned_data.get("pin"):
             user.set_password(self.cleaned_data["pin"])
@@ -129,9 +133,42 @@ class UserAdminForm(BootstrapMixin, forms.ModelForm):
 
 
 class BalanceViewersForm(forms.Form):
-    """Müvekkil bakiyesini, borçlu süzgecini, cari hesabı ve finansal raporları kimin
-    göreceği. Yöneticiler her zaman görür."""
+    """Ayarlar > Yetkiler formu:
+    1. Dosya ve müvekkil görünürlük kapsamı + istisna kullanıcılar
+    2. Görevlerde kontrolcü onayı iş akışı
+    3. Muhasebe kaydı ekleme/iptal yetkisi + bakiye görme yetkisi
+    """
 
+    case_visibility_mode = forms.ChoiceField(
+        label="Dosya ve müvekkil görünürlüğü",
+        choices=OfficeSettings.CaseVisibilityMode.choices,
+        required=False,
+        widget=forms.RadioSelect,
+    )
+    all_cases_viewers = forms.ModelMultipleChoiceField(
+        label="Sorumlu bazlı modda tüm dosyaları görebilen ek kişiler",
+        queryset=User.objects.none(),
+        required=False,
+        widget=forms.CheckboxSelectMultiple,
+    )
+    task_review_mode = forms.ChoiceField(
+        label="Görevlerde kontrolcü onayı",
+        choices=OfficeSettings.TaskReviewMode.choices,
+        required=False,
+        widget=forms.RadioSelect,
+    )
+    accounting_edit_mode = forms.ChoiceField(
+        label="Muhasebe kaydı ekleme ve iptal etme yetkisi",
+        choices=OfficeSettings.AccountingEditMode.choices,
+        required=False,
+        widget=forms.RadioSelect,
+    )
+    accounting_editors = forms.ModelMultipleChoiceField(
+        label="Muhasebe kaydı ekleyebilen / iptal edebilen kişiler",
+        queryset=User.objects.none(),
+        required=False,
+        widget=forms.CheckboxSelectMultiple,
+    )
     viewers = forms.ModelMultipleChoiceField(
         label="Bakiyeleri görebilenler",
         queryset=User.objects.none(),
@@ -141,13 +178,61 @@ class BalanceViewersForm(forms.Form):
 
     def __init__(self, data=None, files=None):
         super().__init__(data)
-        qs = User.objects.filter(is_active=True).exclude(role=User.Role.ADMIN)
-        self.fields["viewers"].queryset = qs
-        self.initial["viewers"] = list(qs.filter(can_view_balances=True))
+        office = OfficeSettings.load()
+        non_admin_qs = User.objects.filter(is_active=True).exclude(role=User.Role.ADMIN)
+        restricted_case_roles_qs = non_admin_qs.filter(
+            role__in=[User.Role.LAWYER, User.Role.INTERN, User.Role.PARALEGAL]
+        )
+        non_accountant_qs = non_admin_qs.exclude(role=User.Role.ACCOUNTANT)
+
+        self.fields["viewers"].queryset = non_admin_qs
+        self.fields["accounting_editors"].queryset = non_accountant_qs
+        self.fields["all_cases_viewers"].queryset = restricted_case_roles_qs
+
+        self.initial["case_visibility_mode"] = office.case_visibility_mode
+        self.initial["task_review_mode"] = office.task_review_mode
+        self.initial["accounting_edit_mode"] = office.accounting_edit_mode
+        self.initial["viewers"] = list(non_admin_qs.filter(can_view_balances=True))
+        self.initial["accounting_editors"] = list(
+            non_accountant_qs.filter(can_manage_accounting=True)
+        )
+        self.initial["all_cases_viewers"] = list(
+            restricted_case_roles_qs.filter(can_view_all_cases=True)
+        )
 
     def save(self):
-        chosen = {u.pk for u in self.cleaned_data["viewers"]}
-        qs = self.fields["viewers"].queryset
-        qs.filter(pk__in=chosen).update(can_view_balances=True)
-        qs.exclude(pk__in=chosen).update(can_view_balances=False)
+        office = OfficeSettings.load()
+        update_office_fields = []
+        for field_name in ("case_visibility_mode", "task_review_mode", "accounting_edit_mode"):
+            val = self.cleaned_data.get(field_name)
+            if val:
+                setattr(office, field_name, val)
+                update_office_fields.append(field_name)
+        if update_office_fields:
+            office.save(update_fields=update_office_fields)
+
+        chosen_viewers = {u.pk for u in self.cleaned_data.get("viewers", [])}
+        qs_viewers = self.fields["viewers"].queryset
+        qs_viewers.filter(pk__in=chosen_viewers).update(can_view_balances=True)
+        qs_viewers.exclude(pk__in=chosen_viewers).update(can_view_balances=False)
+
+        if (
+            self.data is None
+            or "accounting_edit_mode" in self.data
+            or "accounting_editors" in self.data
+        ):
+            chosen_editors = {u.pk for u in self.cleaned_data.get("accounting_editors", [])}
+            qs_editors = self.fields["accounting_editors"].queryset
+            qs_editors.filter(pk__in=chosen_editors).update(can_manage_accounting=True)
+            qs_editors.exclude(pk__in=chosen_editors).update(can_manage_accounting=False)
+
+        if (
+            self.data is None
+            or "case_visibility_mode" in self.data
+            or "all_cases_viewers" in self.data
+        ):
+            chosen_all_cases = {u.pk for u in self.cleaned_data.get("all_cases_viewers", [])}
+            qs_all_cases = self.fields["all_cases_viewers"].queryset
+            qs_all_cases.filter(pk__in=chosen_all_cases).update(can_view_all_cases=True)
+            qs_all_cases.exclude(pk__in=chosen_all_cases).update(can_view_all_cases=False)
         return None

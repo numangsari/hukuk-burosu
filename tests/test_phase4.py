@@ -74,8 +74,6 @@ def test_search_page_kind_filter_and_sort(lawyer_client, client_factory, case_fa
 def test_search_page_paginates_kind_and_previews_all(lawyer, client_factory):
     from apps.search.views import PREVIEW_LIMIT
 
-    lawyer.page_size = 5
-    lawyer.save()
     for i in range(PREVIEW_LIMIT + 2):
         client_factory(first_name=f"Kişi{i:02d}", last_name="Sayfalı")
     c = login(lawyer)
@@ -84,9 +82,9 @@ def test_search_page_paginates_kind_and_previews_all(lawyer, client_factory):
     r = c.get(url, {"q": "sayfali"})
     assert len(r.context["r"]["clients"]) == PREVIEW_LIMIT
     assert r.context["more"]["clients"][0] == PREVIEW_LIMIT + 2
-    # Tür sekmesi: kullanıcının sayfa boyutuyla sayfa sayfa, hepsi görülebilir
-    r = c.get(url, {"q": "sayfali", "tur": "muvekkil", "page": 3})
-    assert r.context["paginator"].num_pages == 3
+    # Tür sekmesi: sayfa boyutu listeden seçilir.
+    r = c.get(url, {"q": "sayfali", "tur": "muvekkil", "sayfa_boyutu": 10, "page": 2})
+    assert r.context["paginator"].num_pages == 2
     assert len(r.context["r"]["clients"]) == 2
 
 

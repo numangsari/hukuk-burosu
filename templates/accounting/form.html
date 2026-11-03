@@ -53,6 +53,7 @@
     </div>
   </div>
   </div>
+{% if request.GET.pencere %}<div class="form-footer"><a class="btn btn-light" href="{% url 'accounting:list' %}">Vazgeç</a><button class="btn btn-primary">Kaydet</button></div>{% endif %}
 </form>
 <script>
   function entryForm(initial) {

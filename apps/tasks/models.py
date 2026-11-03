@@ -44,6 +44,8 @@ class Task(TimeStampedModel):
         settings.AUTH_USER_MODEL,
         verbose_name="kontrolcü",
         on_delete=models.PROTECT,
+        null=True,
+        blank=True,
         related_name="review_tasks",
         limit_choices_to={"is_active": True},
     )
@@ -71,7 +73,7 @@ class Task(TimeStampedModel):
         return self.title
 
     def clean(self):
-        if self.assignee_id and self.assignee_id == self.reviewer_id:
+        if self.assignee_id and self.reviewer_id and self.assignee_id == self.reviewer_id:
             raise ValidationError({"reviewer": "Kontrolcü, sorumludan farklı biri olmalı."})
 
     def save(self, *args, **kwargs):
@@ -141,9 +143,11 @@ class TaskEvent(models.Model):
         SUBMITTED = "submitted", "kontrole gönderdi"
         APPROVED = "approved", "onayladı"
         REVISION = "revision", "revizyon istedi"
+        CLOSED = "closed", "kapattı"
         REOPENED = "reopened", "yeniden açtı"
         UPDATED = "updated", "güncelledi"
         COMMENT = "comment", "yorum yaptı"
+        NOTE = "note", "not ekledi"
 
     task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name="events")
     actor = models.ForeignKey(
@@ -192,6 +196,12 @@ def task_document_upload_to(instance, filename):
 class TaskDocument(models.Model):
     """Görev belgesi. Yeni sürüm yüklenince eskisi `is_current=False` olur ve geçmişte kalır."""
 
+    class Kind(models.TextChoices):
+        SOURCE = "source", "Görev için eklenen belge"
+        PETITION = "petition", "Dilekçe"
+        LEGACY = "legacy", "Önceki belge"
+
+    kind = models.CharField("belge türü", max_length=12, choices=Kind.choices, default=Kind.LEGACY)
     task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name="documents")
     file = models.FileField("belge", upload_to=task_document_upload_to)
     original_name = models.CharField(max_length=300)

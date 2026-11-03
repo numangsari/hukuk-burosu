@@ -11,6 +11,8 @@ if (Get-Service "OzkurtHukukDB" -ErrorAction SilentlyContinue) {
     Stop-Service "OzkurtHukukDB" -Force
     if (Test-Path $pg) { & $pg unregister -N OzkurtHukukDB }
 }
+Stop-ScheduledTask -TaskName "Ozkurt Hukuk Listeler" -ErrorAction SilentlyContinue
+Unregister-ScheduledTask -TaskName "Ozkurt Hukuk Listeler" -Confirm:$false -ErrorAction SilentlyContinue
 Unregister-ScheduledTask -TaskName "Ozkurt Hukuk Yedek" -Confirm:$false -ErrorAction SilentlyContinue
 Unregister-ScheduledTask -TaskName "Ozkurt Hukuk Hatirlatma" -Confirm:$false -ErrorAction SilentlyContinue
 Unregister-ScheduledTask -TaskName "Ozkurt Hukuk Haciz Takibi" -Confirm:$false -ErrorAction SilentlyContinue

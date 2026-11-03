@@ -78,10 +78,14 @@ def find_matching_case(authority, number, dosya_turu=None):
 
         # Mahkeme kontrolü (eğer mahkeme belirtilmişse)
         if norm_auth and case_norm_auth:
+            is_mediation_match = case.case_type == "mediation" and (
+                normalize_text(dosya_turu or "") == "arabuluculuk" or "arabuluc" in norm_auth
+            )
             if (
                 norm_auth == case_norm_auth
                 or norm_auth in case_norm_auth
                 or case_norm_auth in norm_auth
+                or is_mediation_match
             ):
                 matches.append(case)
         elif not norm_auth:
@@ -118,4 +122,3 @@ def get_notice_urgency(due_date):
     if days_left <= 3:
         return "soon", f"{days_left} gün kaldı"
     return "normal", f"{days_left} gün kaldı"
-

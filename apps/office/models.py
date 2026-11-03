@@ -8,6 +8,38 @@ from apps.core.text import tr_capitalize_words
 class OfficeSettings(models.Model):
     """Tek satırlık ofis ayarları tablosu (singleton, pk=1)."""
 
+    class CaseVisibilityMode(models.TextChoices):
+        PUBLIC = (
+            "public",
+            "Herkese açık — Tüm aktif kullanıcılar tüm müvekkil ve dosyaları görebilir",
+        )
+        RESTRICTED = (
+            "restricted",
+            "Sorumlu bazlı — Yönetici, Kıdemli Avukat ve Büro Geneli (Sekreter/Muhasebe) tümünü; "
+            "Avukat, Stajyer ve Katip yalnızca sorumlu/görevli olduğu kayıtları görür",
+        )
+
+    class TaskReviewMode(models.TextChoices):
+        REQUIRED = "required", "Her zaman kontrolcü onayı zorunlu"
+        ASSISTANTS_ONLY = (
+            "assistants_only",
+            "Yalnızca yardımcı personel için kontrolcü onayı zorunlu "
+            "(Avukatlar doğrudan kapatabilir)",
+        )
+        OPTIONAL = (
+            "optional",
+            "Kontrolcü onayı isteğe bağlı "
+            "(Boş bırakılırsa doğrudan kapanır, seçilirse onaya gider)",
+        )
+
+    class AccountingEditMode(models.TextChoices):
+        EVERYONE = "everyone", "Herkes muhasebe kaydı ekleyebilir ve iptal edebilir"
+        RESTRICTED = (
+            "restricted",
+            "Yalnızca Yönetici, Muhasebe ve seçilen kişiler muhasebe kaydı "
+            "ekleyebilir / iptal edebilir",
+        )
+
     name = models.CharField("ofis adı", max_length=200, default="Özkurt Hukuk Bürosu")
     address = models.TextField("adres", blank=True)
     phone = models.CharField("telefon", max_length=50, blank=True)
@@ -35,6 +67,32 @@ class OfficeSettings(models.Model):
     upcoming_days = models.PositiveSmallIntegerField("yaklaşan tarih penceresi (gün)", default=7)
     backup_time = models.TimeField("yedek saati", default=datetime.time(12, 30))
     backup_dir = models.CharField("yedek hedef klasörü", max_length=500, blank=True)
+    use_assistant_assignee = models.BooleanField(
+        "yardımcı sorumlu (stajyer / katip) kullan",
+        default=True,
+        help_text=(
+            "Açık olduğunda müvekkil ve dosyalarda yardımcı sorumlu seçimi zorunlu olur; "
+            "kapalı olduğunda yardımcı sorumlu alanı gizlenir."
+        ),
+    )
+    case_visibility_mode = models.CharField(
+        "dosya ve müvekkil görünürlüğü",
+        max_length=20,
+        choices=CaseVisibilityMode.choices,
+        default=CaseVisibilityMode.PUBLIC,
+    )
+    task_review_mode = models.CharField(
+        "görevlerde kontrolcü onayı",
+        max_length=20,
+        choices=TaskReviewMode.choices,
+        default=TaskReviewMode.REQUIRED,
+    )
+    accounting_edit_mode = models.CharField(
+        "muhasebe kaydı ekleme / iptal etme yetkisi",
+        max_length=20,
+        choices=AccountingEditMode.choices,
+        default=AccountingEditMode.EVERYONE,
+    )
 
     class Meta:
         verbose_name = "ofis ayarları"
@@ -70,6 +128,7 @@ class TaskType(LookupModel):
     requires_document = models.BooleanField("kontrole göndermek için belge zorunlu", default=False)
     points = models.PositiveSmallIntegerField("puan", default=0)
     categories = models.JSONField("kategoriler", default=list, blank=True)
+    petition_template = models.CharField("dilekçe şablonu", max_length=255, blank=True)
 
     class Meta(LookupModel.Meta):
         verbose_name = "görev türü"

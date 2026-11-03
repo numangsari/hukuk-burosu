@@ -84,6 +84,7 @@
     </tbody>
   </table>
 </div>
+{% include "partials/pagination.html" with paginator=page_obj.paginator %}
 
 {# Pop-up Modal Konteyneri #}
 <div class="modal fade" id="notice-modal" tabindex="-1" aria-hidden="true">

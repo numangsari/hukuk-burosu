@@ -1,7 +1,7 @@
 ﻿<#
   Kurulum/güncelleme sonrası çalışır (Inno Setup [Run]). Tekrar çalıştırılması güvenlidir.
   - İlk kurulumda: .env (gizli anahtarlar), PostgreSQL veri klasörü ve servisi, veritabanı,
-    ofis kullanıcıları, yedek parolası dosyası.
+    ofis kullanıcıları ve servis ayarları.
   - Her çalıştırmada: migrate, collectstatic, uygulama servisi, güvenlik duvarı kuralı,
     zamanlanmış yedek ve hatırlatma görevleri, istemci kısayolu, sağlık kontrolü.
 #>
@@ -43,7 +43,6 @@ foreach ($d in @($Data, "$Data\media", "$Data\backups", (Join-Path $InstallDir "
 $firstInstall = -not (Test-Path $Env)
 if ($firstInstall) {
     $dbPass = New-Secret 32
-    $backupPass = New-Secret 24
     @(
         "DJANGO_SETTINGS_MODULE=config.settings.prod"
         "DJANGO_SECRET_KEY=$(New-Secret 60)"
@@ -52,7 +51,6 @@ if ($firstInstall) {
         "MEDIA_ROOT=$Data\media"
         "STATIC_ROOT=$App\staticfiles"
         "LOG_FILE=$InstallDir\logs\app.log"
-        "BACKUP_PASSWORD=$backupPass"
         "BACKUP_DIR=$Data\backups"
         "PG_DUMP=$Pg\pg_dump.exe"
         "PG_RESTORE=$Pg\pg_restore.exe"
@@ -60,16 +58,6 @@ if ($firstInstall) {
     # .env yalnızca Administrators ve SYSTEM tarafından okunabilir
     icacls $Env /inheritance:r /grant:r "*S-1-5-32-544:F" "*S-1-5-18:F" | Out-Null
 
-    # Yedek parolası kullanıcıya bir kez gösterilir; güvenli yerde saklanıp dosya silinmeli.
-    $note = Join-Path ([Environment]::GetFolderPath("CommonDesktopDirectory")) "Ozkurt Hukuk - YEDEK PAROLASI.txt"
-    @(
-        "Özkurt Hukuk yedek dosyalarının şifresi:"
-        ""
-        "    $backupPass"
-        ""
-        "Bu parola olmadan yedekler AÇILAMAZ. Parolayı kâğıda yazıp kasada veya bir parola"
-        "yöneticisinde saklayın, ardından BU DOSYAYI SİLİN."
-    ) | Set-Content -Encoding utf8 $note
 } else {
     $dbPass = ((Get-Content $Env | Where-Object { $_ -like "DATABASE_URL=*" }) -replace '^.*://ozkurt:([^@]+)@.*$', '$1')
 }
@@ -139,6 +127,19 @@ $seizureSettings = New-ScheduledTaskSettingsSet -StartWhenAvailable -AllowStartI
     -DontStopIfGoingOnBatteries -ExecutionTimeLimit (New-TimeSpan -Minutes 4) -MultipleInstances IgnoreNew
 Register-ScheduledTask -TaskName "Ozkurt Hukuk Haciz Takibi" -Action $seizureAction `
     -Trigger $seizureTriggers -Settings $seizureSettings -User "SYSTEM" -RunLevel Highest -Force | Out-Null
+
+# Ofis klasöründeki görüntüleme tabloları düzenli güncellenir.
+$listScript = Join-Path $InstallDir "tools\check-office-lists.ps1"
+$listArguments = "-NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$listScript`""
+$listAction = New-ScheduledTaskAction -Execute "powershell.exe" -Argument $listArguments
+$listTriggers = @(
+    (New-ScheduledTaskTrigger -AtStartup),
+    (New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) -RepetitionInterval (New-TimeSpan -Minutes 1))
+)
+$listSettings = New-ScheduledTaskSettingsSet -StartWhenAvailable -AllowStartIfOnBatteries `
+    -DontStopIfGoingOnBatteries -ExecutionTimeLimit (New-TimeSpan -Seconds 0) -MultipleInstances IgnoreNew
+Register-ScheduledTask -TaskName "Ozkurt Hukuk Listeler" -Action $listAction `
+    -Trigger $listTriggers -Settings $listSettings -User "SYSTEM" -RunLevel Highest -Force | Out-Null
 
 # 7) İstemci kısayolu (diğer PC'lerin masaüstüne kopyalanacak)
 $url = "http://$($env:COMPUTERNAME)/"

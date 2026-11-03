@@ -28,7 +28,7 @@ def party_groups(case, party_links, include_empty=False):
             found = min(_fallback_side(role), len(lanes) - 1)
         return found
 
-    if case.client_role:
+    if case.client_id and case.client_role:
         groups[lane_index(case.client_role)]["items"].append(
             {
                 "name": case.client.name,
@@ -37,6 +37,7 @@ def party_groups(case, party_links, include_empty=False):
                 "lawyer": "",
                 "address": "",
                 "is_client": True,
+                "from_uyap": bool(getattr(case, "portalcase", None)),
                 "url": case.client.get_absolute_url(),
                 "link_pk": None,
             }
@@ -51,6 +52,7 @@ def party_groups(case, party_links, include_empty=False):
                 "lawyer": "",
                 "address": "",
                 "is_client": True,
+                "from_uyap": bool(getattr(case, "portalcase", None)),
                 "url": extra.client.get_absolute_url(),
                 "link_pk": None,
             }
@@ -64,8 +66,9 @@ def party_groups(case, party_links, include_empty=False):
                 "lawyer": link.party.lawyer,
                 "address": link.party.address,
                 "is_client": False,
+                "from_uyap": link.from_uyap,
                 "url": "",
-                "link_pk": link.pk,
+                "link_pk": None if link.from_uyap else link.pk,
             }
         )
     # Boş kalan "Diğer ilgililer" bölümü gösterilmez; iki karşıt yan boş da olsa görünür.

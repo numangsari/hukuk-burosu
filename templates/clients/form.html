@@ -39,8 +39,8 @@
       <div class="form-section">
         <div class="form-section-head"><h2>Sorumlular</h2></div>
         <div class="row">
-          <div class="col-md-6">{% include "partials/field.html" with field=form.responsible_lawyer %}</div>
-          <div class="col-md-6">{% include "partials/field.html" with field=form.responsible_intern %}</div>
+          <div class="col-md-{% if form.responsible_intern %}6{% else %}12{% endif %}">{% include "partials/field.html" with field=form.responsible_lawyer %}</div>
+          {% if form.responsible_intern %}<div class="col-md-6">{% include "partials/field.html" with field=form.responsible_intern %}</div>{% endif %}
         </div>
       </div>
     </div>
@@ -109,7 +109,7 @@
       // Avukat seçilince ona bağlı stajyer (Ayarlar > Kullanıcılar) otomatik seçilir.
       lawyerChanged(e) {
         const intern = map[e.target.value];
-        if (intern) this.$refs.intern.value = String(intern);
+        if (intern && this.$refs.intern) this.$refs.intern.value = String(intern);
       },
       // Alt kayıt grubuna boş satır ekler (Django formset).
       addRow(prefix) {

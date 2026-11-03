@@ -6,6 +6,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.views.generic import ListView
 
 from apps.accounts.models import User
+from apps.core.pagination import page_size
 from apps.core.permissions import is_admin
 
 ACTION_LABELS = {
@@ -73,6 +74,9 @@ class ActivityListView(ListView):
     context_object_name = "entries"
     paginate_by = 50
 
+    def get_paginate_by(self, queryset):
+        return page_size(self.request, default=50)
+
     def get_queryset(self):
         g, u = self.request.GET, self.request.user
         qs = LogEntry.objects.select_related("actor", "content_type").order_by("-timestamp")
@@ -89,6 +93,8 @@ class ActivityListView(ListView):
             qs = qs.filter(timestamp__date__gte=start)
         if end := _date(g.get("bitis")):
             qs = qs.filter(timestamp__date__lte=end)
+        if q := (g.get("q") or "").strip():
+            qs = qs.filter(object_repr__icontains=q)
         return qs
 
     def get_template_names(self):

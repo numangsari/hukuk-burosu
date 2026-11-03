@@ -52,7 +52,11 @@ class LedgerEntryForm(BootstrapMixin, forms.ModelForm):
     def clean(self):
         data = super().clean()
         client, case = data.get("client"), data.get("case")
-        if case and client and client.pk not in case.client_ids():
+        if case and not case.client_id:
+            self.add_error(
+                "case", "Bu dosyanın müvekkili henüz seçilmemiş. Önce dosyadan müvekkil seçin."
+            )
+        elif case and client and client.pk not in case.client_ids():
             self.add_error("case", "Seçilen dosya bu müvekkile ait değil.")
         return data
 

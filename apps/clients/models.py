@@ -15,12 +15,16 @@ class PersonKind(models.TextChoices):
     COMPANY = "company", "Tüzel kişi"
 
 
+LAWYER_ROLES = ("admin", "senior", "lawyer")
+ASSISTANT_ROLES = ("intern", "paralegal")
+
+
 def lawyer_choices():
-    return {"role__in": ["admin", "lawyer"], "is_active": True}
+    return {"role__in": list(LAWYER_ROLES), "is_active": True}
 
 
 def intern_choices():
-    return {"role": "intern", "is_active": True}
+    return {"role__in": list(ASSISTANT_ROLES), "is_active": True}
 
 
 class Client(TimeStampedModel):
@@ -41,10 +45,12 @@ class Client(TimeStampedModel):
     )
     responsible_intern = models.ForeignKey(
         settings.AUTH_USER_MODEL,
-        verbose_name="sorumlu stajyer",
+        verbose_name="yardımcı sorumlu",
         on_delete=models.PROTECT,
         related_name="clients_as_intern",
         limit_choices_to=intern_choices,
+        null=True,
+        blank=True,
     )
     notes = models.TextField("notlar", blank=True)
     # Vekaleti olan müvekkilin numarası (V-121): vekaletin fiziki klasördeki yerini gösterir.

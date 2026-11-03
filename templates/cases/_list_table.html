@@ -17,17 +17,28 @@
   <tbody>
   {% for k in cases %}
     <tr class="type-{{ k.case_type }}{% if k.chain_prev %} chain-prev{% endif %}{% if k.chain_next %} chain-next{% endif %}" data-href="{{ k.get_absolute_url }}" onclick="location.href=this.dataset.href">
-      <td><a href="{{ k.get_absolute_url }}" class="fw-semibold tabular">{{ k.archive_reference }}</a></td>
+      <td>
+        <a href="{{ k.get_absolute_url }}" class="fw-semibold tabular">{{ k.archive_reference|default:"—" }}</a>
+        {% if k.missing_fields %}<div class="mt-1"><span class="chip chip-warning no-dot" title="Eksik bilgi: {{ k.missing_fields|join:', ' }}">Eksik bilgi</span></div>{% endif %}
+      </td>
       <td><span class="case-list-type">{{ k.get_case_type_display }}</span></td>
-      <td><span class="case-list-status{% if not k.is_open %} case-list-status-closed{% endif %}">{{ k.get_status_display }}</span>{% if not k.is_open %}<div class="cell-sub mt-1">{{ k.closing_label }}</div>{% endif %}</td>
+      <td>
+        <span class="case-list-status{% if not k.is_open %} case-list-status-closed{% endif %}">
+          {% if k.portalcase %}{{ k.uyap_status_banner }}{% else %}{{ k.get_status_display }}{% endif %}
+        </span>
+        {% if not k.is_open and not k.portalcase %}<div class="cell-sub mt-1">{{ k.closing_label }}</div>{% endif %}
+      </td>
       <td>{% if k.is_open %}{{ k.stage_label|default:"—" }}{% else %}—{% endif %}</td>
       <td>
         <div class="cell-main">{% if k.chain_prev %}<i class="bi bi-link-45deg chain-icon" title="Bağlı dosya"></i>{% endif %}{% include "cases/_source_badge.html" with case=k %} {{ k.display_name }}{% if k.linked_others %} <span class="chip chip-accent no-dot">+{{ k.linked_others }} dosya bağlı</span>{% endif %}</div>
-        <div class="cell-sub">{% if k.authority and k.subject %} {{ k.subject }}{% endif %}</div>
+        <div class="cell-sub">{% if k.authority and k.subject %} {{ k.subject }}{% elif k.uyap_subject %}{{ k.uyap_subject }}{% endif %}</div>
       </td>
-      <td>{{ k.client }}{% if k.co_clients.all %} <span class="chip chip-info no-dot">+{{ k.co_clients.all|length }} müvekkil</span>{% endif %}</td>
+      <td>
+        {% if k.client %}{{ k.client }}{% else %}<span class="chip chip-warning no-dot">Müvekkil eksik</span>{% endif %}
+        {% if k.co_clients.all %} <span class="chip chip-info no-dot">+{{ k.co_clients.all|length }} müvekkil</span>{% endif %}
+      </td>
       <td class="tabular">{% if k.open_task_count %}{{ k.open_task_count }}{% else %}<span class="text-body-secondary">—</span>{% endif %}</td>
-      <td><div>{{ k.responsible_lawyer }}</div><div class="cell-sub">{{ k.responsible_intern }}</div></td>
+      <td><div>{{ k.responsible_lawyer }}</div>{% if office.use_assistant_assignee and k.responsible_intern %}<div class="cell-sub">{{ k.responsible_intern }}</div>{% endif %}</td>
       <td class="tabular">{{ k.opened_on|date:"d.m.Y" }}</td>
     </tr>
   {% empty %}

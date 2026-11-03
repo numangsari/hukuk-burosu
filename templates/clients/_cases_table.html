@@ -4,12 +4,21 @@
   <thead><tr><th>Arşiv no</th><th>Dosya</th><th>Kurum / Dosya numarası</th><th>Dosya türü</th><th>Durum</th><th>Avukat</th></tr></thead>
   <tbody>
   {% for k in client_cases %}
-    <tr class="{% if k.chain_prev %}chain-prev{% endif %} {% if k.chain_next %}chain-next{% endif %}" data-href="{{ k.get_absolute_url }}" onclick="location.href=this.dataset.href">
-      <td><a class="fw-semibold tabular" href="{{ k.get_absolute_url }}">{{ k.archive_reference }}</a></td>
-      <td><div class="cell-main">{% if k.chain_prev %}<i class="bi bi-link-45deg chain-icon" title="Bağlı dosya"></i>{% endif %}{{ k.display_name }}{% if k.linked_others %} <span class="chip chip-accent no-dot">+{{ k.linked_others }} dosya bağlı</span>{% endif %}</div></td>
+    <tr class="type-{{ k.case_type }}{% if k.chain_prev %} chain-prev{% endif %}{% if k.chain_next %} chain-next{% endif %}" data-href="{{ k.get_absolute_url }}" onclick="location.href=this.dataset.href">
+      <td>
+        <a class="fw-semibold tabular" href="{{ k.get_absolute_url }}">{{ k.archive_reference|default:"—" }}</a>
+        {% if k.missing_fields %}<div class="mt-1"><span class="chip chip-warning no-dot" title="Eksik bilgi: {{ k.missing_fields|join:', ' }}">Eksik bilgi</span></div>{% endif %}
+      </td>
+      <td><div class="cell-main">{% if k.chain_prev %}<i class="bi bi-link-45deg chain-icon" title="Bağlı dosya"></i>{% endif %}{% include "cases/_source_badge.html" with case=k %} {{ k.display_name }}{% if k.linked_others %} <span class="chip chip-accent no-dot">+{{ k.linked_others }} dosya bağlı</span>{% endif %}</div></td>
       <td>{{ k.authority|default:"—" }}<div class="cell-sub">{{ k.official_no_display }}</div></td>
       <td><span class="type-chip type-{{ k.case_type }}">{{ k.get_case_type_display }}</span></td>
-      <td>{% include "cases/_status_chip.html" %}</td>
+      <td>
+        {% if k.portalcase %}
+        <span class="case-list-status{% if not k.is_open %} case-list-status-closed{% endif %}">{{ k.uyap_status_banner }}</span>
+        {% else %}
+        {% include "cases/_status_chip.html" %}
+        {% endif %}
+      </td>
       <td>{{ k.responsible_lawyer }}</td></tr>
   {% empty %}<tr><td colspan="6"><div class="empty-state"><i class="bi bi-folder2"></i><strong>Dosya bulunamadı</strong>{% if client.cases.exists %}Filtreleri değiştirin.{% else %}Bu müvekkil için henüz dosya açılmamış.{% endif %}</div></td></tr>{% endfor %}
   </tbody>

@@ -22,12 +22,22 @@ class UploadForm(BootstrapMixin, forms.Form):
     file = forms.FileField(label="Doldurulmuş şablon (.xlsx)")
     default_lawyer = forms.ModelChoiceField(
         label="Varsayılan sorumlu avukat",
-        queryset=User.objects.filter(role__in=["admin", "lawyer"], is_active=True),
+        queryset=User.objects.filter(role__in=["admin", "senior", "lawyer"], is_active=True),
     )
     default_intern = forms.ModelChoiceField(
-        label="Varsayılan sorumlu stajyer",
-        queryset=User.objects.filter(role="intern", is_active=True),
+        label="Varsayılan yardımcı sorumlu",
+        queryset=User.objects.filter(role__in=["intern", "paralegal"], is_active=True),
+        required=False,
     )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        from apps.office.models import OfficeSettings
+
+        if OfficeSettings.load().use_assistant_assignee:
+            self.fields["default_intern"].required = True
+        else:
+            self.fields.pop("default_intern", None)
 
 
 def _tmp_path(token: str) -> Path:
@@ -58,11 +68,15 @@ class ImportView(AdminRequiredMixin, View):
             try:
                 path = _tmp_path(token)
                 file_hash = hashlib.sha256(path.read_bytes()).hexdigest()
+                default_intern_id = request.POST.get("default_intern")
+                default_intern = (
+                    User.objects.get(pk=default_intern_id) if default_intern_id else None
+                )
                 with open(path, "rb") as f:
                     plan = services.build_plan(
                         f,
                         User.objects.get(pk=request.POST["default_lawyer"]),
-                        User.objects.get(pk=request.POST["default_intern"]),
+                        default_intern,
                         file_hash=file_hash,
                     )
                 counts = services.execute(
@@ -122,6 +136,10 @@ class ImportView(AdminRequiredMixin, View):
                 "token": token,
                 "file_name": form.cleaned_data["file"].name,
                 "default_lawyer": form.cleaned_data["default_lawyer"].pk,
-                "default_intern": form.cleaned_data["default_intern"].pk,
+                "default_intern": (
+                    form.cleaned_data["default_intern"].pk
+                    if form.cleaned_data.get("default_intern")
+                    else ""
+                ),
             },
         )

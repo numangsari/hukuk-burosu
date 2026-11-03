@@ -84,14 +84,15 @@ class CaseForm(PreserveExistingAssigneeMixin, BootstrapMixin, forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.keep_existing_assignee()
         self.related_case = related_case
+        self.has_uyap = bool(self.instance.pk and getattr(self.instance, "portalcase", None))
         imported = bool(
-            self.instance.pk
-            and (
-                self.instance.office_sources.exists() or getattr(self.instance, "portalcase", None)
-            )
+            self.instance.pk and (self.instance.office_sources.exists() or self.has_uyap)
         )
         self.imported_incomplete = imported
+        self.fields["client"].required = True
         self.fields["archive_folder_no"].required = not self.instance.pk
+        self.fields["archive_no"].required = not self.instance.pk
+        self.fields["subject"].required = not self.instance.pk
         self.fields["official_no_kind"].required = False
         self.fields["official_date"].required = False
         self.fields["official_date"].label = "Tarih"
@@ -104,8 +105,13 @@ class CaseForm(PreserveExistingAssigneeMixin, BootstrapMixin, forms.ModelForm):
         self.fields["client"].widget.attrs["data-searchable"] = "Müvekkil ara"
         self.fields["enforcement_amount"].min_value = Decimal("0")
         self.fields["enforcement_basis"].widget.attrs["rows"] = 2
+        from apps.office.models import OfficeSettings
+
+        self.use_assistant = OfficeSettings.load().use_assistant_assignee
         for name in ("responsible_lawyer", "responsible_intern"):
             self.fields[name].required = False
+        if not self.use_assistant:
+            self.fields.pop("responsible_intern", None)
         kind = (
             self.data.get("case_type")
             if self.is_bound
@@ -125,11 +131,13 @@ class CaseForm(PreserveExistingAssigneeMixin, BootstrapMixin, forms.ModelForm):
                     label="Taraf sıfatı",
                     choices=choices,
                     initial=link.role,
+                    disabled=link.from_uyap,
+                    required=not link.from_uyap,
                     widget=forms.Select(attrs={"class": "form-select", "data-party-role": ""}),
                 )
                 self.existing_party_rows.append((link, self[name]))
-                if can_remove_parties:
-                    # Dosyadan çıkarma yalnızca yöneticide; kayıt tek hamlede işlenir.
+                if can_remove_parties and not link.from_uyap:
+                    # Dosyadan çıkarma yalnızca yöneticide; UYAP tarafları salt okunurdur.
                     remove_name = f"party_remove_{link.pk}"
                     self.fields[remove_name] = forms.BooleanField(required=False)
                     link.remove_field = self[remove_name]
@@ -171,11 +179,28 @@ class CaseForm(PreserveExistingAssigneeMixin, BootstrapMixin, forms.ModelForm):
         from apps.clients.views import intern_by_lawyer
 
         self.intern_map = intern_by_lawyer()
+        if self.has_uyap:
+            # UYAP'tan gelen alanlar (tarihler dahil) salt okunurdur; kullanıcı değiştiremez.
+            for name in (
+                "case_type",
+                "opened_on",
+                "authority",
+                "official_year",
+                "official_sequence",
+                "official_no_kind",
+                "enforcement_type",
+                "enforcement_amount",
+                "mediator",
+            ):
+                self.fields[name].disabled = True
+                self.fields[name].required = False
 
     def clean_client(self):
         client = self.cleaned_data["client"]
         if (
             self.instance.pk
+            and self.instance.client_id
+            and client
             and client.pk != self.instance.client_id
             and (self.instance.tasks.exists() or self.instance.ledger_entries.exists())
         ):
@@ -218,6 +243,8 @@ class CaseForm(PreserveExistingAssigneeMixin, BootstrapMixin, forms.ModelForm):
         client = data.get("client")
         if client:
             for name in ("responsible_lawyer", "responsible_intern"):
+                if name == "responsible_intern" and not getattr(self, "use_assistant", True):
+                    continue
                 if not data.get(name):
                     data[name] = getattr(client, name)
         case_type = data.get("case_type")
@@ -273,6 +300,18 @@ class CaseForm(PreserveExistingAssigneeMixin, BootstrapMixin, forms.ModelForm):
             data["crime"] = ""
         if data.get("case_type") != "mediation":
             data["mediator"] = ""
+        if self.has_uyap:
+            for name in (
+                "case_type",
+                "opened_on",
+                "authority",
+                "official_no",
+                "official_no_kind",
+                "enforcement_type",
+                "enforcement_amount",
+                "mediator",
+            ):
+                data[name] = getattr(self.instance, name)
         return data
 
 
@@ -478,18 +517,26 @@ class CaseLinkForm(BootstrapMixin, forms.Form):
         if case.flow_id:
             excluded = Case.objects.filter(flow_id=case.flow_id) | excluded
         ids = case.client_ids()
+        if ids:
+            qs = Case.objects.filter(
+                Q(client_id__in=ids) | Q(co_clients__in=ids) | Q(client__isnull=True)
+            )
+            help_text = "Ortak müvekkili olan veya henüz müvekkili seçilmemiş dosyalar listelenir."
+        else:
+            qs = Case.objects.all()
+            help_text = "Henüz müvekkil seçilmediği için tüm dosyalar listelenir."
         self.fields["related"].queryset = (
-            Case.objects.filter(Q(client_id__in=ids) | Q(co_clients__in=ids))
-            .exclude(pk__in=excluded.values("pk"))
+            qs.exclude(pk__in=excluded.values("pk"))
             .select_related("client")
             .distinct()
             .order_by("-created_at")
         )
         self.fields["related"].label_from_instance = lambda c: (
-            f"{c.archive_reference} · {c.display_name} · {c.client.name}"
+            f"{c.archive_reference} · {c.display_name} · "
+            f"{c.client.name if c.client_id else 'Müvekkil eksik'}"
         )
         self.fields["related"].empty_label = "Dosya seçin…"
-        self.fields["related"].help_text = "En az bir ortak müvekkili olan dosyalar listelenir."
+        self.fields["related"].help_text = help_text
 
 
 class CaseCoClientForm(BootstrapMixin, forms.Form):
@@ -623,7 +670,7 @@ class SeizureForm(BootstrapMixin, forms.ModelForm):
         self.borrowers = {}
         for link in self.case.party_links.filter(role="debtor").select_related("party"):
             self.borrowers[f"party:{link.party_id}"] = ("party", link.party)
-        if self.case.client_role == "debtor":
+        if self.case.client_id and self.case.client_role == "debtor":
             self.borrowers[f"client:{self.case.client_id}"] = ("client", self.case.client)
         for link in self.case.co_client_links.filter(role="debtor").select_related("client"):
             self.borrowers[f"client:{link.client_id}"] = ("client", link.client)

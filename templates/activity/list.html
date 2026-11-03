@@ -5,9 +5,16 @@
   <div>
     <h1 class="page-title">Aktivite kaydı</h1>
   </div>
+  {% if request.user.is_office_admin %}
+  <div class="page-actions">
+    <a class="btn btn-light" href="{% url 'accounts:settings' %}?bolum=kullanici_analizi"><i class="bi bi-person-lines-fill"></i>Kullanıcı analizi</a>
+    <a class="btn btn-light" href="{% url 'accounts:settings' %}?bolum=monitor"><i class="bi bi-activity"></i>Sistem monitörü</a>
+  </div>
+  {% endif %}
 </div>
 <div class="card" id="list-card">
-  <form class="filter-bar" hx-get="{% url 'activity:list' %}" hx-target="#list-table" hx-push-url="true" hx-trigger="change" hx-indicator="#list-card">
+  <form class="filter-bar" hx-get="{% url 'activity:list' %}" hx-target="#list-table" hx-push-url="true" hx-trigger="change, keyup delay:300ms from:input[name=q]" hx-indicator="#list-card">
+    <input class="form-control" type="search" name="q" value="{{ request.GET.q }}" placeholder="Kayıt adı / dosya no ara…" style="max-width: 240px">
     {% if users %}
     <select class="form-select" name="kullanici">
       <option value="">Tüm kullanıcılar</option>
@@ -22,8 +29,8 @@
       <option value="">Tüm işlemler</option>
       {% for k, l in actions %}<option value="{{ k }}" {% if request.GET.islem == k|stringformat:'s' %}selected{% endif %}>{{ l|capfirst }}</option>{% endfor %}
     </select>
-    <input class="form-control" type="date" name="baslangic" value="{{ request.GET.baslangic }}" style="width: auto">
-    <input class="form-control" type="date" name="bitis" value="{{ request.GET.bitis }}" style="width: auto">
+    <input class="form-control" type="date" name="baslangic" value="{{ request.GET.baslangic }}" style="width: auto" title="Başlangıç tarihi">
+    <input class="form-control" type="date" name="bitis" value="{{ request.GET.bitis }}" style="width: auto" title="Bitiş tarihi">
   </form>
   <div id="list-table">{% include "activity/_table.html" %}</div>
 </div>

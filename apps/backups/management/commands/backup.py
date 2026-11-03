@@ -5,7 +5,7 @@ from apps.backups.services import run_backup, scheduled_due
 
 
 class Command(BaseCommand):
-    help = "Veritabanı ve belgelerin şifreli yedeğini alır."
+    help = "Veritabanı ve belgelerin yedeğini alır."
 
     def add_arguments(self, parser):
         parser.add_argument(

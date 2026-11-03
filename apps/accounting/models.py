@@ -131,6 +131,7 @@ class LedgerEntry(TimeStampedModel):
     date = models.DateField("tarih")
     description = models.CharField("açıklama", max_length=300, blank=True)
     receipt = models.FileField("belge / makbuz", upload_to="ledger/%Y/", blank=True)
+    portal_ref = models.CharField(max_length=64, unique=True, null=True, blank=True, editable=False)
     is_cancelled = models.BooleanField("iptal", default=False)
     cancelled_at = models.DateTimeField(null=True, blank=True)
     cancelled_by = models.ForeignKey(

@@ -85,7 +85,7 @@ def mirror_retainer(agreement) -> str:
 
 def publish_task_documents(task, user) -> tuple[list[Document], list[str]]:
     """Onaylanan görevin güncel belgelerini dosyanın Belgeler'ine ekler ve klasöre kopyalar."""
-    current = list(task.documents.filter(is_current=True).order_by("created_at"))
+    current = list(task.documents.filter(is_current=True, kind="petition").order_by("created_at"))
     category = next(
         (c for key, c in TYPE_CATEGORY.items() if key in task.task_type.name.lower()),
         DocumentCategory.OTHER,

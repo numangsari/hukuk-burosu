@@ -168,7 +168,7 @@ def flow_members(case):
         return [case]
     return list(
         Case.objects.filter(flow_id=case.flow_id)
-        .select_related("client", "responsible_lawyer")
+        .select_related("client", "responsible_lawyer", "portalcase")
         .order_by("flow_position", "opened_on", "pk")
     )
 
@@ -188,12 +188,13 @@ def _event_pair(left, right, user, text):
 @transaction.atomic
 def link_cases(case, other, note, user):
     """İki dosyayı bağlar; safahat ve muhasebeleri ortak olur (zincir bağlantılar tek grupta).
-    İki dosyanın en az bir ortak müvekkili olmalıdır."""
+    İki dosyanın müvekkilleri tanımlıysa en az bir ortak müvekkili olmalıdır."""
     locked = {c.pk: c for c in Case.objects.select_for_update().filter(pk__in=[case.pk, other.pk])}
     a, b = locked[case.pk], locked[other.pk]
     if a.pk == b.pk:
         raise StatusError("Bir dosya kendisine bağlanamaz.")
-    if not (a.client_ids() & b.client_ids()):
+    a_clients, b_clients = a.client_ids(), b.client_ids()
+    if a_clients and b_clients and not (a_clients & b_clients):
         raise StatusError("Bağlanacak dosyaların en az bir ortak müvekkili olmalıdır.")
     if a.flow_id and a.flow_id == b.flow_id:
         raise StatusError("Bu dosyalar zaten bağlı.")

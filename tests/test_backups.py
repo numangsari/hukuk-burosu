@@ -1,4 +1,5 @@
 import datetime as dt
+import zipfile
 
 import pytest
 import pyzipper
@@ -27,26 +28,26 @@ def backup_env(tmp_path, settings, monkeypatch):
     return tmp_path
 
 
-def test_backup_creates_encrypted_zip_and_copy(backup_env):
+def test_backup_creates_unencrypted_zip_and_copy(backup_env):
     office = OfficeSettings.load()
-    office.backup_dir = str(backup_env / "Drive")
+    office.documents_root = str(backup_env / "Ofis")
     office.save()
     rec = services.run_backup(BackupRecord.Kind.MANUAL)
     assert rec.status == "ok", rec.message
     path = backup_env / "yedekler" / rec.file_name
-    assert (backup_env / "Drive" / rec.file_name).exists()
-    with pyzipper.AESZipFile(path) as zf:
-        with pytest.raises(RuntimeError):
-            zf.read("db.dump")  # parolasız açılamaz
-        zf.setpassword(TEST_PASSWORD.encode())
+    assert (backup_env / "Ofis" / "Yedekler" / rec.file_name).exists()
+    assert rec.copied_to == str(backup_env / "Ofis" / "Yedekler")
+    with zipfile.ZipFile(path) as zf:
         assert zf.read("db.dump") == b"PGDMP sahte dokum"
         assert zf.read("media/cases/1/dilekce.pdf") == b"%PDF belge"
 
 
-def test_backup_without_password_fails(backup_env, monkeypatch):
+def test_backup_without_password_succeeds(backup_env, monkeypatch):
     monkeypatch.delenv("BACKUP_PASSWORD")
     rec = services.run_backup()
-    assert rec.status == "error" and "BACKUP_PASSWORD" in rec.message
+    assert rec.status == "ok"
+    with zipfile.ZipFile(backup_env / "yedekler" / rec.file_name) as archive:
+        assert archive.read("db.dump") == b"PGDMP sahte dokum"
 
 
 def test_retention_keeps_30_daily_and_12_monthly(tmp_path):
@@ -207,3 +208,205 @@ def test_user_admin_create_and_self_protection(admin_user):
                      "role": "lawyer", "order": 0})  # fmt: skip
     errors = r.context["forms"]["kullanicilar"].errors
     assert "is_active" in errors and "role" in errors
+
+
+def test_backup_shows_missing_office_folder(backup_env):
+    office = OfficeSettings.load()
+    office.documents_root = ""
+    office.save()
+    record = services.run_backup()
+    assert record.status == "ok"
+    assert "Ofis klasörü seçilmedi" in record.message
+    assert (backup_env / "yedekler" / record.file_name).exists()
+
+
+def test_office_folder_contains_backup_and_does_not_remove_existing(backup_env):
+    office = OfficeSettings.load()
+    office.documents_root = str(backup_env / "Ofis")
+    office.save()
+    directory = backup_env / "Ofis" / "Yedekler"
+    directory.mkdir(parents=True)
+    old = directory / "ozkurt-yedek-20000101-120000.zip"
+    old.write_bytes(b"eski yedek")
+    record = services.run_backup()
+    assert record.status == "ok"
+    assert old.read_bytes() == b"eski yedek"
+    assert (directory / record.file_name).exists()
+
+
+def test_settings_unify_folder_and_backup(admin_user):
+    client = HttpClient()
+    client.force_login(admin_user)
+    response = client.get(reverse("accounts:settings") + "?bolum=klasor")
+    html = response.content.decode()
+    assert "Ofis klasörü" in html
+    assert "Günlük yedek saati" in html
+    assert "Şimdi yedek al" in html
+    assert "OneDrive" in html
+    assert "Yedek kopyası klasörü" not in html
+    assert client.get(reverse("accounts:settings") + "?bolum=yedek").status_code == 302
+
+
+def test_backup_copy_failure_reports_error_and_keeps_local_backup(backup_env, monkeypatch):
+    from pathlib import Path
+
+    office = OfficeSettings.load()
+    office.documents_root = str(backup_env / "Ofis")
+    office.save()
+    original_open = Path.open
+
+    def failing_open(path, mode="r", *args, **kwargs):
+        if path.parent.name == "Yedekler" and mode == "xb":
+            raise PermissionError("Örnek yazma hatası")
+        return original_open(path, mode, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "open", failing_open)
+    record = services.run_backup()
+    assert record.status == "error"
+    assert "ofis klasörüne kopyalanamadı" in record.message
+    assert (backup_env / "yedekler" / record.file_name).exists()
+
+
+def test_development_database_tool_is_limited_to_expected_database(settings, monkeypatch):
+    settings.DEBUG = True
+    monkeypatch.delenv("PG_DUMP", raising=False)
+    monkeypatch.delenv("BACKUP_DATABASE_URL", raising=False)
+    monkeypatch.setattr(services.shutil, "which", lambda name: None)
+    from types import SimpleNamespace
+
+    monkeypatch.setattr(
+        services,
+        "connection",
+        SimpleNamespace(
+            settings_dict={"NAME": "ozkurt", "USER": "ozkurt", "HOST": "localhost", "PORT": "5434"}
+        ),
+    )
+    assert services._development_database_tool("pg_dump") == [
+        "docker",
+        "exec",
+        "-i",
+        "ozkurt-hukuk-db-1",
+        "pg_dump",
+    ]
+    services.connection.settings_dict["NAME"] = "baska"
+    assert services._development_database_tool("pg_dump") is None
+
+
+def test_restore_old_encrypted_backup_with_password(backup_env, monkeypatch):
+    archive = backup_env / "eski-yedek.zip"
+    with pyzipper.AESZipFile(archive, "w", encryption=pyzipper.WZ_AES) as zf:
+        zf.setpassword(TEST_PASSWORD.encode())
+        zf.writestr("db.dump", b"PGDMP eski")
+        zf.writestr("media/cases/ornek.pdf", b"ornek")
+    calls = []
+    monkeypatch.delenv("BACKUP_PASSWORD")
+    monkeypatch.setattr(services, "_run", lambda cmd, stdin=None, **kw: calls.append(stdin.read()))
+    services.restore(archive, password=TEST_PASSWORD)
+    assert calls == [b"PGDMP eski"]
+    assert (backup_env / "media" / "cases" / "ornek.pdf").read_bytes() == b"ornek"
+
+
+def test_backup_and_restore_include_office_templates(backup_env, monkeypatch):
+    office = OfficeSettings.load()
+    office.documents_root = str(backup_env / "Ofis")
+    office.save()
+    directory = backup_env / "Ofis" / "Şablon Dilekçeler"
+    directory.mkdir(parents=True)
+    template = directory / "ornek.udf"
+    template.write_bytes(b"uydurma sablon")
+    record = services.run_backup()
+    assert record.status == "ok", record.message
+    archive_path = backup_env / "yedekler" / record.file_name
+    with zipfile.ZipFile(archive_path) as archive:
+        assert archive.read("office_templates/ornek.udf") == b"uydurma sablon"
+    template.unlink()
+    monkeypatch.setattr(services, "_run", lambda *args, **kwargs: None)
+    services.restore(archive_path)
+    assert template.read_bytes() == b"uydurma sablon"
+
+
+def test_restore_does_not_overwrite_changed_office_template(backup_env, monkeypatch):
+    office = OfficeSettings.load()
+    office.documents_root = str(backup_env / "Ofis")
+    office.save()
+    directory = backup_env / "Ofis" / "Şablon Dilekçeler"
+    directory.mkdir(parents=True)
+    template = directory / "ornek.udf"
+    template.write_bytes(b"ilk ornek")
+    record = services.run_backup()
+    template.write_bytes(b"degisen ornek")
+    calls = []
+    monkeypatch.setattr(services, "_run", lambda *args, **kwargs: calls.append(True))
+    with pytest.raises(services.BackupError, match="aynı adlı dosya"):
+        services.restore(backup_env / "yedekler" / record.file_name)
+    assert template.read_bytes() == b"degisen ornek"
+    assert (backup_env / "media" / "cases" / "1" / "dilekce.pdf").exists()
+    assert not calls
+
+
+def test_backup_rejects_missing_registered_template(backup_env):
+    from apps.office.models import TaskType
+
+    office = OfficeSettings.load()
+    office.documents_root = str(backup_env / "Ofis")
+    office.save()
+    (backup_env / "Ofis" / "Şablon Dilekçeler").mkdir(parents=True)
+    task_type = TaskType.objects.first()
+    task_type.petition_template = "olmayan.udf"
+    task_type.save(update_fields=["petition_template"])
+    record = services.run_backup()
+    assert record.status == "error"
+    assert "şablonu bulunamadı" in record.message
+    assert not list((backup_env / "yedekler").glob("ozkurt-yedek-*.zip"))
+
+
+def test_failed_database_restore_rolls_back_new_templates(backup_env, monkeypatch):
+    office = OfficeSettings.load()
+    office.documents_root = str(backup_env / "Ofis")
+    office.save()
+    directory = backup_env / "Ofis" / "Şablon Dilekçeler"
+    directory.mkdir(parents=True)
+    template = directory / "ornek.udf"
+    template.write_bytes(b"uydurma sablon")
+    record = services.run_backup()
+    template.unlink()
+    sample = backup_env / "media" / "cases" / "1" / "dilekce.pdf"
+    sample.write_bytes(b"mevcut belge")
+
+    def fail(*args, **kwargs):
+        raise services.BackupError("Örnek hata")
+
+    monkeypatch.setattr(services, "_run", fail)
+    with pytest.raises(services.BackupError):
+        services.restore(backup_env / "yedekler" / record.file_name)
+    assert not template.exists()
+    assert sample.read_bytes() == b"mevcut belge"
+
+
+def test_missed_yesterday_backup_runs_after_morning_start(backup_env):
+    office = OfficeSettings.load()
+    office.backup_time = dt.time(12, 30)
+    office.save()
+    morning = timezone.localtime().replace(hour=8, minute=0, second=0, microsecond=0)
+    record = BackupRecord.objects.create(status=BackupRecord.Status.OK)
+    BackupRecord.objects.filter(pk=record.pk).update(
+        started_at=morning - dt.timedelta(days=1, hours=1)
+    )
+    assert services.scheduled_due(morning)
+    BackupRecord.objects.filter(pk=record.pk).update(started_at=morning - dt.timedelta(hours=18))
+    assert not services.scheduled_due(morning)
+    BackupRecord.objects.filter(pk=record.pk).update(started_at=morning - dt.timedelta(minutes=30))
+    assert not services.scheduled_due(morning)
+
+
+def test_backup_contains_readable_list_snapshot(backup_env):
+    office = OfficeSettings.load()
+    office.documents_root = str(backup_env / "Ofis")
+    office.save()
+    lists = backup_env / "Ofis" / "Güncel Sistem Listeleri"
+    lists.mkdir(parents=True)
+    (lists / "Örnek.xlsx").write_bytes(b"uydurma liste")
+    record = services.run_backup()
+    assert record.status == "ok"
+    with zipfile.ZipFile(backup_env / "yedekler" / record.file_name) as archive:
+        assert archive.read("office_lists/Örnek.xlsx") == b"uydurma liste"

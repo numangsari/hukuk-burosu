@@ -52,7 +52,7 @@ def save_seizure(case, form, user):
 @transaction.atomic
 def _create_renewal(seizure_id, case_id, today):
     case = (
-        Case.objects.select_for_update()
+        Case.objects.select_for_update(of=("self",))
         .select_related("responsible_intern", "responsible_lawyer")
         .get(pk=case_id)
     )
@@ -71,8 +71,21 @@ def _create_renewal(seizure_id, case_id, today):
         or item.renewals.filter(due_date=item.renewal_on).exists()
     ):
         return 0
-    if not (case.responsible_intern.is_active and case.responsible_lawyer.is_active):
+    assignee = case.responsible_intern or case.responsible_lawyer
+    reviewer = case.responsible_lawyer
+    if not assignee or not reviewer or not assignee.is_active or not reviewer.is_active:
         return -1
+    if assignee.pk == reviewer.pk:
+        from apps.accounts.models import User
+
+        alt_reviewer = (
+            reviewer.supervisor if reviewer.supervisor and reviewer.supervisor.is_active else None
+        ) or User.objects.filter(
+            is_active=True, role__in=[User.Role.ADMIN, User.Role.SENIOR, User.Role.LAWYER]
+        ).exclude(pk=assignee.pk).order_by("order", "pk").first()
+        if not alt_reviewer:
+            return -1
+        reviewer = alt_reviewer
     task_type, _ = TaskType.objects.get_or_create(
         name="Haciz Yenileme Talebi", defaults={"points": 1}
     )
@@ -80,8 +93,8 @@ def _create_renewal(seizure_id, case_id, today):
         case=case,
         title=tr_upper(f"HACZİ YENİLE: {item.debtor_display} — {item.asset_label}")[:300],
         task_type=task_type,
-        assignee=case.responsible_intern,
-        reviewer=case.responsible_lawyer,
+        assignee=assignee,
+        reviewer=reviewer,
         due_date=item.renewal_on,
         created_by=item.created_by,
         notes=f"Borçlu: {item.debtor_display}\nHaciz: {item.asset_label}\n"

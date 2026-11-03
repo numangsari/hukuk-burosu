@@ -48,8 +48,14 @@ class ClientForm(PreserveExistingAssigneeMixin, BootstrapMixin, forms.ModelForm)
             f"Boş bırakılırsa vekalet eklendiğinde sıradaki numara (V-{Client.suggest_poa_no()}) "
             "verilir. Aynı vekaleti paylaşan müvekkiller aynı numarayı kullanabilir."
         )
+        from apps.office.models import OfficeSettings
+
         self.fields["responsible_lawyer"].widget.attrs["x-on:change"] = "lawyerChanged($event)"
-        self.fields["responsible_intern"].widget.attrs["x-ref"] = "intern"
+        if OfficeSettings.load().use_assistant_assignee:
+            self.fields["responsible_intern"].required = True
+            self.fields["responsible_intern"].widget.attrs["x-ref"] = "intern"
+        else:
+            self.fields.pop("responsible_intern", None)
         self.fields["folder_name"].help_text = (
             "Boşsa ad-soyad veya unvan kullanılır; aynı ad varsa (2) eklenir. "
             "Kaydedilmiş klasörler taşınmaz."

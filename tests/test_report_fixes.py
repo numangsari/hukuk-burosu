@@ -118,6 +118,7 @@ def test_stale_approval_does_not_publish_twice(task, intern, lawyer, settings, t
         task=task,
         file=SimpleUploadedFile("ornek.pdf", b"%PDF"),
         original_name="ornek.pdf",
+        kind=TaskDocument.Kind.PETITION,
         uploaded_by=intern,
     )
     services.perform(task, "submit", intern)
@@ -155,11 +156,12 @@ def test_client_title_contains_only_text(lawyer_client, client_factory):
 
 
 @pytest.mark.parametrize("reason", ["", "Örnek düzeltme"])
-def test_important_messages_wait_for_user_to_close(reason, admin_user, client_factory):
+def test_messages_close_after_ten_seconds_or_on_request(reason, admin_user, client_factory):
     entry = add_entry(client_factory(), EntryKind.FEE, "10")
     response = login(admin_user).post(
         reverse("accounting:cancel", args=[entry.pk]), {"reason": reason}, follow=True
     )
     notices = response.content.decode().split('class="toast-stack"', 1)[1]
-    assert ('x-init="setTimeout' in notices) == bool(reason)
+    assert 'x-init="setTimeout(() => show = false, 10000)"' in notices
+    assert 'x-show.important="show"' in notices
     assert 'aria-label="Bildirimi kapat"' in notices

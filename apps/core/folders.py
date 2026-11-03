@@ -128,6 +128,11 @@ def _record_dir(record, parent, default_name, others, label) -> Path:
 
 @transaction.atomic
 def client_dir(client) -> Path:
+    if client is None:
+        raise FolderError(
+            "Dosyanın müvekkili henüz seçilmediği için belge ofis "
+            "klasörüne kopyalanmadı (sistemde saklandı)."
+        )
     base = root()
     if base is None:
         raise FolderError("Ofis klasörü ayarlanmamış (Ayarlar > Belge klasörü).")
@@ -145,6 +150,11 @@ def client_dir(client) -> Path:
 @transaction.atomic
 def case_dir(case) -> Path:
     stored = type(case).objects.select_for_update().get(pk=case.pk)
+    if stored.client_id is None:
+        raise FolderError(
+            "Dosyanın müvekkili henüz seçilmediği için belge ofis "
+            "klasörüne kopyalanmadı (sistemde saklandı)."
+        )
     parent = client_dir(stored.client)
     others = type(case).objects.filter(client_id=stored.client_id).exclude(pk=case.pk)
     others = others.exclude(folder_name="")

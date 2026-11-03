@@ -30,7 +30,7 @@ Kullanıcının henüz tek tek bakmadığı kontrol maddeleri (Adım 4'e geçmed
 - Silme: yalnızca yönetici, düzenleme ekranının altındaki düğme, onay sayfası ve birlikte silinecek kayıt sayıları.
 
 ### 4. Dosyalar — inceleme büyük ölçüde tamam, son sekmeler kaldı
-**Devam noktası (3 Kasım 2026):** Veri aktarımı, numara biçimi ve tüzel unvan düzenlemeleri bitti. Sıradaki: kapatma tasarımı için kullanıcıya şu üç soru sorulacak: (1) sorumlu kapatırken ne girer (not, süre, belge, hiçbiri), (2) kapatma sonrası görev yeniden açılabilir mi ve kim açar, (3) puan kapatma anında sorumluya ve kontrolcüye tam mı, son gün geçince kesinti var mı. Sonra Görevler onay döngüsü denenecek. Önceki not: Görevler adımında sorumlu ve kontrolcüyle oluşturma → kontrole gönderme → revizyon → tekrar gönderme → onay döngüsü incelenecek. Sonra sorumlunun onaylanan görevi kapatırken gireceği bilgiler, yapılacak işlemler ve puan verilmesi kullanıcıyla tasarlanacak. Dosya silinince bağlı grup ve ek müvekkil davranışı ile silme yetkileri daha sonra kontrol edilecek; ardından Takvim, Muhasebe ve Raporlar incelenecek.
+**Devam noktası (3 Kasım 2026):** Veri aktarımı, numara biçimi ve tüzel unvan düzenlemeleri bitti. Görev kapatma ve puanlandırma hazırlandı; UYAP gelir/gider aktarımı ayrıca geliştirilecek. Görevler onay döngüsü kullanıcıyla denenecek. Önceki not: Görevler adımında sorumlu ve kontrolcüyle oluşturma → kontrole gönderme → revizyon → tekrar gönderme → onay döngüsü incelenecek. Sonra sorumlunun onaylanan görevi kapatırken gireceği bilgiler, yapılacak işlemler ve puan verilmesi kullanıcıyla tasarlanacak. Dosya silinince bağlı grup ve ek müvekkil davranışı ile silme yetkileri daha sonra kontrol edilecek; ardından Takvim, Muhasebe ve Raporlar incelenecek.
 - İcra takibi ve Özet notlarının düzeni kullanıcıyla gözden geçirildi; Belgeler ve Geçmiş kullanıcı tarafından uygun bulundu.
 - İcra ekleri: kapanışta çoklu tahsilat ve otomatik muhasebe; Haciz takibi sekmesi ve yenileme günü görev oluşturma; dosya listesinde ayrı AŞAMA sütunu/süzgeci. Bu ekranlar kullanıcıyla gözden geçirilecek.
 - Dosya notları Özet’in en altındadır; Geçmiş’te yalnızca işlem geçmişi ve iptal hareketleri kalır. Otomatik olaylar silinmez.
@@ -42,14 +42,14 @@ Kullanıcının henüz tek tek bakmadığı kontrol maddeleri (Adım 4'e geçmed
 - Kullanıcı kararıyla duruşma bölümü kaldırıldı; eski kayıtlar korunur. Tebligat daha önce kaldırılmıştı.
 
 ### 6. Görevler
-- Sorumlu/kontrolcü/son gün filtreleri, sıralama, ayrı sütunlar, iki sütun form ve Belgeler/Yorumlar/Geçmiş sekmeleri vardır; kullanıcıyla işleyiş incelenecek.
+- Dilekçe şablonları: yönetici yükleme ve tanınan boş alanları doldurma hazırlandı; örnek dava UDF çıktısının UYAP uygulamasında açılması ve diğer görev türü/Word şablonları kullanıcıyla doğrulanacak.
+- Sorumlu/kontrolcü/son gün filtreleri, sıralama, ayrı sütunlar, iki sütun form ve tek sayfada belgeler, ekip ve notlar vardır; kullanıcıyla işleyiş incelenecek.
 - Liste kapsamları Bana atanmış/Tümü; sekmeler Aktif görevlerim, Kontrolümü bekleyenler, Kontrolde olanlar ve Kapalı görevler. Yeni düzen kullanıcıyla incelenecek.
 - Form: görev türleri kategorili ve aranabilir; tür seçimi görev adını doldurur, Diğer serbest yazılır. Müvekkil ve dosya da tek kutuda aranır; seçimler birbiriyle bağlıdır. Görev oluştururken notların altında isteğe bağlı belge yüklenir. Dosya seçince varsayılan sorumlu/kontrolcü gelir; stajyer sorumluysa kontrolcü bağlı avukatı; ad büyük harf; kontrolcü ≠ sorumlu. Yeni arama ve belge akışı kullanıcıyla denenecek.
 - Onay döngüsü: kontrole gönder, onayla/revizyon (açıklama zorunlu); aşamalar Yeni Görev, Kontrolde, Onaylandı, Revize İstendi ve Revize Edildi. Onaylanan görev aktif olarak sorumluya döner.
-- **Planlanan:** sorumlunun onaylanan görevi kapatırken gireceği bilgiler ve yapılacak işlemler kullanıcıyla tasarlanacak; kapatma düğmesi henüz yok.
-- Personel puanları kapatma anında hem sorumluya hem kontrolcüye tam puan verilmesi için hazırlandı; geçmiş görevler sayılmaz. Kapatma henüz yapılmadığından puan verme işlemi henüz bağlanmadı. Kapatma ve olası yeniden açma/silme etkileri kararlaştırılıp puan verme aynı işlemde tamamlanacak.
+- Onaylı görev sonuç notuyla kapatılır; gereken dilekçe ve ilgili gelir/gider kaydı kontrol edilir. Kapanınca sorumluya ve kontrolcüye tam puan verilir; yönetici veya kontrolcü yeniden açtığında puan geri alınır. UYAP gelir/giderlerinin otomatik muhasebe aktarımı henüz yok; kullanıcıyla ayrıca tamamlanacak.
 - Görev belgeleri: ilk yüklemede dosyanın Görevler klasörüne kopya, sürümler, belge zorunlu türler, onayda dosyaya yayın.
-- Yorumlar, geçmiş, silme yetkisi (oluşturan veya yönetici).
+- Eski yorum ve geçmiş kayıtları saklanır; görev silme yetkisi (oluşturan veya yönetici).
 
 ### 7. Takvim
 - Google Takvim iCal bağlantısı ve açık görevlerin son günleri: ana sayfada 7 gün, takvim sayfasında ay/hafta görünümü. Görevler son günlerinde saat alanında `GÖREV`, başlıkta yalnızca görev adıyla görünür ve tıklanınca açılır; tamamlananlar gösterilmez. Google etkinliklerinin tümü gösterilir. Google bağlı değilken veya erişilemezken de görevler görünür. Duruşma ve randevu eklenmez; dosya eşleştirmesi veya etkinlikten görev oluşturma yapılmaz.
@@ -77,7 +77,7 @@ Kullanıcının henüz tek tek bakmadığı kontrol maddeleri (Adım 4'e geçmed
 - Ekranlar, gelen bildirim adresi ve otomatik gönderim kaldırıldı. Gelecekte tekrar kurulabilmesi için kod ve eski kayıtlar korunur. WhatsApp Web kısayolu bağımsızdır.
 
 ### 13. Yönetici ayarları
-- Ofis bilgileri, kullanıcılar (rol, unvan, bağlı avukat, PIN sıfırlama, pasife alma), görev türleri (belge zorunlu), bakiye görme yetkisi, belge klasörü (yazma testi), yedekleme (saat, hedef klasör, şimdi yedek al, geçmiş), Google Takvim, boşta kalma süresi.
+- Ofis bilgileri, kullanıcılar (rol, unvan, bağlı avukat, PIN sıfırlama, pasife alma), görev türleri (belge zorunlu), bakiye görme yetkisi, ofis klasörü (belgeler, şablonlar, yedekleme saati, şimdi yedek al ve geçmiş), Google Takvim, boşta kalma süresi.
 
 ### 14. Excel'den içe aktarım
 - Şablon, önizleme, hatalı satır davranışı, tekrar engelleme (aynı dosya, aynı kimlik, aynı devir kaydı).

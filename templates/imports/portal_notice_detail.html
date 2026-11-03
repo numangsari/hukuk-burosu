@@ -1,17 +1,59 @@
 {% extends "base.html" %}
-{% block title %}Tebligat ayrıntısı{% endblock %}
+{% block title %}Tebligat ayrıntısı — {{ office.name }}{% endblock %}
 {% block content %}
-<h1 class="h3">Tebligat ayrıntısı</h1>
-<dl>
-  <dt>Gönderen</dt><dd>{{ notice.sender|default:"Bilinmiyor" }}</dd>
-  <dt>Alıcı</dt><dd>{{ recipient|default:"Bilinmiyor" }}</dd>
-  <dt>Konu</dt><dd>{{ notice.subject|default:"Bilinmiyor" }}</dd>
-  {% if source_subject %}<dt>Belge konusu</dt><dd>{{ source_subject }}</dd>{% endif %}
-  {% if source_name %}<dt>Kaynak belge adı</dt><dd>{{ source_name }}</dd>{% endif %}
-  <dt>Geliş tarihi</dt><dd>{{ notice.delivered_at|date:"d.m.Y H:i"|default:"Bilinmiyor" }}</dd>
-  <dt>Durum</dt><dd>{% if notice.read %}Okunmuş{% else %}Okunmamış veya bilinmiyor{% endif %}</dd>
-</dl>
-<h2 class="h5">Belgeler</h2>
-<ul>{% for document in notice.documents.all %}<li><a href="{% url 'portal_notice_document' document.pk %}">{{ document.original_name }}</a></li>{% empty %}<li>Henüz belge alınmadı.</li>{% endfor %}</ul>
-{% if notice.resolved_at %}<h2 class="h5">İşlem bilgisi</h2><p>Müvekkil: {{ notice.resolution_client }}{% if notice.resolution_case %} · Dosya: {{ notice.resolution_case }}{% endif %}</p>{% if notice.resolution_task %}<p><a href="{{ notice.resolution_task.get_absolute_url }}">Oluşturulan görevi aç</a></p>{% else %}<p>Görev yok: {{ notice.no_task_reason }}</p>{% endif %}<p>{{ notice.resolved_by }} · {{ notice.resolved_at|date:"d.m.Y H:i" }}</p>{% endif %}<p><a href="{% url 'notice_list' %}">Listeye dön</a></p>
+<div class="page-header mb-3">
+  <div>
+    <div class="eyebrow"><a href="{% url 'notice_list' %}"><i class="bi bi-chevron-left"></i> Listeye dön</a></div>
+    <h1 class="page-title">Tebligat ayrıntısı</h1>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-7">
+    <div class="card h-100">
+      <div class="card-header"><h2 class="card-title">Tebligat bilgileri</h2></div>
+      <div class="card-body">
+        <dl class="dl-grid">
+          <dt>Gönderen</dt><dd>{{ notice.sender|default:"Bilinmiyor" }}</dd>
+          <dt>Alıcı</dt><dd>{{ recipient|default:"Bilinmiyor" }}</dd>
+          <dt>Konu</dt><dd>{{ notice.subject|default:"Bilinmiyor" }}</dd>
+          {% if source_subject %}<dt>Belge konusu</dt><dd>{{ source_subject }}</dd>{% endif %}
+          {% if source_name %}<dt>Kaynak belge adı</dt><dd>{{ source_name }}</dd>{% endif %}
+          <dt>Geliş tarihi</dt><dd class="tabular">{{ notice.delivered_at|date:"d.m.Y H:i"|default:"Bilinmiyor" }}</dd>
+          <dt>Durum</dt><dd>{% if notice.read %}<span class="chip no-dot">Okunmuş</span>{% else %}<span class="chip chip-warning no-dot">Okunmamış veya bilinmiyor</span>{% endif %}</dd>
+        </dl>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-5 d-flex flex-column gap-3">
+    <div class="card">
+      <div class="card-header"><h2 class="card-title">Belgeler</h2></div>
+      <div class="card-body">
+        <ul class="mb-0">
+          {% for document in notice.documents.all %}
+            <li><a href="{% url 'portal_notice_document' document.pk %}"><i class="bi bi-file-earmark-pdf me-1"></i>{{ document.original_name }}</a></li>
+          {% empty %}
+            <li class="text-body-secondary">Henüz belge alınmadı.</li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+
+    {% if notice.resolved_at %}
+    <div class="card">
+      <div class="card-header"><h2 class="card-title">İşlem bilgisi</h2></div>
+      <div class="card-body">
+        <p class="mb-2">Müvekkil: <strong>{{ notice.resolution_client }}</strong>{% if notice.resolution_case %} · Dosya: <strong>{{ notice.resolution_case }}</strong>{% endif %}</p>
+        {% if notice.resolution_task %}
+          <p class="mb-2"><a class="btn btn-sm btn-outline-primary" href="{{ notice.resolution_task.get_absolute_url }}">Oluşturulan görevi aç</a></p>
+        {% else %}
+          <p class="mb-2">Görev yok: {{ notice.no_task_reason }}</p>
+        {% endif %}
+        <div class="small text-body-secondary">{{ notice.resolved_by }} · {{ notice.resolved_at|date:"d.m.Y H:i" }}</div>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
 {% endblock %}

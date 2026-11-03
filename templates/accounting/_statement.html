@@ -8,9 +8,10 @@
     <tr class="{% if e.is_cancelled %}row-cancelled{% endif %}">
       <td class="tabular text-nowrap">{{ e.date|date:"d.m.Y" }}</td>
       <td>{% include "accounting/_kind_chip.html" %}{% if e.is_cancelled %} <span class="chip chip-danger no-dot">İptal</span>{% endif %}</td>
-      <td class="small">{{ e.description|default:"—" }}{% if e.is_cancelled %}<div class="cell-sub">İptal: {{ e.cancel_reason }} · {{ e.cancelled_by }}</div>{% endif %}
+      <td class="small">
+        {% if e.portal_ref %}<span class="badge-source badge-source-uyap me-1" role="img" aria-label="UYAP kaydı" title="UYAP'tan otomatik aktarıldı"><i class="bi bi-bank2" aria-hidden="true"></i></span>{% endif %}{{ e.description|default:"—" }}{% if e.is_cancelled %}<div class="cell-sub">İptal: {{ e.cancel_reason }} · {{ e.cancelled_by }}</div>{% endif %}
         {% if e.receipt %}<a class="ms-1" href="{{ e.receipt.url }}" target="_blank" title="Belge"><i class="bi bi-paperclip"></i></a>{% endif %}</td>
-      {% if show_case %}<td class="small">{% if e.case %}<a href="{{ e.case.get_absolute_url }}">{{ e.case.archive_reference }}</a>{% else %}—{% endif %}</td>{% endif %}
+      {% if show_case %}<td class="small">{% if e.case %}<a href="{{ e.case.get_absolute_url }}">{{ e.case.archive_reference|default:e.case.display_name }}</a>{% else %}—{% endif %}</td>{% endif %}
       {% if show_client %}<td class="small">{{ e.client }}</td>{% endif %}
       <td class="text-end tabular fw-semibold">{{ e.amount|tl }}</td>
       {% if can_view_balances %}<td class="text-end tabular">{{ r.balance|tl }}</td>{% endif %}

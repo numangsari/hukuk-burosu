@@ -861,7 +861,8 @@ a.agenda-item:hover { background: var(--surface-2); text-decoration: none; color
 
 /* Dosya durumu: solda büyük AÇIK/KAPALI, sağda aşama çizgisi veya kapanış bilgisi */
 .case-status { display: grid; grid-template-columns: auto 1fr; align-items: center; border-top: 1px solid var(--line); }
-.case-status-state { align-self: stretch; display: flex; align-items: center; padding: 1.25rem 2rem; font-size: 1.75rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; border-right: 1px solid var(--line); }
+.case-status-state { align-self: stretch; display: flex; flex-direction: column; justify-content: center; gap: .25rem; padding: 1.15rem 2rem; font-size: 1.65rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; border-right: 1px solid var(--line); max-width: 340px; }
+.case-status-sub { font-size: .8rem; font-weight: 600; letter-spacing: .01em; text-transform: none; color: var(--ink-2); display: inline-flex; align-items: center; gap: .35rem; line-height: 1.3; }
 .case-status-state.is-open { color: var(--brand); }
 .case-status-state.is-closed { color: var(--muted); }
 .case-status-body { padding: 1.25rem 1.5rem; min-width: 0; }
@@ -943,7 +944,7 @@ a.agenda-item:hover { background: var(--surface-2); text-decoration: none; color
 .type-other { --tc: #64748b; }
 .type-chip { display: inline-block; padding: .05rem .5rem; border-radius: 999px; font-size: .72rem; font-weight: 600; background: color-mix(in srgb, var(--tc) 14%, transparent); color: color-mix(in srgb, var(--tc) 75%, var(--ink)); }
 .case-list-type { color: var(--ink); white-space: nowrap; }
-.case-list-status { color: var(--ink-2); white-space: nowrap; }
+.case-list-status { color: var(--ink-2); display: inline-block; max-width: 240px; line-height: 1.35; }
 .case-list-status-closed { color: var(--muted); }
 tr[class*="type-"] > td:first-child { box-shadow: inset 3px 0 0 var(--tc); }
 .hero-icon[class*="type-"] { background: color-mix(in srgb, var(--tc) 14%, transparent); color: var(--tc); }
@@ -1002,3 +1003,25 @@ tr.chain-prev > td:first-child { position: relative; }
 .badge-source-office { background: #dcfce7; color: #15803d; }
 [data-bs-theme="dark"] .badge-source-uyap { background: #173b66; color: #93c5fd; }
 [data-bs-theme="dark"] .badge-source-office { background: #174332; color: #86efac; }
+
+.segmented-control { display:inline-flex; padding:4px; gap:3px; border-radius:10px; background:var(--surface-2, #eef2f7); border:1px solid var(--line); }
+.segmented-control .segment, .segment-choice span { display:block; padding:.4rem .9rem; border-radius:7px; color:var(--ink); text-decoration:none; cursor:pointer; }
+.segmented-control .segment.active, .segment-choice:has(input:checked) span { background:var(--brand); color:white; }
+.segment-choice input { position:absolute; opacity:0; }
+.segment-choice input:focus-visible + span { outline:2px solid var(--brand); outline-offset:2px; }
+
+.chip-group:has(> label:nth-of-type(2)):not(:has(> label:nth-of-type(3))) { display:inline-flex; padding:4px; gap:3px; border:1px solid var(--line); border-radius:10px; background:var(--surface-2, #eef2f7); }
+.chip-group:has(> label:nth-of-type(2)):not(:has(> label:nth-of-type(3))) .chip-btn { border:0; border-radius:7px; background:transparent; }
+.chip-group:has(> label:nth-of-type(2)):not(:has(> label:nth-of-type(3))) .btn-check:checked + .chip-btn { background:var(--brand); color:white; }
+
+.accounting-choice-head { display:flex; align-items:center; justify-content:flex-start; gap:1rem; flex-wrap:wrap; }
+.accounting-choice .segmented-control { min-width: 10rem; }
+.accounting-choice .segment-choice { flex:1; margin:0; text-align:center; }
+.accounting-choice .segment-choice span { padding:.45rem 1rem; font-weight:600; }
+.accounting-choice .form-text { margin-top:.5rem; }
+
+.table-footer { gap:.75rem 1rem; flex-wrap:wrap; }
+.pagination-summary { display:flex; align-items:center; gap:1rem; flex-wrap:wrap; }
+.page-size-label { display:inline-flex; align-items:center; gap:.45rem; white-space:nowrap; margin:0; }
+.page-size-label .form-select { width:auto; min-width:4.5rem; }
+.table-footer nav { max-width:100%; overflow-x:auto; }

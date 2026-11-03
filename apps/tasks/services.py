@@ -1,18 +1,20 @@
 """Görev onay döngüsü.
 
-Aktif → Kontrolde → Onaylandı (aktif). Kapatma adımı ayrıca belirlenecek.
-Kontrolcü revizyon isterse görev aktif duruma döner ve revizyon işareti alır.
-Kapalı görev yeniden açılabilir. Yönetici her işlemi yapabilir; kontrole sorumlu ve
-yönetici dışında kimse gönderemez.
-İptal durumu yoktur; yanlış açılan görevi oluşturan veya yönetici siler.
+Aktif → Kontrolde → Onaylandı (aktif) → Kapalı.
+Ofis ayarına göre (`OfficeSettings.task_review_mode`):
+- `required`: Her zaman kontrolcü onayı zorunludur.
+- `assistants_only`: Yalnızca yardımcı personel için kontrolcü onayı zorunludur; avukatlar
+  veya kontrolcüsü boş bırakılan görevler doğrudan kapatılabilir.
+- `optional`: Kontrolcü boş bırakılabilir; boş bırakılan görevler doğrudan kapatılabilir.
 """
 
 from dataclasses import dataclass
 
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db import transaction
+from django.db import models, transaction
 from django.utils import timezone
 
+from apps.accounting.models import LedgerEntry
 from apps.cases.documents import publish_task_documents
 from apps.cases.models import CaseEvent
 from apps.core.permissions import is_admin
@@ -22,13 +24,27 @@ from .models import Task, TaskEvent, TaskPoint, TaskStatus
 S = TaskStatus
 
 
+def requires_review(task: Task) -> bool:
+    """Bu görevin kapatılmadan önce kontrolcü onayından geçmesinin zorunlu olup olmadığını döner."""
+    if not task.reviewer_id:
+        return False
+    from apps.office.models import OfficeSettings
+
+    mode = OfficeSettings.load().task_review_mode
+    return not (
+        mode == OfficeSettings.TaskReviewMode.ASSISTANTS_ONLY
+        and task.assignee_id
+        and task.assignee.is_lawyer_or_above
+    )
+
+
 @transaction.atomic
 def award_closed_task_points(task):
     """Kapatma işlemi tamamlandığında puanları bir kez kaydeder."""
-    task = Task.objects.select_for_update().select_related("task_type").get(pk=task.pk)
+    task = Task.objects.select_for_update(of=("self",)).select_related("task_type").get(pk=task.pk)
     if task.status != S.DONE or not task.completed_at:
         raise ValidationError("Puan yalnızca kapatılmış görev için kaydedilebilir.")
-    for user_id in {task.assignee_id, task.reviewer_id}:
+    for user_id in {task.assignee_id, task.reviewer_id} - {None}:
         TaskPoint.objects.get_or_create(
             task=task,
             user_id=user_id,
@@ -66,6 +82,7 @@ ACTIONS = {
             needs_comment=True,
         ),
         Action("reopen", "Yeniden aç", (S.DONE,), S.ACTIVE, "manager", "reopened"),
+        Action("close", "Görevi kapat", (S.ACTIVE,), S.DONE, "assignee", "closed", "primary"),
     ]
 }
 
@@ -73,7 +90,11 @@ ACTIONS = {
 def can_do(action: Action, task: Task, user) -> bool:
     if task.status not in action.sources:
         return False
-    if action.key == "submit" and not task.approval_seen:
+    if action.key == "submit" and (not task.reviewer_id or not task.approval_seen):
+        return False
+    if action.key in ("approve", "revise") and not task.reviewer_id:
+        return False
+    if action.key == "close" and task.approval_seen and requires_review(task):
         return False
     if is_admin(user):
         return True
@@ -81,8 +102,11 @@ def can_do(action: Action, task: Task, user) -> bool:
         # Kontrole sorumlu (ve yönetici) gönderir; kontrolcü gönderemez.
         return user.pk == task.assignee_id
     if action.who == "reviewer":
+        return bool(task.reviewer_id and user.pk == task.reviewer_id)
+    # manager (reopen)
+    if task.reviewer_id:
         return user.pk == task.reviewer_id
-    return user.pk in (task.reviewer_id, task.created_by_id)
+    return user.pk in (task.assignee_id, task.created_by_id)
 
 
 def available_actions(task: Task, user) -> list[Action]:
@@ -103,38 +127,56 @@ def can_delete(task: Task, user) -> bool:
 
 
 def can_edit(task: Task, user) -> bool:
-    return (
-        task.status == S.ACTIVE
-        and task.approval_seen
-        and (is_admin(user) or user.pk in (task.created_by_id, task.reviewer_id, task.assignee_id))
-    )
+    if task.status != S.ACTIVE or not task.approval_seen:
+        return False
+    if is_admin(user):
+        return True
+    if task.reviewer_id:
+        return user.pk == task.reviewer_id
+    return user.pk in (task.assignee_id, task.created_by_id)
 
 
 @transaction.atomic
-def perform(task: Task, key: str, user, comment: str = "") -> Task:
+def perform(task: Task, key: str, user, comment: str = "", ledger_id: str = "") -> Task:
     action = ACTIONS.get(key)
     if action is None:
         raise ValidationError("Geçersiz işlem.")
-    task.refresh_from_db(from_queryset=Task.objects.select_for_update())
+    task.refresh_from_db(from_queryset=Task.objects.select_for_update(of=("self",)))
     if task.status not in action.sources:
         raise ValidationError("Görevin durumu değişmiş. Sayfayı yenileyip tekrar deneyin.")
     if not can_do(action, task, user):
         raise PermissionDenied("Bu işlemi yapma yetkiniz yok.")
     comment = (comment or "").strip()
+    if key == "close":
+        if not comment:
+            raise ValidationError("Görevi kapatmak için sonuç notu yazmalısınız.")
+        if task.requires_accounting:
+            entry = (
+                LedgerEntry.objects.filter(
+                    pk=ledger_id if str(ledger_id).isdigit() else 0,
+                    is_cancelled=False,
+                    client_id=task.client_id,
+                )
+                .filter(models.Q(case_id=task.case_id) | models.Q(case__isnull=True))
+                .first()
+            )
+            if not entry:
+                raise ValidationError("Dosyaya veya müvekkile ait geçerli gelir/gider kaydı seçin.")
     if action.needs_comment and not comment:
         raise ValidationError("Revizyon isterken açıklama yazmalısınız.")
     if (
-        key in ("submit", "approve")
+        key in ("submit", "approve", "close")
         and task.task_type.requires_document
-        and not task.documents.filter(is_current=True).exists()
+        and not task.documents.filter(is_current=True, kind="petition").exists()
     ):
         raise ValidationError(
-            f'"{task.task_type}" türündeki görev için belge zorunludur. '
-            "Belgeyi aktif görevde yükleyip yeniden kontrole gönderin."
+            f'"{task.task_type}" türündeki görev için dilekçe zorunludur. '
+            "Belgeyi aktif görevde yükleyip yeniden deneyin."
         )
     task.warnings = []
 
     old = task.status
+    was_unapproved = task.approval_seen
     task.status = action.target
     task.completed_at = timezone.now() if action.target == S.DONE else None
     if key == "revise":
@@ -159,6 +201,29 @@ def perform(task: Task, key: str, user, comment: str = "") -> Task:
         task=task, actor=user, kind=action.event, from_status=old, to_status=task.status,
         comment=comment,
     )  # fmt: skip
+
+    if key == "close":
+        if task.requires_accounting:
+            TaskEvent.objects.create(
+                task=task,
+                actor=user,
+                kind=TaskEvent.Kind.NOTE,
+                comment=f"Gelir/gider kaydı: {entry.pk} — {entry}",
+            )
+        if was_unapproved:
+            docs, task.warnings = publish_task_documents(task, user)
+            names = ", ".join(d.title for d in docs)
+            CaseEvent.objects.create(
+                case=task.case,
+                date=timezone.localdate(),
+                kind=CaseEvent.Kind.TASK,
+                title=f"Görev tamamlandı: {task.title}",
+                description=f"{task.assignee}" + (f" · belgeler: {names}" if names else ""),
+                created_by=user,
+            )
+        award_closed_task_points(task)
+    elif key == "reopen":
+        task.points_awarded.all().delete()
 
     if key == "approve":
         docs, task.warnings = publish_task_documents(task, user)

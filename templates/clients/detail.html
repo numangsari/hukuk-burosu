@@ -27,6 +27,7 @@
   <ul class="nav nav-underline-tabs" role="tablist">
     <li><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#t-genel">Genel bilgiler</button></li>
     <li><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-dosyalar">Dosyalar<span class="count">{{ cases|length }}</span></button></li>
+    <li><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-belgeler">Belgeler</button></li>
     <li><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-muhasebe" id="tab-muhasebe">Muhasebe</button></li>
     <li><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-raporlar">Raporlar</button></li>
     <li><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-gecmis">Geçmiş</button></li>
@@ -49,7 +50,7 @@
               <dt>MERSİS no</dt><dd class="tabular">{{ client.mersis_no|default:"—" }}</dd>
             {% endif %}
             <dt>Sorumlu avukat</dt><dd>{{ client.responsible_lawyer }}</dd>
-            <dt>Sorumlu stajyer</dt><dd>{{ client.responsible_intern }}</dd>
+            {% if office.use_assistant_assignee and client.responsible_intern %}<dt>Yardımcı sorumlu</dt><dd>{{ client.responsible_intern }}</dd>{% endif %}
             <dt>Notlar</dt><dd>{{ client.notes|linebreaksbr|default:"—" }}</dd>
             <dt>Kayıt</dt><dd class="text-body-secondary">{{ client.created_at|date:"d.m.Y H:i" }}{% if client.created_by %} · {{ client.created_by }}{% endif %}</dd>
           </dl>
@@ -161,6 +162,16 @@
     </div>
   </div>
 
+  <div class="tab-pane fade" id="t-belgeler">
+    <div class="card"><div class="card-header"><h2 class="card-title">Görev belgeleri</h2></div>
+      <ul class="doc-list">{% for doc in task_documents %}
+        <li class="doc-row"><div class="flex-grow-1"><strong>{{ doc.original_name }}</strong>
+          <div class="small text-body-secondary">{{ doc.get_kind_display }} · <a href="{{ doc.task.get_absolute_url }}">{{ doc.task.title }}</a> · {{ doc.task.case }}</div></div>
+          <a class="btn btn-light btn-sm" href="{{ doc.file.url }}" target="_blank" rel="noopener">Aç</a>
+          <a class="btn btn-light btn-sm" href="{{ doc.file.url }}" download>İndir</a></li>
+      {% empty %}<li class="p-3 text-body-secondary">Görev belgesi yok.</li>{% endfor %}</ul>
+    </div>
+  </div>
   <div class="tab-pane fade" id="t-muhasebe">
     <div class="card table-card">
       <div class="card-header"><h2 class="card-title">{% if can_view_balances %}Hesap ekstresi{% else %}Muhasebe hareketleri{% endif %}</h2>

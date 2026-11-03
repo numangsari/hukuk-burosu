@@ -142,7 +142,7 @@ def test_only_admin_manages_portal_access(client):
     access = PortalLawyerAccess.objects.get(user=lawyer)
     assert access.uyap_enabled and not access.uets_enabled
     page = client.get(url + "?bolum=eklenti").content.decode()
-    assert "otomatik aktarım kapalıdır" in page
+    assert "hangi avukatın UYAP" in page
     assert "10000000146" not in page
     assert f"?bolum=eklenti&amp;izin={access.pk}#izin-formu" in page
     edit = client.get(url + f"?bolum=eklenti&izin={access.pk}").content.decode()

@@ -140,5 +140,20 @@
     sync();
   }
 
-  document.querySelectorAll("select[data-searchable]").forEach(setup);
+  let sequence = 0;
+  function initialize(root) {
+    root.querySelectorAll("select[name=client], select[name=case], select[name=musteri], select[name=dosya]").forEach(select => {
+      if (!select.dataset.searchable) {
+        select.dataset.searchable = ["client", "musteri"].includes(select.name) ? "Müvekkil ara" : "Dosya ara";
+      }
+    });
+    root.querySelectorAll("select[data-searchable]").forEach(select => {
+      if (select.dataset.searchableReady || select.multiple) return;
+      if (!select.id) select.id = "searchable-" + (++sequence);
+      select.dataset.searchableReady = "1";
+      setup(select);
+    });
+  }
+  initialize(document);
+  document.addEventListener("htmx:afterSwap", event => initialize(event.detail.target));
 })();

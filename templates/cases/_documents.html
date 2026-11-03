@@ -36,7 +36,7 @@
   {% endif %}
   {% if task_documents %}
   <div class="card-body border-top"><h3 class="h6">Görev belgeleri</h3>
-    <ul class="mb-0">{% for doc in task_documents %}<li><a href="{{ doc.file.url }}">{{ doc.original_name }}</a> · <a href="{{ doc.task.get_absolute_url }}">{{ doc.task.title }}</a></li>{% endfor %}</ul>
+    <ul class="mb-0">{% for doc in task_documents %}<li>{{ doc.original_name }} · {{ doc.get_kind_display }} · <a href="{{ doc.task.get_absolute_url }}">{{ doc.task.title }}</a> · <a href="{{ doc.file.url }}" target="_blank" rel="noopener">Aç</a> · <a href="{{ doc.file.url }}" download>İndir</a></li>{% endfor %}</ul>
   </div>
   {% endif %}
   <form class="inline-form row g-2 align-items-start" hx-post="{% url 'cases:document_upload' case.pk %}" hx-target="#documents" hx-swap="outerHTML" hx-encoding="multipart/form-data">

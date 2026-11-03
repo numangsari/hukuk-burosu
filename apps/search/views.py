@@ -14,6 +14,8 @@ from django.views import View
 
 from apps.cases.models import Case, Document
 from apps.clients.models import Client, Party
+from apps.core.pagination import page_size
+from apps.core.permissions import filter_visible_cases, filter_visible_clients
 from apps.core.text import fold
 from apps.tasks.models import Task
 
@@ -39,27 +41,31 @@ NAME_FIELD = {
 }
 
 
-def search_querysets(q: str) -> dict:
+def search_querysets(q: str, user=None) -> dict:
     """Her tür için sınırlanmamış sorgular; varsayılan sıra "en alakalı" sıradır."""
     q = q.strip()
     if len(q) < 2:
         return {}
     key = fold(q)
+    base_clients = Client.objects.all()
+    base_cases = Case.objects.all()
+    if user is not None:
+        base_clients = filter_visible_clients(base_clients, user)
+        base_cases = filter_visible_cases(base_cases, user)
     clients = (
-        Client.objects.filter(Q(search_key__contains=key) | Q(tckn=q) | Q(vkn=q))
+        base_clients.filter(Q(search_key__contains=key) | Q(tckn=q) | Q(vkn=q))
         .select_related("responsible_lawyer")
         .order_by("name")
     )
     if len(key) >= 4 and not clients.exists():
         # Yazım hatalarına tolerans: trigram benzerliği
         clients = (
-            Client.objects.annotate(sim=TrigramWordSimilarity(key, "search_key"))
+            base_clients.annotate(sim=TrigramWordSimilarity(key, "search_key"))
             .filter(sim__gt=0.45)
             .order_by("-sim")
         )
-    return {
-        "clients": clients,
-        "cases": Case.objects.filter(
+    cases = (
+        base_cases.filter(
             Q(archive_no__unaccent__icontains=q)
             | Q(archive_folder_no__unaccent__icontains=q)
             | Q(official_no__unaccent__icontains=q)
@@ -70,7 +76,11 @@ def search_querysets(q: str) -> dict:
         )
         .distinct()
         .select_related("client")
-        .order_by("-created_at"),
+        .order_by("-created_at")
+    )
+    return {
+        "clients": clients,
+        "cases": cases,
         "parties": Party.objects.filter(Q(search_key__contains=key) | Q(identity_no=q))
         .prefetch_related("case_links__case")
         .order_by("name"),
@@ -97,9 +107,10 @@ def apply_sort(name: str, qs, sort: str):
     return qs
 
 
-def search(q: str, limit: int = LIMIT, sort: str = "alaka") -> dict:
+def search(q: str, limit: int = LIMIT, sort: str = "alaka", user=None) -> dict:
     return {
-        name: list(apply_sort(name, qs, sort)[:limit]) for name, qs in search_querysets(q).items()
+        name: list(apply_sort(name, qs, sort)[:limit])
+        for name, qs in search_querysets(q, user=user).items()
     }
 
 
@@ -107,7 +118,7 @@ class SearchView(View):
     def get(self, request):
         q = request.GET.get("q", "")
         if request.htmx and request.GET.get("canli"):
-            results = search(q, limit=5)
+            results = search(q, limit=5, user=request.user)
             return render(request, "search/_dropdown.html", {"q": q, "r": results})
 
         sort = request.GET.get("sirala", "alaka")
@@ -116,14 +127,14 @@ class SearchView(View):
         kind_by_param = {param: name for name, param, _ in KINDS}
         kind = request.GET.get("tur", "")
         selected = kind_by_param.get(kind)
-        querysets = search_querysets(q)
+        querysets = search_querysets(q, user=request.user)
         counts = {name: qs.count() for name, qs in querysets.items()}
         page_obj = paginator = None
         more = {}
         if selected:
             # Tek tür: tüm sonuçlar sayfa sayfa.
             paginator = Paginator(
-                apply_sort(selected, querysets[selected], sort), request.user.page_size
+                apply_sort(selected, querysets[selected], sort), page_size(request)
             )
             page_obj = paginator.get_page(request.GET.get("page"))
             results = {selected: list(page_obj.object_list)}

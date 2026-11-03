@@ -21,11 +21,13 @@ from django.urls import reverse
 from django.views.generic import CreateView, DetailView, ListView, UpdateView, View
 
 from apps.accounting.models import BALANCE_EXPR, ZERO, LedgerEntry
+from apps.accounting.permissions import can_edit as can_edit_accounting
 from apps.accounting.permissions import can_view_balances
 from apps.accounts.models import User
 from apps.cases.flows import cluster
 from apps.cases.models import Case
-from apps.core.permissions import AdminRequiredMixin, is_admin
+from apps.core.pagination import page_size
+from apps.core.permissions import AdminRequiredMixin, filter_visible_clients, is_admin
 from apps.core.text import fold
 
 from .forms import CLIENT_SUBRECORDS, DEFAULT_CONTACT_KINDS, ClientForm, client_formset
@@ -113,15 +115,17 @@ class ClientListView(ListView):
     context_object_name = "clients"
 
     def get_paginate_by(self, queryset):
-        return self.request.user.page_size
+        return page_size(self.request)
 
     def get_queryset(self):
         g = self.request.GET
-        qs = annotate_list_values(
+        base_qs = filter_visible_clients(
             Client.objects.select_related(
                 "responsible_lawyer", "responsible_intern"
-            ).prefetch_related("imported_poa_rows", "imported_poa_members__review")
+            ).prefetch_related("imported_poa_rows", "imported_poa_members__review"),
+            self.request.user,
         )
+        qs = annotate_list_values(base_qs)
         show_balance = can_view_balances(self.request.user)
         if q := g.get("q", "").strip():
             key = fold(q)
@@ -159,8 +163,8 @@ class ClientListView(ListView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        ctx["lawyers"] = User.objects.filter(role__in=["admin", "lawyer"], is_active=True)
-        ctx["interns"] = User.objects.filter(role="intern", is_active=True)
+        ctx["lawyers"] = User.objects.filter(role__in=["admin", "senior", "lawyer"], is_active=True)
+        ctx["interns"] = User.objects.filter(role__in=["intern", "paralegal"], is_active=True)
         ctx["kinds"] = PersonKind.choices
         show_balance = can_view_balances(self.request.user)
         ctx["sort"] = self.sort
@@ -189,10 +193,12 @@ def client_reports(user, client) -> list[dict]:
 
 
 def intern_by_lawyer() -> dict:
-    """Avukat → bağlı stajyer eşlemesi (formda avukat seçilince stajyeri doldurmak için)."""
+    """Avukat → bağlı yardımcı sorumlu eşlemesi (formda otomatik doldurmak için)."""
     mapping = {}
     for intern in User.objects.filter(
-        role=User.Role.INTERN, is_active=True, supervisor__isnull=False
+        role__in=[User.Role.INTERN, User.Role.PARALEGAL],
+        is_active=True,
+        supervisor__isnull=False,
     ).order_by("order", "pk"):
         mapping.setdefault(intern.supervisor_id, intern.pk)
     return mapping
@@ -289,7 +295,7 @@ class ClientFormMixin:
         messages.success(self.request, "Müvekkil kaydedildi.")
         for warning in warnings:
             messages.warning(self.request, warning)
-        if fee_suggestions:
+        if fee_suggestions and can_edit_accounting(self.request.user):
             # Ücretli yeni sözleşme için vekalet ücretini muhasebeye kaydetme önerisi sunulur;
             # kullanıcı Vazgeç diyerek müvekkil sayfasına dönebilir.
             item = fee_suggestions[0]
@@ -318,7 +324,8 @@ class ClientCreateView(ClientFormMixin, CreateView):
 
 
 class ClientUpdateView(ClientFormMixin, UpdateView):
-    pass
+    def get_queryset(self):
+        return filter_visible_clients(super().get_queryset(), self.request.user)
 
 
 class ClientDetailView(DetailView):
@@ -327,10 +334,13 @@ class ClientDetailView(DetailView):
     context_object_name = "client"
 
     def get_queryset(self):
-        return Client.objects.select_related(
-            "responsible_lawyer", "responsible_intern"
-        ).prefetch_related(
-            "imported_poa_rows", "imported_poa_members__review", "powers_of_attorney"
+        return filter_visible_clients(
+            Client.objects.select_related(
+                "responsible_lawyer", "responsible_intern"
+            ).prefetch_related(
+                "imported_poa_rows", "imported_poa_members__review", "powers_of_attorney"
+            ),
+            self.request.user,
         )
 
     def get_context_data(self, **kwargs):
@@ -339,12 +349,22 @@ class ClientDetailView(DetailView):
         ctx["cases"] = (
             Case.objects.filter(Q(client=c) | Q(co_clients=c))
             .distinct()
-            .select_related("responsible_lawyer")
+            .select_related("responsible_lawyer", "portalcase")
             .order_by("-created_at")
         )
         from apps.activity.views import history_for
 
         ctx["history"] = history_for(c)
+        from apps.tasks.models import TaskDocument
+
+        ctx["task_documents"] = (
+            TaskDocument.objects.filter(
+                Q(task__client=c) | Q(task__case__co_clients=c), is_current=True
+            )
+            .select_related("task", "task__case", "uploaded_by")
+            .distinct()
+            .order_by("-created_at")
+        )
         # Muhasebe sekmesi herkese açık; bakiye ve yürüyen bakiye yalnızca yetkiliye.
         from apps.accounting.views import statement
 
@@ -378,7 +398,7 @@ def client_cases(client, params):
     qs = (
         Case.objects.filter(Q(client=client) | Q(co_clients=client))
         .distinct()
-        .select_related("responsible_lawyer")
+        .select_related("responsible_lawyer", "portalcase")
     )
     if q := params.get("q", "").strip():
         qs = qs.filter(
@@ -419,7 +439,9 @@ class ClientCasesView(View):
     """Dosyalar sekmesinin HTMX ile yenilenen tablosu."""
 
     def get(self, request, pk):
-        client = get_object_or_404(Client, pk=pk)
+        client = get_object_or_404(
+            filter_visible_clients(Client.objects.all(), request.user), pk=pk
+        )
         return render(
             request, "clients/_cases_table.html", case_filter_context(client, request.GET)
         )
@@ -449,7 +471,7 @@ class ClientDeleteView(AdminRequiredMixin, View):
 
 def client_defaults(request, pk):
     """Dosya formunda müvekkil seçilince sorumluları doldurmak için."""
-    c = get_object_or_404(Client, pk=pk)
+    c = get_object_or_404(filter_visible_clients(Client.objects.all(), request.user), pk=pk)
     return JsonResponse(
         {
             "client_id": c.pk,

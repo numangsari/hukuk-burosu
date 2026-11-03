@@ -244,8 +244,8 @@ def build_plan(file_obj, default_lawyer, default_intern, file_hash: str = "") ->
                     kind=kind, first_name=_s(r["Ad"]), last_name=_s(r["Soyad"]), tckn=_s(r["TC kimlik no"]),
                     title=_s(r["Unvan"]), vkn=_s(r["Vergi kimlik no"]), tax_office=_s(r["Vergi dairesi"]),
                     notes=_s(r["Notlar"]),
-                    responsible_lawyer=person(r["Sorumlu avukat"], default_lawyer, ("admin", "lawyer"), "Sorumlu avukat"),
-                    responsible_intern=person(r["Sorumlu stajyer"], default_intern, ("intern",), "Sorumlu stajyer"),
+                    responsible_lawyer=person(r["Sorumlu avukat"], default_lawyer, ("admin", "senior", "lawyer"), "Sorumlu avukat"),
+                    responsible_intern=person(r["Sorumlu stajyer"], default_intern, ("intern", "paralegal"), "Yardımcı sorumlu"),
                 )  # fmt: skip
                 c.clean()
                 if c.tckn:
@@ -331,8 +331,8 @@ def build_plan(file_obj, default_lawyer, default_intern, file_hash: str = "") ->
                         archive_no=archive, official_no=_s(r["Resmi no"]), authority=_s(r["Merci"]),
                         subject=_s(r["Konu"]), value=_money(r["Değer"]),
                         opened_on=_date(r["Açılış tarihi"]), notes=_s(r["Notlar"]),
-                        responsible_lawyer=person(r["Sorumlu avukat"], client.responsible_lawyer, ("admin", "lawyer"), "Sorumlu avukat"),
-                        responsible_intern=person(r["Sorumlu stajyer"], client.responsible_intern, ("intern",), "Sorumlu stajyer"),
+                        responsible_lawyer=person(r["Sorumlu avukat"], client.responsible_lawyer, ("admin", "senior", "lawyer"), "Sorumlu avukat"),
+                        responsible_intern=person(r["Sorumlu stajyer"], client.responsible_intern, ("intern", "paralegal"), "Yardımcı sorumlu"),
                     )  # fmt: skip
                     plan.cases.append((res, k, client))
                     archive_seen.add(archive.casefold())

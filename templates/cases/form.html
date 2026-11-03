@@ -19,6 +19,12 @@
 {{ form.intern_map|json_script:"intern-by-lawyer" }}
 <form method="post" id="case-form" class="card" @change="formChanged($event)" x-data="caseForm('{{ form.case_type.value|default:'civil' }}')">
   {% csrf_token %}
+  {% if object and object.portalcase %}
+  <div class="alert alert-secondary m-3 mb-0 py-2 small d-flex align-items-center gap-2">
+    <span class="badge-source badge-source-uyap" role="img" aria-label="UYAP kaydı" title="UYAP kaydı"><i class="bi bi-bank2" aria-hidden="true"></i></span>
+    <span>Bu dosya <strong>UYAP</strong> kaydına bağlıdır; UYAP'tan alınan alanlar ve taraflar salt okunurdur. Müvekkil, sıfat, fiziki arşiv numarası ve konu gibi büro alanlarını aşağıdan düzenleyebilirsiniz.</span>
+  </div>
+  {% endif %}
   {% if related_case %}<input type="hidden" name="related_case" value="{{ related_case.pk }}">
   <div class="alert alert-info m-3 mb-0 py-2 small"><i class="bi bi-link-45deg me-1"></i>Bu dosya, <strong>{{ related_case.display_name }}</strong> dosyasının ilgili dosyası olarak oluşturulacak; safahat ve muhasebe ortak olur.</div>{% endif %}
   {% if source_record %}<input type="hidden" name="source_record" value="{{ source_record.pk }}">
@@ -97,8 +103,8 @@
   <div class="form-section">
     <div class="form-section-head"><h2>Sorumlular</h2></div>
     <div class="row">
-      <div class="col-md-6">{% include "partials/field.html" with field=form.responsible_lawyer %}</div>
-      <div class="col-md-6">{% include "partials/field.html" with field=form.responsible_intern %}</div>
+      <div class="col-md-{% if form.responsible_intern %}6{% else %}12{% endif %}">{% include "partials/field.html" with field=form.responsible_lawyer %}</div>
+      {% if form.responsible_intern %}<div class="col-md-6">{% include "partials/field.html" with field=form.responsible_intern %}</div>{% endif %}
     </div>
   </div>
 
@@ -133,7 +139,7 @@
     </div>
     <div id="party-rows" hidden>
       {% for link, field in form.existing_party_rows %}
-        <div class="party-card" data-party-card data-existing data-party-name="{{ link.party.name }}" data-party-identity="{{ link.party.identity_no }}"><div class="mb-2"><strong>{{ link.party.name }}</strong></div>{% include "partials/field.html" with field=field %}{% if link.remove_field %}{{ link.remove_field }}{% endif %}</div>
+        <div class="party-card" data-party-card data-existing {% if link.from_uyap %}data-from-uyap{% endif %} data-party-name="{{ link.party.name }}" data-party-identity="{{ link.party.identity_no }}"><div class="mb-2"><strong>{{ link.party.name }}</strong></div>{% include "partials/field.html" with field=field %}{% if link.remove_field %}{{ link.remove_field }}{% endif %}</div>
       {% endfor %}
       {% for row in party_formset %}{% include "cases/_party_row.html" %}{% endfor %}
     </div>
@@ -200,6 +206,7 @@
           name: value('[name$="-name"]') || card.dataset.partyName || "",
           identity: value('[name$="-identity_no"]') || card.dataset.partyIdentity || "",
           existing: "existing" in card.dataset,
+          fromUyap: "fromUyap" in card.dataset,
           deleted: Boolean(del && del.checked),
         };
       },
@@ -229,11 +236,15 @@
           const key = this.laneKeyOf(info.role) || "a";
           const detail = [this.roleLabel(info.role) || "Sıfat seçilmeli", info.identity].filter(Boolean).map(esc).join(" · ");
           const id = card.dataset.cardId;
-          items[key].push(
-            `<div class="party-item"><div class="party-item-main"><strong>${esc(info.name || "(adsız)")}</strong>` +
-            `<div class="small text-body-secondary">${detail}</div></div><div class="party-item-actions">` +
+          const badge = info.fromUyap ? '<span class="badge-source badge-source-uyap me-1" title="UYAP kaydı"><i class="bi bi-bank2"></i></span>' : '';
+          const actions = info.fromUyap ? '<span class="small text-body-secondary">Salt okunur</span>' : (
             `<button type="button" class="btn btn-light btn-sm" data-card="${id}" data-card-action="edit" title="Düzenle"><i class="bi bi-pencil"></i></button>` +
-            (info.existing && !card.querySelector('input[name^="party_remove_"]') ? "" : `<button type="button" class="btn btn-light btn-sm" data-card="${id}" data-card-action="remove" title="Sil"><i class="bi bi-trash"></i></button>`) +
+            (info.existing && !card.querySelector('input[name^="party_remove_"]') ? "" : `<button type="button" class="btn btn-light btn-sm" data-card="${id}" data-card-action="remove" title="Sil"><i class="bi bi-trash"></i></button>`)
+          );
+          items[key].push(
+            `<div class="party-item"><div class="party-item-main">${badge}<strong>${esc(info.name || "(adsız)")}</strong>` +
+            `<div class="small text-body-secondary">${detail}</div></div><div class="party-item-actions">` +
+            actions +
             "</div></div>");
         });
         KEYS.forEach(key => {
@@ -339,7 +350,8 @@
       lawyerChanged(e) {
         const map = JSON.parse(document.getElementById("intern-by-lawyer").textContent);
         const intern = map[e.target.value];
-        if (intern) document.getElementById("id_responsible_intern").value = String(intern);
+        const el = document.getElementById("id_responsible_intern");
+        if (intern && el) el.value = String(intern);
       },
       init() {
         this.$watch("caseType", () => this.updateRoles());
@@ -365,8 +377,9 @@
           const r = await fetch(`/muvekkiller/${client.value}/varsayilanlar/`);
           const d = await r.json();
           if (client.value !== String(d.client_id)) return;
-          this.$root.querySelector("#id_responsible_lawyer").value = d.responsible_lawyer;
-          this.$root.querySelector("#id_responsible_intern").value = d.responsible_intern;
+          this.$root.querySelector("#id_responsible_lawyer").value = d.responsible_lawyer || "";
+          const internEl = this.$root.querySelector("#id_responsible_intern");
+          if (internEl) internEl.value = d.responsible_intern || "";
         });
       },
     };

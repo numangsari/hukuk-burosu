@@ -9,6 +9,11 @@ urlpatterns = [
     path("giris/", views.PinLoginView.as_view(), name="login"),
     path("cikis/", auth_views.LogoutView.as_view(), name="logout"),
     path("ayarlar/", views.SettingsView.as_view(), name="settings"),
+    path(
+        "ayarlar/sablon-dilekceler/",
+        views.PetitionTemplatesView.as_view(),
+        name="petition_templates",
+    ),
     path("pin/", RedirectView.as_view(url="/hesap/ayarlar/?bolum=pin"), name="pin_change"),
     path("tema/", views.ThemeToggleView.as_view(), name="theme_toggle"),
 ]

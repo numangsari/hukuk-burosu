@@ -11,6 +11,13 @@
   <script src="{% static 'vendor/htmx.min.js' %}" defer></script>
   <script src="{% static 'vendor/alpine.min.js' %}" defer></script>
   <script src="{% static 'js/searchable-select.js' %}" defer></script>
+{% if request.GET.pencere %}
+<style>
+  .sidebar, .sidebar-backdrop, .topbar, .page-foot, .eyebrow, .page-header .page-actions { display: none !important; }
+  .app-shell, .main { display: block !important; margin: 0 !important; width: 100% !important; }
+  .content { padding: 1rem !important; }
+</style>
+{% endif %}
 </head>
 <body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
 {% if request.user.is_authenticated %}
@@ -39,9 +46,13 @@
       {% if can_view_accounting %}<a class="side-link {% if ns == 'accounting' %}active{% endif %}" href="{% url 'accounting:list' %}"><i class="bi bi-wallet2"></i>Muhasebe</a>{% endif %}
       <a class="side-link {% if ns == 'reports' %}active{% endif %}" href="{% url 'reports:index' %}"><i class="bi bi-bar-chart-line"></i>Raporlar</a>
       <div class="nav-section">Sistem</div>
-      {% if request.user.is_office_admin %}<a class="side-link" href="{% url 'portal_review' %}"><i class="bi bi-cloud-arrow-down"></i>UYAP ve UETS inceleme</a>{% endif %}
+      {% if request.user.is_office_admin %}
+      <a class="side-link" href="{% url 'accounts:settings' %}?bolum=monitor"><i class="bi bi-activity"></i>Sistem monitörü</a>
+      <a class="side-link" href="{% url 'portal_review' %}"><i class="bi bi-cloud-arrow-down"></i>UYAP ve UETS inceleme</a>
+      {% endif %}
       <a class="side-link {% if ns == 'activity' %}active{% endif %}" href="{% url 'activity:list' %}"><i class="bi bi-clock-history"></i>Aktivite kaydı</a>
       {% if request.user.is_office_admin %}
+      <a class="side-link" href="{% url 'accounts:settings' %}?bolum=veri_aktarim"><i class="bi bi-database-down"></i>Veri içe / dışa aktar</a>
       <a class="side-link" href="{% url 'admin:index' %}"><i class="bi bi-sliders"></i>Yönetim paneli</a>
       {% endif %}
       <div class="nav-section">Kısayollar</div>
@@ -91,7 +102,7 @@
       <div class="alert alert-warning d-flex align-items-center gap-2 mb-3">
         <i class="bi bi-exclamation-triangle-fill"></i>
         <span>Son 2 gündür başarılı yedek alınmadı.</span>
-        <a class="ms-auto fw-semibold" href="{% url 'accounts:settings' %}?bolum=yedek">Yedekleme ayarlarına git</a>
+        <a class="ms-auto fw-semibold" href="{% url 'accounts:settings' %}?bolum=klasor">Ofis klasörüne git</a>
       </div>
       {% endif %}
       {% block content %}{% endblock %}
@@ -112,7 +123,7 @@
   {% for m in messages %}
     <div class="alert alert-{% if m.tags == 'error' %}danger{% else %}{{ m.tags }}{% endif %} d-flex align-items-center gap-2"
          role="{% if m.level >= 30 %}alert{% else %}status{% endif %}"
-         x-data="{ show: true }" x-show="show"{% if m.level < 30 %} x-init="setTimeout(() => show = false, 4500)"{% endif %} x-transition>
+         x-data="{ show: true }" x-show.important="show" x-init="setTimeout(() => show = false, 10000)" x-transition>
       <i class="bi {% if m.tags == 'error' %}bi-exclamation-octagon{% else %}bi-check-circle{% endif %}"></i>
       <span>{{ m }}</span>
       <button type="button" class="btn-close btn-sm ms-auto" aria-label="Bildirimi kapat" @click="show = false"></button>
@@ -124,6 +135,51 @@
   {% block anonymous %}{% endblock %}
 {% endif %}
 <script src="{% static 'vendor/bootstrap/bootstrap.bundle.min.js' %}"></script>
+{% if request.user.is_authenticated and not request.GET.pencere %}
+<div class="modal fade" id="create-window" tabindex="-1" aria-label="Yeni kayıt" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable"><div class="modal-content">
+    <div class="modal-header"><h2 class="modal-title fs-6" id="create-window-title"></h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Kapat"></button></div>
+    <div class="modal-body p-0"><iframe id="create-window-frame" title="Yeni kayıt" style="width:100%;height:75vh;border:0"></iframe></div>
+  </div></div>
+</div>
+<script>
+(() => {
+  const modal = document.getElementById('create-window');
+  const frame = document.getElementById('create-window-frame');
+  const paths = ['{% url "tasks:create" %}', '{% url "accounting:create" %}'];
+  let active = false;
+  document.addEventListener('click', event => {
+    const link = event.target.closest('a[href]');
+    if (!link || event.ctrlKey || event.metaKey || event.shiftKey || event.button !== 0) return;
+    const url = new URL(link.href, location.href);
+    const isTask = /^\/gorevler\/\d+\/$/.test(url.pathname);
+    if (url.origin !== location.origin || (!paths.includes(url.pathname) && !isTask)) return;
+    event.preventDefault();
+    url.searchParams.set('pencere', '1');
+    document.getElementById('create-window-title').textContent = isTask ? 'Görev' : (url.pathname === paths[0] ? 'Yeni görev' : 'Yeni gelir / gider');
+    active = true;
+    frame.src = url.href;
+    bootstrap.Modal.getOrCreateInstance(modal).show();
+  });
+  frame.addEventListener('load', () => {
+    if (!active) return;
+    const url = new URL(frame.contentWindow.location.href);
+    if (!url.searchParams.has('pencere')) { active = false; location.reload(); }
+  });
+  modal.addEventListener('hidden.bs.modal', () => { const wasTask = active && /\/gorevler\/\d+\//.test(frame.getAttribute('src') || ''); active = false; frame.removeAttribute('src'); if (wasTask) location.reload(); });
+})();
+</script>
+{% elif request.GET.pencere %}
+<script>
+  document.addEventListener('click', event => {
+    const link = event.target.closest('a');
+    if (link && link.textContent.trim() === 'Vazgeç' && window.parent !== window) {
+      event.preventDefault();
+      window.parent.bootstrap.Modal.getInstance(window.parent.document.getElementById('create-window')).hide();
+    }
+  });
+</script>
+{% endif %}
 {% if request.user.is_authenticated %}
 <script>
   // Geri/ileri tuşuyla tarayıcı belleğinden açılan sayfa sunucuya yeniden sorulur;

@@ -18,6 +18,8 @@ from apps.tasks.models import TaskDocument
 from apps.tasks.views import TaskCreateView
 
 from .models import PortalCapture, PortalCase, PortalNotice, PortalNoticeDocument
+from .portal_case_sync import sync_portal_case
+from .portal_finance import import_finance
 from .portal_matching import (
     calculate_notice_due_date,
     find_matching_case,
@@ -72,7 +74,9 @@ def index(request):
     cases = PortalCase.objects.select_related("case")
     if query:
         cases = cases.filter(Q(authority__icontains=query) | Q(number__icontains=query))
-    page = Paginator(cases, 50).get_page(request.GET.get("page"))
+    from apps.core.pagination import page_size
+
+    page = Paginator(cases, page_size(request, default=50)).get_page(request.GET.get("page"))
     for rec in page.object_list:
         if not rec.case_id:
             rec.suggested_case = find_matching_case(rec.authority, rec.number)
@@ -213,6 +217,8 @@ def link_case(request, pk):
                 return redirect("portal_review_detail", pk=pk)
             record.case = case
             record.save(update_fields=["case"])
+            sync_portal_case(record, default_user=request.user, create_missing=False)
+            import_finance(record)
     except IntegrityError:
         messages.error(request, "Dosya başka bir kayıtla ilişkilendirilmiş.")
     else:
@@ -225,17 +231,22 @@ class NoTaskForm(BootstrapMixin, forms.Form):
     client = forms.ModelChoiceField(
         label="Müvekkil",
         queryset=Client.objects.all(),
-        widget=forms.Select(attrs={"data-searchable": "Müvekkil ara"})
+        widget=forms.Select(attrs={"data-searchable": "Müvekkil ara"}),
     )
     case = forms.ModelChoiceField(
         label="Dosya",
         queryset=Case.objects.all(),
         required=False,
-        widget=forms.Select(attrs={"data-searchable": "Dosya ara"})
+        widget=forms.Select(attrs={"data-searchable": "Dosya ara"}),
     )
     reason = forms.CharField(
         label="Görev olmama nedeni",
-        widget=forms.Textarea(attrs={"rows": 3, "placeholder": "Bu tebligat için neden görev oluşturulmadığını açıklayın..."})
+        widget=forms.Textarea(
+            attrs={
+                "rows": 3,
+                "placeholder": "Bu tebligat için neden görev oluşturulmadığını açıklayın...",
+            }
+        ),
     )
 
     def clean(self):
@@ -248,10 +259,13 @@ class NoTaskForm(BootstrapMixin, forms.Form):
 
 @login_required
 def notice_list(request):
-    notices = list(PortalNotice.objects.select_related(
+    from apps.core.pagination import page_size
+
+    notices = PortalNotice.objects.select_related(
         "resolution_client", "resolution_case", "resolution_task", "resolved_by"
-    ).order_by("-delivered_at"))
-    for n in notices:
+    ).order_by("-delivered_at", "-pk")
+    page = Paginator(notices, page_size(request)).get_page(request.GET.get("page"))
+    for n in page.object_list:
         if not n.resolution_case:
             auth, num = parse_notice_subject(n.subject)
             n.suggested_case = find_matching_case(auth, num) if num else None
@@ -261,7 +275,7 @@ def notice_list(request):
         urgency, due_label = get_notice_urgency(n.suggested_due_date)
         n.due_urgency = urgency
         n.due_label = due_label
-    return render(request, "imports/notices.html", {"notices": notices})
+    return render(request, "imports/notices.html", {"notices": page.object_list, "page_obj": page})
 
 
 @login_required
@@ -302,7 +316,11 @@ def notice_no_task(request, pk):
                     response["HX-Trigger"] = "notice-saved"
                     return response
         return redirect("notice_list")
-    template_name = "imports/_notice_no_task_modal.html" if getattr(request, "htmx", False) else "imports/notice_no_task.html"
+    template_name = (
+        "imports/_notice_no_task_modal.html"
+        if getattr(request, "htmx", False)
+        else "imports/notice_no_task.html"
+    )
     return render(request, template_name, {"form": form, "notice": notice})
 
 

@@ -10,8 +10,12 @@ urlpatterns = [
     path("<int:pk>/", views.TaskDetailView.as_view(), name="detail"),
     path("<int:pk>/duzenle/", views.TaskUpdateView.as_view(), name="update"),
     path("<int:pk>/islem/", views.TaskActionView.as_view(), name="action"),
+    path("<int:pk>/not/", views.TaskNoteView.as_view(), name="note"),
     path("<int:pk>/yorum/", views.TaskCommentView.as_view(), name="comment"),
     path("<int:pk>/sil/", views.TaskDeleteView.as_view(), name="delete"),
+    path(
+        "<int:pk>/sablon/", views.PetitionTemplateDownloadView.as_view(), name="petition_template"
+    ),
     path("<int:pk>/belge/", views.TaskDocumentUploadView.as_view(), name="doc_upload"),
     path(
         "<int:pk>/belge/<int:doc_pk>/sil/",

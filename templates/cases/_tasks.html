@@ -11,7 +11,11 @@
         <option value="assignee">Sorumlu (A → Z)</option>
         <option value="created">Yeni eklenen önce</option>
       </select>
+      {% if case.client_id %}
       <a class="btn btn-sm btn-light" href="{% url 'tasks:create' %}?dosya={{ case.pk }}"><i class="bi bi-plus-lg"></i>Yeni görev</a>
+      {% else %}
+      <a class="btn btn-sm btn-warning" href="{% url 'cases:update' case.pk %}" title="Görev eklemek için önce dosyanın müvekkilini seçin"><i class="bi bi-person-exclamation"></i>Önce müvekkil seçin</a>
+      {% endif %}
     </div>
   </div>
   <div class="px-3 pt-3 pb-1 info-label">Aktif görevler <span class="count">{{ summary.open_task_count }}</span></div>
@@ -20,7 +24,7 @@
     <thead><tr><th>Görev</th><th>Sorumlu → Kontrolcü</th><th>Durum</th><th>Son gün</th></tr></thead>
     <tbody data-task-body>
     {% for t in tasks %}{% if t.is_open %}
-      <tr data-href="{{ t.get_absolute_url }}" onclick="location.href=this.dataset.href"
+      <tr data-href="{{ t.get_absolute_url }}" onclick="if (!event.target.closest('a, button')) this.querySelector('a.cell-main').click()"
           data-due="{{ t.due_date|date:'Y-m-d' }}" data-title="{{ t.title }}" data-assignee="{{ t.assignee }}" data-created="{{ t.created_at|date:'U' }}">
         <td><a class="cell-main text-reset" href="{{ t.get_absolute_url }}">{{ t.title }}</a><div class="cell-sub">{{ t.task_type }}</div></td>
         <td>{{ t.assignee }}<div class="cell-sub">{{ t.reviewer }}</div></td>
@@ -41,7 +45,7 @@
     <thead><tr><th>Görev</th><th>Sorumlu → Kontrolcü</th><th>Durum</th><th>Son gün</th></tr></thead>
     <tbody data-task-body>
     {% for t in tasks %}{% if not t.is_open %}
-      <tr data-href="{{ t.get_absolute_url }}" onclick="location.href=this.dataset.href"
+      <tr data-href="{{ t.get_absolute_url }}" onclick="if (!event.target.closest('a, button')) this.querySelector('a.cell-main').click()"
           data-due="{{ t.due_date|date:'Y-m-d' }}" data-title="{{ t.title }}" data-assignee="{{ t.assignee }}" data-created="{{ t.created_at|date:'U' }}">
         <td><a class="cell-main text-reset" href="{{ t.get_absolute_url }}">{{ t.title }}</a><div class="cell-sub">{{ t.task_type }}</div></td>
         <td>{{ t.assignee }}<div class="cell-sub">{{ t.reviewer }}</div></td>

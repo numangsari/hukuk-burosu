@@ -16,7 +16,7 @@ from apps.imports.models import (
 
 
 @pytest.mark.django_db
-@override_settings(DEBUG=True, PORTAL_SYNC_ENABLED=True)
+@override_settings(DEBUG=True)
 def test_import_records_account_owner(monkeypatch):
     monkeypatch.setitem(connection.settings_dict, "NAME", "ozkurt_deneme")
     monkeypatch.setitem(connection.settings_dict, "PORT", "5435")

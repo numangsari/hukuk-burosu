@@ -3,12 +3,16 @@ import datetime as dt
 from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.db.models import Q
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.utils import timezone
+from django.utils.decorators import method_decorator
+from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.views.generic import CreateView, ListView, View
 
 from apps.cases.models import Case
 from apps.clients.models import Client
+from apps.core.pagination import page_size
 from apps.core.text import fold
 
 from .forms import LedgerEntryForm
@@ -50,7 +54,7 @@ class EntryListView(ViewRequiredMixin, ListView):
     context_object_name = "entries"
 
     def get_paginate_by(self, queryset):
-        return self.request.user.page_size
+        return page_size(self.request)
 
     def filtered(self):
         g = self.request.GET
@@ -115,6 +119,7 @@ class EntryListView(ViewRequiredMixin, ListView):
         return ctx
 
 
+@method_decorator(xframe_options_sameorigin, name="dispatch")
 class EntryCreateView(EditRequiredMixin, CreateView):
     model = LedgerEntry
     form_class = LedgerEntryForm
@@ -146,6 +151,8 @@ class EntryCreateView(EditRequiredMixin, CreateView):
             form.add_error(None, e)
             return self.form_invalid(form)
         messages.success(self.request, f"{self.object.get_kind_display()} kaydedildi.")
+        if self.request.GET.get("pencere"):
+            return HttpResponse("<script>window.parent.location.reload()</script>")
         return redirect(self.get_success_url())
 
     def get_success_url(self):

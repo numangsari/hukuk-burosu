@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Şablon dilekçeler{% endblock %}
+{% block content %}
+<div class="page-header"><div><div class="eyebrow"><a href="{% url 'accounts:settings' %}">Ayarlar</a></div><h1 class="page-title">Şablon dilekçeler</h1></div></div>
+<div class="card"><div class="card-body">
+<p>Her görev türü için UDF veya Word şablonu seçin. Dosyalar ofis klasöründeki Şablon Dilekçeler bölümüne kaydedilir. Şablonlarda bilgilerin doldurulacağı alanlar boş bırakılmalıdır.</p>
+<form method="post" enctype="multipart/form-data" class="row g-3">{% csrf_token %}
+<div class="col-md-5"><label class="form-label" for="template-type">Görev türü</label><select class="form-select" id="template-type" name="task_type" data-searchable="Görev türü ara" required><option value="">Seçiniz…</option>{% for t in types %}<option value="{{ t.pk }}">{{ t.name }}</option>{% endfor %}</select></div>
+<div class="col-md-5"><label class="form-label" for="template-file">Şablon dosyası</label><input class="form-control" type="file" id="template-file" name="template" accept=".udf,.docx" required></div>
+<div class="col-md-2 d-flex align-items-end"><button class="btn btn-primary w-100">Kaydet</button></div>
+</form></div></div>
+<div class="card mt-3"><div class="card-header"><h2 class="card-title">Kayıtlı şablonlar</h2></div><ul class="list-group list-group-flush">{% for t in types %}{% if t.petition_template %}<li class="list-group-item">{{ t.name }}</li>{% endif %}{% endfor %}</ul></div>
+{% endblock %}

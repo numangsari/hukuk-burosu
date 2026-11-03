@@ -23,7 +23,8 @@
           <div class="d-flex align-items-start gap-2 flex-wrap">
             <div class="min-w-0 flex-grow-1">
               <div class="flow-head">
-                {% if m.status == "open" %}<span class="chip chip-primary">AÇIK</span>{% else %}<span class="chip">KAPALI</span>{% endif %}
+                {% if m.portalcase %}<span class="badge-source badge-source-uyap" role="img" aria-label="UYAP kaydı" title="UYAP kaydı"><i class="bi bi-bank2" aria-hidden="true"></i></span>{% endif %}
+                {% if m.status == "open" %}<span class="chip chip-primary">{% if m.portalcase %}{{ m.uyap_status_banner }}{% else %}AÇIK{% endif %}</span>{% else %}<span class="chip">{% if m.portalcase %}{{ m.uyap_status_banner }}{% else %}KAPALI{% endif %}</span>{% endif %}
                 <span class="type-chip type-{{ m.case_type }}">{{ m.get_case_type_display }}</span>
                 <span class="flow-detail">{{ m.status_detail|default:"—" }}</span>
               </div>
@@ -54,8 +55,42 @@
         </div>
       </li>
       {% endfor %}
+
+      {% for rel in missing_related_cases %}
+      <li class="safahat-item type-{{ rel.case_type }}">
+        <span class="safahat-dot"></span>
+        <div class="safahat-card border-warning-subtle">
+          <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap">
+            <div class="min-w-0 flex-grow-1">
+              <div class="flow-head">
+                <span class="badge-source badge-source-uyap" role="img" aria-label="UYAP kaydı" title="UYAP kaydı"><i class="bi bi-bank2" aria-hidden="true"></i></span>
+                <span class="chip chip-warning no-dot">{{ rel.relation }}</span>
+                <span class="flow-detail">UYAP kaydında geçen ilgili dosya</span>
+              </div>
+              <div class="safahat-title">{{ rel.authority }} {{ rel.number }}</div>
+              <div class="small text-body-secondary">Bu dosya UYAP ayrıntılarında yer alıyor ancak henüz safahata dahil edilmemiş.</div>
+            </div>
+            <div class="safahat-actions d-flex gap-2">
+              {% if rel.existing_case %}
+              <a class="btn btn-sm btn-light" href="{{ rel.existing_case.get_absolute_url }}">Dosyayı aç</a>
+              <form method="post" action="{% url 'cases:link_add' case.pk %}" class="d-inline">
+                {% csrf_token %}
+                <input type="hidden" name="related" value="{{ rel.existing_case.pk }}">
+                <input type="hidden" name="note" value="UYAP {{ rel.relation }}">
+                <button type="submit" class="btn btn-sm btn-primary"><i class="bi bi-link-45deg"></i>Dosyayı bağla</button>
+              </form>
+              {% else %}
+              <a class="btn btn-sm btn-primary" href="{% url 'cases:create' %}?iliskili={{ case.pk }}&kurum={{ rel.authority|urlencode }}&yil={{ rel.year }}&numara={{ rel.sequence }}&tur={{ rel.case_type }}">
+                <i class="bi bi-folder-plus"></i>Dosya oluştur
+              </a>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </li>
+      {% endfor %}
     </ol>
-    {% if flow_members|length == 1 %}
+    {% if flow_members|length == 1 and not missing_related_cases %}
     <div class="empty-state"><i class="bi bi-diagram-3"></i><strong>Bağlı dosya yok</strong>Aynı hukuki olaya ait başka bir dosya (ihtarname, arabuluculuk, istinaf, icra vb.) oluşturun veya mevcut bir dosyayı bağlayın; safahat ve muhasebe ortak olur.</div>
     {% endif %}
   </div>

@@ -4,14 +4,17 @@ from django.contrib import messages
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
 from django.db.models import Q
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
+from django.utils.decorators import method_decorator
+from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.views.generic import CreateView, DetailView, ListView, UpdateView, View
 
 from apps.accounts.models import User
 from apps.cases.documents import mirror_task_document
 from apps.cases.models import Case
+from apps.core.pagination import page_size
 from apps.core.permissions import is_admin
 from apps.core.text import fold
 from apps.core.uploads import validate_upload
@@ -61,7 +64,7 @@ class TaskListView(ListView):
     context_object_name = "tasks"
 
     def get_paginate_by(self, queryset):
-        return self.request.user.page_size
+        return page_size(self.request)
 
     def get_queryset(self, tab_override=None):
         g, u = self.request.GET, self.request.user
@@ -166,6 +169,7 @@ class TaskListView(ListView):
         return ctx
 
 
+@method_decorator(xframe_options_sameorigin, name="dispatch")
 class TaskCreateView(CreateView):
     model = Task
     form_class = TaskForm
@@ -173,25 +177,50 @@ class TaskCreateView(CreateView):
 
     def get_initial(self):
         initial = {}
-        case = Case.objects.filter(pk=self.request.GET.get("dosya")).first()
+        case = (
+            Case.objects.select_related("responsible_lawyer")
+            .filter(pk=self.request.GET.get("dosya"))
+            .first()
+        )
         if case:
+            assignee_id = case.responsible_intern_id or case.responsible_lawyer_id
+            reviewer_id = case.responsible_lawyer_id
+            if assignee_id and reviewer_id == assignee_id:
+                reviewer_id = (
+                    case.responsible_lawyer.supervisor_id
+                    if case.responsible_lawyer
+                    and case.responsible_lawyer.supervisor_id != assignee_id
+                    else None
+                )
             initial.update(
                 case=case,
                 client=case.client_id,
-                assignee=case.responsible_intern_id,
-                reviewer=case.responsible_lawyer_id,
+                assignee=assignee_id,
+                reviewer=reviewer_id,
             )
         return initial
 
     def form_valid(self, form):
         form.instance.created_by = self.request.user
         with transaction.atomic():
-            form.instance.case = Case.objects.select_for_update().get(pk=form.instance.case_id)
+            form.instance.case = Case.objects.select_for_update(of=("self",)).get(
+                pk=form.instance.case_id
+            )
             response = super().form_valid(form)
             services.on_created(self.object, self.request.user)
-            if document := form.cleaned_data.get("document"):
+            if self.object.notes.strip():
+                TaskEvent.objects.create(
+                    task=self.object,
+                    actor=self.request.user,
+                    kind=TaskEvent.Kind.NOTE,
+                    comment=self.object.notes.strip(),
+                )
+                self.object.notes = ""
+                self.object.save(update_fields=["notes"])
+            for document in form.cleaned_data.get("document", []):
                 doc = TaskDocument.objects.create(
                     task=self.object,
+                    kind=TaskDocument.Kind.SOURCE,
                     file=document,
                     original_name=document.name[:300],
                     size=document.size,
@@ -204,16 +233,19 @@ class TaskCreateView(CreateView):
                     comment=f"{doc.original_name} — belge yükledi",
                 )
 
-                def mirror_after_commit():
+                def mirror_after_commit(doc=doc):
                     warning = mirror_task_document(doc)
                     if warning:
                         messages.warning(self.request, warning)
 
                 transaction.on_commit(mirror_after_commit)
         messages.success(self.request, "Görev oluşturuldu.")
+        if self.request.GET.get("pencere"):
+            return HttpResponse("<script>window.parent.location.reload()</script>")
         return response
 
 
+@method_decorator(xframe_options_sameorigin, name="dispatch")
 class TaskUpdateView(UpdateView):
     model = Task
     form_class = TaskForm
@@ -225,7 +257,7 @@ class TaskUpdateView(UpdateView):
 
     def get_queryset(self):
         qs = super().get_queryset()
-        return qs.select_for_update() if self.request.method == "POST" else qs
+        return qs.select_for_update(of=("self",)) if self.request.method == "POST" else qs
 
     def get_object(self, queryset=None):
         task = super().get_object(queryset)
@@ -234,15 +266,20 @@ class TaskUpdateView(UpdateView):
         return task
 
     def form_valid(self, form):
-        form.instance.case = Case.objects.select_for_update().get(pk=form.instance.case_id)
+        form.instance.case = Case.objects.select_for_update(of=("self",)).get(
+            pk=form.instance.case_id
+        )
         old_assignee = Task.objects.values_list("assignee_id", flat=True).get(pk=self.object.pk)
         changed = [form.fields[f].label for f in form.changed_data if f != "client"]
         response = super().form_valid(form)
         services.on_updated(self.object, self.request.user, changed, old_assignee)
         messages.success(self.request, "Görev güncellendi.")
+        if self.request.GET.get("pencere"):
+            return redirect(self.object.get_absolute_url() + "?pencere=1")
         return response
 
 
+@method_decorator(xframe_options_sameorigin, name="dispatch")
 class TaskDetailView(DetailView):
     template_name = "tasks/detail.html"
     context_object_name = "task"
@@ -253,18 +290,29 @@ class TaskDetailView(DetailView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         t, u = self.object, self.request.user
+        from apps.accounting.models import LedgerEntry
+
+        ledger_entries = (
+            LedgerEntry.objects.active()
+            .filter(client_id=t.client_id)
+            .filter(Q(case_id=t.case_id) | Q(case__isnull=True))
+            if t.requires_accounting
+            else LedgerEntry.objects.none()
+        )
         if t.assignee_id == u.pk and not t.assignee_seen:
             # Sorumlu yeni görevi açtı; ana sayfadaki "Yeni görev" uyarısı kalkar.
             Task.objects.filter(pk=t.pk).update(assignee_seen=True)
             t.assignee_seen = True
         ctx.update(
             actions=services.available_actions(t, u),
+            ledger_entries=ledger_entries,
             can_edit=services.can_edit(t, u),
             can_delete=services.can_delete(t, u),
             **documents_context(t, u),
             events=t.events.exclude(kind=TaskEvent.Kind.COMMENT).select_related("actor"),
             comments=t.events.filter(kind=TaskEvent.Kind.COMMENT).select_related("actor"),
             comment_form=CommentForm(),
+            notes=t.events.filter(kind=TaskEvent.Kind.NOTE).select_related("actor"),
         )
         return ctx
 
@@ -274,7 +322,11 @@ class TaskActionView(View):
         task = get_object_or_404(Task, pk=pk)
         try:
             services.perform(
-                task, request.POST.get("action", ""), request.user, request.POST.get("comment", "")
+                task,
+                request.POST.get("action", ""),
+                request.user,
+                request.POST.get("comment", ""),
+                request.POST.get("ledger_id", ""),
             )
         except ValidationError as e:
             messages.error(request, " ".join(e.messages))
@@ -282,9 +334,25 @@ class TaskActionView(View):
             messages.success(request, f"Görev durumu: {task.get_status_display()}")
             for w in getattr(task, "warnings", []):
                 messages.warning(request, w)
-        return redirect(task)
+        return redirect(
+            task.get_absolute_url() + ("?pencere=1" if request.GET.get("pencere") else "")
+        )
 
 
+class TaskNoteView(View):
+    def post(self, request, pk):
+        task = get_object_or_404(Task, pk=pk)
+        content = request.POST.get("note", "").strip()
+        if content:
+            TaskEvent.objects.create(
+                task=task, actor=request.user, kind=TaskEvent.Kind.NOTE, comment=content
+            )
+        return redirect(
+            task.get_absolute_url() + ("?pencere=1" if request.GET.get("pencere") else "")
+        )
+
+
+@method_decorator(xframe_options_sameorigin, name="dispatch")
 class TaskDeleteView(View):
     """Yanlış açılan görevi oluşturan veya yönetici siler (aktivite kaydına düşer)."""
 
@@ -295,6 +363,8 @@ class TaskDeleteView(View):
         case = task.case
         task.delete()
         messages.success(request, "Görev silindi.")
+        if request.GET.get("pencere"):
+            return HttpResponse("<script>window.parent.location.reload()</script>")
         return redirect(case)
 
 
@@ -315,6 +385,15 @@ def case_options(request):
     ?client=<müvekkil>: o müvekkilin bütün dosyaları (sınır yok)
     Müvekkil seçilmemişken liste sunucunun çizdiği tam seçenek listesinden geri yüklenir.
     """
+    if client_id := request.GET.get("client_info"):
+        from apps.clients.models import Client
+
+        client = Client.objects.filter(pk=client_id if client_id.isdigit() else 0).first()
+        return JsonResponse(
+            {"lawyer": client.responsible_lawyer_id, "intern": client.responsible_intern_id}
+            if client
+            else {}
+        )
     qs = Case.objects.select_related("client").order_by("-created_at")
     if case_id := request.GET.get("id"):
         qs = qs.filter(pk=case_id if case_id.isdigit() else 0)
@@ -346,6 +425,8 @@ def documents_context(task, user, error="", warning=""):
     current = [d for d in docs if d.is_current]
     return {
         "task_docs": current,
+        "source_docs": [d for d in current if d.kind != TaskDocument.Kind.PETITION],
+        "petition_docs": [d for d in current if d.kind == TaskDocument.Kind.PETITION],
         "old_docs": {
             d.pk: [o for o in docs if not o.is_current and _root(o, docs) == d.pk] for d in current
         },
@@ -374,38 +455,50 @@ def _docs_partial(request, task, error="", warning=""):
 class TaskDocumentUploadView(View):
     @transaction.atomic
     def post(self, request, pk):
-        task = get_object_or_404(Task.objects.select_for_update(), pk=pk)
+        task = get_object_or_404(Task.objects.select_for_update(of=("self",)), pk=pk)
         if not services.can_upload(task, request.user):
             raise PermissionDenied
-        f = request.FILES.get("file")
-        if not f:
+        files = request.FILES.getlist("file")
+        if not files:
             return _docs_partial(request, task, "Yüklenecek belgeyi seçin.")
         try:
-            validate_upload(f)
+            for f in files:
+                validate_upload(f)
         except ValidationError as e:
             return _docs_partial(request, task, " ".join(e.messages))
         previous = task.documents.filter(
-            pk=request.POST.get("replaces") or 0, is_current=True
+            pk=request.POST.get("replaces") or 0, is_current=True, kind=TaskDocument.Kind.PETITION
         ).first()
-        doc = TaskDocument(
-            task=task,
-            original_name=f.name[:300],
-            size=f.size,
-            uploaded_by=request.user,
-            previous=previous,
-            version=(previous.version + 1) if previous else 1,
-        )
-        doc.file.save(f.name, f, save=False)
-        doc.save()
-        if previous:
-            previous.is_current = False
-            previous.save(update_fields=["is_current"])
-        verb = f"yeni sürüm yükledi (v{doc.version})" if previous else "belge yükledi"
-        TaskEvent.objects.create(
-            task=task, actor=request.user, kind="updated", comment=f"{doc.original_name} — {verb}"
-        )
-        warning = mirror_task_document(doc)
-        return _docs_partial(request, task, warning=warning)
+        if request.POST.get("replaces") and not previous:
+            raise PermissionDenied
+        if previous and len(files) != 1:
+            return _docs_partial(request, task, "Yeni sürüm için tek belge seçin.")
+        warnings = []
+        for f in files:
+            doc = TaskDocument(
+                task=task,
+                kind=TaskDocument.Kind.PETITION,
+                original_name=f.name[:300],
+                size=f.size,
+                uploaded_by=request.user,
+                previous=previous,
+                version=(previous.version + 1) if previous else 1,
+            )
+            doc.file.save(f.name, f, save=False)
+            doc.save()
+            if previous:
+                previous.is_current = False
+                previous.save(update_fields=["is_current"])
+            verb = f"yeni sürüm yükledi (v{doc.version})" if previous else "belge yükledi"
+            TaskEvent.objects.create(
+                task=task,
+                actor=request.user,
+                kind="updated",
+                comment=f"{doc.original_name} — {verb}",
+            )
+            if warning := mirror_task_document(doc):
+                warnings.append(warning)
+        return _docs_partial(request, task, warning=" ".join(warnings))
 
 
 class TaskDocumentDeleteView(View):
@@ -413,10 +506,11 @@ class TaskDocumentDeleteView(View):
 
     @transaction.atomic
     def post(self, request, pk, doc_pk):
-        task = get_object_or_404(Task.objects.select_for_update(), pk=pk)
+        task = get_object_or_404(Task.objects.select_for_update(of=("self",)), pk=pk)
         doc = get_object_or_404(TaskDocument, pk=doc_pk, task=task, is_current=True)
         if (
-            task.status != TaskStatus.ACTIVE
+            doc.kind != TaskDocument.Kind.PETITION
+            or task.status != TaskStatus.ACTIVE
             or not task.approval_seen
             or not (doc.uploaded_by_id == request.user.pk or is_admin(request.user))
         ):
@@ -428,3 +522,100 @@ class TaskDocumentDeleteView(View):
             previous.is_current = True
             previous.save(update_fields=["is_current"])
         return _docs_partial(request, task)
+
+
+class PetitionTemplateDownloadView(View):
+    def get(self, request, pk):
+        from pathlib import Path
+
+        from django.http import FileResponse, HttpResponseBadRequest, HttpResponseNotFound
+
+        from apps.core import folders
+        from apps.core.text import tr_capitalize_words, tr_lower
+
+        from .petition_templates import client_name, fill_docx, fill_udf, party_name
+
+        task = get_object_or_404(Task.objects.select_related("case", "client", "task_type"), pk=pk)
+        name = task.task_type.petition_template
+        root = folders.root()
+        if not root or not name or Path(name).name != name:
+            return HttpResponseNotFound("Bu görev türü için şablon bulunmuyor.")
+        directory = root / "Şablon Dilekçeler"
+        path = directory / name
+        if directory.is_symlink() or path.is_symlink() or not path.is_file():
+            return HttpResponseNotFound("Şablon dosyası bulunmuyor.")
+        client = task.client
+        case = task.case
+        groups = {"plaintiff": [], "defendant": []}
+
+        def add_client(person, role):
+            if role not in groups:
+                return
+            identity = person.tckn if person.kind == "person" else person.vkn
+            label = "TC" if person.kind == "person" else "VKN"
+            name = client_name(person) + (f" ({label}: {identity})" if identity else "")
+            address = (
+                person.contacts.filter(kind="address")
+                .order_by("-is_primary", "pk")
+                .values_list("value", flat=True)
+                .first()
+                or ""
+            )
+            groups[role].append((name, address))
+
+        role = case.client_role
+        if task.task_type.name == "Dava Dilekçesi Hazırlama Ve Dava Açılışı":
+            role = "plaintiff"
+        add_client(client, role)
+        for link in case.co_client_links.select_related("client"):
+            add_client(link.client, link.role)
+        for link in case.party_links.select_related("party"):
+            if link.role in groups:
+                party = link.party
+                identity = party.identity_no
+                identity_label = "TC" if party.kind == "person" else "VKN"
+                name = party_name(party) + (f" ({identity_label}: {identity})" if identity else "")
+                groups[link.role].append((name, party.address))
+
+        def names(role):
+            return ", ".join(name for name, _ in groups[role])
+
+        def addresses(role):
+            return "; ".join(address for _, address in groups[role] if address)
+
+        values = {
+            "davaci": names("plaintiff"),
+            "davaci_adres": addresses("plaintiff"),
+            "davali": names("defendant"),
+            "davali_adres": addresses("defendant"),
+            "mahkeme": case.authority,
+            "dosya_no": case.official_no_display,
+            "konu": case.subject,
+        }
+        try:
+            required = (
+                set()
+                if task.task_type.name == "Dava Dilekçesi Hazırlama Ve Dava Açılışı"
+                else {"mahkeme", "dosya_no"}
+            )
+            renderer = fill_udf if path.suffix.lower() == ".udf" else fill_docx
+            data = renderer(path.read_bytes(), values, required=required)
+        except (OSError, ValidationError) as exc:
+            return HttpResponseBadRequest(
+                "Şablon hazırlanamadı: "
+                + (
+                    " ".join(exc.messages)
+                    if isinstance(exc, ValidationError)
+                    else "Dosya okunamadı."
+                )
+            )
+        import io
+
+        title = task.task_type.name
+        if title == "Dava Dilekçesi Hazırlama Ve Dava Açılışı":
+            title = "Dava Dilekçesi"
+        authority = tr_capitalize_words(tr_lower(case.authority))
+        reference = " ".join(part for part in (authority, case.official_no_display) if part)
+        filename = " - ".join(part for part in (client_name(client), title, reference) if part)
+        filename = folders.sanitize(filename, max_len=220) + path.suffix.lower()
+        return FileResponse(io.BytesIO(data), as_attachment=True, filename=filename)

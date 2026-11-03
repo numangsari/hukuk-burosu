@@ -1,25 +1,40 @@
 {% extends "base.html" %}
-{% block title %}Dosya incelemesi{% endblock %}
+{% block title %}{{ record.authority }} {{ record.number }} — Dosya incelemesi{% endblock %}
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-2">
-  <h1 class="h3 mb-0">{{ record.authority }} — {{ record.number }}</h1>
+<div class="page-header mb-3">
+  <div>
+  {% if user.is_office_admin %}
+  <div class="eyebrow"><a href="{% url 'portal_review' %}"><i class="bi bi-chevron-left"></i> UYAP ve UETS inceleme</a></div>
+  {% else %}
+  <div class="eyebrow">UYAP kaynak kaydı</div>
+  {% endif %}
+    <div class="d-flex align-items-center gap-2 flex-wrap">
+      <span class="badge-source badge-source-uyap" role="img" aria-label="UYAP kaydı" title="UYAP kaydı"><i class="bi bi-bank2" aria-hidden="true"></i></span>
+      <h1 class="page-title">{{ record.authority }} — {{ record.number }}</h1>
+    </div>
+    <div class="page-subtitle">{{ record.category }} · {{ record.status }}</div>
+  </div>
+  {% if record.case %}
+  <div class="page-actions">
+    <a class="btn btn-primary" href="{{ record.case.get_absolute_url }}"><i class="bi bi-folder2-open"></i>Dosyayı aç</a>
+  </div>
+  {% endif %}
 </div>
-<p class="text-body-secondary">{{ record.category }} · {{ record.status }}</p>
 
 {% if record.case %}
-  <div class="alert alert-success d-flex align-items-center justify-content-between py-2 px-3">
+  <div class="alert alert-success d-flex align-items-center justify-content-between py-2 px-3 mb-3">
     <div>
       <i class="bi bi-check-circle-fill me-2"></i>
-      Bu UYAP kaydı büro dosyasına bağlı: <strong>{{ record.case.authority }} {{ record.case.official_no }}</strong> ({{ record.case.client.name }})
+      Bu UYAP kaydı büro dosyasına bağlı: <strong>{{ record.case.authority }} {{ record.case.official_no }}</strong> ({{ record.case.client.name|default:"Müvekkil eksik" }})
     </div>
     <a class="btn btn-sm btn-success" href="{{ record.case.get_absolute_url }}">Dosyayı aç</a>
   </div>
-{% else %}
-  <div class="card p-3 mb-4 bg-light border">
-    <h2 class="h6 mb-2">Büro Dosyasına Bağla</h2>
+{% elif user.is_office_admin %}
+  <div class="card p-3 mb-3">
+    <h2 class="section-title mb-2">Büro Dosyasına Bağla</h2>
     {% if suggested_case %}
       <div class="alert alert-info py-2 px-3 mb-3">
-        <i class="bi bi-magic me-1"></i> Otomatik önerilen dosya: <strong>{{ suggested_case.authority }} {{ suggested_case.official_no }}</strong> — Müvekkil: {{ suggested_case.client.name }}
+        <i class="bi bi-magic me-1"></i> Otomatik önerilen dosya: <strong>{{ suggested_case.authority }} {{ suggested_case.official_no }}</strong> — Müvekkil: {{ suggested_case.client.name|default:"Müvekkil eksik" }}
       </div>
     {% else %}
       <p class="small text-body-secondary mb-2">UYAP kaydı henüz bir büro dosyasına bağlanmadı. Aşağıdan ilgili dosyayı seçerek bağlayabilirsiniz.</p>
@@ -35,80 +50,102 @@
   </div>
 {% endif %}
 
-<h2 class="h5 mt-4">Dosya bilgileri</h2>
-<dl class="row">
-  {% for label, value in details %}
-    <dt class="col-sm-3 text-body-secondary">{{ label }}</dt>
-    <dd class="col-sm-9">{{ value }}</dd>
-  {% empty %}
-    <dd class="col-12 text-body-secondary">Ayrıntı alınamadı.</dd>
-  {% endfor %}
-</dl>
+<div class="row g-3">
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-header"><h2 class="card-title">Dosya bilgileri</h2></div>
+      <div class="card-body">
+        <dl class="dl-grid">
+          {% for label, value in details %}
+            <dt>{{ label }}</dt>
+            <dd>{{ value }}</dd>
+          {% empty %}
+            <dd class="text-body-secondary">Ayrıntı alınamadı.</dd>
+          {% endfor %}
+        </dl>
+      </div>
+    </div>
+  </div>
+
+  {% if finance %}
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-header"><h2 class="card-title">Dosya hesabı</h2></div>
+      <div class="card-body">
+        <dl class="dl-grid">
+          {% for item in finance %}
+            {% if item.degerAlan != None %}
+              <dt>{{ item.textAlan }}</dt>
+              <dd class="tabular fw-medium">{{ item.degerAlan }}</dd>
+            {% endif %}
+          {% endfor %}
+        </dl>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+</div>
 
 {% if parties %}
-  <h2 class="h5 mt-4">Taraflar</h2>
-  <div class="table-responsive">
-    <table class="table table-sm">
-      <thead><tr><th>Ad / unvan</th><th>Sıfat</th><th>Vekil</th></tr></thead>
-      <tbody>
-        {% for party in parties %}
-          <tr><td>{{ party.adi }}</td><td>{{ party.rol }}</td><td>{{ party.vekil|default:"—" }}</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
+  <div class="card table-card mt-3">
+    <div class="card-header"><h2 class="card-title">Taraflar</h2></div>
+    <div class="table-responsive">
+      <table class="table mb-0">
+        <thead><tr><th>Ad / unvan</th><th>Sıfat</th><th>Vekil</th></tr></thead>
+        <tbody>
+          {% for party in parties %}
+            <tr><td class="fw-medium">{{ party.adi }}</td><td><span class="chip no-dot">{{ party.rol }}</span></td><td>{{ party.vekil|default:"—" }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
   </div>
 {% endif %}
 
 {% if hearings %}
-  <h2 class="h5 mt-4">Duruşmalar</h2>
-  <ul class="list-group list-group-flush">
-    {% for hearing in hearings %}
-      <li class="list-group-item px-0">{{ hearing.tarihSaat }} · {{ hearing.yerelBirimAd }}</li>
-    {% endfor %}
-  </ul>
-{% endif %}
-
-{% if finance %}
-  <h2 class="h5 mt-4">Dosya hesabı</h2>
-  <dl class="row">
-    {% for item in finance %}
-      {% if item.degerAlan != None %}
-        <dt class="col-sm-3 text-body-secondary">{{ item.textAlan }}</dt>
-        <dd class="col-sm-9">{{ item.degerAlan }}</dd>
-      {% endif %}
-    {% endfor %}
-  </dl>
+  <div class="card mt-3">
+    <div class="card-header"><h2 class="card-title">Duruşmalar</h2></div>
+    <ul class="list-group list-group-flush">
+      {% for hearing in hearings %}
+        <li class="list-group-item">{{ hearing.tarihSaat }} · {{ hearing.yerelBirimAd }}</li>
+      {% endfor %}
+    </ul>
+  </div>
 {% endif %}
 
 {% if transactions %}
-  <h2 class="h5 mt-4">Tahsilat ve geri ödemeler</h2>
-  <ul class="list-group list-group-flush">
-    {% for item in transactions.tahsilatList %}
-      <li class="list-group-item px-0">{{ item.tahsilatTarihi }} · {{ item.tahsilatTuru }} · {{ item.tahsilatTutari }}</li>
-    {% endfor %}
-    {% for item in transactions.reddiyatList %}
-      <li class="list-group-item px-0">{{ item.reddiyatTarihi }} · {{ item.reddiyatNedeni }} · {{ item.odenecekMiktar }}</li>
-    {% endfor %}
-  </ul>
+  <div class="card mt-3">
+    <div class="card-header"><h2 class="card-title">Tahsilat ve geri ödemeler</h2></div>
+    <ul class="list-group list-group-flush">
+      {% for item in transactions.tahsilatList %}
+        <li class="list-group-item tabular">{{ item.tahsilatTarihi }} · {{ item.tahsilatTuru }} · <strong>{{ item.tahsilatTutari }}</strong></li>
+      {% endfor %}
+      {% for item in transactions.reddiyatList %}
+        <li class="list-group-item tabular">{{ item.reddiyatTarihi }} · {{ item.reddiyatNedeni }} · <strong>{{ item.odenecekMiktar }}</strong></li>
+      {% endfor %}
+    </ul>
+  </div>
 {% endif %}
 
 {% if folders %}
-  <h2 class="h5 mt-4">Evrak ağacındaki dosyalar</h2>
-  <ul class="list-group list-group-flush">
-    {% for name, entries in folders.items %}
-      <li class="list-group-item px-0">{{ name }} — {{ entries|length }} belge bilgisi</li>
-    {% endfor %}
-  </ul>
+  <div class="card mt-3">
+    <div class="card-header"><h2 class="card-title">Evrak ağacındaki dosyalar</h2></div>
+    <ul class="list-group list-group-flush">
+      {% for name, entries in folders.items %}
+        <li class="list-group-item">{{ name }} — {{ entries|length }} belge bilgisi</li>
+      {% endfor %}
+    </ul>
+  </div>
 {% endif %}
 
 {% if documents %}
-  <h2 class="h5 mt-4">Son belge bilgileri</h2>
-  <ul class="list-group list-group-flush">
-    {% for document in documents %}
-      <li class="list-group-item px-0">{{ document.tur|default:document.tip }}{% if document.aciklama %} · {{ document.aciklama }}{% endif %}</li>
-    {% endfor %}
-  </ul>
+  <div class="card mt-3">
+    <div class="card-header"><h2 class="card-title">Son belge bilgileri</h2></div>
+    <ul class="list-group list-group-flush">
+      {% for document in documents %}
+        <li class="list-group-item">{{ document.tur|default:document.tip }}{% if document.aciklama %} · {{ document.aciklama }}{% endif %}</li>
+      {% endfor %}
+    </ul>
+  </div>
 {% endif %}
-
-<p class="mt-4"><a href="{% url 'portal_review' %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Listeye dön</a></p>
 {% endblock %}

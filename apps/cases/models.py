@@ -103,14 +103,19 @@ class CaseFlow(models.Model):
 
 class Case(TimeStampedModel):
     client = models.ForeignKey(
-        Client, verbose_name="müvekkil", on_delete=models.PROTECT, related_name="cases"
+        Client,
+        verbose_name="müvekkil",
+        on_delete=models.PROTECT,
+        related_name="cases",
+        null=True,
+        blank=True,
     )
     case_type = models.CharField("dosya türü", max_length=20, choices=CaseType.choices)
     client_role = models.CharField(
         "müvekkilin sıfatı", max_length=32, choices=PARTY_ROLE_CHOICES, blank=True
     )
     archive_folder_no = models.CharField("klasör no", max_length=50, blank=True)
-    archive_no = models.CharField("dosya no", max_length=50)
+    archive_no = models.CharField("dosya no", max_length=50, blank=True)
     official_no = models.CharField("dosya numarası", max_length=100, blank=True)
     # İhtarnamede noterin düzenleme tarihi (numara yalnızca yevmiye numarasıdır).
     official_date = models.DateField("ihtarname tarihi", null=True, blank=True)
@@ -122,7 +127,10 @@ class Case(TimeStampedModel):
         "numara türü", max_length=10, choices=NumberKind.choices, default=NumberKind.ESAS
     )
     authority = models.CharField("kurum adı", max_length=200, blank=True)
-    subject = models.CharField("konu", max_length=300)
+    subject = models.CharField("konu", max_length=300, blank=True)
+    uyap_stage = models.CharField("UYAP aşama", max_length=200, blank=True)
+    uyap_subject = models.CharField("UYAP dava konusu", max_length=500, blank=True)
+    next_hearing_at = models.CharField("sıradaki duruşma tarihi", max_length=100, blank=True)
     value = models.DecimalField("değer", max_digits=16, decimal_places=2, null=True, blank=True)
     status = models.CharField(
         "durum", max_length=20, choices=CaseStatus.choices, default=CaseStatus.OPEN
@@ -156,10 +164,12 @@ class Case(TimeStampedModel):
     )
     responsible_intern = models.ForeignKey(
         settings.AUTH_USER_MODEL,
-        verbose_name="sorumlu stajyer",
+        verbose_name="yardımcı sorumlu",
         on_delete=models.PROTECT,
         related_name="cases_as_intern",
         limit_choices_to=intern_choices,
+        null=True,
+        blank=True,
     )
     opened_on = models.DateField(
         "dosya açılış tarihi", default=timezone.localdate, null=True, blank=True
@@ -213,11 +223,49 @@ class Case(TimeStampedModel):
 
     def client_ids(self) -> set:
         """Dosyanın tüm müvekkillerinin (asıl + ek) kimlikleri."""
-        return {self.client_id, *self.co_clients.values_list("pk", flat=True)}
+        return {
+            cid for cid in (self.client_id, *self.co_clients.values_list("pk", flat=True)) if cid
+        }
 
     @property
     def all_clients(self) -> list:
-        return [self.client, *self.co_clients.all()]
+        return [c for c in [self.client, *self.co_clients.all()] if c]
+
+    @property
+    def missing_fields(self) -> list[str]:
+        """Dosyada kullanıcının tamamlaması gereken eksik zorunlu alanlar."""
+        missing = []
+        if not self.client_id:
+            missing.append("Müvekkil")
+        if not self.client_role:
+            missing.append("Müvekkilin sıfatı")
+        if not self.archive_folder_no or not self.archive_no:
+            missing.append("Fiziki arşiv no")
+        if not self.subject:
+            missing.append("Konu")
+        return missing
+
+    @property
+    def uyap_status_banner(self) -> str:
+        """Açık/kapalı durumu ile UYAP aşama/kapanış bilgisini bir arada döndürür."""
+        stage = (self.uyap_stage or "").strip()
+        if self.is_open:
+            if stage and stage.lower() not in {"açık", "acik"}:
+                return f"AÇIK: {stage}"
+            return "AÇIK: Açık" if stage else "AÇIK"
+        parts = []
+        if self.closed_on:
+            parts.append(self.closed_on.strftime("%d.%m.%Y"))
+        reason = self.closing_label
+        if stage and not stage.lower().startswith("kapalı") and stage.lower() != "kapali":
+            reason = stage
+        elif stage:
+            match = re.search(r"Kapalı\s*\(([^0-9\)]+)\)", stage, re.I)
+            if match:
+                reason = match.group(1).strip()
+        if reason:
+            parts.append(reason)
+        return f"KAPALI: {' · '.join(parts)}" if parts else "KAPALI"
 
     @property
     def official_no_display(self) -> str:
@@ -244,10 +292,12 @@ class Case(TimeStampedModel):
     @property
     def display_name(self):
         if self.case_type in {CaseType.CONSULTANCY, CaseType.OTHER}:
-            return self.subject
+            return self.subject or self.uyap_subject or "Dosya"
         return (
             " - ".join(part for part in (self.authority, self.official_no_display) if part)
             or self.subject
+            or self.uyap_subject
+            or "Dosya"
         )
 
     def __str__(self):
@@ -363,6 +413,7 @@ class CaseParty(models.Model):
     role = models.CharField(
         "taraf sıfatı", max_length=32, choices=PARTY_ROLE_CHOICES, default=PartyRole.OTHER
     )
+    from_uyap = models.BooleanField("UYAP kaydı", default=False)
 
     class Meta:
         verbose_name = "dosya tarafı"

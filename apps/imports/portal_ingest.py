@@ -19,6 +19,8 @@ from apps.clients.models import Client
 from apps.core.text import fold, tr_upper
 
 from .models import PortalCapture, PortalCase, PortalNotice, PortalNoticeDocument
+from .portal_case_sync import sync_portal_case
+from .portal_finance import import_finance
 
 SENSITIVE = re.compile(
     r"token|password|passwd|sifre|şifre|parola|secret|authorization|cookie|session|credential|otp|guvenlik.?kodu|güvenlik.?kodu|dogrulama|doğrulama|verification.?code|^pass$",
@@ -60,6 +62,7 @@ def case_key(authority, number, case_kind):
 def kind_for(row, category=""):
     categories = {
         "Ceza": "criminal",
+        "CBS": "investigation",
         "Hukuk": "civil",
         "İcra": "enforcement",
         "İdari Yargı": "administrative",
@@ -68,11 +71,14 @@ def kind_for(row, category=""):
     }
     text = fold(
         " ".join(
-            str(row.get(k) or "")
-            for k in ("dosyaTur", "dosyaTurKodAciklama", "birimAdi", "yerelBirimAd")
+            [
+                str(row.get(k) or "")
+                for k in ("dosyaTur", "dosyaTurKodAciklama", "birimAdi", "yerelBirimAd")
+            ]
+            + [str(category or "")]
         )
     )
-    if "sorusturma" in text:
+    if any(w in text for w in ("sorusturma", "cbs", "bassavci")):
         return "investigation"
     if category in categories:
         return categories[category]
@@ -454,7 +460,13 @@ def import_captures(items, user, source_user=None):
         if status:
             record.status = status[:200]
         record.save(update_fields=["data", "status"])
-        # Kaynak bilgileri büro kayıtlarından ayrı tutulur; eşleştirme kullanıcıya aittir.
+        if record.case_id or source_user:
+            sync_portal_case(
+                record,
+                default_user=source_user or user,
+                create_missing=bool(source_user),
+            )
+        import_finance(record)
     return {
         "yanit": PortalCapture.objects.count(),
         "kaynak_dosya": PortalCase.objects.count(),

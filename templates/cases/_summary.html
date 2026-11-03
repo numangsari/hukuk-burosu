@@ -26,11 +26,164 @@
 
 <div class="row g-3">
   <div class="col-xl-8">
+    {% if case.portalcase %}
+    <div class="row g-3 mb-3">
+      <div class="col-lg-6">
+        <div class="card h-100"><div class="card-body">
+          <div class="d-flex align-items-center justify-content-between mb-3">
+            <div class="d-flex align-items-center gap-2">
+              <span class="badge-source badge-source-office" role="img" aria-label="Ofis kaydı" title="Kullanıcı / Ofis bilgileri"><i class="bi bi-briefcase" aria-hidden="true"></i></span>
+              <h2 class="section-title mb-0">Dosya bilgileri (Büro)</h2>
+            </div>
+            <a class="btn btn-sm btn-light" href="{% url 'cases:update' case.pk %}"><i class="bi bi-pencil"></i>Düzenle</a>
+          </div>
+          <div class="info-grid" style="grid-template-columns: 1fr">
+            <div class="info-item">
+              <div class="info-label">Müvekkil</div>
+              <div class="info-value">
+                {% if case.client %}
+                  <a href="{{ case.client.get_absolute_url }}">{{ case.client }}</a>{% for c in case.co_clients.all %}, <a href="{{ c.get_absolute_url }}">{{ c }}</a>{% endfor %}
+                  {% if case.client_role %} <span class="text-body-secondary fw-normal">· {{ case.get_client_role_display }}</span>{% else %} <span class="chip chip-warning no-dot ms-1">Sıfat eksik</span>{% endif %}
+                {% else %}
+                  <span class="chip chip-warning no-dot">Müvekkil girilmeli</span>
+                {% endif %}
+              </div>
+            </div>
+            <div class="info-item">
+              <div class="info-label">Konu (Büro açıklaması)</div>
+              <div class="info-value">{% if case.subject %}{{ case.subject }}{% else %}<span class="chip chip-warning no-dot">Konu girilmeli</span>{% endif %}</div>
+            </div>
+            <div class="info-item">
+              <div class="info-label">Fiziki arşiv yeri</div>
+              <div class="info-value tabular">{% if case.archive_folder_no and case.archive_no %}{{ case.archive_reference }}{% else %}<span class="chip chip-warning no-dot">Arşiv no girilmeli</span>{% endif %}</div>
+            </div>
+            {% if case.case_type == 'enforcement' %}
+            <div class="info-item">
+              <div class="info-label">Takibin dayanağı</div>
+              <div class="info-value">{{ case.enforcement_basis|default:"—"|linebreaksbr }}</div>
+            </div>
+            {% endif %}
+            {% if case.case_type == 'criminal' or case.case_type == 'investigation' %}
+            <div class="info-item">
+              <div class="info-label">Suç</div>
+              <div class="info-value">{{ case.crime|default:"—" }}</div>
+            </div>
+            {% endif %}
+            {% if case.is_open and case.stage_label %}
+            <div class="info-item">
+              <div class="info-label">Büro aşaması</div>
+              <div class="info-value">{{ case.stage_label }}</div>
+            </div>
+            {% endif %}
+          </div>
+        </div></div>
+      </div>
+
+      <div class="col-lg-6">
+        <div class="card h-100"><div class="card-body">
+          <div class="d-flex align-items-center justify-content-between mb-3">
+            <div class="d-flex align-items-center gap-2">
+              <span class="badge-source badge-source-uyap" role="img" aria-label="UYAP kaydı" title="UYAP kaydı"><i class="bi bi-bank2" aria-hidden="true"></i></span>
+              <h2 class="section-title mb-0">UYAP bilgileri</h2>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+              <span class="small text-body-secondary">Salt okunur</span>
+              <a class="small" href="{% url 'portal_review_detail' case.portalcase.pk %}" title="UYAP'tan alınan ham verileri incele">Ham kayıt <i class="bi bi-box-arrow-up-right"></i></a>
+            </div>
+          </div>
+          <div class="info-grid" style="grid-template-columns: 1fr">
+            <div class="info-item">
+              <div class="info-label"><span class="badge-source badge-source-uyap me-1"><i class="bi bi-bank2"></i></span>Durum / UYAP Aşama</div>
+              <div class="info-value fw-semibold">{{ case.uyap_status_banner }}</div>
+            </div>
+            <div class="info-item">
+              <div class="info-label"><span class="badge-source badge-source-uyap me-1"><i class="bi bi-bank2"></i></span>Dosya türü</div>
+              <div class="info-value">{{ case.get_case_type_display }}{% if case.portalcase.category %} <span class="text-body-secondary fw-normal">({{ case.portalcase.category }})</span>{% endif %}</div>
+            </div>
+            {% if case.authority or case.portalcase.authority %}
+            <div class="info-item">
+              <div class="info-label"><span class="badge-source badge-source-uyap me-1"><i class="bi bi-bank2"></i></span>{{ case.labels.authority|default:"Birim" }}</div>
+              <div class="info-value">{{ case.authority|default:case.portalcase.authority }}</div>
+            </div>
+            {% endif %}
+            {% if case.official_no_display or case.portalcase.number %}
+            <div class="info-item">
+              <div class="info-label"><span class="badge-source badge-source-uyap me-1"><i class="bi bi-bank2"></i></span>{{ case.labels.official_no|default:"Dosya numarası" }}</div>
+              <div class="info-value tabular">{{ case.official_no_display|default:case.portalcase.number }}</div>
+            </div>
+            {% endif %}
+            {% if case.uyap_subject %}
+            <div class="info-item">
+              <div class="info-label"><span class="badge-source badge-source-uyap me-1"><i class="bi bi-bank2"></i></span>UYAP Dava Konusu</div>
+              <div class="info-value">{{ case.uyap_subject }}</div>
+            </div>
+            {% endif %}
+            <div class="info-item">
+              <div class="info-label"><span class="badge-source badge-source-uyap me-1"><i class="bi bi-bank2"></i></span>Dosya açılış tarihi</div>
+              <div class="info-value tabular">{{ case.opened_on|date:"d.m.Y"|default:"—" }}</div>
+            </div>
+            {% if case.closed_on %}
+            <div class="info-item">
+              <div class="info-label"><span class="badge-source badge-source-uyap me-1"><i class="bi bi-bank2"></i></span>Dosya kapanış tarihi</div>
+              <div class="info-value tabular">{{ case.closed_on|date:"d.m.Y" }}</div>
+            </div>
+            {% endif %}
+            {% if case.next_hearing_at %}
+            <div class="info-item">
+              <div class="info-label"><span class="badge-source badge-source-uyap me-1"><i class="bi bi-bank2"></i></span>Sıradaki duruşma tarihi</div>
+              <div class="info-value tabular fw-semibold">{{ case.next_hearing_at }}</div>
+            </div>
+            {% endif %}
+            {% if case.enforcement_type %}
+            <div class="info-item">
+              <div class="info-label"><span class="badge-source badge-source-uyap me-1"><i class="bi bi-bank2"></i></span>Takip türü</div>
+              <div class="info-value">{{ case.get_enforcement_type_display }}</div>
+            </div>
+            {% endif %}
+            {% if case.case_type == 'enforcement' and case.enforcement_amount != None %}
+            <div class="info-item">
+              <div class="info-label"><span class="badge-source badge-source-uyap me-1"><i class="bi bi-bank2"></i></span>Takipte kesinleşen miktar</div>
+              <div class="info-value tabular">{{ case.enforcement_amount|tl }}</div>
+            </div>
+            {% endif %}
+            {% if case.mediator %}
+            <div class="info-item">
+              <div class="info-label"><span class="badge-source badge-source-uyap me-1"><i class="bi bi-bank2"></i></span>Arabulucu</div>
+              <div class="info-value">{{ case.mediator }}</div>
+            </div>
+            {% endif %}
+            {% if portal_information.fields %}
+              {% for label, value in portal_information.fields %}
+                {% if label != "Durum / UYAP Aşama" and label != "Birim" and label != "Kurum" and label != "Dosya numarası" and label != "UYAP dosya türü" %}
+                  {% if label == "UYAP Dava Konusu" and case.uyap_subject or label == "Dosya açılış tarihi" and case.opened_on|date:"d.m.Y" == value or label == "Dosya kapanış tarihi" and case.closed_on|date:"d.m.Y" == value or label == "Sıradaki duruşma tarihi" and case.next_hearing_at == value or label == "Takibin türü" and case.enforcement_type or label == "Arabulucu" and case.mediator %}
+                  {% else %}
+                  <div class="info-item">
+                    <div class="info-label"><span class="badge-source badge-source-uyap me-1"><i class="bi bi-bank2"></i></span>{{ label }}</div>
+                    <div class="info-value">{{ value|linebreaksbr }}</div>
+                  </div>
+                  {% endif %}
+                {% endif %}
+              {% endfor %}
+            {% endif %}
+          </div>
+          {% if case.case_type == "enforcement" and portal_information.account %}
+          <div class="mt-3 pt-2 border-top d-flex align-items-center justify-content-between">
+            <span class="small text-body-secondary">Diğer hesap kalemleri ({{ portal_information.account|length }})</span>
+            <a href="#t-hesap" class="small fw-medium" onclick="goCaseTab('#t-hesap'); return false">Dosya Hesabı sekmesinde gör →</a>
+          </div>
+          {% elif portal_information.account %}
+          <h3 class="h6 mt-3">UYAP dosya hesabı</h3>
+          <div class="info-grid">{% for label, value in portal_information.account %}<div class="info-item"><div class="info-label"><span class="badge-source badge-source-uyap me-1"><i class="bi bi-bank2"></i></span>{{ label }}</div><div class="info-value">{{ value }}</div></div>{% endfor %}</div>
+          {% endif %}
+        </div></div>
+      </div>
+    </div>
+    {% else %}
     <div class="card mb-3"><div class="card-body">
       <h2 class="section-title">Dosya bilgileri</h2>
       <div class="info-grid">
-        <div class="info-item info-wide"><div class="info-label">Müvekkil</div><div class="info-value"><a href="{{ case.client.get_absolute_url }}">{{ case.client }}</a>{% for c in case.co_clients.all %}, <a href="{{ c.get_absolute_url }}">{{ c }}</a>{% endfor %}{% if case.client_role %} <span class="text-body-secondary fw-normal">· {{ case.get_client_role_display }}</span>{% endif %}</div></div>
-        <div class="info-item"><div class="info-label">Konu</div><div class="info-value">{{ case.subject }}</div></div>
+        <div class="info-item info-wide"><div class="info-label">Müvekkil</div><div class="info-value">{% if case.client %}<a href="{{ case.client.get_absolute_url }}">{{ case.client }}</a>{% else %}<span class="chip chip-warning no-dot">Müvekkil seçilmedi</span>{% endif %}{% for c in case.co_clients.all %}, <a href="{{ c.get_absolute_url }}">{{ c }}</a>{% endfor %}{% if case.client_role %} <span class="text-body-secondary fw-normal">· {{ case.get_client_role_display }}</span>{% endif %}</div></div>
+        <div class="info-item"><div class="info-label">Konu</div><div class="info-value">{{ case.subject|default:"—" }}</div></div>
         {% if case.labels.authority %}<div class="info-item"><div class="info-label">{{ case.labels.authority }}</div><div class="info-value">{{ case.authority|default:"—" }}</div></div>{% endif %}
         {% if case.labels.official_no %}<div class="info-item"><div class="info-label">{{ case.labels.official_no }}</div><div class="info-value tabular">{{ case.official_no_display|default:"—" }}</div></div>{% endif %}
         {% if case.case_type == 'notice' %}<div class="info-item"><div class="info-label">Tebligat</div><div class="info-value">{% if case.notice_service_no %}No: {{ case.notice_service_no }} · {% endif %}{% if case.notice_served %}Tebliğ edildi{% if case.notice_served_on %} ({{ case.notice_served_on|date:"d.m.Y" }}){% endif %}{% else %}Tebliğ edilmedi{% endif %}</div></div>{% endif %}
@@ -45,14 +198,6 @@
         {% if case.mediator %}<div class="info-item"><div class="info-label">Arabulucu</div><div class="info-value">{{ case.mediator }}</div></div>{% endif %}
         {% if case.labels.value and case.value %}<div class="info-item"><div class="info-label">{{ case.labels.value }}</div><div class="info-value tabular">{{ case.value|tl }}</div></div>{% endif %}
       </div>
-    </div></div>
-
-    {% if portal_information %}
-    <div class="card mb-3"><div class="card-body">
-      <div class="d-flex align-items-center gap-2 mb-3">{% include "cases/_source_badge.html" %}<h2 class="section-title mb-0">UYAP bilgileri</h2></div>
-      {% if portal_information.fields %}<div class="info-grid">{% for label, value in portal_information.fields %}<div class="info-item"><div class="info-label">{{ label }}</div><div class="info-value">{{ value|linebreaksbr }}</div></div>{% endfor %}</div>{% else %}<div class="text-body-secondary small">UYAP bilgisi henüz alınmadı.</div>{% endif %}
-      {% if portal_information.account %}<h3 class="h6 mt-3">UYAP dosya hesabı</h3><div class="info-grid">{% for label, value in portal_information.account %}<div class="info-item"><div class="info-label">{{ label }}</div><div class="info-value">{{ value }}</div></div>{% endfor %}</div>{% endif %}
-      <p class="text-body-secondary small mt-3 mb-0">Bu bilgiler UYAP kaydından gelir.</p>
     </div></div>
     {% endif %}
 
@@ -87,8 +232,11 @@
           <div class="party-summary-item">
             <span class="avatar avatar-sm party-avatar"><i class="bi {% if item.is_client %}bi-person-check{% else %}bi-person{% endif %}"></i></span>
             <div class="min-w-0">
-              <div class="fw-medium text-truncate">{% if item.url %}<a href="{{ item.url }}">{{ item.name }}</a>{% else %}{{ item.name }}{% endif %}{% if item.is_client %} <span class="text-body-secondary fw-normal">(müvekkil)</span>{% endif %}</div>
-              <div class="small text-body-secondary">{{ item.role }}{% if item.identity %} · <span class="tabular">{{ item.identity }}</span>{% endif %}</div>
+              <div class="fw-medium text-truncate">
+                {% if item.from_uyap %}<span class="badge-source badge-source-uyap me-1" role="img" aria-label="UYAP kaydı" title="UYAP kaydı"><i class="bi bi-bank2" aria-hidden="true"></i></span>{% endif %}
+                {% if item.url %}<a href="{{ item.url }}">{{ item.name }}</a>{% else %}{{ item.name }}{% endif %}{% if item.is_client %} <span class="text-body-secondary fw-normal">(müvekkil)</span>{% endif %}
+              </div>
+              <div class="small text-body-secondary">{{ item.role }}{% if item.identity %} · <span class="tabular">{{ item.identity }}</span>{% endif %}{% if item.lawyer %} · Vekili: {{ item.lawyer }}{% endif %}</div>
             </div>
           </div>
           {% endfor %}
@@ -98,20 +246,30 @@
       {% else %}<div class="small text-body-secondary">Taraf eklenmemiş.</div>{% endif %}
     </div></div>
 
-
+    {% if case.office_sources.all %}
+    <div class="card mb-3"><div class="card-body">
+      <h2 class="section-title">Eski listedeki bilgiler</h2>
+      {% for source in case.office_sources.all %}
+      <h3 class="fs-6">{{ source.source_name }} · {{ source.sheet }} · {{ source.row_number }}. satır</h3>
+      <dl class="row">{% for label, value in source.values.items %}<dt class="col-sm-3">{{ label }}</dt><dd class="col-sm-9">{{ value|linebreaksbr }}</dd>{% endfor %}</dl>
+      {% endfor %}
+    </div></div>
+    {% endif %}
   </div>
 
   <div class="col-xl-4">
     <div class="card mb-3"><div class="card-body">
       <h2 class="section-title">Ekip</h2>
-      <div class="d-flex align-items-center gap-2 mb-3">
+      <div class="d-flex align-items-center gap-2{% if office.use_assistant_assignee and case.responsible_intern %} mb-3{% endif %}">
         <span class="avatar avatar-sm" style="--h: {{ case.responsible_lawyer.avatar_hue }}">{{ case.responsible_lawyer.initials }}</span>
         <div><div class="fw-medium">{{ case.responsible_lawyer }}</div><div class="small text-body-secondary">Sorumlu avukat</div></div>
       </div>
+      {% if office.use_assistant_assignee and case.responsible_intern %}
       <div class="d-flex align-items-center gap-2">
         <span class="avatar avatar-sm" style="--h: {{ case.responsible_intern.avatar_hue }}">{{ case.responsible_intern.initials }}</span>
-        <div><div class="fw-medium">{{ case.responsible_intern }}</div><div class="small text-body-secondary">Sorumlu stajyer</div></div>
+        <div><div class="fw-medium">{{ case.responsible_intern }}</div><div class="small text-body-secondary">Yardımcı sorumlu</div></div>
       </div>
+      {% endif %}
     </div></div>
 
     <div class="card mb-3"><div class="card-body">
@@ -138,7 +296,7 @@
       {% else %}<div class="small text-body-secondary">Yaklaşan görev yok.</div>{% endif %}
     </div></div>
 
-    <div class="card"><div class="card-body">
+    <div class="card mb-3"><div class="card-body">
       <h2 class="section-title">Tarihler</h2>
       <dl class="dl-grid" style="grid-template-columns: 110px 1fr">
         <dt>Açılış</dt><dd class="tabular">{{ case.opened_on|date:"d.m.Y"|default:"—" }}</dd>
@@ -148,20 +306,10 @@
       </dl>
     </div></div>
   </div>
+  <div class="col-12">
+    {% include "cases/_timeline.html" %}
+  </div>
 </div>
-{% if case.office_sources.all %}
-<div class="card mb-3"><div class="card-body">
-  <h2 class="section-title">Eski listedeki bilgiler</h2>
-  {% for source in case.office_sources.all %}
-  <h3 class="fs-6">{{ source.source_name }} · {{ source.sheet }} · {{ source.row_number }}. satır</h3>
-  <dl class="row">{% for label, value in source.values.items %}<dt class="col-sm-3">{{ label }}</dt><dd class="col-sm-9">{{ value|linebreaksbr }}</dd>{% endfor %}</dl>
-  {% endfor %}
-</div></div>
-{% endif %}
-{% if case.portalcase %}
-<p><a href="{% url 'portal_review_detail' case.portalcase.pk %}">UYAP'tan alınan dosya bilgilerini incele</a></p>
-{% endif %}
-<div class="mt-3">{% include "cases/_timeline.html" %}</div>
 <script>
   function goCaseTab(target) {
     const tab = document.querySelector('.nav-underline-tabs [data-bs-target="' + target + '"]');

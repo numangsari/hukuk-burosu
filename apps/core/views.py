@@ -64,8 +64,8 @@ class HomeView(TemplateView):
         result = combined_events(today, today + dt.timedelta(days=AGENDA_DAYS))
         by_day = group_by_day(result.events)
         own = own_tasks_for(user)
-        # Stajyerler kontrolcü olmadığı için onlarda "Kontrolümü bekleyenler" paneli yok.
-        show_review = user.role != user.Role.INTERN
+        # Yalnızca kontrolcü olabilen rollerde (yönetici, kıdemli avukat, avukat) gösterilir.
+        show_review = user.role in (user.Role.ADMIN, user.Role.SENIOR, user.Role.LAWYER)
         if show_review:
             review = review_tasks_for(user)
             ctx.update(review_tasks=review[:HOME_TASK_LIMIT], review_task_count=review.count())

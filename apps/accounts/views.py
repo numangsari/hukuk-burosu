@@ -1,3 +1,5 @@
+import contextlib
+
 from django.contrib import messages
 from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.views import LoginView
@@ -11,7 +13,6 @@ from django.views import View
 
 from apps.core.permissions import is_admin
 from apps.office.forms import (
-    BackupSettingsForm,
     CalendarForm,
     DocumentsRootForm,
     OfficeForm,
@@ -49,6 +50,9 @@ class SettingsView(View):
         "yedek",
         "puanlar",
         "eklenti",
+        "monitor",
+        "kullanici_analizi",
+        "veri_aktarim",
     }
 
     def _forms(self, request, section=None, data=None, files=None):
@@ -80,7 +84,6 @@ class SettingsView(View):
             forms["kullanicilar"] = UserAdminForm(
                 *bound("kullanicilar"), instance=edit or User(), editor=user
             )
-            forms["yedek"] = BackupSettingsForm(*bound("yedek"), instance=office)
             forms["gorev_turleri"] = TaskTypeFormSet(
                 *bound("gorev_turleri"), queryset=TaskType.objects.all(), prefix="tt"
             )
@@ -128,12 +131,15 @@ class SettingsView(View):
             )
         if active == "kullanicilar":
             ctx["users"] = User.objects.all()
-        if active == "yedek":
+        if active == "klasor" and is_admin(request.user):
             from apps.backups.models import BackupRecord
             from apps.backups.services import backup_ready
 
             ctx["backups"] = BackupRecord.objects.all()[:20]
             ctx["backup_problem"] = backup_ready()
+            from apps.core.office_lists import office_lists_status
+
+            ctx["office_lists"] = office_lists_status()
         if active == "puanlar" and is_admin(request.user):
             import datetime as dt
 
@@ -157,12 +163,194 @@ class SettingsView(View):
                     ),
                 ),
             ).order_by("first_name", "last_name")
+        if active == "monitor" and is_admin(request.user):
+            ctx.update(self._monitor_context(office))
+        if active == "kullanici_analizi" and is_admin(request.user):
+            ctx.update(self._user_analytics_context())
+        if active == "veri_aktarim" and is_admin(request.user):
+            from apps.backups.models import BackupRecord
+            from apps.backups.services import backup_ready
+            from apps.imports.models import ImportBatch
+
+            ctx["backups"] = BackupRecord.objects.all()[:25]
+            ctx["backup_problem"] = backup_ready()
+            ctx["import_batches"] = ImportBatch.objects.select_related("created_by").order_by(
+                "-created_at"
+            )[:15]
         return render(request, self.template_name, ctx)
+
+    def _monitor_context(self, office) -> dict:
+        import datetime as dt
+        from pathlib import Path
+
+        from django.conf import settings
+        from django.db import connection
+
+        from apps.accounting.models import LedgerEntry
+        from apps.backups.models import BackupRecord
+        from apps.backups.services import backup_ready, last_success
+        from apps.cases.models import Case, CaseStatus, Document, Seizure
+        from apps.clients.models import Client, Party
+        from apps.core.office_lists import office_lists_status
+        from apps.imports.models import PortalCapture, PortalCase, PortalConnection, PortalNotice
+        from apps.tasks.models import OPEN_STATUSES, Task, TaskStatus
+
+        db_size = 0
+        if connection.vendor == "postgresql":
+            with connection.cursor() as cur:
+                cur.execute("SELECT pg_database_size(current_database())")
+                row = cur.fetchone()
+                db_size = row[0] if row else 0
+
+        media_root = Path(settings.MEDIA_ROOT)
+        media_size = 0
+        media_files = 0
+        if media_root.is_dir():
+            for f in media_root.rglob("*"):
+                if f.is_file():
+                    media_files += 1
+                    with contextlib.suppress(OSError):
+                        media_size += f.stat().st_size
+
+        today = timezone.localdate()
+        connections = list(
+            PortalConnection.objects.filter(active=True)
+            .select_related("owner")
+            .order_by("-created_at")
+        )
+        for c in connections:
+            c.recent = bool(c.last_seen and timezone.now() - c.last_seen <= dt.timedelta(minutes=3))
+
+        return {
+            "db_size": db_size,
+            "media_size": media_size,
+            "media_files": media_files,
+            "last_backup": last_success(),
+            "recent_backups": BackupRecord.objects.all()[:5],
+            "backup_problem": backup_ready(),
+            "office_lists": office_lists_status(),
+            "portal_connections": connections,
+            "counts": {
+                "clients": Client.objects.count(),
+                "parties": Party.objects.count(),
+                "cases_total": Case.objects.count(),
+                "cases_open": Case.objects.exclude(status=CaseStatus.CLOSED).count(),
+                "cases_closed": Case.objects.filter(status=CaseStatus.CLOSED).count(),
+                "cases_missing_info": Case.objects.filter(
+                    Q(client__isnull=True)
+                    | Q(subject="")
+                    | Q(archive_folder_no="")
+                    | Q(archive_no="")
+                ).count(),
+                "tasks_open": Task.objects.filter(status__in=OPEN_STATUSES).count(),
+                "tasks_review": Task.objects.filter(status=TaskStatus.IN_REVIEW).count(),
+                "tasks_overdue": Task.objects.filter(
+                    status__in=OPEN_STATUSES, due_date__lt=today
+                ).count(),
+                "documents": Document.objects.filter(is_current=True).count(),
+                "ledger_active": LedgerEntry.objects.filter(is_cancelled=False).count(),
+                "seizures_due": Seizure.objects.filter(
+                    case__status=CaseStatus.OPEN,
+                    renewal_date__isnull=False,
+                    renewal_date__lte=today + dt.timedelta(days=14),
+                ).count(),
+                "portal_cases": PortalCase.objects.count(),
+                "portal_notices": PortalNotice.objects.count(),
+                "portal_notices_pending": PortalNotice.objects.filter(resolution="").count(),
+                "portal_captures": PortalCapture.objects.count(),
+            },
+        }
+
+    def _user_analytics_context(self) -> dict:
+        import datetime as dt
+
+        from auditlog.models import LogEntry
+        from django.db.models import Count, Max
+
+        from apps.tasks.models import OPEN_STATUSES, Task, TaskStatus
+
+        today = timezone.localdate()
+        week_start = today - dt.timedelta(days=today.weekday())
+        month_start = today.replace(day=1)
+
+        users = list(
+            User.objects.annotate(
+                total_points=Sum("task_points__points"),
+                month_points=Sum(
+                    "task_points__points",
+                    filter=Q(
+                        task_points__earned_at__date__gte=month_start,
+                        task_points__earned_at__date__lte=today,
+                    ),
+                ),
+            ).order_by("-is_active", "order", "first_name", "last_name")
+        )
+
+        # LogEntry counts per user
+        log_stats = {
+            row["actor_id"]: row
+            for row in LogEntry.objects.filter(actor__isnull=False)
+            .values("actor_id")
+            .annotate(
+                total_ops=Count("id"),
+                today_ops=Count("id", filter=Q(timestamp__date=today)),
+                week_ops=Count("id", filter=Q(timestamp__date__gte=week_start)),
+                month_ops=Count("id", filter=Q(timestamp__date__gte=month_start)),
+                creates=Count("id", filter=Q(action=LogEntry.Action.CREATE)),
+                updates=Count("id", filter=Q(action=LogEntry.Action.UPDATE)),
+                logins=Count("id", filter=Q(action=LogEntry.Action.ACCESS)),
+                last_op=Max("timestamp"),
+            )
+        }
+
+        # Task workload per user
+        open_tasks_by_user = dict(
+            Task.objects.filter(status__in=OPEN_STATUSES)
+            .values_list("assigned_to_id")
+            .annotate(c=Count("id"))
+        )
+        overdue_tasks_by_user = dict(
+            Task.objects.filter(status__in=OPEN_STATUSES, due_date__lt=today)
+            .values_list("assigned_to_id")
+            .annotate(c=Count("id"))
+        )
+        review_waiting_by_user = dict(
+            Task.objects.filter(status=TaskStatus.IN_REVIEW)
+            .values_list("reviewer_id")
+            .annotate(c=Count("id"))
+        )
+        closed_tasks_by_user = dict(
+            Task.objects.filter(status=TaskStatus.CLOSED)
+            .values_list("assigned_to_id")
+            .annotate(c=Count("id"))
+        )
+
+        for u in users:
+            st = log_stats.get(u.pk, {})
+            u.today_ops = st.get("today_ops", 0)
+            u.week_ops = st.get("week_ops", 0)
+            u.month_ops = st.get("month_ops", 0)
+            u.total_ops = st.get("total_ops", 0)
+            u.creates = st.get("creates", 0)
+            u.updates = st.get("updates", 0)
+            u.logins = st.get("logins", 0)
+            u.last_activity_at = st.get("last_op") or u.last_login
+            u.open_task_count = open_tasks_by_user.get(u.pk, 0)
+            u.overdue_task_count = overdue_tasks_by_user.get(u.pk, 0)
+            u.review_waiting_count = review_waiting_by_user.get(u.pk, 0)
+            u.closed_task_count = closed_tasks_by_user.get(u.pk, 0)
+
+        return {"analytics_users": users}
 
     def get(self, request):
         active = request.GET.get("bolum", "profil")
+        if active == "yedek":
+            return redirect(f"{reverse('accounts:settings')}?bolum=klasor")
         forms = self._forms(request)
-        if active not in forms and not (active == "puanlar" and is_admin(request.user)):
+        if active not in forms and not (
+            active in {"puanlar", "monitor", "kullanici_analizi", "veri_aktarim"}
+            and is_admin(request.user)
+        ):
             active = "profil"
         return self._render(request, forms, active)
 
@@ -199,3 +387,69 @@ class ThemeToggleView(View):
         user.theme = User.Theme.LIGHT if user.theme == User.Theme.DARK else User.Theme.DARK
         user.save(update_fields=["theme"])
         return HttpResponse(status=204)
+
+
+class PetitionTemplatesView(View):
+    def get(self, request):
+        if not is_admin(request.user):
+            return HttpResponseForbidden()
+        return render(
+            request,
+            "accounts/petition_templates.html",
+            {"types": TaskType.objects.filter(is_active=True)},
+        )
+
+    def post(self, request):
+        import uuid
+        import zipfile
+        from pathlib import Path
+
+        from apps.core import folders
+        from apps.core.uploads import MAX_UPLOAD
+
+        if not is_admin(request.user):
+            return HttpResponseForbidden()
+        type_id = request.POST.get("task_type", "")
+        task_type = TaskType.objects.filter(
+            pk=type_id if type_id.isdigit() else 0, is_active=True
+        ).first()
+        upload = request.FILES.get("template")
+        root = folders.root()
+        error = None
+        if not task_type or not upload:
+            error = "Görev türünü ve şablonu seçin."
+        elif not root or not root.is_dir():
+            error = "Önce erişilebilir ofis klasörünü ayarlayın."
+        elif Path(upload.name).suffix.lower() not in (".udf", ".docx") or upload.size > MAX_UPLOAD:
+            error = "En fazla 50 MB büyüklüğünde UDF veya DOCX dosyası seçin."
+        elif not zipfile.is_zipfile(upload):
+            error = "Şablon dosyası okunamadı."
+        else:
+            with zipfile.ZipFile(upload) as archive:
+                names = archive.namelist()
+                needed = (
+                    "content.xml" if upload.name.lower().endswith(".udf") else "word/document.xml"
+                )
+                if needed not in names or any(name.lower().endswith(".sgn") for name in names):
+                    error = "İmzalanmamış ve geçerli bir şablon seçin."
+        if error:
+            messages.error(request, error)
+            return redirect("accounts:petition_templates")
+        directory = root / "Şablon Dilekçeler"
+        if directory.is_symlink():
+            messages.error(request, "Şablon klasörü güvenli değil.")
+            return redirect("accounts:petition_templates")
+        try:
+            directory.mkdir(exist_ok=True)
+            name = f"{task_type.pk}-{uuid.uuid4().hex}{Path(upload.name).suffix.lower()}"
+            upload.seek(0)
+            with (directory / name).open("xb") as destination:
+                for chunk in upload.chunks():
+                    destination.write(chunk)
+        except OSError:
+            messages.error(request, "Şablon ofis klasörüne kaydedilemedi.")
+            return redirect("accounts:petition_templates")
+        task_type.petition_template = name
+        task_type.save(update_fields=["petition_template"])
+        messages.success(request, "Şablon kaydedildi.")
+        return redirect("accounts:petition_templates")

@@ -13,16 +13,19 @@
       <div class="nav-group">Ofis</div>
       <a class="{% if active == 'ofis' %}active{% endif %}" href="?bolum=ofis"><i class="bi bi-building"></i>Ofis bilgileri</a>
       <a class="{% if active == 'kullanicilar' %}active{% endif %}" href="?bolum=kullanicilar"><i class="bi bi-people"></i>Kullanıcılar</a>
-      <a class="{% if active == 'yedek' %}active{% endif %}" href="?bolum=yedek"><i class="bi bi-cloud-arrow-up"></i>Yedekleme
-        {% if backup_stale %}<span class="chip chip-danger ms-auto">!</span>{% endif %}</a>
-      <a class="{% if active == 'klasor' %}active{% endif %}" href="?bolum=klasor"><i class="bi bi-folder2"></i>Belge klasörü
-        {% if office.documents_root %}<span class="chip chip-success ms-auto">Ayarlı</span>{% endif %}</a>
+      <a class="{% if active == 'klasor' %}active{% endif %}" href="?bolum=klasor"><i class="bi bi-folder2"></i>Ofis klasörü
+        {% if backup_stale %}<span class="chip chip-danger ms-auto">!</span>{% elif office.documents_root %}<span class="chip chip-success ms-auto">Ayarlı</span>{% endif %}</a>
       <a class="{% if active == 'gorev_turleri' %}active{% endif %}" href="?bolum=gorev_turleri"><i class="bi bi-list-check"></i>Görev türleri</a>
+      <a href="{% url 'accounts:petition_templates' %}"><i class="bi bi-file-earmark-text"></i>Şablon dilekçeler</a>
       <a class="{% if active == 'puanlar' %}active{% endif %}" href="?bolum=puanlar"><i class="bi bi-bar-chart"></i>Personel puanları</a>
-      <a class="{% if active == 'yetkiler' %}active{% endif %}" href="?bolum=yetkiler"><i class="bi bi-shield-check"></i>Bakiye görme yetkisi</a>
+      <a class="{% if active == 'yetkiler' %}active{% endif %}" href="?bolum=yetkiler"><i class="bi bi-shield-check"></i>Yetkiler ve çalışma düzeni</a>
       <a class="{% if active == 'eklenti' %}active{% endif %}" href="?bolum=eklenti"><i class="bi bi-puzzle"></i>Eklenti ayarları</a>
       <a class="{% if active == 'takvim' %}active{% endif %}" href="?bolum=takvim"><i class="bi bi-calendar3"></i>Google Takvim
         {% if calendar_connected %}<span class="chip chip-success ms-auto">Bağlı</span>{% endif %}</a>
+      <div class="nav-group">Gözlem ve Veri</div>
+      <a class="{% if active == 'monitor' %}active{% endif %}" href="?bolum=monitor"><i class="bi bi-activity"></i>Sistem monitörü</a>
+      <a class="{% if active == 'kullanici_analizi' %}active{% endif %}" href="?bolum=kullanici_analizi"><i class="bi bi-person-lines-fill"></i>Kullanıcı analizi</a>
+      <a class="{% if active == 'veri_aktarim' %}active{% endif %}" href="?bolum=veri_aktarim"><i class="bi bi-database-down"></i>Veri içe / dışa aktar</a>
       {% endif %}
     </nav>
   </div>
@@ -44,7 +47,6 @@
         <div class="form-section-head"><h2>Görünüm</h2></div>
         <div class="row">
           <div class="col-md-6">{% include "partials/field.html" with field=form.theme %}</div>
-          <div class="col-md-6">{% include "partials/field.html" with field=form.page_size %}</div>
         </div>
       </div>
       <div class="form-footer"><button class="btn btn-primary"><i class="bi bi-check2"></i>Kaydet</button></div>
@@ -67,7 +69,7 @@
 
   {% elif active == "eklenti" %}
     <h2 class="h5">UYAP ve UETS eklentisi</h2>
-    <div class="alert alert-warning">Kişi doğrulaması tamamlanmadığı için otomatik aktarım kapalıdır. Aşağıdaki izinler kaydedilir; aktarımın çalıştığı anlamına gelmez. UYAP’ın <a href="https://portalyonetim.uyap.gov.tr/main/avukat.jsp" target="_blank" rel="noopener noreferrer">kullanım koşullarında</a> otomatik sorgulama kısıtlanmaktadır.</div>
+    <div class="alert alert-warning">Aşağıdaki izinler hangi avukatın UYAP ve UETS verisinin aktarılabileceğini belirler. UYAP’ın <a href="https://portalyonetim.uyap.gov.tr/main/avukat.jsp" target="_blank" rel="noopener noreferrer">kullanım koşullarında</a> otomatik sorgulama kısıtlanmaktadır.</div>
     <div class="card p-3 mb-3">
       <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap mb-2"><h3 class="h6 mb-0">Eklenti bağlantıları</h3><a class="btn btn-light btn-sm" href="{% url 'portal_pair' %}">Bu bilgisayarı bağla</a></div>
       {% for connection in portal_connections %}
@@ -92,8 +94,9 @@
           <div class="col-md-4">{% include "partials/field.html" with field=form.email %}</div>
           <div class="col-md-4">{% include "partials/field.html" with field=form.tax_office %}</div>
           <div class="col-md-4">{% include "partials/field.html" with field=form.tax_number %}</div>
-          <div class="col-md-8">{% include "partials/field.html" with field=form.logo wrap_class="" %}</div>
-          <div class="col-md-4">{% include "partials/field.html" with field=form.idle_minutes wrap_class="" %}</div>
+          <div class="col-md-8">{% include "partials/field.html" with field=form.logo %}</div>
+          <div class="col-md-4">{% include "partials/field.html" with field=form.idle_minutes %}</div>
+          <div class="col-12">{% include "partials/field.html" with field=form.use_assistant_assignee wrap_class="" %}</div>
         </div>
       </div>
       <div class="form-footer"><button class="btn btn-primary"><i class="bi bi-check2"></i>Kaydet</button></div>
@@ -148,74 +151,44 @@
     </div>
     {% endwith %}
 
-  {% elif active == "yedek" %}
-    {% with form=forms.yedek %}
-    <div class="row g-3">
-      <div class="col-xl-6">
-        <form method="post" class="card">{% csrf_token %}<input type="hidden" name="section" value="yedek">
-          <div class="form-section">
-            <div class="form-section-head"><h2>Günlük yedek</h2><p>Veritabanı ve tüm belgeler her gün şifreli tek bir dosyaya yedeklenir. Son 30 günün günlük ve son 12 ayın aylık yedeği saklanır.</p></div>
-            {% if backup_problem %}<div class="alert alert-warning py-2 small"><i class="bi bi-exclamation-triangle me-1"></i>{{ backup_problem }}</div>{% endif %}
-            {% include "partials/field.html" with field=form.backup_time %}
-            {% include "partials/field.html" with field=form.backup_dir wrap_class="" %}
-          </div>
-          <div class="form-footer"><button class="btn btn-primary"><i class="bi bi-check2"></i>Kaydet</button></div>
-        </form>
-        <div class="card mt-3"><div class="card-body small">
-          <h2 class="section-title">Geri yükleme</h2>
-          Geri yükleme mevcut verilerin yerine geçtiği için yalnızca sunucu PC'de yapılır:
-          <ol class="mb-0 mt-2 ps-3">
-            <li>"Özkurt Hukuk" uygulama servisini durdurun (kurulum klasöründeki <b>servisi-durdur</b> kısayolu).</li>
-            <li>Kurulum klasöründe <b>yedekten-geri-yukle</b> kısayolunu çalıştırıp yedek dosyasını seçin.</li>
-            <li>Servisi yeniden başlatın. Önceki belgeler "media.onceki-…" adıyla saklanır.</li>
-          </ol>
-        </div></div>
-      </div>
-      <div class="col-xl-6">
-        <div class="card table-card">
-          <div class="card-header"><h2 class="card-title">Son yedekler</h2>
-            <form method="post" action="{% url 'backups:now' %}" class="ms-auto">{% csrf_token %}
-              <button class="btn btn-sm btn-primary" {% if backup_problem %}disabled{% endif %}><i class="bi bi-cloud-arrow-up"></i>Şimdi yedek al</button>
-            </form>
-          </div>
-          <div class="table-responsive">
-          <table class="table">
-            <thead><tr><th>Tarih</th><th>Tür</th><th>Durum</th><th class="text-end">Boyut</th></tr></thead>
-            <tbody>
-            {% for b in backups %}
-              <tr>
-                <td class="tabular text-nowrap">{{ b.started_at|date:"d.m.Y H:i" }}</td>
-                <td>{{ b.get_kind_display }}</td>
-                <td>{% if b.status == "ok" %}<span class="chip chip-success">Başarılı</span>{% if b.copied_to %} <i class="bi bi-cloud-check" title="Kopyalandı: {{ b.copied_to }}" style="color: var(--success-ink)"></i>{% endif %}{% else %}<span class="chip chip-danger">Hatalı</span>{% endif %}
-                  {% if b.message %}<div class="cell-sub">{{ b.message|truncatechars:140 }}</div>{% endif %}</td>
-                <td class="text-end tabular">{{ b.size|filesizeformat }}</td>
-              </tr>
-            {% empty %}<tr><td colspan="4"><div class="empty-state py-3"><strong>Henüz yedek yok</strong></div></td></tr>{% endfor %}
-            </tbody>
-          </table>
-          </div>
-        </div>
-      </div>
-    </div>
-    {% endwith %}
-
   {% elif active == "klasor" %}
     {% with form=forms.klasor %}
-    <form method="post" class="card" style="max-width: 760px">{% csrf_token %}<input type="hidden" name="section" value="klasor">
-      <div class="form-section">
-        <div class="form-section-head"><h2>Belge klasörü</h2><p>Onaylanan görev belgeleri, dosya belgeleri ve vekaletler bu klasöre otomatik kopyalanır.</p></div>
-        {% include "partials/field.html" with field=form.documents_root %}
-        <div class="folder-tree small">
-          <div><i class="bi bi-folder2"></i> {{ form.documents_root.value|default:"Ofis klasörü" }}</div>
-          <div class="ms-3"><i class="bi bi-folder2"></i> Müvekkiller</div>
-          <div class="ms-5"><i class="bi bi-folder2"></i> Ahmet Yılmaz</div>
-          <div class="ms-5 ps-3"><i class="bi bi-folder2"></i> 2026-0041 - Alacak davası <span class="text-body-secondary">— görev ve dosya belgeleri</span></div>
-          <div class="ms-5 ps-3"><i class="bi bi-folder2"></i> Vekaletler</div>
-        </div>
-        <div class="form-text mt-2">Aynı adla bir müvekkil klasörü zaten varsa o kullanılır. Klasör adları müvekkil ve dosya düzenleme ekranından değiştirilebilir. Sistem hiçbir dosyanın üzerine yazmaz; aynı ad varsa sonuna (2) ekler.</div>
+    <div class="row g-3">
+      <div class="col-xl-6">
+        <form method="post" class="card">{% csrf_token %}<input type="hidden" name="section" value="klasor">
+          <div class="form-section">
+            <div class="form-section-head"><h2>Ofis klasörü</h2><p>Belgeler, dilekçe şablonları ve günlük yedeklerin kopyaları bu klasörde tutulur. Yedekler parola istemez.</p></div>
+            {% if backup_problem %}<div class="alert alert-warning py-2 small">{{ backup_problem }}</div>{% endif %}
+            {% include "partials/field.html" with field=form.documents_root %}
+            {% include "partials/field.html" with field=form.backup_time %}
+            <div class="folder-tree small"><div><i class="bi bi-folder2"></i> {{ form.documents_root.value|default:"Ofis klasörü" }}</div>
+              <div class="ms-3"><i class="bi bi-folder2"></i> Müvekkiller</div>
+              <div class="ms-3"><i class="bi bi-folder2"></i> Şablon Dilekçeler</div>
+              <div class="ms-3"><i class="bi bi-folder2"></i> Güncel Sistem Listeleri</div>
+              <div class="ms-3"><i class="bi bi-folder2"></i> Yedekler</div>
+            </div>
+            <p class="form-text mt-3 mb-0">Klasörü değiştirirseniz önceki dosyalar eski konumlarında kalır; kullanmaya devam etmek için içeriği yeni klasöre kopyalayın.</p>
+            <p class="form-text mt-2 mb-0">Bu klasörü OneDrive veya başka bir yedekleme hizmetiyle yedeklemeniz önerilir. Yedeklemenin tamamlandığını kullandığınız hizmetten kontrol edin.</p>
+          </div>
+          <div class="form-footer"><button class="btn btn-primary">Kaydet ve dene</button></div>
+        </form>
+        <div class="card mt-3"><div class="card-body small"><h2 class="section-title">Güncel sistem listeleri</h2>
+          <p>Ofis klasöründeki <strong>Güncel Sistem Listeleri</strong> bölümünde, muhasebe dahil sistem bilgileri görüntülenebilir. Bu dosyalardaki değişiklikler sisteme aktarılmaz.</p>
+          {% if office_lists.message %}<div class="text-body-secondary">{{ office_lists.message }}</div>{% elif office_lists.stale %}<div class="text-danger">Listeler son üç dakikada kontrol edilemedi. Otomatik güncellemeyi kontrol edin.</div>{% else %}<div class="text-body-secondary">Son kontrol: {{ office_lists.checked|date:"d.m.Y H:i" }}</div>{% endif %}
+          {% for issue in office_lists.issues %}<div class="text-danger mt-1">{{ issue.file }}: {{ issue.reason }}</div>{% endfor %}
+          <div class="text-body-secondary mt-2">Bir liste açıksa veya değiştirilmişse korunur; kapatılıp sorun giderildiğinde yeniden denenir. Takvim listesi son bir yıl ile gelecek iki yılı kapsar.</div>
+        </div></div>
+        <div class="card mt-3"><div class="card-body small"><h2 class="section-title">Geri yükleme</h2>Sunucu bilgisayarda uygulamayı durdurup kurulum klasöründeki yedekten geri yükleme aracını kullanın.</div></div>
       </div>
-      <div class="form-footer"><button class="btn btn-primary"><i class="bi bi-check2"></i>Kaydet ve dene</button></div>
-    </form>
+      <div class="col-xl-6"><div class="card table-card">
+        <div class="card-header"><h2 class="card-title">Son yedekler</h2><form method="post" action="{% url 'backups:now' %}" class="ms-auto">{% csrf_token %}<button class="btn btn-sm btn-primary" {% if backup_problem %}disabled{% endif %}>Şimdi yedek al</button></form></div>
+        <div class="table-responsive"><table class="table"><thead><tr><th>Tarih</th><th>Tür</th><th>Durum</th><th class="text-end">Boyut</th></tr></thead><tbody>
+        {% for b in backups %}<tr><td class="tabular text-nowrap">{{ b.started_at|date:"d.m.Y H:i" }}</td><td>{{ b.get_kind_display }}</td><td>{% if b.status == "ok" %}<span class="chip chip-success">Başarılı</span>{% else %}<span class="chip chip-danger">Hatalı</span>{% endif %}{% if b.message %}<div class="cell-sub">{{ b.message }}</div>{% endif %}</td><td class="text-end tabular">{{ b.size|filesizeformat }}{% if b.status == "ok" and b.file_name %} <a class="btn btn-light btn-sm ms-1 py-0 px-2" href="{% url 'backups:download' b.pk %}" title="Yedeği indir"><i class="bi bi-download"></i></a>{% endif %}</td></tr>
+        {% empty %}<tr><td colspan="4"><div class="empty-state py-3"><strong>Henüz yedek yok</strong></div></td></tr>{% endfor %}
+        </tbody></table></div></div>
+        <p class="small text-body-secondary mt-2">Yeni yedekler ofis klasöründeki Yedekler bölümüne de kaydedilir. Önceki yedekler mevcut yerlerinde korunur.</p>
+      </div>
+    </div>
     {% endwith %}
 
   {% elif active == "puanlar" %}
@@ -254,9 +227,75 @@
 
   {% elif active == "yetkiler" %}
     {% with form=forms.yetkiler %}
-    <form method="post" class="card" style="max-width: 640px">{% csrf_token %}<input type="hidden" name="section" value="yetkiler">
+    <form method="post" class="card" style="max-width: 780px" x-data="{ visMode: '{{ form.case_visibility_mode.value|default:'public' }}', accMode: '{{ form.accounting_edit_mode.value|default:'everyone' }}' }">
+      {% csrf_token %}<input type="hidden" name="section" value="yetkiler">
       <div class="form-section">
-        <div class="form-section-head"><h2>Bakiye görme yetkisi</h2><p>Herkes muhasebe kaydı görür ve girer. Müvekkil bakiyesi, borçlu filtresi, cari hesap ve finansal raporlar yalnızca yöneticilere ve aşağıda işaretlenen kişilere görünür.</p></div>
+        <div class="form-section-head">
+          <h2>Dosya ve müvekkil görünürlüğü</h2>
+          <p>Yönetici, Kıdemli Avukat, Sekreter ve Muhasebe rolleri her zaman tüm dosya ve müvekkilleri görür. Diğer roller için görünürlük kapsamını seçin.</p>
+        </div>
+        <div class="d-flex flex-column gap-2">
+          {% for radio in form.case_visibility_mode %}
+            <label class="form-check">
+              <input type="radio" name="{{ form.case_visibility_mode.html_name }}" value="{{ radio.data.value }}" class="form-check-input" x-model="visMode" {% if radio.data.selected %}checked{% endif %}>
+              <span class="form-check-label">{{ radio.choice_label }}</span>
+            </label>
+          {% endfor %}
+        </div>
+        <div class="mt-3 pt-3 border-top" x-show="visMode === 'restricted'" x-cloak>
+          <div class="fw-medium small mb-2">Sorumlu bazlı modda tüm dosyaları görebilen ek kişiler (Avukat / Stajyer / Katip):</div>
+          <div class="balance-viewers">
+            {% for cb in form.all_cases_viewers %}
+              <label class="form-check">{{ cb.tag }}<span class="form-check-label">{{ cb.choice_label }}</span></label>
+            {% empty %}
+              <div class="small text-body-secondary">Bu grupta aktif kullanıcı yok.</div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <div class="form-section-head">
+          <h2>Görevlerde kontrolcü onayı</h2>
+          <p>Görevlerin kapatılmadan önce kontrolcü onayına gidip gitmeyeceğini belirleyin.</p>
+        </div>
+        <div class="d-flex flex-column gap-2">
+          {% for radio in form.task_review_mode %}
+            <label class="form-check">
+              {{ radio.tag }}
+              <span class="form-check-label">{{ radio.choice_label }}</span>
+            </label>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="form-section">
+        <div class="form-section-head">
+          <h2>Muhasebe kaydı ekleme ve iptal etme yetkisi</h2>
+          <p>Tahsilat, masraf ve vekalet ücreti hareketlerini kimlerin ekleyip iptal edebileceğini belirleyin. Yöneticiler ve Muhasebe rolü her zaman yetkilidir.</p>
+        </div>
+        <div class="d-flex flex-column gap-2">
+          {% for radio in form.accounting_edit_mode %}
+            <label class="form-check">
+              <input type="radio" name="{{ form.accounting_edit_mode.html_name }}" value="{{ radio.data.value }}" class="form-check-input" x-model="accMode" {% if radio.data.selected %}checked{% endif %}>
+              <span class="form-check-label">{{ radio.choice_label }}</span>
+            </label>
+          {% endfor %}
+        </div>
+        <div class="mt-3 pt-3 border-top" x-show="accMode === 'restricted'" x-cloak>
+          <div class="fw-medium small mb-2">Muhasebe kaydı ekleyebilen / iptal edebilen ek kişiler:</div>
+          <div class="balance-viewers">
+            {% for cb in form.accounting_editors %}
+              <label class="form-check">{{ cb.tag }}<span class="form-check-label">{{ cb.choice_label }}</span></label>
+            {% empty %}
+              <div class="small text-body-secondary">Seçilebilecek aktif kullanıcı yok.</div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <div class="form-section-head"><h2>Bakiye görme yetkisi</h2><p>Müvekkil bakiyesi, borçlu filtresi, cari hesap ve finansal raporlar yalnızca yöneticilere, muhasebe rolüne ve aşağıda işaretlenen kişilere görünür.</p></div>
         <div class="balance-viewers">
           {% for cb in form.viewers %}<label class="form-check">{{ cb.tag }}<span class="form-check-label">{{ cb.choice_label }}</span></label>{% endfor %}
         </div>
@@ -286,6 +325,361 @@
       <div class="form-footer"><button class="btn btn-primary"><i class="bi bi-check2"></i>Kaydet</button></div>
     </form>
     {% endwith %}
+
+  {% elif active == "monitor" %}
+    <div class="row g-3 mb-3">
+      <div class="col-sm-6 col-xl-3">
+        <div class="stat-card">
+          <div class="stat-label"><i class="bi bi-database me-1"></i>Veritabanı boyutu</div>
+          <div class="stat-value tabular">{{ db_size|filesizeformat }}</div>
+          <div class="small text-body-secondary mt-1">PostgreSQL · {{ counts.cases_total }} dosya, {{ counts.clients }} müvekkil</div>
+        </div>
+      </div>
+      <div class="col-sm-6 col-xl-3">
+        <div class="stat-card">
+          <div class="stat-label"><i class="bi bi-hdd-stack me-1"></i>Belge depolama (media)</div>
+          <div class="stat-value tabular">{{ media_size|filesizeformat }}</div>
+          <div class="small text-body-secondary mt-1">{{ media_files }} dosya · {{ counts.documents }} güncel belge</div>
+        </div>
+      </div>
+      <div class="col-sm-6 col-xl-3">
+        <div class="stat-card">
+          <div class="stat-label"><i class="bi bi-shield-check me-1"></i>Son başarılı yedek</div>
+          <div class="stat-value tabular">{% if last_backup %}{{ last_backup.started_at|date:"d.m H:i" }}{% else %}Yok{% endif %}</div>
+          <div class="small mt-1">
+            {% if backup_stale %}<span class="text-danger fw-medium">Yedek gecikti!</span>{% elif last_backup %}<span class="text-success">{{ last_backup.size|filesizeformat }} · Güncel</span>{% else %}<span class="text-warning">Henüz yedek alınmadı</span>{% endif %}
+          </div>
+        </div>
+      </div>
+      <div class="col-sm-6 col-xl-3">
+        <div class="stat-card">
+          <div class="stat-label"><i class="bi bi-bank2 me-1"></i>UYAP / UETS kayıtları</div>
+          <div class="stat-value tabular">{{ counts.portal_cases }} <span class="fs-6 fw-normal text-body-secondary">dosya</span></div>
+          <div class="small text-body-secondary mt-1">{{ counts.portal_notices }} tebligat ({{ counts.portal_notices_pending }} bekleyen)</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row g-3">
+      <div class="col-xl-7">
+        <div class="card table-card mb-3">
+          <div class="card-header"><h2 class="card-title">Arka plan servisleri ve zamanlayıcılar</h2></div>
+          <div class="table-responsive">
+            <table class="table align-middle mb-0">
+              <thead><tr><th>Servis</th><th>Durum</th><th>Son çalışma / ayrıntı</th><th class="text-end">İşlem</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td>
+                    <div class="fw-medium">Günlük yedekleme</div>
+                    <div class="cell-sub">Her gün saat {{ office.backup_time|time:"H:i" }} (PostgreSQL + Belgeler)</div>
+                  </td>
+                  <td>
+                    {% if backup_stale %}<span class="chip chip-danger">Gecikti</span>{% else %}<span class="chip chip-success">Normal</span>{% endif %}
+                  </td>
+                  <td class="small">
+                    {% if last_backup %}{{ last_backup.started_at|date:"d.m.Y H:i" }} ({{ last_backup.size|filesizeformat }}){% else %}Henüz başarılı yedek yok{% endif %}
+                  </td>
+                  <td class="text-end">
+                    <form method="post" action="{% url 'backups:now' %}">{% csrf_token %}<input type="hidden" name="return_section" value="monitor">
+                      <button class="btn btn-light btn-sm"><i class="bi bi-cloud-check"></i>Şimdi yedek al</button>
+                    </form>
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+                    <div class="fw-medium">Güncel Sistem Listeleri</div>
+                    <div class="cell-sub">Ofis klasöründeki otomatik Excel tabloları (45 sn'de bir)</div>
+                  </td>
+                  <td>
+                    {% if office_lists.message %}<span class="chip chip-warning">Ayar bekliyor</span>
+                    {% elif office_lists.stale %}<span class="chip chip-danger">İzleyici durmuş</span>
+                    {% elif office_lists.issues %}<span class="chip chip-warning">{{ office_lists.issues|length }} uyarı</span>
+                    {% else %}<span class="chip chip-success">Aktif</span>{% endif %}
+                  </td>
+                  <td class="small">
+                    {% if office_lists.message %}{{ office_lists.message }}
+                    {% else %}Son kontrol: {{ office_lists.checked|date:"d.m.Y H:i" }}{% endif %}
+                    {% for issue in office_lists.issues %}<div class="text-danger">{{ issue.file }}: {{ issue.reason }}</div>{% endfor %}
+                  </td>
+                  <td class="text-end">
+                    <form method="post" action="{% url 'backups:trigger_task' %}">{% csrf_token %}<input type="hidden" name="task" value="office_lists">
+                      <button class="btn btn-light btn-sm"><i class="bi bi-arrow-repeat"></i>Şimdi yenile</button>
+                    </form>
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+                    <div class="fw-medium">Haciz yenileme görev üretici</div>
+                    <div class="cell-sub">Yenileme tarihi gelen açık icra hacizleri için otomatik görev</div>
+                  </td>
+                  <td><span class="chip chip-success">Aktif</span></td>
+                  <td class="small">14 gün içinde yenilenecek aktif haciz: <strong>{{ counts.seizures_due }}</strong></td>
+                  <td class="text-end">
+                    <form method="post" action="{% url 'backups:trigger_task' %}">{% csrf_token %}<input type="hidden" name="task" value="seizure_tasks">
+                      <button class="btn btn-light btn-sm"><i class="bi bi-play-circle"></i>Şimdi kontrol et</button>
+                    </form>
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+                    <div class="fw-medium">UYAP / UETS tarayıcı eklentisi</div>
+                    <div class="cell-sub">Canlı portal veri yakalama ve eşitleme</div>
+                  </td>
+                  <td>
+                    {% if portal_connections %}
+                      {% with c=portal_connections.0 %}
+                        {% if c.recent %}<span class="chip chip-success">Çevrimiçi</span>{% else %}<span class="chip chip-info">Beklemede</span>{% endif %}
+                      {% endwith %}
+                    {% else %}<span class="chip">Bağlı değil</span>{% endif %}
+                  </td>
+                  <td class="small">
+                    {% if portal_connections %}
+                      {% with c=portal_connections.0 %}
+                        {{ c.owner }} · Son sinyal: {{ c.last_seen|date:"d.m.Y H:i"|default:"Yok" }}
+                      {% endwith %}
+                    {% else %}Eklenti eşleştirilmemiş ({{ counts.portal_captures }} ham paket kayıtlı){% endif %}
+                  </td>
+                  <td class="text-end">
+                    <a class="btn btn-light btn-sm" href="?bolum=eklenti"><i class="bi bi-puzzle"></i>Ayarlar</a>
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+                    <div class="fw-medium">Google Takvim entegrasyonu</div>
+                    <div class="cell-sub">5 dakikalık önbellekle iCal okuma</div>
+                  </td>
+                  <td>
+                    {% if calendar_connected %}<span class="chip chip-success">Bağlı</span>{% else %}<span class="chip">Bağlı değil</span>{% endif %}
+                  </td>
+                  <td class="small">{% if calendar_connected %}Salt okunur iCal adresi tanımlı{% else %}Henüz adres girilmedi{% endif %}</td>
+                  <td class="text-end">
+                    <a class="btn btn-light btn-sm" href="?bolum=takvim"><i class="bi bi-calendar3"></i>Ayarlar</a>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-xl-5">
+        <div class="card table-card mb-3">
+          <div class="card-header"><h2 class="card-title">Veri bütünlüğü ve sistem özeti</h2></div>
+          <div class="card-body">
+            <dl class="dl-grid" style="grid-template-columns: 1fr auto">
+              <dt>Açık / Kapalı büro dosyaları</dt>
+              <dd class="tabular text-end"><strong>{{ counts.cases_open }}</strong> açık · {{ counts.cases_closed }} kapalı</dd>
+              <dt>Eksik bilgisi olan dosyalar (müvekkil/arşiv/konu)</dt>
+              <dd class="tabular text-end">
+                {% if counts.cases_missing_info %}
+                  <a href="{% url 'cases:list' %}?status=all&amp;missing=1" class="chip chip-warning no-dot">{{ counts.cases_missing_info }} dosya →</a>
+                {% else %}<span class="chip chip-success no-dot">0</span>{% endif %}
+              </dd>
+              <dt>Açık görevler / Kontrolde bekleyenler</dt>
+              <dd class="tabular text-end"><strong>{{ counts.tasks_open }}</strong> açık · <strong>{{ counts.tasks_review }}</strong> kontrolde</dd>
+              <dt>Süresi geçmiş (geciken) görevler</dt>
+              <dd class="tabular text-end">
+                {% if counts.tasks_overdue %}
+                  <a href="{% url 'tasks:list' %}?kapsam=all&amp;son_gun=gecikmis" class="chip chip-danger no-dot">{{ counts.tasks_overdue }} gecikmiş →</a>
+                {% else %}<span class="chip chip-success no-dot">0</span>{% endif %}
+              </dd>
+              <dt>İşlem bekleyen UETS tebligatları</dt>
+              <dd class="tabular text-end">
+                {% if counts.portal_notices_pending %}
+                  <a href="{% url 'notice_list' %}?durum=bekleyen" class="chip chip-warning no-dot">{{ counts.portal_notices_pending }} tebligat →</a>
+                {% else %}<span class="chip chip-success no-dot">0</span>{% endif %}
+              </dd>
+              <dt>Müvekkiller / Karşı taraflar</dt>
+              <dd class="tabular text-end">{{ counts.clients }} müvekkil · {{ counts.parties }} karşı taraf</dd>
+              <dt>Aktif muhasebe hareketleri</dt>
+              <dd class="tabular text-end">{{ counts.ledger_active }} kayıt</dd>
+            </dl>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  {% elif active == "kullanici_analizi" %}
+    <div class="card table-card mb-3">
+      <div class="card-header">
+        <div>
+          <h2 class="card-title">Kullanıcı işlem ve iş yükü analizi</h2>
+          <div class="small text-body-secondary">Personelin işlem hacmi, açık/geciken görev yükü ve kazandığı puanlar. Kişinin tüm işlemlerini görmek için sağdaki bağlantıya tıklayın.</div>
+        </div>
+        <a class="btn btn-sm btn-light ms-auto" href="{% url 'activity:list' %}"><i class="bi bi-clock-history"></i>Tüm aktivite kayıtları</a>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead>
+            <tr>
+              <th>Kullanıcı</th>
+              <th>Son aktivite</th>
+              <th class="text-end" title="Bugün yapılan işlem sayısı">Bugün</th>
+              <th class="text-end" title="Bu hafta yapılan işlem sayısı">Bu hafta</th>
+              <th class="text-end" title="Bu ay yapılan işlem sayısı">Bu ay</th>
+              <th class="text-end" title="Toplam oluşturma / güncelleme / oturum">Toplam işlem (Yeni / Güncelleme)</th>
+              <th class="text-end">Açık görev</th>
+              <th class="text-end">Kontrolde</th>
+              <th class="text-end">Kapalı görev</th>
+              <th class="text-end">Puan (Ay / Toplam)</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for u in analytics_users %}
+            <tr>
+              <td>
+                <div class="d-flex align-items-center gap-2">
+                  <span class="avatar avatar-sm" style="--h: {{ u.avatar_hue }}">{{ u.initials }}</span>
+                  <div>
+                    <div class="fw-medium">{{ u }}{% if not u.is_active %} <span class="text-body-secondary">(Pasif)</span>{% endif %}</div>
+                    <div class="cell-sub">{{ u.display_title }} · {{ u.get_role_display }}</div>
+                  </div>
+                </div>
+              </td>
+              <td class="tabular text-nowrap small">
+                {% if u.last_activity_at %}{{ u.last_activity_at|date:"d.m.Y H:i" }}{% else %}<span class="text-body-secondary">—</span>{% endif %}
+              </td>
+              <td class="text-end tabular fw-medium">{{ u.today_ops }}</td>
+              <td class="text-end tabular">{{ u.week_ops }}</td>
+              <td class="text-end tabular">{{ u.month_ops }}</td>
+              <td class="text-end tabular">
+                <strong>{{ u.total_ops }}</strong>
+                <span class="text-body-secondary small">({{ u.creates }} yeni · {{ u.updates }} düz.)</span>
+              </td>
+              <td class="text-end tabular">
+                {% if u.open_task_count %}
+                  <a href="{% url 'tasks:list' %}?kapsam=all&amp;sorumlu={{ u.pk }}">{{ u.open_task_count }}</a>
+                  {% if u.overdue_task_count %}<span class="chip chip-danger no-dot ms-1" title="Gecikmiş görev">{{ u.overdue_task_count }} gecikmiş</span>{% endif %}
+                {% else %}0{% endif %}
+              </td>
+              <td class="text-end tabular">
+                {% if u.review_waiting_count %}
+                  <a href="{% url 'tasks:list' %}?kapsam=all&amp;sekme=waiting&amp;kontrolcu={{ u.pk }}" class="chip chip-warning no-dot">{{ u.review_waiting_count }}</a>
+                {% else %}0{% endif %}
+              </td>
+              <td class="text-end tabular">{{ u.closed_task_count }}</td>
+              <td class="text-end tabular">
+                <span class="fw-semibold">{{ u.month_points|default_if_none:0 }}</span> / {{ u.total_points|default_if_none:0 }}
+              </td>
+              <td class="text-end">
+                <a class="btn btn-light btn-sm text-nowrap" href="{% url 'activity:list' %}?kullanici={{ u.pk }}"><i class="bi bi-list-ul"></i>İşlemleri</a>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  {% elif active == "veri_aktarim" %}
+    <div class="row g-3 mb-3">
+      <div class="col-xl-4">
+        <div class="card h-100">
+          <div class="card-body d-flex flex-column">
+            <h2 class="section-title"><i class="bi bi-file-earmark-spreadsheet me-1"></i>Excel ile dışa aktar</h2>
+            <p class="small text-body-secondary">Sistemdeki tüm müvekkil, dosya, taraf, görev, haciz, muhasebe ve işlem geçmişi tablolarını (19 ayrı Excel çalışma kitabını) tek bir ZIP paketi halinde bilgisayarınıza indirin.</p>
+            <div class="mt-auto pt-2">
+              <a class="btn btn-primary w-100" href="{% url 'backups:export_lists_zip' %}"><i class="bi bi-download"></i>Tüm tabloları indir (.zip / .xlsx)</a>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-xl-4">
+        <div class="card h-100">
+          <div class="card-body d-flex flex-column">
+            <h2 class="section-title"><i class="bi bi-file-earmark-arrow-up me-1"></i>Excel ile toplu içe aktar</h2>
+            <p class="small text-body-secondary">Standart Excel şablonunu kullanarak toplu müvekkil, büro dosyası ve açılış bakiyesi yükleyin. Yükleme öncesinde satır satır doğrulama ve önizleme yapılır.</p>
+            <div class="mt-auto pt-2 d-flex gap-2">
+              <a class="btn btn-primary flex-grow-1" href="{% url 'imports:import' %}"><i class="bi bi-upload"></i>Excel içe aktar</a>
+              <a class="btn btn-light" href="{% url 'imports:template' %}" title="Boş Excel şablonunu indir"><i class="bi bi-file-earmark-excel"></i>Şablon</a>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-xl-4">
+        <div class="card h-100">
+          <div class="card-body d-flex flex-column">
+            <h2 class="section-title"><i class="bi bi-database-check me-1"></i>Tam veritabanı yedeği</h2>
+            <p class="small text-body-secondary">PostgreSQL veritabanı dökümü (<code>db.dump</code>), yüklenen tüm belgeler (<code>media/</code>), dilekçe şablonları ve güncel listeleri içeren tam sistem yedeği oluşturun veya indirin.</p>
+            <div class="mt-auto pt-2">
+              <form method="post" action="{% url 'backups:now' %}">
+                {% csrf_token %}
+                <input type="hidden" name="return_section" value="veri_aktarim">
+                <button class="btn btn-primary w-100" {% if backup_problem %}disabled{% endif %}><i class="bi bi-hdd-network"></i>Şimdi tam yedek oluştur</button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row g-3">
+      <div class="col-xl-7">
+        <div class="card table-card">
+          <div class="card-header">
+            <h2 class="card-title">Veritabanı yedekleri (İndir / Geri yükle)</h2>
+          </div>
+          <div class="table-responsive">
+            <table class="table align-middle mb-0">
+              <thead><tr><th>Tarih</th><th>Tür</th><th>Durum</th><th class="text-end">Boyut</th><th class="text-end">İndir</th></tr></thead>
+              <tbody>
+                {% for b in backups %}
+                <tr>
+                  <td class="tabular text-nowrap">{{ b.started_at|date:"d.m.Y H:i" }}</td>
+                  <td>{{ b.get_kind_display }}</td>
+                  <td>
+                    {% if b.status == "ok" %}<span class="chip chip-success">Başarılı</span>{% else %}<span class="chip chip-danger">Hatalı</span>{% endif %}
+                    {% if b.message %}<div class="cell-sub">{{ b.message }}</div>{% endif %}
+                  </td>
+                  <td class="text-end tabular">{{ b.size|filesizeformat }}</td>
+                  <td class="text-end">
+                    {% if b.status == "ok" and b.file_name %}
+                      <a class="btn btn-light btn-sm" href="{% url 'backups:download' b.pk %}"><i class="bi bi-download"></i>İndir</a>
+                    {% else %}—{% endif %}
+                  </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="5"><div class="empty-state py-3"><strong>Henüz yedek yok</strong></div></td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          <div class="card-footer small text-body-secondary">
+            <strong>Yedekten veritabanı geri yükleme (İçe aktarma):</strong> Veri bütünlüğünü korumak için geri yükleme işlemi uygulama servisi durdurulmuşken tek işlemde (<code>pg_restore --single-transaction</code>) çalıştırılır:
+            <code class="ms-1">uv run python manage.py restore backups/&lt;yedek-dosyasi&gt;.zip --yes</code>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-xl-5">
+        <div class="card table-card">
+          <div class="card-header">
+            <h2 class="card-title">Son Excel içe aktarımları</h2>
+            <a class="btn btn-sm btn-light ms-auto" href="{% url 'imports:import' %}">Yeni aktarım</a>
+          </div>
+          <div class="table-responsive">
+            <table class="table align-middle mb-0">
+              <thead><tr><th>Tarih</th><th>Dosya</th><th>Aktaran</th><th class="text-end">Kayıt (M / D / B)</th></tr></thead>
+              <tbody>
+                {% for batch in import_batches %}
+                <tr>
+                  <td class="tabular text-nowrap small">{{ batch.created_at|date:"d.m.Y H:i" }}</td>
+                  <td class="text-truncate" style="max-width: 160px">{{ batch.file_name|default:"Şablon" }}</td>
+                  <td class="small">{{ batch.created_by|default:"—" }}</td>
+                  <td class="text-end tabular small">{{ batch.clients_created }} / {{ batch.cases_created }} / {{ batch.entries_created }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="4"><div class="empty-state py-3"><strong>Henüz şablon aktarımı yapılmadı</strong></div></td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
   {% endif %}
   </div>
 </div>

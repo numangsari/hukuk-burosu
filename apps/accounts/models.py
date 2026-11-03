@@ -5,14 +5,18 @@ from django.db import models
 class User(AbstractUser):
     class Role(models.TextChoices):
         ADMIN = "admin", "Yönetici"
+        SENIOR = "senior", "Kıdemli Avukat"
         LAWYER = "lawyer", "Avukat"
-        INTERN = "intern", "Stajyer"
+        INTERN = "intern", "Stajyer Avukat"
+        PARALEGAL = "paralegal", "İcra Katibi / Takip Memuru"
+        SECRETARY = "secretary", "Sekreter / Büro Yönetimi"
+        ACCOUNTANT = "accountant", "Muhasebe / Finans"
 
     class Theme(models.TextChoices):
         LIGHT = "light", "Açık"
         DARK = "dark", "Koyu"
 
-    role = models.CharField("rol", max_length=10, choices=Role.choices, default=Role.LAWYER)
+    role = models.CharField("rol", max_length=20, choices=Role.choices, default=Role.LAWYER)
     title = models.CharField(
         "unvan", max_length=100, blank=True, help_text="Ör. Koordinatör Avukat"
     )
@@ -37,10 +41,12 @@ class User(AbstractUser):
         null=True,
         blank=True,
         related_name="interns",
-        limit_choices_to={"role__in": ["admin", "lawyer"], "is_active": True},
+        limit_choices_to={"role__in": ["admin", "senior", "lawyer"], "is_active": True},
     )
     # Müvekkil bakiyesi, borçlu süzgeci, cari hesap ve finansal raporlar (yönetici her zaman görür).
     can_view_balances = models.BooleanField("müvekkil bakiyelerini görür", default=False)
+    can_manage_accounting = models.BooleanField("muhasebe kaydı ekler ve iptal eder", default=False)
+    can_view_all_cases = models.BooleanField("tüm dosya ve müvekkilleri görür", default=False)
 
     class Meta:
         verbose_name = "kullanıcı"
@@ -53,6 +59,10 @@ class User(AbstractUser):
     @property
     def is_office_admin(self) -> bool:
         return self.is_superuser or self.role == self.Role.ADMIN
+
+    @property
+    def is_lawyer_or_above(self) -> bool:
+        return self.is_office_admin or self.role in {self.Role.SENIOR, self.Role.LAWYER}
 
     @property
     def display_title(self) -> str:

@@ -1,15 +1,16 @@
 """Günlük yedek ve geri yükleme.
 
 Yedek = PostgreSQL dökümü (pg_dump -Fc) + yüklenen belgeler (MEDIA_ROOT), tek bir
-AES-256 şifreli ZIP içinde. Önce sunucudaki BACKUP_DIR'e yazılır, ardından Ayarlar'daki
-yedek kopyası klasörüne (ör. Google Drive senkron klasörü) kopyalanır.
+parolasız ZIP içinde. Önce sunucudaki BACKUP_DIR'e yazılır, ardından ofis klasörünün Yedekler
+alt klasörüne kopyalanır.
 Saklama: son 30 günün günlük yedeği + son 12 ayın ilk yedeği; diğerleri silinir.
 
-Env değişkenleri: BACKUP_PASSWORD (zorunlu), BACKUP_DIR, PG_DUMP, PG_RESTORE,
-BACKUP_DATABASE_URL (pg_dump'ın bağlanacağı adres; boşsa DATABASE_URL).
+Env değişkenleri: BACKUP_PASSWORD (eski yedekler için), BACKUP_DIR,
+PG_DUMP, PG_RESTORE, BACKUP_DATABASE_URL (pg_dump'ın bağlanacağı adres; boşsa DATABASE_URL).
 """
 
 import datetime as dt
+import filecmp
 import json
 import os
 import re
@@ -17,6 +18,8 @@ import shlex
 import shutil
 import subprocess
 import tempfile
+import zipfile
+from contextlib import suppress
 from pathlib import Path
 from uuid import uuid4
 
@@ -58,12 +61,7 @@ def _db_url() -> str:
 
 
 def backup_ready() -> str:
-    """Yedek alınmasını engelleyen bir ayar eksikliği varsa açıklaması."""
-    if not _cfg("BACKUP_PASSWORD"):
-        return (
-            "BACKUP_PASSWORD ayarlanmamış; yedekler şifrelenemez. "
-            "Kurulum bu değeri otomatik oluşturur."
-        )
+    """Yedekleme için parola gerekmez."""
     return ""
 
 
@@ -81,12 +79,31 @@ def _run(cmd: list[str], *, stdin=None, stdout=None, timeout=900):
         raise BackupError(f"{Path(cmd[0]).name} hata verdi: {err}")
 
 
+def _development_database_tool(tool: str) -> list[str] | None:
+    """Bu bilgisayardaki geliştirme veritabanına kendi kabından erişir."""
+    db = connection.settings_dict
+    configured = _cfg("PG_DUMP" if tool == "pg_dump" else "PG_RESTORE")
+    if (
+        not settings.DEBUG
+        or configured
+        or _cfg("BACKUP_DATABASE_URL")
+        or shutil.which(tool)
+        or db["NAME"] != "ozkurt"
+        or db["USER"] != "ozkurt"
+        or db["HOST"] not in ("localhost", "127.0.0.1")
+        or str(db["PORT"]) != "5434"
+    ):
+        return None
+    return ["docker", "exec", "-i", "ozkurt-hukuk-db-1", tool]
+
+
 def dump_database(target: Path):
+    fallback = _development_database_tool("pg_dump")
     cmd = [
-        *shlex.split(_cfg("PG_DUMP", "pg_dump"), posix=False),
+        *(fallback or shlex.split(_cfg("PG_DUMP", "pg_dump"), posix=False)),
         "--format=custom",
         "--no-owner",
-        f"--dbname={_db_url()}",
+        *(["--username=ozkurt", "--dbname=ozkurt"] if fallback else [f"--dbname={_db_url()}"]),
     ]
     with open(target, "wb") as out:
         _run(cmd, stdout=out)
@@ -102,6 +119,99 @@ def _add_media(zf, media_root: Path) -> int:
                 zf.write(path, f"media/{path.relative_to(media_root).as_posix()}")
                 count += 1
     return count
+
+
+def _add_office_templates(zf) -> int:
+    from apps.office.models import TaskType
+
+    root = (OfficeSettings.load().documents_root or "").strip()
+    directory = Path(root) / "Şablon Dilekçeler" if root else None
+    if not directory or not directory.is_dir():
+        if TaskType.objects.exclude(petition_template="").exists():
+            raise BackupError("Dilekçe şablonlarının bulunduğu ofis klasörü okunamıyor.")
+        return 0
+    if directory.is_symlink():
+        raise BackupError("Şablon klasörü bağlantı olamaz.")
+    for stored in TaskType.objects.exclude(petition_template="").values_list(
+        "petition_template", flat=True
+    ):
+        if (
+            Path(stored).name != stored
+            or not (directory / stored).is_file()
+            or (directory / stored).is_symlink()
+        ):
+            raise BackupError("Kayıtlı bir dilekçe şablonu bulunamadı veya güvenli değil.")
+    count = 0
+    for path in directory.rglob("*"):
+        if path.is_symlink():
+            raise BackupError("Şablon klasöründe bağlantı bulunuyor; yedekleme durduruldu.")
+        if path.is_file():
+            zf.write(path, f"office_templates/{path.relative_to(directory).as_posix()}")
+            count += 1
+    return count
+
+
+def _add_office_lists(zf) -> int:
+    """Görüntüleme tablolarının o andaki kopyalarını yedeğe ekler."""
+    from apps.core.office_lists import DIRECTORY
+
+    root = (OfficeSettings.load().documents_root or "").strip()
+    directory = Path(root) / DIRECTORY if root else None
+    if not directory or not directory.exists():
+        return 0
+    if directory.is_symlink() or not directory.is_dir():
+        raise BackupError("Liste klasörü güvenli değil.")
+    count = 0
+    for path in directory.glob("*.xlsx"):
+        if path.is_symlink() or not path.is_file():
+            raise BackupError("Liste klasöründe güvenli olmayan bir dosya var.")
+        zf.write(path, f"office_lists/{path.name}")
+        count += 1
+    return count
+
+
+def _restore_office_templates(source: Path) -> list[Path]:
+    """Şablonları yalnız eksikse ekler; çakışan dosyaları değiştirmez."""
+    if not source.is_dir():
+        return []
+    root = (OfficeSettings.load().documents_root or "").strip()
+    if not root or not Path(root).is_dir():
+        raise BackupError("Şablonları geri yüklemek için ofis klasörü erişilebilir olmalı.")
+    destination = Path(root) / "Şablon Dilekçeler"
+    if destination.is_symlink():
+        raise BackupError("Şablon klasörü bağlantı olamaz.")
+    entries = [item for item in source.rglob("*") if item.is_file()]
+    # Önce bütün hedefleri denetle; kullanıcının dosyası ezilmez.
+    for item in entries:
+        relative = item.relative_to(source)
+        target = destination / relative
+        for parent in [target, *target.parents]:
+            if parent == destination.parent:
+                break
+            if parent.is_symlink():
+                raise BackupError("Şablon hedefinde bağlantı var; geri yükleme durduruldu.")
+        if target.exists() and (
+            not target.is_file() or not filecmp.cmp(item, target, shallow=False)
+        ):
+            raise BackupError(
+                "Şablon klasöründe farklı içerikli aynı adlı dosya var; geri yükleme durduruldu."
+            )
+    created = []
+    try:
+        for item in entries:
+            target = destination / item.relative_to(source)
+            if target.exists():
+                continue
+            target.parent.mkdir(parents=True, exist_ok=True)
+            with item.open("rb") as src, target.open("xb") as dst:
+                created.append(target)
+                shutil.copyfileobj(src, dst)
+    except OSError:
+        for path in created:
+            with suppress(OSError):
+                path.unlink()
+        raise
+    return created
 
 
 def apply_retention(directory: Path, today: dt.date | None = None) -> list[str]:
@@ -137,10 +247,12 @@ def apply_retention(directory: Path, today: dt.date | None = None) -> list[str]:
 
 def run_backup(kind=BackupRecord.Kind.SCHEDULED) -> BackupRecord:
     rec = BackupRecord.objects.create(kind=kind)
+    target = None
+    archive_created = False
+    archive_complete = False
     try:
         if problem := backup_ready():
             raise BackupError(problem)
-        password = _cfg("BACKUP_PASSWORD").encode()
         out_dir = local_dir()
         out_dir.mkdir(parents=True, exist_ok=True)
         now = timezone.localtime()
@@ -149,36 +261,58 @@ def run_backup(kind=BackupRecord.Kind.SCHEDULED) -> BackupRecord:
         with tempfile.TemporaryDirectory() as tmp:
             dump = Path(tmp) / "db.dump"
             dump_database(dump)
-            with pyzipper.AESZipFile(
-                target, "w", compression=pyzipper.ZIP_DEFLATED, encryption=pyzipper.WZ_AES
-            ) as zf:
-                zf.setpassword(password)
+            with zipfile.ZipFile(target, "x", compression=zipfile.ZIP_DEFLATED) as zf:
+                archive_created = True
                 zf.write(dump, "db.dump")
                 files = _add_media(zf, Path(settings.MEDIA_ROOT))
+                templates = _add_office_templates(zf)
+                lists = _add_office_lists(zf)
                 zf.writestr(
                     "manifest.json",
                     json.dumps(
-                        {"created": now.isoformat(), "media_files": files, "format": 1},
+                        {
+                            "created": now.isoformat(),
+                            "media_files": files,
+                            "template_files": templates,
+                            "list_files": lists,
+                            "format": 1,
+                        },
                         ensure_ascii=False,
                     ),
                 )
+            archive_complete = True
         rec.file_name, rec.size = name, target.stat().st_size
         notes = []
-        copy_dir = (OfficeSettings.load().backup_dir or "").strip()
-        if copy_dir:
+        office_root = (OfficeSettings.load().documents_root or "").strip()
+        if office_root:
+            copy_dir = Path(office_root) / "Yedekler"
+            target_copy = copy_dir / name
+            created_copy = False
             try:
-                Path(copy_dir).mkdir(parents=True, exist_ok=True)
-                shutil.copy2(target, Path(copy_dir) / name)
-                rec.copied_to = copy_dir
-                apply_retention(Path(copy_dir))
+                if copy_dir.is_symlink():
+                    raise OSError("Yedek klasörü bağlantı olamaz.")
+                copy_dir.mkdir(parents=True, exist_ok=True)
+                # Var olan bir dosyanın üzerine yazılmaz.
+                with target.open("rb") as source, target_copy.open("xb") as destination:
+                    created_copy = True
+                    shutil.copyfileobj(source, destination)
+                rec.copied_to = str(copy_dir)
             except OSError as e:
-                notes.append(f"Kopya klasörüne yazılamadı: {e.strerror or e}")
+                if created_copy:
+                    with suppress(OSError):
+                        target_copy.unlink()
+                raise BackupError(f"Yedek ofis klasörüne kopyalanamadı: {e.strerror or e}") from e
+        else:
+            notes.append("Ofis klasörü seçilmedi; yedek yalnızca sunucuda saklandı.")
         removed = apply_retention(out_dir)
         if removed:
             notes.append(f"Saklama kuralıyla {len(removed)} eski yedek silindi.")
         rec.status = BackupRecord.Status.OK
         rec.message = " ".join(notes)
     except (BackupError, OSError) as e:
+        if archive_created and not archive_complete and target is not None:
+            with suppress(OSError):
+                target.unlink()
         rec.status = BackupRecord.Status.ERROR
         rec.message = str(e)
     rec.finished_at = timezone.now()
@@ -187,13 +321,21 @@ def run_backup(kind=BackupRecord.Kind.SCHEDULED) -> BackupRecord:
 
 
 def scheduled_due(now=None) -> bool:
-    """Bugün başarılı yedek yoksa ve ayarlanan saat geçtiyse yedek zamanı gelmiştir."""
+    """Günlük veya önceki günden kaçırılmış yedek zamanını denetler."""
     now = now or timezone.localtime()
-    if now.time() < OfficeSettings.load().backup_time:
+    successful = BackupRecord.objects.filter(status=BackupRecord.Status.OK)
+    if successful.filter(started_at__date=now.date()).exists():
         return False
-    return not BackupRecord.objects.filter(
-        status=BackupRecord.Status.OK, started_at__date=now.date()
-    ).exists()
+    due_time = OfficeSettings.load().backup_time
+    if now.time() >= due_time:
+        return True
+    last = successful.first()
+    if last is None:
+        return False
+    yesterday_due = now.replace(
+        hour=due_time.hour, minute=due_time.minute, second=due_time.second, microsecond=0
+    ) - dt.timedelta(days=1)
+    return last.started_at < yesterday_due
 
 
 def last_success():
@@ -213,20 +355,22 @@ def restore(zip_path: Path, password: str | None = None):
         tmp = Path(tmp)
         try:
             with pyzipper.AESZipFile(zip_path) as zf:
-                zf.setpassword(password)
+                if password:
+                    zf.setpassword(password)
                 zf.extractall(tmp)
         except (RuntimeError, pyzipper.BadZipFile, OSError) as e:
             raise BackupError("Yedek açılamadı: parola yanlış veya dosya bozuk.") from e
         if not (tmp / "db.dump").is_file():
             raise BackupError("Yedek içinde veritabanı dökümü yok.")
+        fallback = _development_database_tool("pg_restore")
         cmd = [
-            *shlex.split(_cfg("PG_RESTORE", "pg_restore"), posix=False),
+            *(fallback or shlex.split(_cfg("PG_RESTORE", "pg_restore"), posix=False)),
             "--clean",
             "--if-exists",
             "--no-owner",
             "--single-transaction",
             "--exit-on-error",
-            f"--dbname={_db_url()}",
+            *(["--username=ozkurt", "--dbname=ozkurt"] if fallback else [f"--dbname={_db_url()}"]),
         ]
         try:
             media_root.parent.mkdir(parents=True, exist_ok=True)
@@ -238,22 +382,29 @@ def restore(zip_path: Path, password: str | None = None):
                     shutil.copytree(tmp / "media", staged_media)
                 else:
                     staged_media.mkdir()
+                created_templates = []
                 previous = None
-                if media_root.exists():
-                    previous = media_root.with_name(
-                        f"{media_root.name}.onceki-{timezone.localtime():%Y%m%d-%H%M%S}-{uuid4().hex[:8]}"
-                    )
-                    media_root.rename(previous)
+                media_replaced = False
                 try:
+                    created_templates = _restore_office_templates(tmp / "office_templates")
+                    if media_root.exists():
+                        previous = media_root.with_name(
+                            f"{media_root.name}.onceki-{timezone.localtime():%Y%m%d-%H%M%S}-{uuid4().hex[:8]}"
+                        )
+                        media_root.rename(previous)
                     staged_media.rename(media_root)
+                    media_replaced = True
                     with open(tmp / "db.dump", "rb") as f:
                         _run(cmd, stdin=f, timeout=1800)
                 except (BackupError, OSError):
                     # Veritabanı işlemi bütünüyle geri alınır; eski belgeleri de yerine koy.
-                    if media_root.exists():
+                    if media_replaced:
                         media_root.rename(staged_media)
-                    if previous is not None:
+                    if previous is not None and previous.exists():
                         previous.rename(media_root)
+                    for path in created_templates:
+                        with suppress(OSError):
+                            path.unlink()
                     raise
         except OSError as e:
             raise BackupError(

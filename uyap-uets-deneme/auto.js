@@ -162,11 +162,16 @@
               seenCases.add(caseId);
               sampleCounts[state]++;
               const caseFingerprint = await fingerprint(caseId);
-              if (completedCases.has(caseFingerprint)) continue;
+              const financeFingerprint = await fingerprint('finans1:' + caseId);
+              const mainDone = completedCases.has(caseFingerprint);
+              const financeDone = completedCases.has(financeFingerprint);
+              if (mainDone && financeDone) continue;
               let caseComplete = true; status('basladi', {total: result[1] || 0, processed: seenCases.size, currentFile: row?.dosyaNo || ''});
               const itemList = {source:'UYAP', path:'/search_phrase_detayli.ajx', data:{kategori:category.name, birim:unit.kod, durum:state, sonuc:[[row], 1]}};
               let captures = [itemList];
-              for (const path of paths) {
+              const casePaths = [...paths];
+              if (category.name === 'İcra') casePaths.push('/dosya_hesap_bilgileri.ajx');
+              for (const path of (mainDone ? [] : casePaths)) {
                 try {
                   const body = {dosyaId: caseId};
                   if (path === '/list_dosya_evraklar.ajx') {
@@ -187,11 +192,31 @@
                     const data = await post(path, body);
                     captures.push({source:'UYAP', path, data:{kategori:category.name, durum:state, dosyaId:caseId, sonuc:data}});
                   }
-                } catch (error) { if (['oturum', 'sunucu', 'izin'].includes(error.message)) throw error; partial = true; caseComplete = false; }
+                } catch (error) {
+                  if (['oturum', 'sunucu', 'izin'].includes(error.message)) throw error;
+                  // Ceza dosyalarında /dosyaAyrintiBilgileri_brd.ajx bazen UYAP yetki yanıtı (error) döner;
+                  // HTTP 200 ile gelen bu yanıt diğer uç noktaların tamamlanmasını engellememeli.
+                  if (!(category.name === 'Ceza' && path === '/dosyaAyrintiBilgileri_brd.ajx' && error.message === 'yanit')) {
+                    partial = true; caseComplete = false;
+                  }
+                }
                 await wait(150);
               }
+              let financeComplete = true;
+              if (!financeDone) {
+                // Tahsilat/reddiyat/harç yanıtı tüm dosya türleri için istenir; ödeyen ve tür ayrımı sunucuda yapılır.
+                const financePath = '/dosya_tahsilat_reddiyat_bilgileri_brd.ajx';
+                if (Number.isInteger(row?.dosyaTurKod)) {
+                  try {
+                    const data = await post(financePath, {dosyaId: caseId, dosyaTurKod: row.dosyaTurKod});
+                    captures.push({source:'UYAP', path:financePath, data:{kategori:category.name, durum:state, dosyaId:caseId, sonuc:data}});
+                  } catch (error) { if (['oturum', 'sunucu', 'izin'].includes(error.message)) throw error; partial = true; financeComplete = false; }
+                  await wait(150);
+                } else { partial = true; financeComplete = false; }
+              }
               await send({type:'uyap', captures});
-              if (caseComplete) { await checkpoint('add', caseFingerprint); completedCases.add(caseFingerprint); }
+              if (caseComplete && !mainDone) { await checkpoint('add', caseFingerprint); completedCases.add(caseFingerprint); }
+              if (financeComplete && !financeDone) { await checkpoint('add', financeFingerprint); completedCases.add(financeFingerprint); }
             }
             if (page * 10 >= result[1]) break;
             if (!pageRows.length || page === 2000) { partial = true; break; }

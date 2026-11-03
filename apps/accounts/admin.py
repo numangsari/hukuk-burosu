@@ -8,7 +8,7 @@ from .models import User
 class UserAdmin(BaseUserAdmin):
     fieldsets = (
         *BaseUserAdmin.fieldsets,
-        ("Ofis", {"fields": ("role", "phone", "avatar", "theme", "page_size")}),
+        ("Ofis", {"fields": ("role", "phone", "avatar", "theme")}),
     )
     list_display = ("username", "first_name", "last_name", "role", "is_active")
     list_filter = ("role", "is_active")

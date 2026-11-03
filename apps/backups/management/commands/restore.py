@@ -7,7 +7,7 @@ from apps.backups.services import BackupError, restore
 
 class Command(BaseCommand):
     help = (
-        "Şifreli yedeği geri yükler. MEVCUT VERİLERİN YERİNE GEÇER. "
+        "Yedeği geri yükler. MEVCUT VERİLERİN YERİNE GEÇER. "
         "Önce uygulama servisini durdurun; mevcut belgeler 'media.onceki-...' adıyla saklanır."
     )
 

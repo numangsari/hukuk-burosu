@@ -112,15 +112,19 @@ def test_document_on_task_creation_is_stored_and_copied(
         "reviewer": lawyer.pk,
         "due_date": "2026-11-10",
         "requires_accounting": "yes",
-        "document": SimpleUploadedFile("ornek.pdf", b"ornek belge"),
+        "document": [
+            SimpleUploadedFile("ornek.pdf", b"ornek belge"),
+            SimpleUploadedFile("diger.pdf", b"ikinci belge"),
+        ],
     }
     with django_capture_on_commit_callbacks(execute=True):
         response = login(lawyer).post(reverse("tasks:create"), data)
     assert response.status_code == 302
-    doc = TaskDocument.objects.get(task__case=case)
-    assert doc.uploaded_by == lawyer
-    assert Path(doc.folder_path).parent.name == "Görevler"
-    assert Path(doc.folder_path).read_bytes() == b"ornek belge"
+    docs = list(TaskDocument.objects.filter(task__case=case).order_by("original_name"))
+    assert [doc.original_name for doc in docs] == ["diger.pdf", "ornek.pdf"]
+    assert all(doc.uploaded_by == lawyer for doc in docs)
+    assert all(Path(doc.folder_path).parent.name == "Görevler" for doc in docs)
+    assert [Path(doc.folder_path).read_bytes() for doc in docs] == [b"ikinci belge", b"ornek belge"]
 
 
 def test_invalid_document_does_not_create_task(case_factory, lawyer, intern, office_root):
@@ -229,3 +233,49 @@ def test_task_type_settings_formset(admin_user):
     assert r.status_code == 302
     tt.refresh_from_db()
     assert tt.requires_document and TaskType.objects.filter(name="Temyiz").exists()
+
+
+def test_source_document_is_protected_and_does_not_satisfy_petition_requirement(
+    task, intern, lawyer, office_root
+):
+    document = TaskDocument.objects.create(
+        task=task,
+        kind=TaskDocument.Kind.SOURCE,
+        file=SimpleUploadedFile("kaynak.pdf", b"kaynak"),
+        original_name="kaynak.pdf",
+        uploaded_by=lawyer,
+    )
+    client = login(lawyer)
+    assert client.post(reverse("tasks:doc_delete", args=[task.pk, document.pk])).status_code == 403
+    assert upload(client, task, replaces=document.pk).status_code == 403
+    with pytest.raises(ValidationError):
+        services.perform(task, "submit", intern)
+    assert TaskDocument.objects.filter(pk=document.pk).exists()
+    response = client.get(task.case.client.get_absolute_url())
+    assert "kaynak.pdf" in response.content.decode()
+    response = client.get(task.case.get_absolute_url())
+    assert "kaynak.pdf" in response.content.decode()
+
+
+def test_task_documents_and_petitions_are_in_separate_sections(task, intern, lawyer, office_root):
+    TaskDocument.objects.create(
+        task=task,
+        kind=TaskDocument.Kind.SOURCE,
+        file=SimpleUploadedFile("kaynak.pdf", b"kaynak"),
+        original_name="kaynak.pdf",
+        uploaded_by=lawyer,
+    )
+    upload(login(intern), task, "dilekce.pdf")
+    response = login(lawyer).get(task.get_absolute_url())
+    html = response.content.decode()
+    assert html.index("Dilekçeler") < html.index("dilekce.pdf") < html.index("Görev belgeleri")
+    assert html.index("Görev belgeleri") < html.index("kaynak.pdf")
+
+
+def test_non_pdf_petition_has_only_one_download_button(task, intern, lawyer, office_root):
+    upload(login(intern), task, "ornek.udf")
+    response = login(lawyer).get(task.get_absolute_url())
+    html = response.content.decode()
+    row = html.split("ornek.udf", 1)[1].split("</li>", 1)[0]
+    assert row.count("download>") == 1
+    assert ">Aç</a>" not in row

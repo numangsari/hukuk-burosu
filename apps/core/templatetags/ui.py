@@ -68,3 +68,10 @@ def sort_link(context, field, label):
     return format_html(
         '<a href="{}" class="text-reset text-decoration-none">{}{}</a>', url, label, icon
     )
+
+
+@register.simple_tag
+def page_numbers(page_obj):
+    if not page_obj:
+        return []
+    return page_obj.paginator.get_elided_page_range(page_obj.number, on_each_side=1, on_ends=1)

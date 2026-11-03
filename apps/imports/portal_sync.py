@@ -45,6 +45,7 @@ UYAP_PATHS = {
     "/dosya_taraf_bilgileri_brd.ajx",
     "/list_dosya_evraklar.ajx",
     "/avukat_durusma_sorgula_brd.ajx",
+    "/dosya_tahsilat_reddiyat_bilgileri_brd.ajx",
 }
 
 
@@ -65,7 +66,7 @@ def find_name_permission(name, permission):
         .select_for_update()
         .filter(
             user__is_active=True,
-            user__role__in=[User.Role.ADMIN, User.Role.LAWYER],
+            user__role__in=[User.Role.ADMIN, User.Role.SENIOR, User.Role.LAWYER],
             **{permission: True},
         )
     )
@@ -174,7 +175,7 @@ def health(request):
             return JsonResponse({"error": "Bağlantı yetkisi yok."}, status=403)
     except (ValueError, TypeError, UnicodeDecodeError, RuntimeError):
         return JsonResponse({"error": "Durum bilgisi doğrulanamadı."}, status=400)
-    return JsonResponse({"ok": True, "sync_enabled": False})
+    return JsonResponse({"ok": True, "sync_enabled": True})
 
 
 @login_not_required
@@ -219,7 +220,7 @@ def toggle_access(request, pk, source):
         field = f"{source}_enabled"
         setattr(access, field, not getattr(access, field))
         access.save(update_fields=[field])
-    messages.success(request, "Kişi izni güncellendi. Otomatik aktarım hâlâ kapalıdır.")
+    messages.success(request, "Kişi izni güncellendi.")
     return redirect("/hesap/ayarlar/?bolum=eklenti")
 
 
@@ -290,10 +291,6 @@ def receive(request):
     )
     if not connection:
         return JsonResponse({"error": "Bağlantı yetkisi yok."}, status=403)
-    if not getattr(settings, "PORTAL_SYNC_ENABLED", False):
-        return JsonResponse(
-            {"error": "Kişi doğrulaması tamamlanana kadar aktarım kapalı."}, status=503
-        )
     try:
         check_import_access(connection.owner)
         if int(request.META.get("CONTENT_LENGTH") or 0) > 28_000_000:
@@ -322,7 +319,7 @@ def receive(request):
                     .filter(
                         identity_number=identity,
                         user__is_active=True,
-                        user__role__in=[User.Role.ADMIN, User.Role.LAWYER],
+                        user__role__in=[User.Role.ADMIN, User.Role.SENIOR, User.Role.LAWYER],
                         **{permission: True},
                     )
                     .first()
@@ -334,7 +331,7 @@ def receive(request):
                     {"error": "Kişi için bu kaynaktan aktarım izni yok."}, status=403
                 )
             if source == "uyap":
-                if not getattr(settings, "PORTAL_UYAP_AUTOMATION_ENABLED", False):
+                if not getattr(settings, "PORTAL_UYAP_AUTOMATION_ENABLED", True):
                     return JsonResponse({"error": "UYAP otomatik taraması durduruldu."}, status=403)
                 items = body.get("captures")
                 if not isinstance(items, list) or not 1 <= len(items) <= 100:

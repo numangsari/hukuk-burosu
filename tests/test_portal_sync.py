@@ -17,7 +17,7 @@ from apps.imports.models import (
 
 
 @pytest.mark.django_db
-@override_settings(DEBUG=True, PORTAL_SYNC_ENABLED=True)
+@override_settings(DEBUG=True)
 def test_only_paired_local_extension_can_import_notice(monkeypatch, settings, tmp_path):
     settings.MEDIA_ROOT = tmp_path
     monkeypatch.setitem(connection.settings_dict, "NAME", "ozkurt_deneme")
@@ -104,7 +104,7 @@ def test_only_paired_local_extension_can_import_notice(monkeypatch, settings, tm
 
 
 @pytest.mark.django_db
-@override_settings(DEBUG=True, PORTAL_SYNC_ENABLED=True, PORTAL_UYAP_AUTOMATION_ENABLED=True)
+@override_settings(DEBUG=True, PORTAL_UYAP_AUTOMATION_ENABLED=True)
 def test_import_rejects_unapproved_portal_operations(monkeypatch):
     monkeypatch.setitem(connection.settings_dict, "NAME", "ozkurt_deneme")
     monkeypatch.setitem(connection.settings_dict, "PORT", "5435")
@@ -145,7 +145,7 @@ def test_import_rejects_unapproved_portal_operations(monkeypatch):
 
 
 @pytest.mark.django_db
-@override_settings(DEBUG=True, PORTAL_SYNC_ENABLED=True, PORTAL_UYAP_AUTOMATION_ENABLED=False)
+@override_settings(DEBUG=True, PORTAL_UYAP_AUTOMATION_ENABLED=False)
 def test_uyap_automatic_import_is_disabled_by_default(monkeypatch):
     monkeypatch.setitem(connection.settings_dict, "NAME", "ozkurt_deneme")
     monkeypatch.setitem(connection.settings_dict, "PORT", "5435")
@@ -161,22 +161,6 @@ def test_uyap_automatic_import_is_disabled_by_default(monkeypatch):
     )
     assert response.status_code == 403
     assert PortalCase.objects.count() == 0
-
-
-@pytest.mark.django_db
-@override_settings(PORTAL_SYNC_ENABLED=False)
-def test_sync_is_closed_until_identity_verification_exists():
-    user = User.objects.create_user(username="blocked-sync", role=User.Role.ADMIN)
-    key = "example-temporary-key"
-    PortalConnection.objects.create(owner=user, key_hash=hashlib.sha256(key.encode()).hexdigest())
-    response = Client().post(
-        "/portal-inceleme/eklentiden-al/",
-        json.dumps({"type": "notice"}),
-        content_type="application/json",
-        HTTP_AUTHORIZATION=f"Bearer {key}",
-    )
-    assert response.status_code == 503
-    assert PortalNotice.objects.count() == 0
 
 
 @pytest.mark.django_db
@@ -209,7 +193,7 @@ def test_health_only_accepts_paired_local_extension_and_known_states(monkeypatch
     response = client.post(
         url, json.dumps(data), content_type="application/json", HTTP_AUTHORIZATION=f"Bearer {key}"
     )
-    assert response.status_code == 200 and response.json()["sync_enabled"] is False
+    assert response.status_code == 200 and response.json()["sync_enabled"] is True
     conn.refresh_from_db()
     assert (
         conn.last_seen is not None
@@ -290,11 +274,11 @@ def test_old_health_is_not_shown_as_live(client):
     page = client.get("/hesap/ayarlar/?bolum=eklenti").content.decode()
     assert "Eklentiden haber alınamıyor" in page
     assert "Eklentiden haber alındı" not in page
-    assert "otomatik aktarım kapalıdır" in page
+    assert "hangi avukatın UYAP" in page
 
 
 @pytest.mark.django_db
-@override_settings(DEBUG=True, PORTAL_SYNC_ENABLED=True, PORTAL_UYAP_AUTOMATION_ENABLED=True)
+@override_settings(DEBUG=True, PORTAL_UYAP_AUTOMATION_ENABLED=True)
 def test_data_rejected_without_exact_active_person_and_source_permission(monkeypatch):
     monkeypatch.setitem(connection.settings_dict, "NAME", "ozkurt_deneme")
     monkeypatch.setitem(connection.settings_dict, "PORT", "5435")
@@ -358,7 +342,7 @@ def test_data_rejected_without_exact_active_person_and_source_permission(monkeyp
 
 
 @pytest.mark.django_db
-@override_settings(DEBUG=True, PORTAL_SYNC_ENABLED=True, PORTAL_UYAP_AUTOMATION_ENABLED=True)
+@override_settings(DEBUG=True, PORTAL_UYAP_AUTOMATION_ENABLED=True)
 def test_portal_name_match_requires_one_active_permitted_lawyer(monkeypatch):
     monkeypatch.setitem(connection.settings_dict, "NAME", "ozkurt_deneme")
     monkeypatch.setitem(connection.settings_dict, "PORT", "5435")

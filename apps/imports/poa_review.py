@@ -146,9 +146,13 @@ def get_teams(*, lock=False):
     teams = []
     for lawyer_name, intern_name in configured:
         lawyer, intern = users.get(lawyer_name), users.get(intern_name)
-        if not lawyer or not intern or lawyer.role not in (User.Role.ADMIN, User.Role.LAWYER):
+        if (
+            not lawyer
+            or not intern
+            or lawyer.role not in (User.Role.ADMIN, User.Role.SENIOR, User.Role.LAWYER)
+        ):
             raise ValidationError("Sorumlu ekip bulunamadı; kullanıcı ayarlarını kontrol edin.")
-        if intern.role != User.Role.INTERN:
+        if intern.role not in (User.Role.INTERN, User.Role.PARALEGAL):
             raise ValidationError("Sorumlu ekip bulunamadı; kullanıcı ayarlarını kontrol edin.")
         teams.append((lawyer, intern))
     if not teams:

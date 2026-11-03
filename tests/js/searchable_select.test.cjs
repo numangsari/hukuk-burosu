@@ -25,7 +25,7 @@ function setup(options) {
   select.id = 'id_type'; select.dataset = { searchable: 'Görev türü ara' }; select.options = options;
   Object.defineProperty(select, 'selectedOptions', { get() { return this.options.filter(item => item.value === this.value); } });
   let observer;
-  const document = { createElement: tag => new Element(tag), querySelectorAll: () => [select], querySelector: () => null };
+  const document = { addEventListener() {}, createElement: tag => new Element(tag), querySelectorAll: () => [select], querySelector: () => null };
   class MutationObserver { constructor(fn) { observer = fn; } observe() {} }
   class Event { constructor(type, options) { this.type = type; this.bubbles = options?.bubbles; } }
   const source = fs.readFileSync(path.join(__dirname, '../../static/js/searchable-select.js'), 'utf8');

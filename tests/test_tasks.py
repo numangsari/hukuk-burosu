@@ -94,7 +94,7 @@ def test_task_types_are_grouped_and_searchable(lawyer):
     assert '<optgroup label="Ceza ve Soruşturma İşlemleri">' in html
     assert '<optgroup label="Ofis İçi İşlemler">' in html
     assert 'label="Ofis İçi, Araştırma ve Diğer İşlemler"' not in html
-    assert html.count(">İstinaf Dilekçesi</option>") == 2
+    assert html.count(">İstinaf Dilekçesi</option>") == 1
 
 
 def test_task_type_capitalizes_turkish_word_initials():
@@ -162,7 +162,70 @@ def test_permissions(task_factory, lawyer, intern, admin_user):
     services.perform(t, "approve", admin_user)  # yönetici her işlemi yapabilir
     assert t.status == TaskStatus.ACTIVE and t.stage_label == "Onaylandı"
     assert services.available_actions(t, lawyer) == []
-    assert services.available_actions(t, intern) == []
+    assert [a.key for a in services.available_actions(t, intern)] == ["close"]
+
+
+def test_close_reopen_and_points(task_factory, lawyer, intern, admin_user):
+    task = task_factory()
+    with pytest.raises(PermissionDenied):
+        services.perform(task, "close", intern, "Bitti")
+    services.perform(task, "submit", intern)
+    services.perform(task, "approve", lawyer)
+    with pytest.raises(ValidationError):
+        services.perform(task, "close", intern)
+    services.perform(task, "close", intern, "İş tamamlandı")
+    assert task.status == TaskStatus.DONE
+    assert task.events.filter(kind="closed", comment="İş tamamlandı").exists()
+    assert task.points_awarded.count() == 2
+    with pytest.raises(PermissionDenied):
+        services.perform(task, "reopen", intern)
+    services.perform(task, "reopen", lawyer)
+    assert task.status == TaskStatus.ACTIVE
+    assert not task.points_awarded.exists()
+    services.perform(task, "submit", intern)
+    services.perform(task, "approve", lawyer)
+    services.perform(task, "close", intern, "Yeniden tamamlandı")
+    assert task.points_awarded.count() == 2
+    services.perform(task, "reopen", admin_user)
+    assert not task.points_awarded.exists()
+
+
+def test_close_requires_related_accounting_entry(task_factory, intern, lawyer, case_factory):
+    from apps.accounting.models import LedgerEntry
+
+    task = task_factory(requires_accounting=True)
+    other = case_factory()
+    unrelated = LedgerEntry.objects.create(
+        client=other.client, case=other, kind="expense", amount=10, date=timezone.localdate()
+    )
+    entry = LedgerEntry.objects.create(
+        client=task.client, case=task.case, kind="expense", amount=20, date=timezone.localdate()
+    )
+    services.perform(task, "submit", intern)
+    services.perform(task, "approve", lawyer)
+    for value in ("", str(unrelated.pk)):
+        with pytest.raises(ValidationError):
+            services.perform(task, "close", intern, "Bitti", value)
+    services.perform(task, "close", intern, "Bitti", str(entry.pk))
+    assert task.status == TaskStatus.DONE
+    assert task.events.filter(comment__contains=f"Gelir/gider kaydı: {entry.pk}").exists()
+
+
+def test_close_requires_petition_and_shows_result(task_factory, intern, lawyer):
+    task = task_factory()
+    services.perform(task, "submit", intern)
+    services.perform(task, "approve", lawyer)
+    task.task_type.requires_document = True
+    task.task_type.save(update_fields=["requires_document"])
+    with pytest.raises(ValidationError):
+        services.perform(task, "close", intern, "Tamamlandı")
+    task.task_type.requires_document = False
+    task.task_type.save(update_fields=["requires_document"])
+    response = login(intern).post(
+        reverse("tasks:action", args=[task.pk]), {"action": "close", "comment": "Tamamlandı"}
+    )
+    assert response.status_code == 302
+    assert "Tamamlandı" in login(intern).get(task.get_absolute_url()).content.decode()
 
 
 def test_delete_only_creator_or_admin(task_factory, lawyer, intern):
@@ -353,3 +416,53 @@ def test_due_labels(task_factory):
     assert task_factory(due_date=today - dt.timedelta(days=3)).due_label == "3 gün gecikti"
     assert task_factory(due_date=today).urgency == "today"
     assert task_factory(due_date=today + dt.timedelta(days=1)).due_label == "Yarın"
+
+
+def test_task_modal_save_returns_same_site_completion(lawyer, intern, case_factory):
+    case = case_factory()
+    response = login(lawyer).post(
+        reverse("tasks:create") + "?pencere=1",
+        {
+            "task_type": TaskType.objects.first().pk,
+            "title": "Örnek görev",
+            "case": case.pk,
+            "assignee": intern.pk,
+            "reviewer": lawyer.pk,
+            "due_date": "2026-11-10",
+            "requires_accounting": "no",
+        },
+    )
+    assert response.status_code == 200
+    assert response["X-Frame-Options"] == "SAMEORIGIN"
+    assert b"window.parent.location.reload()" in response.content
+    assert Task.objects.filter(case=case).exists()
+
+
+def test_marked_task_types_require_document():
+    assert TaskType.objects.get(name="Dava Dilekçesi Hazırlama Ve Dava Açılışı").requires_document
+    assert TaskType.objects.get(name="Delil Sunma").requires_document
+    assert not TaskType.objects.get(name="Dava Dosyası İnceleme").requires_document
+
+
+def test_only_reviewer_or_admin_can_edit_task(task_factory, lawyer, intern, admin_user):
+    task = task_factory(assignee=intern, reviewer=lawyer, created_by=intern)
+    url = reverse("tasks:update", args=[task.pk])
+    assert login(intern).get(url).status_code == 403
+    assert login(lawyer).get(url).status_code == 200
+    assert login(admin_user).get(url).status_code == 200
+
+
+def test_task_notes_are_separate_and_record_author(task_factory, lawyer, intern):
+    task = task_factory(notes="Önceki not")
+    url = reverse("tasks:note", args=[task.pk])
+    login(lawyer).post(url, {"note": "İlk yeni not"})
+    login(intern).post(url, {"note": "İkinci yeni not"})
+    response = login(lawyer).get(task.get_absolute_url() + "?pencere=1")
+    assert response["X-Frame-Options"] == "SAMEORIGIN"
+    assert [note.comment for note in response.context["notes"]] == [
+        "İkinci yeni not",
+        "İlk yeni not",
+    ]
+    assert [note.actor for note in response.context["notes"]] == [intern, lawyer]
+    task.refresh_from_db()
+    assert task.notes == "Önceki not"

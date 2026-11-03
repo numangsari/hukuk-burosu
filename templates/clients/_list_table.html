@@ -26,7 +26,7 @@
           </div>
         </div>
       </td>
-      <td><div>{{ c.responsible_lawyer }}</div><div class="cell-sub">{{ c.responsible_intern }}</div></td>
+      <td><div>{{ c.responsible_lawyer }}</div>{% if office.use_assistant_assignee and c.responsible_intern %}<div class="cell-sub">{{ c.responsible_intern }}</div>{% endif %}</td>
       <td class="text-end tabular fw-semibold">{{ c.case_count }}</td>
       <td class="text-end tabular">{% if c.open_task_count %}<span class="count-pill">{{ c.open_task_count }}</span>{% else %}<span class="text-body-secondary">0</span>{% endif %}</td>
       {% if can_view_balances %}<td class="text-end tabular {% if c.balance > 0 %}text-debt fw-semibold{% elif c.balance < 0 %}text-credit{% else %}text-body-secondary{% endif %}">{{ c.balance|tl }}</td>{% endif %}

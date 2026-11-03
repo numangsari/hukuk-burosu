@@ -13,7 +13,8 @@ from apps.accounting.permissions import can_view as can_view_accounting
 from apps.accounting.views import statement
 from apps.accounts.models import User
 from apps.clients.models import Client, Party
-from apps.core.permissions import AdminRequiredMixin, is_admin
+from apps.core.pagination import page_size
+from apps.core.permissions import AdminRequiredMixin, filter_visible_cases, is_admin
 from apps.core.text import fold
 from apps.office.models import Court
 
@@ -61,7 +62,7 @@ class CaseListView(ListView):
     context_object_name = "cases"
 
     def get_paginate_by(self, queryset):
-        return self.request.user.page_size
+        return page_size(self.request)
 
     def get_queryset(self):
         g = self.request.GET
@@ -74,16 +75,14 @@ class CaseListView(ListView):
             .annotate(n=Count("pk"))
             .values("n")
         )
-        qs = (
+        base_qs = filter_visible_cases(
             Case.objects.select_related(
                 "client", "responsible_lawyer", "responsible_intern", "portalcase"
-            )
-            .prefetch_related("co_clients")
-            .annotate(
-                open_task_count=Coalesce(
-                    Subquery(open_tasks, output_field=IntegerField()), Value(0)
-                )
-            )
+            ).prefetch_related("co_clients"),
+            self.request.user,
+        )
+        qs = base_qs.annotate(
+            open_task_count=Coalesce(Subquery(open_tasks, output_field=IntegerField()), Value(0))
         )
         if q := g.get("q", "").strip():
             qs = qs.filter(
@@ -107,6 +106,14 @@ class CaseListView(ListView):
         if g.get("mine"):
             u = self.request.user
             qs = qs.filter(Q(responsible_lawyer=u) | Q(responsible_intern=u))
+        if g.get("missing"):
+            qs = qs.filter(
+                Q(client__isnull=True)
+                | Q(client_role="")
+                | Q(archive_folder_no="")
+                | Q(archive_no="")
+                | Q(subject="")
+            )
         if client := g.get("client"):
             qs = qs.filter(Q(client_id=client) | Q(co_clients=client)).distinct()
         selected = g.get("stage", "").split(":", 1)
@@ -126,7 +133,7 @@ class CaseListView(ListView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        ctx["lawyers"] = User.objects.filter(role__in=["admin", "lawyer"], is_active=True)
+        ctx["lawyers"] = User.objects.filter(role__in=["admin", "senior", "lawyer"], is_active=True)
         ctx["types"] = CaseType.choices
         ctx["statuses"] = CaseStatus.choices
         ctx["stage_groups"] = [
@@ -218,15 +225,28 @@ class CaseFormMixin:
     def form_valid(self, form):
         context = self.get_context_data(form=form)
         formset, co_formset = context["party_formset"], context["co_formset"]
-        co_formset.primary_id = form.cleaned_data["client"].pk
+        co_formset.primary_id = (
+            form.cleaned_data["client"].pk if form.cleaned_data.get("client") else None
+        )
         co_formset.case = form.instance if form.instance.pk else None
         if not (formset.is_valid() and co_formset.is_valid()):
             return self.render_to_response(
                 self.get_context_data(form=form, party_formset=formset, co_formset=co_formset)
             )
+        had_no_client = bool(
+            form.instance.pk
+            and Case.objects.filter(pk=form.instance.pk, client__isnull=True).exists()
+        )
         if not form.instance.pk:
             form.instance.created_by = self.request.user
         response = super().form_valid(form)
+        if had_no_client and self.object.client_id:
+            from .documents import mirror_document
+
+            for doc in self.object.documents.filter(is_current=True):
+                if warning := mirror_document(doc):
+                    messages.warning(self.request, warning)
+                    break
         self._save_co_clients(co_formset)
         for link, field in form.existing_party_rows:
             if form.cleaned_data.get(f"party_remove_{link.pk}"):
@@ -303,6 +323,14 @@ class CaseCreateView(CaseFormMixin, CreateView):
                 responsible_lawyer=related.responsible_lawyer_id,
                 responsible_intern=related.responsible_intern_id,
             )
+        if (tur := self.request.GET.get("tur")) in CaseType.values:
+            initial["case_type"] = tur
+        if kurum := self.request.GET.get("kurum", "").strip():
+            initial["authority"] = kurum
+        if (yil := self.request.GET.get("yil", "").strip()).isdigit():
+            initial["official_year"] = int(yil)
+        if (numara := self.request.GET.get("numara", "").strip()).isdigit():
+            initial["official_sequence"] = int(numara)
         record = self._source_record()
         if record:
             # Ofis listesi satırından açılıyorsa kaynak bilgiler önceden dolar.
@@ -360,8 +388,8 @@ class CaseUpdateView(CaseFormMixin, UpdateView):
         return super().post(request, *args, **kwargs)
 
     def get_queryset(self):
-        qs = super().get_queryset()
-        return qs.select_for_update() if self.request.method == "POST" else qs
+        qs = filter_visible_cases(super().get_queryset(), self.request.user)
+        return qs.select_for_update(of=("self",)) if self.request.method == "POST" else qs
 
 
 class CaseDetailView(DetailView):
@@ -370,15 +398,20 @@ class CaseDetailView(DetailView):
     context_object_name = "case"
 
     def get_queryset(self):
-        return Case.objects.select_related(
-            "client", "responsible_lawyer", "responsible_intern", "portalcase"
+        return filter_visible_cases(
+            Case.objects.select_related(
+                "client", "responsible_lawyer", "responsible_intern", "portalcase"
+            ),
+            self.request.user,
         )
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
+        from apps.imports.portal_case_sync import missing_related_cases_for_view
         from apps.imports.portal_display import case_information
 
         ctx["portal_information"] = case_information(getattr(self.object, "portalcase", None))
+        ctx["missing_related_cases"] = missing_related_cases_for_view(self.object)
         ctx["party_form"] = CasePartyForm(case_type=self.object.case_type)
         ctx["stage_form"] = CaseStageForm(case=self.object)
         steps = stages.open_stages(self.object.case_type)
@@ -473,7 +506,7 @@ class CaseDeleteView(AdminRequiredMixin, View):
             return redirect(case)
         services.dissolve_if_single(flow_id)
         messages.success(request, "Dosya silindi.")
-        return redirect(client)
+        return redirect(client) if client else redirect("cases:list")
 
 
 def _parties_partial(request, case, form=None):
@@ -493,7 +526,7 @@ def _parties_partial(request, case, form=None):
 
 class CasePartyAddView(View):
     def post(self, request, pk):
-        case = get_object_or_404(Case, pk=pk)
+        case = get_object_or_404(filter_visible_cases(Case.objects.all(), request.user), pk=pk)
         form = CasePartyForm(request.POST, case_type=case.case_type)
         if not form.is_valid():
             return _parties_partial(request, case, form)
@@ -512,7 +545,9 @@ class CasePartyAddView(View):
 class CasePartyRemoveView(AdminRequiredMixin, View):
     def post(self, request, pk, link_pk):
         case = get_object_or_404(Case, pk=pk)
-        get_object_or_404(CaseParty, pk=link_pk, case=case).delete()
+        link = get_object_or_404(CaseParty, pk=link_pk, case=case)
+        if not link.from_uyap:
+            link.delete()
         return _parties_partial(request, case)
 
 
@@ -550,7 +585,7 @@ def _documents_partial(request, case, form=None, warning=""):
 
 class DocumentUploadView(View):
     def post(self, request, pk):
-        case = get_object_or_404(Case, pk=pk)
+        case = get_object_or_404(filter_visible_cases(Case.objects.all(), request.user), pk=pk)
         form = DocumentForm(request.POST, request.FILES)
         if not form.is_valid():
             return _documents_partial(request, case, form)
@@ -566,7 +601,7 @@ class DocumentDeleteView(View):
     """Belgeyi yalnızca yükleyen kişi veya yönetici silebilir."""
 
     def post(self, request, pk, doc_pk):
-        case = get_object_or_404(Case, pk=pk)
+        case = get_object_or_404(filter_visible_cases(Case.objects.all(), request.user), pk=pk)
         doc = get_object_or_404(Document, pk=doc_pk, case=case)
         if doc.created_by_id == request.user.pk or is_admin(request.user):
             doc.file.delete(save=False)
@@ -578,7 +613,7 @@ class CaseStageView(View):
     """Açık dosyanın aşamasını değiştirir."""
 
     def post(self, request, pk):
-        case = get_object_or_404(Case, pk=pk)
+        case = get_object_or_404(filter_visible_cases(Case.objects.all(), request.user), pk=pk)
         form = CaseStageForm(request.POST, case=case)
         if form.is_valid():
             try:
@@ -611,14 +646,14 @@ class CaseCloseView(View):
         )
 
     def get(self, request, pk):
-        case = get_object_or_404(Case, pk=pk)
+        case = get_object_or_404(filter_visible_cases(Case.objects.all(), request.user), pk=pk)
         if not case.is_open:
             messages.error(request, "Dosya zaten kapalı.")
             return redirect(case)
         return self._render(request, case, CaseCloseForm(case=case))
 
     def post(self, request, pk):
-        case = get_object_or_404(Case, pk=pk)
+        case = get_object_or_404(filter_visible_cases(Case.objects.all(), request.user), pk=pk)
         form = CaseCloseForm(request.POST, case=case)
         collections = (
             CollectionFormSet(request.POST, prefix="receipts") if form.is_enforcement else None
@@ -673,7 +708,9 @@ class CaseReopenView(AdminRequiredMixin, View):
 
 def can_unlink(user) -> bool:
     """Bağlantıyı koparma yetkisi: yönetici ve avukatlar."""
-    return user.is_authenticated and (is_admin(user) or user.role == User.Role.LAWYER)
+    return user.is_authenticated and (
+        is_admin(user) or user.role in (User.Role.SENIOR, User.Role.LAWYER)
+    )
 
 
 class LinkAddView(View):
@@ -685,11 +722,11 @@ class LinkAddView(View):
         return render(request, self.template_name, {"case": case, "form": form})
 
     def get(self, request, pk):
-        case = get_object_or_404(Case, pk=pk)
+        case = get_object_or_404(filter_visible_cases(Case.objects.all(), request.user), pk=pk)
         return self._render(request, case, CaseLinkForm(case=case))
 
     def post(self, request, pk):
-        case = get_object_or_404(Case, pk=pk)
+        case = get_object_or_404(filter_visible_cases(Case.objects.all(), request.user), pk=pk)
         form = CaseLinkForm(request.POST, case=case)
         if not form.is_valid():
             return self._render(request, case, form)
@@ -717,7 +754,7 @@ class LinkDeleteView(View):
     """Dosyanın bağlantısını koparır (yönetici ve avukatlar)."""
 
     def post(self, request, pk, member_pk):
-        case = get_object_or_404(Case, pk=pk)
+        case = get_object_or_404(filter_visible_cases(Case.objects.all(), request.user), pk=pk)
         member = _flow_member(case, member_pk)
         if not can_unlink(request.user):
             raise PermissionDenied
@@ -730,7 +767,7 @@ class LinkMoveView(View):
     """Dosyanın ortak akıştaki sırasını bir yukarı/aşağı değiştirir."""
 
     def post(self, request, pk, member_pk):
-        case = get_object_or_404(Case, pk=pk)
+        case = get_object_or_404(filter_visible_cases(Case.objects.all(), request.user), pk=pk)
         member = _flow_member(case, member_pk)
         direction = request.POST.get("yon")
         if direction in ("up", "down") and services.move_member(member, direction):

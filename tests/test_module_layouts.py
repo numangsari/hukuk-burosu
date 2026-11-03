@@ -203,7 +203,13 @@ def test_forms_task_tabs_and_report_pages_have_balanced_layout(lawyer_client, ca
     response = lawyer_client.get(task.get_absolute_url())
     assert [event.comment for event in response.context["comments"]] == ["Örnek yorum"]
     assert [event.comment for event in response.context["events"]] == ["Örnek düzenleme"]
-    assert (
-        'id="task-documents"' in response.content.decode()
-        and 'id="task-history"' in response.content.decode()
-    )
+    assert 'id="task-docs"' in response.content.decode()
+    assert 'id="task-history"' not in response.content.decode()
+
+
+def test_new_forms_can_open_in_same_site_window(lawyer_client):
+    for name in ("tasks:create", "accounting:create"):
+        response = lawyer_client.get(reverse(name) + "?pencere=1")
+        assert response.status_code == 200
+        assert response["X-Frame-Options"] == "SAMEORIGIN"
+        assert 'class="form-footer"' in response.content.decode()
