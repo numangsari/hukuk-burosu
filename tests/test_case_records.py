@@ -24,7 +24,8 @@ def test_case_detail_tabs_render(lawyer_client, case_factory):
     for label in ("Taraflar", "Görevler", "Belgeler", "Geçmiş"):
         assert label in html
     assert "Duruşmalar" not in html and "Sıradaki duruşma" not in html
-    assert "Tebligatlar" not in html and "Zaman çizelgesi" not in html
+    assert 'id="t-tebligatlar"' not in html and "Zaman çizelgesi" not in html
+    assert 'href="/tebligatlar/"' in html
     assert "Safahat" in html  # varsayılan dosya türü hukuk davasıdır
 
 

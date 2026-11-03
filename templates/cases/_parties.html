@@ -29,6 +29,15 @@
     </div>
   </div>
   {% endwith %}
+  {% if case.portalcase.data.taraf_listeleri %}
+  <div class="card-body border-top">
+    <h3 class="h6">UYAP taraf bilgileri</h3>
+    <p class="small text-body-secondary">Bu bilgiler UYAP kaydından gelir.</p>
+    {% with source_parties=case.portalcase.data.taraf_listeleri|last %}
+    {% for party in source_parties %}<div class="mb-2"><strong>{{ party.adi|default:"—" }}</strong> · {{ party.rol|default:"—" }}{% if party.vekil %}<span class="text-body-secondary"> · Vekil: {{ party.vekil }}</span>{% endif %}</div>{% endfor %}
+    {% endwith %}
+  </div>
+  {% endif %}
   <form class="inline-form row g-2 align-items-start" hx-post="{% url 'cases:party_add' case.pk %}" hx-target="#parties" hx-swap="outerHTML">
     <div class="col-md-2">{% include "partials/field.html" with field=party_form.role wrap_class="" %}</div>
     <div class="col-md-2">{% include "partials/field.html" with field=party_form.kind wrap_class="" %}</div>

@@ -103,3 +103,156 @@ class OfficeSourceRecord(models.Model):
 
     def __str__(self):
         return f"{self.source_name} — {self.sheet} satır {self.row_number}"
+
+
+class PortalCapture(models.Model):
+    """Deneme ortamında incelenen yanıtlardan güvenli alanlar."""
+
+    fingerprint = models.CharField(max_length=64, unique=True)
+    source_users = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name="+", blank=True)
+    source_unknown = models.BooleanField(default=True)
+
+    source = models.CharField(max_length=20)
+    path = models.CharField(max_length=200)
+    captured_at = models.DateTimeField(null=True, blank=True)
+    data = models.JSONField()
+
+    class Meta:
+        verbose_name = "portal yanıtı"
+        verbose_name_plural = "portal yanıtları"
+
+    def __str__(self):
+        return f"{self.source}: {self.path}"
+
+
+class PortalCase(models.Model):
+    """Kaynak dosyayı, varsa sisteme açılan dosyayla birlikte izler."""
+
+    fingerprint = models.CharField(max_length=64, unique=True)
+    source_users = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name="+", blank=True)
+    source_unknown = models.BooleanField(default=True)
+
+    authority = models.CharField(max_length=200)
+    number = models.CharField(max_length=100)
+    category = models.CharField(max_length=40, blank=True)
+    status = models.CharField(max_length=200, blank=True)
+    data = models.JSONField(default=dict)
+    case = models.OneToOneField("cases.Case", on_delete=models.SET_NULL, null=True, blank=True)
+
+    class Meta:
+        ordering = ["authority", "number"]
+        verbose_name = "portal dosyası"
+        verbose_name_plural = "portal dosyaları"
+
+    def __str__(self):
+        return f"{self.authority} {self.number}"
+
+
+class PortalNotice(models.Model):
+    fingerprint = models.CharField(max_length=64, unique=True)
+    source_users = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name="+", blank=True)
+    source_unknown = models.BooleanField(default=True)
+
+    sender = models.CharField(max_length=300, blank=True)
+    subject = models.TextField(blank=True)
+    delivered_at = models.DateTimeField(null=True, blank=True)
+    read = models.BooleanField(default=False)
+    data = models.JSONField(default=dict)
+    resolution_client = models.ForeignKey(
+        "clients.Client",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="portal_notices",
+    )
+    resolution_case = models.ForeignKey(
+        "cases.Case", null=True, blank=True, on_delete=models.PROTECT, related_name="portal_notices"
+    )
+    resolution_task = models.OneToOneField(
+        "tasks.Task", null=True, blank=True, on_delete=models.PROTECT, related_name="portal_notice"
+    )
+    no_task_reason = models.TextField(blank=True)
+    resolved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="resolved_notices",
+    )
+    resolved_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-delivered_at"]
+        verbose_name = "portal tebligatı"
+        verbose_name_plural = "portal tebligatları"
+
+    def __str__(self):
+        return self.subject or self.sender
+
+
+class PortalNoticeDocument(models.Model):
+    """Tebligatla ilişkilendirilmiş kaynak belgenin bir sürümü."""
+
+    notice = models.ForeignKey(PortalNotice, on_delete=models.PROTECT, related_name="documents")
+    source_part = models.CharField(max_length=256)
+    content_hash = models.CharField(max_length=64)
+    file = models.FileField(upload_to="portal_notices/%Y/%m")
+    original_name = models.CharField(max_length=255)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["notice", "source_part", "content_hash"],
+                name="unique_portal_notice_document",
+            )
+        ]
+        verbose_name = "tebligat belgesi"
+        verbose_name_plural = "tebligat belgeleri"
+
+    def __str__(self):
+        return self.original_name
+
+
+class PortalConnection(models.Model):
+    """Deneme eklentisinin yerel sunucuyla bağlantısı."""
+
+    key_hash = models.CharField(max_length=64, unique=True)
+    owner = models.ForeignKey("accounts.User", on_delete=models.PROTECT)
+    created_at = models.DateTimeField(auto_now_add=True)
+    active = models.BooleanField(default=True)
+    last_seen = models.DateTimeField(null=True, blank=True)
+    uyap_status = models.CharField(max_length=30, blank=True)
+    uets_status = models.CharField(max_length=30, blank=True)
+    uyap_attempt_at = models.DateTimeField(null=True, blank=True)
+    uets_attempt_at = models.DateTimeField(null=True, blank=True)
+    uyap_success_at = models.DateTimeField(null=True, blank=True)
+    uets_success_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = "portal bağlantısı"
+        verbose_name_plural = "portal bağlantıları"
+
+    def __str__(self):
+        return f"Portal bağlantısı {self.pk}"
+
+
+class PortalLawyerAccess(models.Model):
+    """Yönetici tarafından belirlenen portal izinleri."""
+
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="portal_access",
+        verbose_name="büro kullanıcısı",
+    )
+    identity_number = models.CharField("TC kimlik numarası", max_length=11, unique=True)
+    uyap_enabled = models.BooleanField("UYAP verilerini al", default=False)
+    uets_enabled = models.BooleanField("UETS verilerini al", default=False)
+
+    class Meta:
+        verbose_name = "portal kişi izni"
+        verbose_name_plural = "portal kişi izinleri"
+
+    def __str__(self):
+        return str(self.user)

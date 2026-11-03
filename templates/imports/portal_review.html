@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}UYAP ve UETS inceleme{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3"><h1 class="h3">UYAP ve UETS inceleme</h1></div>
+<p><a href="{% url 'portal_pair' %}">Eklenti bağlantısını ayarla</a></p>
+<p>{{ case_count }} kaynak dosya, {{ created_count }} oluşturulan dosya, {{ notices|length }} tebligat listesi kaydı.</p>
+<p class="text-body-secondary">Dosyası oluşturulmayan kayıtlar, müvekkil veya diğer bilgiler belirlenene kadar burada tutulur.</p>
+<form method="get" class="d-flex gap-2 mb-3"><input class="form-control" name="q" value="{{ query }}" placeholder="Mahkeme veya dosya numarası ara"><button class="btn btn-primary">Ara</button></form>
+<div class="table-responsive"><table class="table table-striped"><thead><tr><th>Mahkeme / kurum</th><th>Dosya</th><th>Tür</th><th>Durum</th><th>İşlem</th></tr></thead><tbody>
+{% for record in page_obj %}<tr><td>{{ record.authority }}</td><td>{{ record.number }}</td><td>{{ record.category }}</td><td>{{ record.status }}</td><td><a href="{% url 'portal_review_detail' record.pk %}">İncele</a>{% if record.case %} · <a href="{{ record.case.get_absolute_url }}">Dosyayı aç</a>{% else %} · Müvekkil bekliyor{% endif %}</td></tr>{% empty %}<tr><td colspan="5">Kayıt bulunamadı.</td></tr>{% endfor %}
+</tbody></table></div>
+<div class="d-flex gap-3">{% if page_obj.has_previous %}<a href="?q={{ query|urlencode }}&amp;page={{ page_obj.previous_page_number }}">Önceki</a>{% endif %}<span>{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>{% if page_obj.has_next %}<a href="?q={{ query|urlencode }}&amp;page={{ page_obj.next_page_number }}">Sonraki</a>{% endif %}</div>
+<h2 class="h4 mt-4">UETS gelen kutusu</h2><div class="table-responsive"><table class="table table-striped"><thead><tr><th>Tarih</th><th>Gönderen</th><th>Konu</th><th>Durum</th><th>Belgeler</th></tr></thead><tbody>{% for notice in notices %}<tr><td>{{ notice.delivered_at|date:"d.m.Y H:i" }}</td><td>{{ notice.sender }}</td><td><a href="{% url 'portal_notice_detail' notice.pk %}">{{ notice.subject|default:"İncele" }}</a></td><td>{% if notice.read %}Okunmuş{% else %}Okunmamış veya bilinmiyor{% endif %}</td><td>{% for document in notice.documents.all %}<a href="{% url 'portal_notice_document' document.pk %}">Belge {{ forloop.counter }}</a>{% if not forloop.last %}, {% endif %}{% empty %}—{% endfor %}</td></tr>{% empty %}<tr><td colspan="5">Kayıt bulunamadı.</td></tr>{% endfor %}</tbody></table></div>
+{% endblock %}

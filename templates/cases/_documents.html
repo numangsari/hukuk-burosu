@@ -25,10 +25,20 @@
           {% if d.created_by_id == request.user.pk or request.user.is_office_admin %}<button class="btn-ghost-danger" title="Sil" hx-post="{% url 'cases:document_delete' case.pk d.pk %}" hx-target="#documents" hx-swap="outerHTML" hx-confirm="Belge silinsin mi?"><i class="bi bi-trash"></i></button>{% endif %}
         </td>
       </tr>
-    {% empty %}<tr><td colspan="5"><div class="empty-state py-3"><i class="bi bi-cloud-arrow-up"></i><strong>Belge yok</strong>Dilekçe, karar, bilirkişi raporu gibi belgeleri aşağıdan yükleyin (en fazla 50 MB).</div></td></tr>{% endfor %}
+    {% empty %}{% if not notice_documents and not task_documents %}<tr><td colspan="5"><div class="empty-state py-3"><i class="bi bi-cloud-arrow-up"></i><strong>Belge yok</strong>Dilekçe, karar, bilirkişi raporu gibi belgeleri aşağıdan yükleyin (en fazla 50 MB).</div></td></tr>{% endif %}{% endfor %}
     </tbody>
   </table>
   </div>
+  {% if notice_documents %}
+  <div class="card-body border-top"><h3 class="h6">Tebligat belgeleri</h3>
+    <ul class="mb-0">{% for doc in notice_documents %}<li><a href="{% url 'portal_notice_document' doc.pk %}">{{ doc.original_name }}</a> · <a href="{% url 'portal_notice_detail' doc.notice_id %}">Tebligatı aç</a></li>{% endfor %}</ul>
+  </div>
+  {% endif %}
+  {% if task_documents %}
+  <div class="card-body border-top"><h3 class="h6">Görev belgeleri</h3>
+    <ul class="mb-0">{% for doc in task_documents %}<li><a href="{{ doc.file.url }}">{{ doc.original_name }}</a> · <a href="{{ doc.task.get_absolute_url }}">{{ doc.task.title }}</a></li>{% endfor %}</ul>
+  </div>
+  {% endif %}
   <form class="inline-form row g-2 align-items-start" hx-post="{% url 'cases:document_upload' case.pk %}" hx-target="#documents" hx-swap="outerHTML" hx-encoding="multipart/form-data">
     <div class="col-md-3">{% include "partials/field.html" with field=document_form.title wrap_class="" %}</div>
     <div class="col-md-2">{% include "partials/field.html" with field=document_form.category wrap_class="" %}</div>

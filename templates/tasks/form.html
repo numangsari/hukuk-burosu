@@ -8,6 +8,7 @@
   </div>
   <div class="page-actions"><a class="btn btn-light" href="{% if object %}{{ object.get_absolute_url }}{% else %}{% url 'tasks:list' %}{% endif %}">Vazgeç</a><button type="submit" form="task-form" class="btn btn-primary">Kaydet</button></div>
 </div>
+{% if notice %}<div class="alert alert-info">Tebligat: {{ notice.subject|default:notice.sender }}. Belgeler göreve eklenecek.</div>{% endif %}
 {{ form.supervisor_map|json_script:"supervisor-map" }}
 <form method="post" id="task-form" enctype="multipart/form-data" x-data="taskForm()">
   {% csrf_token %}

@@ -15,6 +15,7 @@ from apps.office.forms import (
     CalendarForm,
     DocumentsRootForm,
     OfficeForm,
+    PortalLawyerAccessForm,
     TaskTypeFormSet,
 )
 from apps.office.models import OfficeSettings, TaskType
@@ -47,6 +48,7 @@ class SettingsView(View):
         "kullanicilar",
         "yedek",
         "puanlar",
+        "eklenti",
     }
 
     def _forms(self, request, section=None, data=None, files=None):
@@ -60,6 +62,14 @@ class SettingsView(View):
             "pin": PinChangeForm(user, bound("pin")[0]),
         }
         if is_admin(user):
+            from apps.imports.models import PortalLawyerAccess
+
+            access = PortalLawyerAccess.objects.filter(
+                pk=request.GET.get("izin") or request.POST.get("access_id") or 0
+            ).first()
+            forms["eklenti"] = PortalLawyerAccessForm(
+                *bound("eklenti"), instance=access or PortalLawyerAccess()
+            )
             forms["ofis"] = OfficeForm(*bound("ofis"), instance=office)
             forms["takvim"] = CalendarForm(*bound("takvim"), instance=office)
             forms["yetkiler"] = BalanceViewersForm(*bound("yetkiler"))
@@ -83,6 +93,39 @@ class SettingsView(View):
             "active": active,
             "calendar_connected": bool(office.calendar_ics_url),
         }
+        if active == "eklenti" and is_admin(request.user):
+            from datetime import timedelta
+
+            from apps.imports.models import PortalConnection, PortalLawyerAccess
+
+            connections = list(
+                PortalConnection.objects.filter(active=True)
+                .select_related("owner")
+                .order_by("-created_at")
+            )
+            labels = {
+                "bekliyor": "Bekliyor",
+                "basladi": "Taranıyor",
+                "tamamlandi": "Tamamlandı",
+                "eksik": "Bazı bilgiler alınamadı",
+                "oturum_yok": "Oturum gerekli",
+                "sunucu_yok": "Sunucuya ulaşılamadı",
+                "sekme_hazir_degil": "Sekme hazır değil",
+                "sekme_yok": "Sekme açık değil",
+                "durduruldu": "Durduruldu",
+                "izin_yok": "İzinli kişi eşleşmedi",
+            }
+            for connection in connections:
+                connection.recent = bool(
+                    connection.last_seen
+                    and timezone.now() - connection.last_seen <= timedelta(minutes=3)
+                )
+                connection.uyap_status_label = labels.get(connection.uyap_status, "Henüz bilgi yok")
+                connection.uets_status_label = labels.get(connection.uets_status, "Henüz bilgi yok")
+            ctx["portal_connections"] = connections
+            ctx["portal_accesses"] = PortalLawyerAccess.objects.select_related("user").order_by(
+                "user__first_name", "user__last_name"
+            )
         if active == "kullanicilar":
             ctx["users"] = User.objects.all()
         if active == "yedek":
@@ -137,6 +180,9 @@ class SettingsView(View):
         if section == "kullanicilar":
             messages.success(request, f"{saved} kaydedildi.")
             return redirect(f"{reverse('accounts:settings')}?bolum=kullanicilar&id={saved.pk}")
+        if section == "eklenti":
+            messages.success(request, "Eklenti izni kaydedildi. Otomatik aktarım henüz kapalı.")
+            return redirect(f"{reverse('accounts:settings')}?bolum=eklenti")
         if section == "pin":
             update_session_auth_hash(request, saved)
         if section == "takvim":

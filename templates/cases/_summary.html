@@ -47,6 +47,15 @@
       </div>
     </div></div>
 
+    {% if portal_information %}
+    <div class="card mb-3"><div class="card-body">
+      <div class="d-flex align-items-center gap-2 mb-3">{% include "cases/_source_badge.html" %}<h2 class="section-title mb-0">UYAP bilgileri</h2></div>
+      {% if portal_information.fields %}<div class="info-grid">{% for label, value in portal_information.fields %}<div class="info-item"><div class="info-label">{{ label }}</div><div class="info-value">{{ value|linebreaksbr }}</div></div>{% endfor %}</div>{% else %}<div class="text-body-secondary small">UYAP bilgisi henüz alınmadı.</div>{% endif %}
+      {% if portal_information.account %}<h3 class="h6 mt-3">UYAP dosya hesabı</h3><div class="info-grid">{% for label, value in portal_information.account %}<div class="info-item"><div class="info-label">{{ label }}</div><div class="info-value">{{ value }}</div></div>{% endfor %}</div>{% endif %}
+      <p class="text-body-secondary small mt-3 mb-0">Bu bilgiler UYAP kaydından gelir.</p>
+    </div></div>
+    {% endif %}
+
     {% if not case.is_open %}
     <div class="card mb-3"><div class="card-body">
       <h2 class="section-title">Kapanış bilgileri</h2>
@@ -148,6 +157,9 @@
   <dl class="row">{% for label, value in source.values.items %}<dt class="col-sm-3">{{ label }}</dt><dd class="col-sm-9">{{ value|linebreaksbr }}</dd>{% endfor %}</dl>
   {% endfor %}
 </div></div>
+{% endif %}
+{% if case.portalcase %}
+<p><a href="{% url 'portal_review_detail' case.portalcase.pk %}">UYAP'tan alınan dosya bilgilerini incele</a></p>
 {% endif %}
 <div class="mt-3">{% include "cases/_timeline.html" %}</div>
 <script>

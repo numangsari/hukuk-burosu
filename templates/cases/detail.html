@@ -11,7 +11,7 @@
     <div class="hero-icon type-{{ case.case_type }}"><i class="bi bi-folder2-open"></i></div>
     <div class="min-w-0">
       <div class="d-flex align-items-center gap-2 flex-wrap">
-        <h1 class="page-title">{{ case.display_name }}</h1>
+        {% include "cases/_source_badge.html" %}<h1 class="page-title">{{ case.display_name }}</h1>
         {% if flow_members|length > 1 %}<a class="chip chip-accent no-dot" href="#t-safahat" onclick="goCaseTab('#t-safahat'); return false"><i class="bi bi-link-45deg"></i>+{{ flow_members|length|add:"-1" }} dosya bağlı</a>{% endif %}
       </div>
       <div class="meta">
@@ -69,8 +69,8 @@
           <div class="modal-header"><h2 class="modal-title fs-6">Dosyayı yeniden aç</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Kapat"></button></div>
           <div class="modal-body">
             <p>Dosya yeniden açılsın mı? Kapanış bilgileri dosyadan kalkar, geçmişte ve zaman çizelgesinde saklanır.</p>
-            <label class="form-label" for="id_stage">Açılacağı aşama</label>
-            {{ stage_form.stage }}
+            {% if stage_steps %}<label class="form-label" for="id_stage">Açılacağı aşama</label>
+            {{ stage_form.stage }}{% endif %}
           </div>
           <div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Vazgeç</button><button class="btn btn-primary">Yeniden aç</button></div>
         </form>
@@ -85,7 +85,7 @@
     <li><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-safahat">Safahat<span class="count">{{ flow_members|length }}</span></button></li>
     <li><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-gorevler">Görevler<span class="count">{{ tasks|length }}</span></button></li>
     {% if case.case_type == "enforcement" %}<li><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-haciz">İcra takibi<span class="count">{{ seizures|length }}</span></button></li>{% endif %}
-    <li><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-belgeler">Belgeler<span class="count">{{ documents|length }}</span></button></li>
+    <li><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-belgeler">Belgeler<span class="count">{{ summary.document_count }}</span></button></li>
     {% if can_view_accounting %}<li><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-muhasebe">Muhasebe</button></li>{% endif %}
     <li><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-gecmis">Geçmiş</button></li>
   </ul>

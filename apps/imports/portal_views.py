@@ -1,0 +1,321 @@
+from django import forms
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required, user_passes_test
+from django.core.files.base import ContentFile
+from django.core.paginator import Paginator
+from django.db import IntegrityError, transaction
+from django.db.models import Q
+from django.http import FileResponse, Http404
+from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
+from django.views.decorators.http import require_GET, require_POST
+
+from apps.cases.models import Case
+from apps.clients.models import Client
+from apps.tasks.models import TaskDocument
+from apps.tasks.views import TaskCreateView
+
+from .models import PortalCapture, PortalCase, PortalNotice, PortalNoticeDocument
+
+
+@login_required
+@require_GET
+def notice_document(request, pk):
+    document = get_object_or_404(PortalNoticeDocument, pk=pk)
+    try:
+        stream = document.file.open("rb")
+    except (FileNotFoundError, ValueError):
+        raise Http404 from None
+    pdf = document.original_name.lower().endswith(".pdf")
+    response = FileResponse(
+        stream,
+        content_type="application/pdf" if pdf else "application/octet-stream",
+        as_attachment=not pdf,
+        filename=document.original_name,
+    )
+    response["X-Content-Type-Options"] = "nosniff"
+    response["Cache-Control"] = "private, no-store"
+    return response
+
+
+@login_required
+def notice_detail(request, pk):
+    notice = get_object_or_404(PortalNotice.objects.prefetch_related("documents"), pk=pk)
+    details = notice.data.get("ayrinti", {}) if isinstance(notice.data, dict) else {}
+    details = details if isinstance(details, dict) else {}
+    source = details.get("eyp_details", {})
+    source = source if isinstance(source, dict) else {}
+    return render(
+        request,
+        "imports/portal_notice_detail.html",
+        {
+            "notice": notice,
+            "recipient": details.get("recipient_name", ""),
+            "source_subject": source.get("Konu", ""),
+            "source_name": source.get("DosyaAdi", ""),
+        },
+    )
+
+
+@login_required
+@user_passes_test(lambda user: user.is_office_admin)
+def index(request):
+    query = request.GET.get("q", "").strip()
+    cases = PortalCase.objects.select_related("case")
+    if query:
+        cases = cases.filter(Q(authority__icontains=query) | Q(number__icontains=query))
+    page = Paginator(cases, 50).get_page(request.GET.get("page"))
+    return render(
+        request,
+        "imports/portal_review.html",
+        {
+            "page_obj": page,
+            "query": query,
+            "case_count": PortalCase.objects.count(),
+            "created_count": PortalCase.objects.filter(case__isnull=False).count(),
+            "notices": PortalNotice.objects.prefetch_related("documents"),
+            "response_count": PortalCapture.objects.count(),
+        },
+    )
+
+
+@login_required
+def detail(request, pk):
+    record = get_object_or_404(PortalCase.objects.select_related("case"), pk=pk)
+    data = record.data
+    latest_detail = next(
+        (item for item in reversed(data.get("ayrintilar", [])) if isinstance(item, dict)), {}
+    )
+    labels = {
+        "davaTurleriStr": "Dava türü",
+        "davaAcilisTuruStr": "Açılış türü",
+        "dosyaDurumu": "Dosya durumu",
+        "durusmaTarihiStr": "Duruşma tarihi",
+        "onIncelemTarihiStr": "Ön inceleme tarihi",
+        "davaninKonusu": "Dava konusu",
+        "takibinTuruAciklama": "Takip türü",
+        "takibinYoluAciklama": "Takip yolu",
+        "takibinSekliAciklama": "Takip şekli",
+        "alacakKalemToplamTutar": "Alacak kalemleri toplamı",
+        "alacakKalemFaizTutar": "Faiz",
+        "tahsilHarci": "Tahsil harcı",
+        "takipSonrasiMasraf": "Takip sonrası masraf",
+        "vekaletUcreti": "Vekâlet ücreti",
+        "yapilmisBorcTahsilati": "Yapılmış borç tahsilatı",
+        "karar": "Karar",
+        "kararAciklama": "Sonuç",
+        "kararNo": "Karar numarası",
+        "kararTarihi": "Karar tarihi",
+        "arabulucu": "Arabulucu",
+        "gelenBirimAdi": "Gelen birim",
+        "gelenDosyaNo": "Gelen dosya numarası",
+        "ilgiliDosyaListesiStr": "İlgili dosyalar",
+        "ilgiliDavaListesiStr": "İlgili davalar",
+        "ilgiliSeriDavaListesiStr": "İlgili seri davalar",
+        "birlesenDosyaListStr": "Birleşen dosyalar",
+    }
+    details = [
+        (label, latest_detail[key])
+        for key, label in labels.items()
+        if key in latest_detail and latest_detail[key] not in (None, "", [])
+    ]
+    parties = next(
+        (
+            item
+            for item in reversed(data.get("taraf_listeleri", []))
+            if isinstance(item, list) and item
+        ),
+        [],
+    )
+    document_rows = []
+    folders = {}
+    for item in data.get("belge_listeleri", []):
+        if not isinstance(item, dict):
+            continue
+        rows = item.get("son20Evrak")
+        if not isinstance(rows, list):
+            rows = []
+        for document in rows:
+            if document not in document_rows:
+                document_rows.append(document)
+        if item.get("tumEvraklar"):
+            folders = item["tumEvraklar"]
+    finance = next(
+        (item for item in reversed(data.get("hesaplar", [])) if isinstance(item, list)), []
+    )
+    transactions = next(
+        (item for item in reversed(data.get("tahsilatlar", [])) if isinstance(item, dict)), {}
+    )
+    hearings = []
+    seen_hearings = set()
+    for hearing in data.get("durusmalar", []):
+        key = hearing.get("kayitId") or hearing.get("tarihSaat")
+        if key not in seen_hearings:
+            seen_hearings.add(key)
+            hearings.append(hearing)
+    return render(
+        request,
+        "imports/portal_detail.html",
+        {
+            "record": record,
+            "link_form": PortalCaseLinkForm(),
+            "details": details,
+            "parties": parties,
+            "documents": document_rows,
+            "folders": folders,
+            "finance": finance,
+            "transactions": transactions,
+            "hearings": hearings,
+        },
+    )
+
+
+class PortalCaseLinkForm(forms.Form):
+    case = forms.ModelChoiceField(label="Büro dosyası", queryset=Case.objects.all())
+
+
+@login_required
+@user_passes_test(lambda user: user.is_office_admin)
+@require_POST
+def link_case(request, pk):
+    form = PortalCaseLinkForm(request.POST)
+    if not form.is_valid():
+        messages.error(request, "Geçerli bir büro dosyası seçin.")
+        return redirect("portal_review_detail", pk=pk)
+    try:
+        with transaction.atomic():
+            record = get_object_or_404(PortalCase.objects.select_for_update(), pk=pk)
+            if record.case_id:
+                messages.error(request, "Bu UYAP kaydı zaten bir dosyaya bağlı.")
+                return redirect("portal_review_detail", pk=pk)
+            case = Case.objects.select_for_update().get(pk=form.cleaned_data["case"].pk)
+            if PortalCase.objects.filter(case=case).exists():
+                messages.error(request, "Bu dosyaya başka bir UYAP kaydı bağlı.")
+                return redirect("portal_review_detail", pk=pk)
+            record.case = case
+            record.save(update_fields=["case"])
+    except IntegrityError:
+        messages.error(request, "Dosya başka bir kayıtla ilişkilendirilmiş.")
+    else:
+        messages.success(request, "UYAP bilgileri dosyaya bağlandı.")
+    return redirect("portal_review_detail", pk=pk)
+
+
+class NoTaskForm(forms.Form):
+    client = forms.ModelChoiceField(label="Müvekkil", queryset=Client.objects.all())
+    case = forms.ModelChoiceField(label="Dosya", queryset=Case.objects.all(), required=False)
+    reason = forms.CharField(label="Görev olmama nedeni", widget=forms.Textarea(attrs={"rows": 3}))
+
+    def clean(self):
+        data = super().clean()
+        case, client = data.get("case"), data.get("client")
+        if case and client and case.client_id != client.pk:
+            self.add_error("case", "Seçilen dosya bu müvekkile ait değil.")
+        return data
+
+
+@login_required
+def notice_list(request):
+    notices = PortalNotice.objects.select_related(
+        "resolution_client", "resolution_case", "resolution_task", "resolved_by"
+    )
+    return render(request, "imports/notices.html", {"notices": notices})
+
+
+@login_required
+def notice_no_task(request, pk):
+    notice = get_object_or_404(PortalNotice, pk=pk)
+    form = NoTaskForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        with transaction.atomic():
+            notice = get_object_or_404(PortalNotice.objects.select_for_update(), pk=pk)
+            if notice.resolved_at:
+                messages.error(request, "Bu tebligat daha önce işlendi.")
+            else:
+                notice.resolution_client = form.cleaned_data["client"]
+                notice.resolution_case = form.cleaned_data["case"]
+                notice.no_task_reason = form.cleaned_data["reason"]
+                notice.resolved_by = request.user
+                notice.resolved_at = timezone.now()
+                notice.save(
+                    update_fields=[
+                        "resolution_client",
+                        "resolution_case",
+                        "no_task_reason",
+                        "resolved_by",
+                        "resolved_at",
+                    ]
+                )
+                messages.success(request, "Tebligat için görev olmadığı kaydedildi.")
+        return redirect("notice_list")
+    return render(request, "imports/notice_no_task.html", {"form": form, "notice": notice})
+
+
+class NoticeTaskCreateView(TaskCreateView):
+    def dispatch(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            from django.contrib.auth.views import redirect_to_login
+
+            return redirect_to_login(request.get_full_path())
+        self.notice = get_object_or_404(PortalNotice, pk=kwargs["pk"])
+        if self.notice.resolved_at:
+            messages.error(request, "Bu tebligat daha önce işlendi.")
+            return redirect("notice_list")
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        form.fields["client"].required = True
+        return form
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["notice"] = self.notice
+        return context
+
+    def form_valid(self, form):
+        contents = []
+        try:
+            for doc in self.notice.documents.all():
+                with doc.file.open("rb") as source:
+                    contents.append((doc.original_name, source.read()))
+        except (OSError, ValueError):
+            form.add_error(None, "Tebligat belgesine erişilemedi; görev oluşturulmadı.")
+            return self.form_invalid(form)
+        created_files = []
+        try:
+            with transaction.atomic():
+                notice = PortalNotice.objects.select_for_update().get(pk=self.notice.pk)
+                if notice.resolved_at:
+                    form.add_error(None, "Bu tebligat daha önce işlendi.")
+                    return self.form_invalid(form)
+                response = super().form_valid(form)
+                for name, content in contents:
+                    doc = TaskDocument(
+                        task=self.object,
+                        original_name=name,
+                        size=len(content),
+                        uploaded_by=self.request.user,
+                    )
+                    doc.file.save(name, ContentFile(content), save=False)
+                    created_files.append((doc.file.storage, doc.file.name))
+                    doc.save()
+                notice.resolution_client = self.object.client
+                notice.resolution_case = self.object.case
+                notice.resolution_task = self.object
+                notice.resolved_by = self.request.user
+                notice.resolved_at = timezone.now()
+                notice.save(
+                    update_fields=[
+                        "resolution_client",
+                        "resolution_case",
+                        "resolution_task",
+                        "resolved_by",
+                        "resolved_at",
+                    ]
+                )
+                return response
+        except Exception:
+            for storage, name in created_files:
+                storage.delete(name)
+            raise

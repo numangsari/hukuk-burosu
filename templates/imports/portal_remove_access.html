@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Kişi iznini kaldır{% endblock %}
+{% block content %}
+<h1 class="page-title">Kişi iznini kaldır</h1>
+<div class="card p-4" style="max-width: 720px">
+  <p><strong>{{ access.user }}</strong> için eklenti izni kaldırılacak. Bu kişiden gelen veriler de silinsin mi?</p>
+  <p>Diğer kişilerle ortak olan ve kaynağı bilinmeyen veriler korunur. Büro dosyaları ve oluşturulmuş görevler silinmez.</p>
+  <form method="post">{% csrf_token %}
+    <a class="btn btn-light" href="{% url 'accounts:settings' %}?bolum=eklenti">Vazgeç</a>
+    <button class="btn btn-outline-primary" name="choice" value="keep">Verileri koru</button>
+    <button class="btn btn-danger" name="choice" value="delete">Verileri de sil</button>
+  </form>
+</div>
+{% endblock %}

@@ -21,6 +21,7 @@ class CaseType(models.TextChoices):
     CRIMINAL = "criminal", "Ceza Davası"
     ADMINISTRATIVE = "administrative", "İdari Dava"
     ENFORCEMENT = "enforcement", "İcra Takibi"
+    SALES_OFFICE = "sales_office", "Satış Memurluğu"
     INVESTIGATION = "investigation", "Soruşturma"
     CONSULTANCY = "consultancy", "Sözleşme"
     MEDIATION = "mediation", "Arabuluculuk"

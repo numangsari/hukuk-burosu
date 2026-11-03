@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Dosya incelemesi{% endblock %}
+{% block content %}
+<h1 class="h3">{{ record.authority }} — {{ record.number }}</h1>
+<p>{{ record.category }} · {{ record.status }}</p>
+{% if record.case %}<p><a href="{{ record.case.get_absolute_url }}">Sistemdeki dosyayı aç</a></p>{% else %}<p>UYAP kaydı henüz bir büro dosyasına bağlanmadı. Önce müvekkil ve dosyayı sistemde kaydedin.</p><form method="post" action="{% url 'portal_case_link' record.pk %}">{% csrf_token %}{{ link_form.as_p }}<button class="btn btn-primary">Dosyaya bağla</button></form>{% endif %}
+<h2 class="h5 mt-4">Dosya bilgileri</h2><dl>{% for label, value in details %}<dt>{{ label }}</dt><dd>{{ value }}</dd>{% empty %}<dd>Ayrıntı alınamadı.</dd>{% endfor %}</dl>
+{% if parties %}<h2 class="h5 mt-4">Taraflar</h2><div class="table-responsive"><table class="table"><thead><tr><th>Ad / unvan</th><th>Sıfat</th><th>Vekil</th></tr></thead><tbody>{% for party in parties %}<tr><td>{{ party.adi }}</td><td>{{ party.rol }}</td><td>{{ party.vekil|default:"—" }}</td></tr>{% endfor %}</tbody></table></div>{% endif %}
+{% if hearings %}<h2 class="h5 mt-4">Duruşmalar</h2><ul>{% for hearing in hearings %}<li>{{ hearing.tarihSaat }} · {{ hearing.yerelBirimAd }}</li>{% endfor %}</ul>{% endif %}
+{% if finance %}<h2 class="h5 mt-4">Dosya hesabı</h2><dl>{% for item in finance %}{% if item.degerAlan != None %}<dt>{{ item.textAlan }}</dt><dd>{{ item.degerAlan }}</dd>{% endif %}{% endfor %}</dl>{% endif %}
+{% if transactions %}<h2 class="h5 mt-4">Tahsilat ve geri ödemeler</h2><ul>{% for item in transactions.tahsilatList %}<li>{{ item.tahsilatTarihi }} · {{ item.tahsilatTuru }} · {{ item.tahsilatTutari }}</li>{% endfor %}{% for item in transactions.reddiyatList %}<li>{{ item.reddiyatTarihi }} · {{ item.reddiyatNedeni }} · {{ item.odenecekMiktar }}</li>{% endfor %}</ul>{% endif %}
+{% if folders %}<h2 class="h5 mt-4">Evrak ağacındaki dosyalar</h2><ul>{% for name, entries in folders.items %}<li>{{ name }} — {{ entries|length }} belge bilgisi</li>{% endfor %}</ul>{% endif %}
+{% if documents %}<h2 class="h5 mt-4">Son belge bilgileri</h2><ul>{% for document in documents %}<li>{{ document.tur|default:document.tip }}{% if document.aciklama %} · {{ document.aciklama }}{% endif %}</li>{% endfor %}</ul>{% endif %}
+<p><a href="{% url 'portal_review' %}">Listeye dön</a></p>
+{% endblock %}

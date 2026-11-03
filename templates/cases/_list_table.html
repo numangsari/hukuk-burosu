@@ -22,7 +22,7 @@
       <td><span class="case-list-status{% if not k.is_open %} case-list-status-closed{% endif %}">{{ k.get_status_display }}</span>{% if not k.is_open %}<div class="cell-sub mt-1">{{ k.closing_label }}</div>{% endif %}</td>
       <td>{% if k.is_open %}{{ k.stage_label|default:"—" }}{% else %}—{% endif %}</td>
       <td>
-        <div class="cell-main">{% if k.chain_prev %}<i class="bi bi-link-45deg chain-icon" title="Bağlı dosya"></i>{% endif %}{{ k.display_name }}{% if k.linked_others %} <span class="chip chip-accent no-dot">+{{ k.linked_others }} dosya bağlı</span>{% endif %}</div>
+        <div class="cell-main">{% if k.chain_prev %}<i class="bi bi-link-45deg chain-icon" title="Bağlı dosya"></i>{% endif %}{% include "cases/_source_badge.html" with case=k %} {{ k.display_name }}{% if k.linked_others %} <span class="chip chip-accent no-dot">+{{ k.linked_others }} dosya bağlı</span>{% endif %}</div>
         <div class="cell-sub">{% if k.authority and k.subject %} {{ k.subject }}{% endif %}</div>
       </td>
       <td>{{ k.client }}{% if k.co_clients.all %} <span class="chip chip-info no-dot">+{{ k.co_clients.all|length }} müvekkil</span>{% endif %}</td>

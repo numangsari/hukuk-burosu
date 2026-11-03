@@ -2,6 +2,7 @@ from django import forms
 
 from apps.core.forms import BootstrapMixin, DateInput
 from apps.core.uploads import PDF_OR_IMAGE, validate_upload
+from apps.imports.portal_forms import PreserveExistingAssigneeMixin
 
 from .models import (
     Client,
@@ -15,7 +16,7 @@ from .models import (
 )
 
 
-class ClientForm(BootstrapMixin, forms.ModelForm):
+class ClientForm(PreserveExistingAssigneeMixin, BootstrapMixin, forms.ModelForm):
     class Meta:
         model = Client
         fields = [
@@ -37,6 +38,7 @@ class ClientForm(BootstrapMixin, forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.keep_existing_assignee()
         self.fields["kind"].choices = PersonKind.choices  # boş seçenek olmasın
         self.fields["kind"].widget.attrs["class"] = "form-check-input"
         self.fields["kind"].widget.attrs["x-model"] = "kind"

@@ -14,7 +14,10 @@ def test_every_type_has_open_stages_and_closing_reasons():
     from apps.cases.models import CaseType
 
     for case_type in CaseType.values:
-        assert stages.open_stages(case_type), case_type
+        if case_type == CaseType.SALES_OFFICE:
+            assert stages.open_stages(case_type) == []
+        else:
+            assert stages.open_stages(case_type), case_type
         reasons = stages.closing_reasons(case_type)
         assert reasons and reasons[-1].key == "other" and "n" in reasons[-1].flags
         assert len({key for key, _ in stages.open_stages(case_type)}) == len(

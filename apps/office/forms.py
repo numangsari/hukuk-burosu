@@ -104,3 +104,26 @@ class BackupSettingsForm(BootstrapMixin, forms.ModelForm):
         if value and (error := check_writable(value)):
             raise forms.ValidationError(error)
         return value
+
+
+class PortalLawyerAccessForm(BootstrapMixin, forms.ModelForm):
+    class Meta:
+        from apps.imports.models import PortalLawyerAccess
+
+        model = PortalLawyerAccess
+        fields = ["user", "identity_number", "uyap_enabled", "uets_enabled"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        from apps.accounts.models import User
+
+        self.fields["user"].queryset = User.objects.filter(
+            is_active=True, role__in=[User.Role.ADMIN, User.Role.LAWYER]
+        )
+
+    def clean_identity_number(self):
+        from apps.core.validators import validate_tckn
+
+        value = self.cleaned_data["identity_number"].strip()
+        validate_tckn(value)
+        return value

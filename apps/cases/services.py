@@ -139,7 +139,9 @@ def reopen_case(case, stage, user):
     case = _locked(case)
     if case.is_open:
         raise StatusError("Dosya zaten açık.")
-    if stage not in dict(stages.open_stages(case.case_type)):
+    if stage not in dict(stages.open_stages(case.case_type)) and not (
+        not stages.open_stages(case.case_type) and not stage
+    ):
         raise StatusError("Bu dosya türü için geçersiz aşama.")
     previous = case.closing_label
     case.status = CaseStatus.OPEN
@@ -153,7 +155,10 @@ def reopen_case(case, stage, user):
     case.closing_amount_date = None
     case.closing_accounted = None
     case.save()
-    _event(case, user, f"Dosya yeniden açıldı: {case.stage_label}", f"Önceki kapanış: {previous}")
+    description = "Dosya yeniden açıldı"
+    if case.stage_label:
+        description += f": {case.stage_label}"
+    _event(case, user, description, f"Önceki kapanış: {previous}")
     return case
 
 

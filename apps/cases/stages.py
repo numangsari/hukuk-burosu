@@ -22,6 +22,7 @@ _JUDICIAL_OPEN = [
 ]
 
 OPEN_STAGES = {
+    "sales_office": [],
     "civil": [
         *_JUDICIAL_OPEN,
         ("retrial", "Bozma / Kaldırma sonrası yeniden yargılama"),
@@ -219,7 +220,8 @@ def closing_reasons(case_type):
 
 
 def default_stage(case_type):
-    return open_stages(case_type)[0][0]
+    choices = open_stages(case_type)
+    return choices[0][0] if choices else ""
 
 
 def stage_label(case_type, key):

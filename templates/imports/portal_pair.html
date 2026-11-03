@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Eklenti bağlantısı{% endblock %}
+{% block content %}
+<h1 class="h3">Eklenti bağlantısı</h1>
+{% if pair_key %}
+{{ pair_key|json_script:"portal-pair-key" }}
+<p id="portal-pair-status">Eklentiye bağlantı bilgisi aktarılıyor. Eklenti yüklü değilse bu sayfayı kapatın.</p>
+{% else %}
+<p>Bu bilgisayardaki eklentiyi deneme sunucusuna bağlayın.</p>
+<form method="post">{% csrf_token %}<button class="btn btn-primary" type="submit">Eklentiyi bağla</button></form>
+{% endif %}
+{% endblock %}

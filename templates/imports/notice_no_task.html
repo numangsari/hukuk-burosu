@@ -1,0 +1,1 @@
+{% extends "base.html" %}{% block title %}Görev yok{% endblock %}{% block content %}<h1 class="page-title">Görev yok</h1><p>{{ notice.subject|default:notice.sender }}</p><form method="post">{% csrf_token %}{{ form.as_p }}<a class="btn btn-light" href="{% url 'notice_list' %}">Vazgeç</a> <button class="btn btn-primary">Kaydet</button></form>{% endblock %}

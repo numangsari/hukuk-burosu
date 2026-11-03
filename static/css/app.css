@@ -935,6 +935,7 @@ a.agenda-item:hover { background: var(--surface-2); text-decoration: none; color
 .type-criminal { --tc: #dc2626; }
 .type-administrative { --tc: #0d9488; }
 .type-enforcement { --tc: #d97706; }
+.type-sales_office { --tc: #9a5b35; }
 .type-investigation { --tc: #7c3aed; }
 .type-consultancy { --tc: #16a34a; }
 .type-mediation { --tc: #db2777; }
@@ -994,3 +995,10 @@ tr.chain-prev > td:first-child { position: relative; }
 .amount-trust_out { color: var(--warning-ink); }
 .report-preview { min-width: 960px; table-layout: fixed; }
 .report-preview th, .report-preview td { overflow-wrap: anywhere; }
+
+/* Dosya kaynağı */
+.badge-source { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 5px; font-size: 13px; line-height: 1; vertical-align: middle; }
+.badge-source-uyap { background: #dbeafe; color: #1d4ed8; }
+.badge-source-office { background: #dcfce7; color: #15803d; }
+[data-bs-theme="dark"] .badge-source-uyap { background: #173b66; color: #93c5fd; }
+[data-bs-theme="dark"] .badge-source-office { background: #174332; color: #86efac; }

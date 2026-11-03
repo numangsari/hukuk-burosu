@@ -8,13 +8,14 @@ from apps.clients.models import Client, Party
 from apps.core.forms import BootstrapMixin, DateInput, DateTimeInput
 from apps.core.text import tr_upper
 from apps.core.uploads import validate_upload
+from apps.imports.portal_forms import PreserveExistingAssigneeMixin
 
 from . import stages
 from .models import Case, CaseEvent, CaseParty, Document, Hearing, PartyRole, Seizure
 from .party_roles import PARTY_ROLES
 
 
-class CaseForm(BootstrapMixin, forms.ModelForm):
+class CaseForm(PreserveExistingAssigneeMixin, BootstrapMixin, forms.ModelForm):
     official_year = forms.IntegerField(
         label="Yıl",
         min_value=1000,
@@ -81,8 +82,14 @@ class CaseForm(BootstrapMixin, forms.ModelForm):
 
     def __init__(self, *args, can_remove_parties=False, related_case=None, **kwargs):
         super().__init__(*args, **kwargs)
+        self.keep_existing_assignee()
         self.related_case = related_case
-        imported = bool(self.instance.pk and self.instance.office_sources.exists())
+        imported = bool(
+            self.instance.pk
+            and (
+                self.instance.office_sources.exists() or getattr(self.instance, "portalcase", None)
+            )
+        )
         self.imported_incomplete = imported
         self.fields["archive_folder_no"].required = not self.instance.pk
         self.fields["official_no_kind"].required = False
@@ -355,6 +362,8 @@ class CaseStageForm(forms.Form):
     def __init__(self, *args, case, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["stage"].choices = stages.open_stages(case.case_type)
+        if not self.fields["stage"].choices:
+            self.fields["stage"].required = False
         self.fields["stage"].widget.attrs["class"] = "form-select"
         self.fields["stage"].widget.attrs["aria-label"] = "Aşama"
         self.initial.setdefault("stage", case.stage)

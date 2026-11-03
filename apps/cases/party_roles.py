@@ -93,6 +93,8 @@ PARTY_ROLES = {
     ],
 }
 
+PARTY_ROLES["sales_office"] = PARTY_ROLES["other"]
+
 PARTY_ROLE_CHOICES = list(
     dict(pair for choices in PARTY_ROLES.values() for pair in choices).items()
 )

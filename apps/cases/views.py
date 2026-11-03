@@ -75,7 +75,9 @@ class CaseListView(ListView):
             .values("n")
         )
         qs = (
-            Case.objects.select_related("client", "responsible_lawyer", "responsible_intern")
+            Case.objects.select_related(
+                "client", "responsible_lawyer", "responsible_intern", "portalcase"
+            )
             .prefetch_related("co_clients")
             .annotate(
                 open_task_count=Coalesce(
@@ -368,10 +370,15 @@ class CaseDetailView(DetailView):
     context_object_name = "case"
 
     def get_queryset(self):
-        return Case.objects.select_related("client", "responsible_lawyer", "responsible_intern")
+        return Case.objects.select_related(
+            "client", "responsible_lawyer", "responsible_intern", "portalcase"
+        )
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
+        from apps.imports.portal_display import case_information
+
+        ctx["portal_information"] = case_information(getattr(self.object, "portalcase", None))
         ctx["party_form"] = CasePartyForm(case_type=self.object.case_type)
         ctx["stage_form"] = CaseStageForm(case=self.object)
         steps = stages.open_stages(self.object.case_type)
@@ -406,6 +413,7 @@ class CaseDetailView(DetailView):
         ctx["document_form"] = DocumentForm()
         ctx["party_links"] = self.object.party_links.select_related("party", "case")
         ctx["documents"] = self.object.documents.select_related("created_by")
+        ctx.update(_related_documents(self.object))
         case = self.object
         ctx.update(
             event_form=CaseEventForm(initial={"date": timezone.localdate()}),
@@ -425,6 +433,12 @@ class CaseDetailView(DetailView):
             list(ctx["documents"]),
             ctx["today"],
         )
+        additional = [*ctx["notice_documents"], *ctx["task_documents"]]
+        ctx["summary"]["document_count"] += len(additional)
+        dates = [d.created_at for d in additional]
+        if ctx["summary"]["last_document_at"]:
+            dates.append(ctx["summary"]["last_document_at"])
+        ctx["summary"]["last_document_at"] = max(dates, default=None)
         ctx["party_groups"] = summary.party_groups(case, list(ctx["party_links"]))
         ctx["party_tab_groups"] = summary.party_groups(
             case, list(ctx["party_links"]), include_empty=True
@@ -502,6 +516,24 @@ class CasePartyRemoveView(AdminRequiredMixin, View):
         return _parties_partial(request, case)
 
 
+def _related_documents(case):
+    from apps.imports.models import PortalNoticeDocument
+    from apps.tasks.models import TaskDocument
+
+    return {
+        "notice_documents": list(
+            PortalNoticeDocument.objects.filter(notice__resolution_case=case)
+            .select_related("notice")
+            .order_by("-created_at", "-pk")
+        ),
+        "task_documents": list(
+            TaskDocument.objects.filter(task__case=case, is_current=True)
+            .select_related("task", "uploaded_by")
+            .order_by("-created_at", "-pk")
+        ),
+    }
+
+
 def _documents_partial(request, case, form=None, warning=""):
     return render(
         request,
@@ -511,6 +543,7 @@ def _documents_partial(request, case, form=None, warning=""):
             "document_form": form or DocumentForm(),
             "documents": case.documents.select_related("created_by"),
             "folder_warning": warning,
+            **_related_documents(case),
         },
     )
 

@@ -20,6 +20,7 @@
       <a class="{% if active == 'gorev_turleri' %}active{% endif %}" href="?bolum=gorev_turleri"><i class="bi bi-list-check"></i>Görev türleri</a>
       <a class="{% if active == 'puanlar' %}active{% endif %}" href="?bolum=puanlar"><i class="bi bi-bar-chart"></i>Personel puanları</a>
       <a class="{% if active == 'yetkiler' %}active{% endif %}" href="?bolum=yetkiler"><i class="bi bi-shield-check"></i>Bakiye görme yetkisi</a>
+      <a class="{% if active == 'eklenti' %}active{% endif %}" href="?bolum=eklenti"><i class="bi bi-puzzle"></i>Eklenti ayarları</a>
       <a class="{% if active == 'takvim' %}active{% endif %}" href="?bolum=takvim"><i class="bi bi-calendar3"></i>Google Takvim
         {% if calendar_connected %}<span class="chip chip-success ms-auto">Bağlı</span>{% endif %}</a>
       {% endif %}
@@ -64,6 +65,21 @@
     </form>
     {% endwith %}
 
+  {% elif active == "eklenti" %}
+    <h2 class="h5">UYAP ve UETS eklentisi</h2>
+    <div class="alert alert-warning">Kişi doğrulaması tamamlanmadığı için otomatik aktarım kapalıdır. Aşağıdaki izinler kaydedilir; aktarımın çalıştığı anlamına gelmez. UYAP’ın <a href="https://portalyonetim.uyap.gov.tr/main/avukat.jsp" target="_blank" rel="noopener noreferrer">kullanım koşullarında</a> otomatik sorgulama kısıtlanmaktadır.</div>
+    <div class="card p-3 mb-3">
+      <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap mb-2"><h3 class="h6 mb-0">Eklenti bağlantıları</h3><a class="btn btn-light btn-sm" href="{% url 'portal_pair' %}">Bu bilgisayarı bağla</a></div>
+      {% for connection in portal_connections %}
+      <div class="border-top py-3">
+        <div class="d-flex justify-content-between gap-2 flex-wrap"><div>Bağlayan: <strong>{{ connection.owner }}</strong> · {% if connection.recent %}<span class="text-success">Eklentiden haber alındı</span>{% elif connection.last_seen %}<span class="text-warning">Eklentiden haber alınamıyor</span>{% else %}<span class="text-body-secondary">Henüz durum bilgisi yok</span>{% endif %}</div><form method="post" action="{% url 'portal_disconnect' connection.pk %}">{% csrf_token %}<button class="btn btn-light btn-sm">Bağlantıyı durdur</button></form></div>
+        <div class="small text-body-secondary mt-2">Son görülme: {{ connection.last_seen|date:"d.m.Y H:i"|default:"Bilinmiyor" }}</div>
+        <div class="row mt-2"><div class="col-md-6"><strong>UYAP</strong> · Son durum: {{ connection.uyap_status_label }}<div class="small text-body-secondary">Son deneme: {{ connection.uyap_attempt_at|date:"d.m.Y H:i"|default:"Yok" }} · Son başarılı tarama: {{ connection.uyap_success_at|date:"d.m.Y H:i"|default:"Yok" }}</div></div><div class="col-md-6"><strong>UETS</strong> · Son durum: {{ connection.uets_status_label }}<div class="small text-body-secondary">Son deneme: {{ connection.uets_attempt_at|date:"d.m.Y H:i"|default:"Yok" }} · Son başarılı tarama: {{ connection.uets_success_at|date:"d.m.Y H:i"|default:"Yok" }}</div></div></div>
+      </div>
+      {% empty %}<p class="text-body-secondary small mb-0">Bağlı eklenti yok.</p>{% endfor %}
+    </div>
+    <div class="card p-3 mb-3"><h3 class="h6">Kişi izinleri</h3><p class="small text-body-secondary">Yalnızca izinleri gösterir; doğrulama tamamlanana kadar kimse için aktarım çalışmaz.</p><table class="table"><thead><tr><th>Kullanıcı</th><th>UYAP izni</th><th>UETS izni</th><th></th></tr></thead><tbody>{% for access in portal_accesses %}<tr><td>{{ access.user }}{% if not access.user.is_active %} <span class="text-body-secondary">(kullanıcı pasif)</span>{% endif %}</td><td><form method="post" action="{% url 'portal_toggle_access' access.pk 'uyap' %}">{% csrf_token %}<button class="btn btn-sm {% if access.uyap_enabled %}btn-outline-success{% else %}btn-outline-secondary{% endif %}" aria-label="{{ access.user }} UYAP iznini {% if access.uyap_enabled %}durdur{% else %}aç{% endif %}">{{ access.uyap_enabled|yesno:"İzinli · Durdur,Kapalı · İzin ver" }}</button></form></td><td><form method="post" action="{% url 'portal_toggle_access' access.pk 'uets' %}">{% csrf_token %}<button class="btn btn-sm {% if access.uets_enabled %}btn-outline-success{% else %}btn-outline-secondary{% endif %}" aria-label="{{ access.user }} UETS iznini {% if access.uets_enabled %}durdur{% else %}aç{% endif %}">{{ access.uets_enabled|yesno:"İzinli · Durdur,Kapalı · İzin ver" }}</button></form></td><td><a href="?bolum=eklenti&amp;izin={{ access.pk }}#izin-formu">Düzenle</a> · <a href="{% url 'portal_remove_access' access.pk %}">Sil</a></td></tr>{% empty %}<tr><td colspan="4">Henüz kişi eklenmedi.</td></tr>{% endfor %}</tbody></table></div>
+    {% with form=forms.eklenti %}<form method="post" id="izin-formu" class="card p-3">{% csrf_token %}<input type="hidden" name="section" value="eklenti">{% if form.instance.pk %}<input type="hidden" name="access_id" value="{{ form.instance.pk }}">{% endif %}<h3 class="h6">{% if form.instance.pk %}Kişi iznini düzenle{% else %}Yeni kişi izni{% endif %}</h3>{{ form.as_p }}<div><button class="btn btn-primary">Kaydet</button> <a class="btn btn-light" href="?bolum=eklenti">{% if form.instance.pk %}Vazgeç{% else %}Temizle{% endif %}</a></div></form>{% endwith %}
   {% elif active == "ofis" %}
     {% with form=forms.ofis %}
     <form method="post" enctype="multipart/form-data" class="card" style="max-width: 760px">{% csrf_token %}<input type="hidden" name="section" value="ofis">

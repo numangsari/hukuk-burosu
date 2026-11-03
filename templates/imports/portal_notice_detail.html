@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Tebligat ayrıntısı{% endblock %}
+{% block content %}
+<h1 class="h3">Tebligat ayrıntısı</h1>
+<dl>
+  <dt>Gönderen</dt><dd>{{ notice.sender|default:"Bilinmiyor" }}</dd>
+  <dt>Alıcı</dt><dd>{{ recipient|default:"Bilinmiyor" }}</dd>
+  <dt>Konu</dt><dd>{{ notice.subject|default:"Bilinmiyor" }}</dd>
+  {% if source_subject %}<dt>Belge konusu</dt><dd>{{ source_subject }}</dd>{% endif %}
+  {% if source_name %}<dt>Kaynak belge adı</dt><dd>{{ source_name }}</dd>{% endif %}
+  <dt>Geliş tarihi</dt><dd>{{ notice.delivered_at|date:"d.m.Y H:i"|default:"Bilinmiyor" }}</dd>
+  <dt>Durum</dt><dd>{% if notice.read %}Okunmuş{% else %}Okunmamış veya bilinmiyor{% endif %}</dd>
+</dl>
+<h2 class="h5">Belgeler</h2>
+<ul>{% for document in notice.documents.all %}<li><a href="{% url 'portal_notice_document' document.pk %}">{{ document.original_name }}</a></li>{% empty %}<li>Henüz belge alınmadı.</li>{% endfor %}</ul>
+{% if notice.resolved_at %}<h2 class="h5">İşlem bilgisi</h2><p>Müvekkil: {{ notice.resolution_client }}{% if notice.resolution_case %} · Dosya: {{ notice.resolution_case }}{% endif %}</p>{% if notice.resolution_task %}<p><a href="{{ notice.resolution_task.get_absolute_url }}">Oluşturulan görevi aç</a></p>{% else %}<p>Görev yok: {{ notice.no_task_reason }}</p>{% endif %}<p>{{ notice.resolved_by }} · {{ notice.resolved_at|date:"d.m.Y H:i" }}</p>{% endif %}<p><a href="{% url 'notice_list' %}">Listeye dön</a></p>
+{% endblock %}
