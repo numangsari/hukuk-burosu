@@ -111,8 +111,116 @@ def test_calendar_page_month_and_week(lawyer_client, monkeypatch):
     assert FAKE_URL not in r.content.decode()
 
 
+def test_calendar_shows_hearings_not_tasks_and_avoids_google_duplicates(
+    lawyer_client, case_factory, monkeypatch
+):
+    from django.utils import timezone
+
+    from apps.cases.models import Hearing
+    from apps.office.models import TaskType
+    from apps.tasks.models import Task
+
+    case = case_factory()
+    now = timezone.localtime().replace(second=0, microsecond=0)
+    Hearing.objects.create(case=case, starts_at=now, google_event_id="managed123")
+    Task.objects.create(
+        case=case,
+        title="Takvimde görünmeyen görev",
+        due_date=now.date(),
+        task_type=TaskType.objects.first(),
+        assignee=case.responsible_lawyer,
+    )
+    office = OfficeSettings.load()
+    office.calendar_ics_url = FAKE_URL
+    office.save()
+    calendar = (
+        "BEGIN:VCALENDAR\nVERSION:2.0\nBEGIN:VEVENT\nUID:managed123@google.com\n"
+        f"DTSTART:{now:%Y%m%dT%H%M%S}\nSUMMARY:Tekrarlanan kayıt\nEND:VEVENT\n"
+        "BEGIN:VEVENT\nUID:external@google.com\n"
+        f"DTSTART:{now:%Y%m%dT%H%M%S}\nSUMMARY:Harici toplantı\nEND:VEVENT\nEND:VCALENDAR\n"
+    )
+    monkeypatch.setattr(services, "fetch_ics", lambda url: calendar)
+    for view in ("month", "week"):
+        response = lawyer_client.get(reverse("agenda:calendar"), {"view": view, "date": now.date()})
+        events = response.context["agenda"].events
+        assert any(event.source == "hearing" for event in events)
+        assert any(event.title == "Harici toplantı" for event in events)
+        assert not any(
+            event.title == "Tekrarlanan kayıt" or event.source == "task" for event in events
+        )
+
+
+def test_google_api_calendar_read_is_paginated_and_read_only(monkeypatch):
+    from unittest.mock import MagicMock
+
+    from apps.agenda import google_sync
+
+    office = OfficeSettings.load()
+    office.google_calendar_api_enabled = True
+    office.google_calendar_id = "test-calendar"
+    office.calendar_ics_url = ""
+    office.save()
+    service = MagicMock()
+    service.events.return_value.list.return_value.execute.side_effect = [
+        {
+            "items": [
+                {
+                    "id": "first",
+                    "summary": "Toplantı",
+                    "start": {"dateTime": "2026-11-05T10:00:00+03:00"},
+                    "end": {"dateTime": "2026-11-05T11:00:00+03:00"},
+                }
+            ],
+            "nextPageToken": "next",
+        },
+        {
+            "items": [
+                {
+                    "id": "second",
+                    "summary": "Tüm gün",
+                    "start": {"date": "2026-11-06"},
+                    "end": {"date": "2026-11-07"},
+                }
+            ]
+        },
+    ]
+    monkeypatch.setattr(
+        google_sync, "get_calendar_service", lambda office: (service, "test-calendar")
+    )
+    result = services.events_between(dt.date(2026, 11, 1), dt.date(2026, 11, 8))
+    assert [event.title for event in result.events] == ["Toplantı", "Tüm gün"]
+    assert service.events.return_value.list.call_count == 2
+    service.events.return_value.insert.assert_not_called()
+    service.events.return_value.patch.assert_not_called()
+    service.events.return_value.delete.assert_not_called()
+
+
+def test_calendar_hides_restricted_case_and_its_google_copy(
+    lawyer_client, case_factory, client_factory, admin_user, monkeypatch
+):
+    from django.utils import timezone
+
+    from apps.cases.models import Hearing
+
+    office = OfficeSettings.load()
+    office.case_visibility_mode = OfficeSettings.CaseVisibilityMode.RESTRICTED
+    office.calendar_ics_url = FAKE_URL
+    office.save()
+    other_client = client_factory(responsible_lawyer=admin_user, responsible_intern=None)
+    case = case_factory(client=other_client)
+    now = timezone.localtime().replace(second=0, microsecond=0)
+    Hearing.objects.create(case=case, starts_at=now, google_event_id="private-id")
+    calendar = (
+        "BEGIN:VCALENDAR\nVERSION:2.0\nBEGIN:VEVENT\nUID:private-id@google.com\n"
+        f"DTSTART:{now:%Y%m%dT%H%M%S}\nSUMMARY:Gizli kayıt\nEND:VEVENT\nEND:VCALENDAR\n"
+    )
+    monkeypatch.setattr(services, "fetch_ics", lambda url: calendar)
+    response = lawyer_client.get(reverse("agenda:calendar"), {"date": now.date()})
+    assert not response.context["agenda"].events
+
+
 @pytest.mark.parametrize("configured", [False, True])
-def test_home_and_calendar_show_tasks_and_all_google_events(
+def test_home_shows_tasks_calendar_shows_appointments_and_google_events(
     lawyer_client, case_factory, monkeypatch, configured
 ):
     from django.utils import timezone
@@ -154,21 +262,17 @@ def test_home_and_calendar_show_tasks_and_all_google_events(
         response = lawyer_client.get(url, params)
         assert response.status_code == 200
         events = response.context["agenda"].events
-        assert [e.title for e in events] == (
-            ["Google örnek etkinlik", task.title, "Google toplantı"] if configured else [task.title]
-        )
-        task_event = next(e for e in events if e.source == "task")
-        assert task_event.all_day and task_event.days == [today]
-        assert task_event.time_label == "GÖREV"
-        assert "GÖREV:" not in response.content.decode()
         if url == "/":
+            assert any(e.title == task.title for e in events)
             assert '<span class="t">GÖREV</span>' in response.content.decode()
-        assert task_event.url == task.get_absolute_url()
-        assert task_event.url in response.content.decode()
+        else:
+            assert not any(e.source == "task" for e in events)
+            assert any(e.title == "Randevu: Eski randevu" for e in events)
+            if configured:
+                assert any(e.title == "Google örnek etkinlik" for e in events)
         html = response.content.decode()
-        assert "Eski randevu" not in html and "Eski duruşma" not in html
         assert "WhatsApp mesajları" not in html
-        if not configured:
+        if not configured and url != "/":
             assert "Google Takvim bağlı değil" in html
     assert Hearing.objects.filter(pk=hearing.pk).exists()
     assert ClientAppointment.objects.filter(pk=appointment.pk).exists()

@@ -15,7 +15,7 @@ from apps.cases.models import Case, Hearing, HearingKind, HearingStatus
 from apps.core.pagination import page_size
 from apps.core.permissions import filter_visible_cases
 
-from .services import combined_events
+from .services import calendar_events
 
 MONTHS = [
     "Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran",
@@ -88,7 +88,7 @@ class AgendaView(TemplateView):
             title = "Duruşmalar ve Etkinlikler Listesi"
             start, end = today, today + dt.timedelta(days=30)
 
-        result = combined_events(start, end)
+        result = calendar_events(start, end, user=self.request.user)
         by_day = group_by_day(result.events)
 
         ctx.update(

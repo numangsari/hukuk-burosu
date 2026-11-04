@@ -87,7 +87,7 @@ uv run ruff format --check .                         # Format denetimi
 
 ### `apps/agenda` & Duruşma Yönetimi
 - **Birleşik Takvim (`/takvim/`):**
-  - Ay Görünümü (`view=month`): Google Takvim etkinlikleri ve görev son günleri takvim ızgarasında.
+  - Ay Görünümü (`view=month`): Duruşmalar, müvekkil randevuları ve salt okunur Google Takvim etkinlikleri takvim ızgarasında; görevler gösterilmez.
   - Hafta Görünümü (`view=week`): Saatlik ve günlük ajanda.
   - Liste / Duruşmalar Görünümü (`view=list`): Yaklaşanlar, Bugün, Sonuç Bekleyenler, Geçmiş ve Tümü sekmeleri. Sayaçlar, sorumlu/tür/durum filtreleri, hızlı ara karar modalı ve Excel dökümü.
 - **`Hearing` Modeli:** Hem dava duruşmalarını hem de dosyasız müvekkil randevularını, arabuluculuk oturumlarını ve ofis toplantılarını destekler (`case=None`, `client`, `title`, `assigned_to`, `ends_at`).
@@ -106,6 +106,7 @@ uv run ruff format --check .                         # Format denetimi
   - Sistemdeki duruşma ve toplantılar ofis Google Takvimi'ne tek yönlü aktarılır ve güncellenir. Başlık formatı: `[Keşif] Sorumlu Adı - Mahkeme Esas No (Müvekkil)` (Duruşma ve Ön İncelemede önek yoktur; Keşifte `[Keşif] ` öneki konur. Sorumlu kişinin soyadı yazılmaz yalnızca adı yazılır ve köşeli parantez kullanılmaz; mazeret sunulmuşsa `Mazeret - ...` olarak aktarılır). Konum alanı sadeleştirme amacıyla Google Takvim'e gönderilmez.
   - Renk desteği: Etkinlik türüne göre ayarlanabilir Google Takvim renk seçimi (`google_color_hearing`: Duruşma/Ön İnceleme - varsayılan Mavi 9, `google_color_discovery`: Keşif - varsayılan Yeşil 2, `google_color_meeting`: Müvekkil Görüşmesi/Toplantı - varsayılan Sarı 5, `google_color_mediation`: Arabuluculuk - varsayılan Kırmızı 11, `google_color_other`: Bilirkişi/Diğer - varsayılan Gri 8).
   - Google Takvim'deki mevcut veya harici etkinliklere kesinlikle dokunulmaz; mükerrer kayıt `google_event_id` ile engellenir.
+  - Google etkinlikleri varsa iCal adresinden, yoksa etkin API bağlantısından salt okunur alınır. Sistemin gönderdiği etkinlikler kimlikleriyle ayrılarak takvimde ikinci kez gösterilmez; dosya ve müvekkil görünürlük yetkileri uygulanır.
 - **Arayüz & Navigasyon:** Sol menüdeki "Sistem" menü grubu sadeleştirme amacıyla kaldırılmış; Sistem monitörü, UYAP/UETS inceleme, Aktivite kaydı, Veri aktarımı ve Django yönetim paneli bağlantıları Ayarlar > Sistem ve Gözlem bölümüne taşınmıştır. Dava/dosya numara girişi tek satırda kompakt ve estetik olarak hizalanmıştır.
 
 ### Fiziki Arşiv Modülü (`/arsiv/`)

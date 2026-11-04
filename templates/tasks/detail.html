@@ -148,13 +148,15 @@
 </div>
 
 <div class="row g-3">
-  <div class="col-lg-8 d-flex flex-column gap-3">
+  {% if not task.hearing or task.notes %}
+  <div class="{% if task.hearing %}col-12{% else %}col-lg-8{% endif %} d-flex flex-column gap-3">
     {% if task.hearing %}
       {% if task.notes %}<div class="card border-primary-subtle"><div class="card-body"><h2 class="h6 text-primary"><i class="bi bi-journal-text me-2"></i>Duruşma notu</h2><div>{{ task.notes|linebreaksbr }}</div></div></div>{% endif %}
     {% else %}{% include "tasks/_documents.html" %}{% endif %}
   </div>
+  {% endif %}
 
-  <div class="col-lg-4">
+  <div class="{% if task.hearing %}col-12{% else %}col-lg-4{% endif %}">
     <div class="card"><div class="card-body">
       <h2 class="section-title">Ekip</h2>
       <div class="d-flex align-items-center gap-2 mb-3">

@@ -39,6 +39,7 @@ class Event:
     days: list[dt.date] = field(default_factory=list)
     source: str = "google"  # Google takvimi, görev veya duruşma
     url: str = ""
+    remote_id: str = ""
 
     @property
     def start_date(self) -> dt.date:
@@ -130,6 +131,7 @@ def parse_events(text: str, start: dt.date, end: dt.date) -> list[Event]:
             all_day=all_day,
             location=str(comp.get("LOCATION", "")),
             description=str(comp.get("DESCRIPTION", "")),
+            remote_id=str(comp.get("UID", "")).split("@", 1)[0],
         )
         # Etkinliğin görüneceği günler (tüm gün etkinliklerinde DTEND hariçtir).
         first = ev.start_date
@@ -152,9 +154,10 @@ def parse_events(text: str, start: dt.date, end: dt.date) -> list[Event]:
 
 
 def events_between(start: dt.date, end: dt.date) -> AgendaResult:
-    url = OfficeSettings.load().calendar_ics_url
+    office = OfficeSettings.load()
+    url = office.calendar_ics_url
     if not url:
-        return AgendaResult(configured=False)
+        return google_api_events(start, end, office)
     try:
         text, stale = get_ics_text(url)
         events = parse_events(text, start, end)
@@ -167,6 +170,85 @@ def events_between(start: dt.date, end: dt.date) -> AgendaResult:
     if stale:
         result.error = "Google Takvim'e şu an ulaşılamıyor; son alınan veri gösteriliyor."
     return result
+
+
+def google_api_events(start: dt.date, end: dt.date, office: OfficeSettings) -> AgendaResult:
+    """Mevcut Google bağlantısıyla harici etkinlikleri yalnızca okur."""
+    if not (office.google_calendar_api_enabled and office.google_calendar_id):
+        return AgendaResult(configured=False)
+    from .google_sync import get_calendar_service
+
+    service, calendar_id = get_calendar_service(office)
+    if service is None:
+        return AgendaResult(configured=True, error="Google Takvim bağlantısı kurulamadı.")
+    start_dt = timezone.make_aware(dt.datetime.combine(start, dt.time.min))
+    end_dt = timezone.make_aware(dt.datetime.combine(end, dt.time.min))
+    events = []
+    token = None
+    try:
+        while True:
+            page = (
+                service.events()
+                .list(
+                    calendarId=calendar_id,
+                    timeMin=start_dt.isoformat(),
+                    timeMax=end_dt.isoformat(),
+                    singleEvents=True,
+                    maxResults=250,
+                    pageToken=token,
+                )
+                .execute()
+            )
+            for item in page.get("items", []):
+                if item.get("status") == "cancelled":
+                    continue
+                raw_start, raw_end = item.get("start", {}), item.get("end", {})
+                all_day = "date" in raw_start
+                if all_day:
+                    event_start = dt.date.fromisoformat(raw_start["date"])
+                    event_end = (
+                        dt.date.fromisoformat(raw_end["date"]) if raw_end.get("date") else None
+                    )
+                else:
+                    event_start = _to_local(
+                        dt.datetime.fromisoformat(raw_start["dateTime"].replace("Z", "+00:00"))
+                    )
+                    event_end = (
+                        _to_local(
+                            dt.datetime.fromisoformat(raw_end["dateTime"].replace("Z", "+00:00"))
+                        )
+                        if raw_end.get("dateTime")
+                        else None
+                    )
+                ev = Event(
+                    title=item.get("summary") or "(başlıksız)",
+                    start=event_start,
+                    end=event_end,
+                    all_day=all_day,
+                    location=item.get("location", ""),
+                    description=item.get("description", ""),
+                    remote_id=item.get("id", ""),
+                )
+                first = ev.start_date
+                last = (
+                    (event_end - (dt.timedelta(days=1) if all_day else dt.timedelta(seconds=1)))
+                    if event_end
+                    else event_start
+                )
+                if isinstance(last, dt.datetime):
+                    last = last.date()
+                day = max(first, start)
+                while day <= max(first, last) and day < end:
+                    ev.days.append(day)
+                    day += dt.timedelta(days=1)
+                events.append(ev)
+            token = page.get("nextPageToken")
+            if not token:
+                break
+    except Exception:
+        log.warning("Google Takvim etkinlikleri okunamadı")
+        return AgendaResult(configured=True, error="Google Takvim etkinlikleri okunamadı.")
+    return AgendaResult(configured=True, events=events)
 
 
 def task_events(start: dt.date, end: dt.date) -> list[Event]:
@@ -194,7 +276,7 @@ def task_events(start: dt.date, end: dt.date) -> list[Event]:
     return events
 
 
-def hearing_events(start: dt.date, end: dt.date) -> list[Event]:
+def hearing_events(start: dt.date, end: dt.date, user=None) -> list[Event]:
     """[start, end) aralığındaki duruşmaları takvim etkinliği olarak gösterir."""
     from apps.cases.models import Hearing
 
@@ -206,6 +288,15 @@ def hearing_events(start: dt.date, end: dt.date) -> list[Event]:
         .prefetch_related("tasks")
         .order_by("starts_at")
     )
+    if user is not None:
+        from django.db.models import Q
+
+        from apps.cases.models import Case
+        from apps.core.permissions import filter_visible_cases
+
+        hearings = hearings.filter(
+            Q(case__in=filter_visible_cases(Case.objects.all(), user)) | Q(case__isnull=True)
+        )
     events = []
     for h in hearings:
         local_s = timezone.localtime(h.starts_at)
@@ -235,8 +326,57 @@ def hearing_events(start: dt.date, end: dt.date) -> list[Event]:
     return events
 
 
+def calendar_events(start: dt.date, end: dt.date, user=None) -> AgendaResult:
+    """Google etkinlikleri ile görünür duruşmaları aynı takvimde birleştirir."""
+    from apps.cases.models import Hearing
+
+    result = events_between(start, end)
+    managed_ids = set(
+        Hearing.objects.exclude(google_event_id="").values_list("google_event_id", flat=True)
+    )
+    all_events = [event for event in result.events if event.remote_id not in managed_ids]
+    all_events += hearing_events(start, end, user=user)
+    from apps.clients.models import Client, ClientAppointment
+    from apps.core.permissions import filter_visible_clients
+
+    appointments = (
+        ClientAppointment.objects.filter(
+            starts_at__gte=timezone.make_aware(dt.datetime.combine(start, dt.time.min)),
+            starts_at__lt=timezone.make_aware(dt.datetime.combine(end, dt.time.min)),
+        )
+        .exclude(status=ClientAppointment.Status.CANCELLED)
+        .select_related("client")
+    )
+    if user is not None:
+        appointments = appointments.filter(
+            client__in=filter_visible_clients(Client.objects.all(), user)
+        )
+    for appointment in appointments:
+        local_start = timezone.localtime(appointment.starts_at)
+        all_events.append(
+            Event(
+                title=f"Randevu: {appointment.title}",
+                start=local_start,
+                end=None,
+                all_day=False,
+                days=[local_start.date()],
+                source="hearing",
+                location=appointment.location,
+            )
+        )
+    result.events = sorted(
+        all_events,
+        key=lambda event: (
+            event.start_date,
+            not event.all_day,
+            event.start if not event.all_day else dt.time(),
+        ),
+    )
+    return result
+
+
 def combined_events(start: dt.date, end: dt.date, include_hearings: bool = False) -> AgendaResult:
-    """Google etkinlikleri ile açık görevleri aynı takvimde birleştirir."""
+    """Ana sayfa ve ofis listeleri için etkinliklerle görevleri birleştirir."""
     result = events_between(start, end)
     all_events = list(result.events) + task_events(start, end)
     if include_hearings:
