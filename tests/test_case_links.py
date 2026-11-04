@@ -216,13 +216,13 @@ def test_ledger_entries_stay_with_their_client_but_totals_are_shared(
 
 def test_create_related_case_links_to_existing(lawyer_client, case_factory, client_factory):
     owner = client_factory()
-    existing = case_factory(client=owner, archive_no="E1", case_type="notice")
+    existing = case_factory(client=owner, archive_no="1", case_type="notice")
     page = lawyer_client.get(reverse("cases:create"), {"iliskili": existing.pk})
     assert page.status_code == 200 and page.context["related_case"] == existing
-    data = _case_data(owner, archive_no="E2", related_case=existing.pk)
+    data = _case_data(owner, archive_no="2", related_case=existing.pk)
     response = lawyer_client.post(reverse("cases:create"), data)
     assert response.status_code == 302
-    new = Case.objects.get(archive_no="E2")
+    new = Case.objects.get(archive_no="2")
     existing.refresh_from_db()
     assert new.flow_id and new.flow_id == existing.flow_id
 
@@ -267,13 +267,14 @@ def test_lists_cluster_linked_cases_with_marker(
     assert "+1 dosya bağlı" in detail
 
 
-def test_related_case_form_is_prefilled_and_may_share_archive_location(
+def test_related_case_form_is_prefilled_but_requires_an_empty_archive_location(
     lawyer_client, case_factory, client_factory
 ):
-    from apps.cases.models import CaseParty
+    from apps.cases.models import ArchiveFolder, CaseParty
     from apps.clients.models import Party
 
     owner = client_factory()
+    ArchiveFolder.objects.create(name="12", kind="legacy", capacity=20)
     existing = case_factory(
         client=owner,
         archive_folder_no="12",
@@ -289,7 +290,7 @@ def test_related_case_form_is_prefilled_and_may_share_archive_location(
     form = page.context["form"]
     assert form.initial["client"] == owner
     assert form.initial["client_role"] == "plaintiff"
-    assert (form.initial["archive_folder_no"], form.initial["archive_no"]) == ("12", "12")
+    assert (form.initial["archive_folder_no"], form.initial["archive_no"]) == ("12", "")
     assert form.initial["responsible_lawyer"] == existing.responsible_lawyer_id
     rows = page.context["party_formset"].initial
     assert rows[0]["name"] == "KARŞI TARAF" and rows[0]["existing_party"] == party.pk
@@ -297,7 +298,7 @@ def test_related_case_form_is_prefilled_and_may_share_archive_location(
     assert (
         existing.display_name in html and "12 / 12 ·" not in html.split("ilgili dosyası")[0][-200:]
     )
-    # Fiziki arşiv yeri aynı olabilir; bağlanan dosya için uyarı verilmez.
+    # Bağlı dosyalar da boş bir fiziki yer kullanır.
     data = _case_data(
         owner,
         archive_folder_no="12",
@@ -312,6 +313,9 @@ def test_related_case_form_is_prefilled_and_may_share_archive_location(
             "parties-0-existing_party": party.pk,
         },
     )
+    response = lawyer_client.post(reverse("cases:create"), data)
+    assert response.status_code == 200 and "archive_no" in response.context["form"].errors
+    data["archive_no"] = "13"
     assert lawyer_client.post(reverse("cases:create"), data).status_code == 302
     new = Case.objects.exclude(pk=existing.pk).get()
     existing.refresh_from_db()

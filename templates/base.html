@@ -11,6 +11,7 @@
   <script src="{% static 'vendor/htmx.min.js' %}" defer></script>
   <script src="{% static 'vendor/alpine.min.js' %}" defer></script>
   <script src="{% static 'js/searchable-select.js' %}" defer></script>
+  <script src="{% static 'js/archive-slots.js' %}" defer></script>
 {% if request.GET.pencere %}
 <style>
   .sidebar, .sidebar-backdrop, .topbar, .page-foot, .eyebrow, .page-header .page-actions { display: none !important; }
@@ -19,7 +20,7 @@
 </style>
 {% endif %}
 </head>
-<body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+<body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}' data-archive-slots-url="{% url 'archive:available_slots' %}">
 {% if request.user.is_authenticated %}
 <div class="app-shell" x-data="{ nav: false }">
   <aside class="sidebar" :class="nav && 'open'">
@@ -71,14 +72,6 @@
         <kbd>Ctrl K</kbd>
         <div class="search-dd" id="search-dd" x-show="open" x-cloak></div>
       </form>
-      <nav class="topbar-actions" aria-label="Yeni kayıt">
-        <a class="top-action ta-brand" href="{% url 'tasks:create' %}" title="Yeni görev"><i class="bi bi-check2-square"></i><span>Yeni görev</span></a>
-        <a class="top-action ta-accent" href="{% url 'cases:create' %}" title="Yeni dosya"><i class="bi bi-folder-plus"></i><span>Yeni dosya</span></a>
-        <a class="top-action ta-success" href="{% url 'clients:create' %}" title="Yeni müvekkil"><i class="bi bi-person-plus"></i><span>Yeni müvekkil</span></a>
-        {% if can_edit_accounting %}
-        <a class="top-action ta-warning" href="{% url 'accounting:create' %}" title="Yeni gelir / gider"><i class="bi bi-cash-coin"></i><span>Yeni gelir / gider</span></a>
-        {% endif %}
-      </nav>
       <div class="ms-auto d-flex align-items-center gap-1">
         <span class="text-body-secondary small d-none d-md-inline me-2">{% now "j F Y, l" %}</span>
         <button class="icon-btn" title="Tema" hx-post="{% url 'accounts:theme_toggle' %}" hx-swap="none"
@@ -137,27 +130,39 @@
 (() => {
   const modal = document.getElementById('create-window');
   const frame = document.getElementById('create-window-frame');
-  const paths = ['{% url "tasks:create" %}', '{% url "accounting:create" %}'];
+  const paths = {
+    '{% url "tasks:create" %}': 'Yeni görev',
+    '{% url "cases:create" %}': 'Yeni dosya',
+    '{% url "clients:create" %}': 'Yeni müvekkil',
+    '{% url "accounting:create" %}': 'Yeni gelir / gider',
+    '{% url "hearings:create" %}': 'Yeni duruşma / etkinlik',
+    '{% url "archive:create" %}': 'Yeni fiziki klasör',
+  };
   let active = false;
+  let clientSaved = false;
+  let openedPath = '';
   document.addEventListener('click', event => {
     const link = event.target.closest('a[href]');
     if (!link || event.ctrlKey || event.metaKey || event.shiftKey || event.button !== 0) return;
     const url = new URL(link.href, location.href);
     const isTask = /^\/gorevler\/\d+\/$/.test(url.pathname);
-    if (url.origin !== location.origin || (!paths.includes(url.pathname) && !isTask)) return;
+    if (url.origin !== location.origin || (!Object.hasOwn(paths, url.pathname) && !isTask)) return;
     event.preventDefault();
     url.searchParams.set('pencere', '1');
-    document.getElementById('create-window-title').textContent = isTask ? 'Görev' : (url.pathname === paths[0] ? 'Yeni görev' : 'Yeni gelir / gider');
+    document.getElementById('create-window-title').textContent = isTask ? 'Görev' : paths[url.pathname];
     active = true;
+    clientSaved = false;
+    openedPath = url.pathname;
     frame.src = url.href;
     bootstrap.Modal.getOrCreateInstance(modal).show();
   });
   frame.addEventListener('load', () => {
     if (!active) return;
     const url = new URL(frame.contentWindow.location.href);
+    if (openedPath === '{% url "clients:create" %}' && url.pathname === '{% url "accounting:create" %}') clientSaved = true;
     if (!url.searchParams.has('pencere')) { active = false; location.reload(); }
   });
-  modal.addEventListener('hidden.bs.modal', () => { const wasTask = active && /\/gorevler\/\d+\//.test(frame.getAttribute('src') || ''); active = false; frame.removeAttribute('src'); if (wasTask) location.reload(); });
+  modal.addEventListener('hidden.bs.modal', () => { const wasTask = active && /\/gorevler\/\d+\//.test(frame.getAttribute('src') || ''); active = false; frame.removeAttribute('src'); if (wasTask || clientSaved) location.reload(); });
 })();
 </script>
 {% elif request.GET.pencere %}

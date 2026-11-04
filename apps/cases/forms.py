@@ -11,7 +11,9 @@ from apps.core.uploads import validate_upload
 from apps.imports.portal_forms import PreserveExistingAssigneeMixin
 
 from . import stages
+from .archive_locations import available_archive_slots, validate_archive_location
 from .models import (
+    ArchiveFolder,
     Case,
     CaseEvent,
     CaseParty,
@@ -22,6 +24,46 @@ from .models import (
     Seizure,
 )
 from .party_roles import PARTY_ROLES
+
+
+class ArchiveFolderForm(BootstrapMixin, forms.Form):
+    kind = forms.ChoiceField(
+        label="Tür",
+        choices=[
+            choice
+            for choice in ArchiveFolder.Kind.choices
+            if choice[0] != ArchiveFolder.Kind.LEGACY
+        ],
+    )
+    custom_kind = forms.CharField(label="Tür adı", max_length=30, required=False)
+    name = forms.CharField(label="Klasör adı / numarası", max_length=43)
+    capacity = forms.IntegerField(label="Kapasite", min_value=1, max_value=32767)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["kind"].widget.attrs["x-model"] = "kind"
+
+    def clean_name(self):
+        name = self.cleaned_data["name"].strip()
+        if not name or "/" in name or "\\" in name:
+            raise forms.ValidationError("Geçerli bir klasör adı girin; / ve \\ kullanmayın.")
+        return name
+
+    def clean(self):
+        data = super().clean()
+        if data.get("kind") and data.get("name"):
+            labels = dict(ArchiveFolder.Kind.choices)
+            labels.pop("other")
+            label = labels.get(data["kind"], data.get("custom_kind", "").strip())
+            if not label or "/" in label or "\\" in label:
+                self.add_error("custom_kind", "Diğer tür için geçerli bir ad yazın.")
+                return data
+            data["full_name"] = f"{label} {data['name']}"
+            if len(data["full_name"]) > 50:
+                self.add_error("name", "Tür ve klasör adı toplam 50 karakteri aşamaz.")
+            if ArchiveFolder.objects.filter(name__iexact=data["full_name"]).exists():
+                self.add_error("name", "Bu türde ve isimde bir klasör zaten var.")
+        return data
 
 
 class CaseForm(PreserveExistingAssigneeMixin, BootstrapMixin, forms.ModelForm):
@@ -102,6 +144,37 @@ class CaseForm(PreserveExistingAssigneeMixin, BootstrapMixin, forms.ModelForm):
         self.fields["client"].required = True
         self.fields["archive_folder_no"].required = not self.instance.pk
         self.fields["archive_no"].required = not self.instance.pk
+        names = list(ArchiveFolder.objects.values_list("name", flat=True).order_by("name"))
+        if (
+            self.instance.pk
+            and self.instance.archive_folder_no
+            and self.instance.archive_folder_no not in names
+        ):
+            names.append(self.instance.archive_folder_no)
+        selected_folder = (
+            self.data.get("archive_folder_no", "")
+            if self.is_bound
+            else self.initial.get("archive_folder_no", self.instance.archive_folder_no)
+        )
+        slots, folder = available_archive_slots(selected_folder or "", self.instance)
+        self.fields["archive_folder_no"].widget = forms.Select(
+            choices=[("", "Klasör seçiniz…"), *((name, name) for name in names)],
+            attrs={
+                "class": "form-select",
+                "data-archive-folder": "",
+                "data-case-id": self.instance.pk or "",
+            },
+        )
+        self.fields["archive_folder_no"].help_text = "Kayıtlı fiziki klasörlerden birini seçin."
+        self.fields["archive_no"].widget = forms.Select(
+            choices=[("", "Boş yer seçiniz…"), *((slot, slot) for slot in slots)],
+            attrs={"class": "form-select", "data-archive-slot": ""},
+        )
+        self.fields["archive_no"].help_text = (
+            "Klasör kapasitesi belirlenmeli."
+            if folder and folder.capacity is None
+            else "Yalnızca boş numaralar listelenir."
+        )
         self.fields["subject"].required = not self.instance.pk
         self.fields["official_no_kind"].required = False
         self.fields["official_date"].required = False
@@ -231,30 +304,41 @@ class CaseForm(PreserveExistingAssigneeMixin, BootstrapMixin, forms.ModelForm):
             raise forms.ValidationError("Miktar negatif olamaz.")
         return amount
 
-    def _linked_case_ids(self) -> set:
-        """Bu dosyayla bağlı (veya bağlanacak) dosyaların kimlikleri."""
-        anchor = self.related_case or (self.instance if self.instance.pk else None)
-        if anchor is None:
-            return set()
-        ids = {anchor.pk}
-        if anchor.flow_id:
-            ids |= set(Case.objects.filter(flow_id=anchor.flow_id).values_list("pk", flat=True))
-        return ids
-
     def clean(self):
         data = super().clean()
         folder = data.get("archive_folder_no", "").strip()
         number = data.get("archive_no", "").strip()
         data["archive_folder_no"] = folder
         data["archive_no"] = number
+        try:
+            validate_archive_location(folder, number, self.instance)
+            if (
+                number
+                and number.isascii()
+                and number.isdigit()
+                and ArchiveFolder.objects.filter(
+                    name__iexact=folder, capacity__isnull=False
+                ).exists()
+            ):
+                number = str(int(number))
+                data["archive_no"] = number
+        except forms.ValidationError as error:
+            for field, errors in error.message_dict.items():
+                for message in errors:
+                    self.add_error(field, message)
         if number:
             same = set(
                 Case.objects.filter(archive_folder_no__iexact=folder, archive_no__iexact=number)
                 .exclude(pk=self.instance.pk)
                 .values_list("pk", flat=True)
             )
-            # Aynı hukuki olayın bağlı dosyaları aynı fiziki arşiv yerini paylaşabilir.
-            if same - self._linked_case_ids():
+            unchanged = bool(
+                self.instance.pk
+                and Case.objects.filter(
+                    pk=self.instance.pk, archive_folder_no__iexact=folder, archive_no__iexact=number
+                ).exists()
+            )
+            if same and not unchanged:
                 self.add_error("archive_no", "Bu klasörde aynı dosya numarası zaten kullanılıyor.")
         client = data.get("client")
         if client:

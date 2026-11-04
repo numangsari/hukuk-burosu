@@ -9,6 +9,7 @@
     <h1 class="page-title mb-0">Fiziki Arşiv</h1>
   </div>
   <div class="d-flex align-items-center gap-2">
+    <a class="btn btn-primary" href="{% url 'archive:create' %}"><i class="bi bi-plus-lg me-1"></i>Yeni fiziki klasör</a>
     <div class="btn-group btn-group-sm" role="group">
       <a href="{% query_with view='table' page=None %}" class="btn {% if view_mode != 'explorer' %}btn-primary{% else %}btn-light{% endif %}" title="Tablo Görünümü">
         <i class="bi bi-table me-1"></i>Tablo

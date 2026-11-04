@@ -167,6 +167,11 @@ class OfficeSettings(models.Model):
             "tebliğ tarihine eklenecek varsayılan gün sayısı (ör. 7, 14, 15)."
         ),
     )
+    archive_folder_default_capacity = models.PositiveSmallIntegerField(
+        "varsayılan fiziki klasör kapasitesi",
+        default=8,
+        help_text="Yeni klasörlerde önerilen dosya sayısı; klasör oluşturulurken değiştirilebilir.",
+    )
     use_task_points = models.BooleanField(
         "personel görev puanı sistemini kullan",
         default=True,

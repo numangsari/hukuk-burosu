@@ -15,6 +15,7 @@ from django.core.exceptions import ValidationError
 from django.db import transaction
 from openpyxl import load_workbook
 
+from apps.cases.archive_locations import validate_archive_location
 from apps.cases.models import Case, CaseStatus, CaseType
 from apps.clients.models import Client
 from apps.core.text import fold, tr_upper
@@ -433,6 +434,7 @@ def create_case(record, row, client, case_type):
         return matches[0], "linked"
     if matches or same_number:
         raise ValidationError("Benzer dosya var; kurum veya kayıt eşleşmesi elle incelenmeli.")
+    validate_archive_location(folder, archive_no, lock=True, import_legacy=True)
     if folder and archive_no:
         used = [
             c
@@ -508,6 +510,14 @@ def execute():
         case = None
         if decision:
             client, case_type, role, principal, case = decision
+            if case is None:
+                try:
+                    validate_archive_location(
+                        row.folder, row.archive_no, lock=True, import_legacy=True
+                    )
+                except ValidationError as exc:
+                    decision, reason = None, exc.messages[0]
+        if decision:
             if case is None:
                 team_index = min(range(len(teams)), key=team_counts.__getitem__)
                 lawyer, intern = teams[team_index]

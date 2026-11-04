@@ -88,6 +88,38 @@ def _with_suffix(value: str, suffix: str) -> str:
     return value
 
 
+class ArchiveFolder(TimeStampedModel):
+    class Kind(models.TextChoices):
+        OPEN = "open", "Açık"
+        CLOSED = "closed", "Kapalı"
+        ENFORCEMENT = "enforcement", "İcra"
+        PROXY = "proxy", "Vekaletnameler"
+        NOTICE = "notice", "İhtarnameler"
+        MEDIATION = "mediation", "Arabuluculuklar"
+        CONTRACT = "contract", "Sözleşmeler"
+        FEE_CONTRACT = "fee_contract", "Avukatlık Ücret Sözleşmeleri"
+        OTHER = "other", "Diğer"
+        LEGACY = "legacy", "Eski kayıt"
+
+    name = models.CharField("klasör adı", max_length=50, unique=True)
+    kind = models.CharField("tür", max_length=12, choices=Kind.choices)
+    custom_kind = models.CharField("diğer tür adı", max_length=30, blank=True)
+    capacity = models.PositiveSmallIntegerField("kapasite", null=True, blank=True)
+
+    class Meta:
+        verbose_name = "fiziki klasör"
+        verbose_name_plural = "fiziki klasörler"
+        constraints = [
+            models.UniqueConstraint(
+                models.functions.Lower("name"), name="archive_folder_name_ci_unique"
+            )
+        ]
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
 class CaseFlow(models.Model):
     """Birbirine bağlanan dosyaların ortak safahat grubu. Gruptaki dosyalar aynı akışı görür."""
 

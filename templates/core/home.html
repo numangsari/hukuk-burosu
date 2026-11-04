@@ -2,6 +2,17 @@
 {% block content %}
 <div class="page-header">
   <h1 class="page-title">{{ greeting }}, {{ request.user.first_name|default:request.user.username }}</h1>
+  <div class="dropdown">
+    <button class="btn btn-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false"><i class="bi bi-plus-lg me-1"></i>Yeni kayıt oluştur</button>
+    <ul class="dropdown-menu dropdown-menu-end">
+      <li><a class="dropdown-item" href="{% url 'tasks:create' %}">Görev</a></li>
+      <li><a class="dropdown-item" href="{% url 'cases:create' %}">Dosya</a></li>
+      <li><a class="dropdown-item" href="{% url 'clients:create' %}">Müvekkil</a></li>
+      {% if can_edit_accounting %}<li><a class="dropdown-item" href="{% url 'accounting:create' %}">Gelir / gider</a></li>{% endif %}
+      <li><a class="dropdown-item" href="{% url 'hearings:create' %}">Duruşma / etkinlik</a></li>
+      <li><a class="dropdown-item" href="{% url 'archive:create' %}">Fiziki klasör</a></li>
+    </ul>
+  </div>
 </div>
 
 <div class="row g-4 home-panels">

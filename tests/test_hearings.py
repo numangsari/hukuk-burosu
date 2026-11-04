@@ -124,6 +124,18 @@ def test_hearing_standalone_create(client, admin_user, case_with_hearings):
     assert Hearing.objects.filter(case=case, room="Salon 3", notes="Tanıklar dinlenecek").exists()
 
 
+def test_hearing_create_in_window_refreshes_parent(client, admin_user, case_with_hearings):
+    client.force_login(admin_user)
+    case, _, _, _ = case_with_hearings
+    response = client.post(
+        reverse("hearings:create") + "?pencere=1",
+        {"case": case.pk, "kind": HearingKind.HEARING, "starts_at": "2027-01-04 10:00"},
+    )
+    assert response.status_code == 200
+    assert "window.parent.location.reload()" in response.content.decode()
+    assert Hearing.objects.filter(case=case, starts_at__year=2027).exists()
+
+
 def test_hearing_result_modal_and_event_creation(client, admin_user, case_with_hearings):
     client.force_login(admin_user)
     case, _, h2, _ = case_with_hearings

@@ -13,7 +13,7 @@
                 {{ f.archive_folder_no }}
               </a>
             </h3>
-            <span class="text-body-secondary small">{{ f.total_files }} dosya</span>
+            <span class="text-body-secondary small">{{ f.total_files }}{% if f.capacity %} / {{ f.capacity }}{% endif %} dosya</span>
           </div>
         </div>
       </div>

@@ -3,7 +3,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 from django.utils import timezone
 
-from apps.cases.models import Case, CaseParty, Document
+from apps.cases.models import ArchiveFolder, Case, CaseParty, Document
 from apps.clients.models import Party
 
 pytestmark = pytest.mark.django_db
@@ -53,6 +53,9 @@ def _case_data(client_obj, **kw):
     }
     if "client_role" not in kw:
         data["client_role"] = default_roles.get(data["case_type"], "plaintiff")
+    folder = data.get("archive_folder_no", "").strip()
+    if folder and not ArchiveFolder.objects.filter(name__iexact=folder).exists():
+        ArchiveFolder.objects.create(name=folder, kind=ArchiveFolder.Kind.LEGACY, capacity=200)
     return data
 
 
@@ -63,6 +66,17 @@ def test_create_case_and_archive_no_unique(lawyer_client, client_factory):
     r = lawyer_client.post(reverse("cases:create"), _case_data(c, archive_no=" 100 "))
     assert r.status_code == 200
     assert "archive_no" in r.context["form"].errors
+
+
+def test_create_case_in_window_preserves_errors_and_refreshes_parent(lawyer_client, client_factory):
+    client = client_factory()
+    url = reverse("cases:create") + "?pencere=1"
+    invalid = lawyer_client.post(url, _case_data(client, archive_no=""))
+    assert invalid.status_code == 200 and "archive_no" in invalid.context["form"].errors
+    response = lawyer_client.post(url, _case_data(client))
+    assert response.status_code == 200
+    assert "window.parent.location.reload()" in response.content.decode()
+    assert Case.objects.filter(client=client).exists()
 
 
 def test_type_specific_fields_cleared(lawyer_client, client_factory):
@@ -312,6 +326,7 @@ def test_case_form_date_and_removed_fields(lawyer_client, client_factory, case_f
     assert form["opened_on"].value() == timezone.localdate()
     assert not {"value", "status", "stage", "closed_on"} & form.fields.keys()
     case = case_factory(
+        archive_no="1",
         value=100,
         status="closed",
         stage="appeal",

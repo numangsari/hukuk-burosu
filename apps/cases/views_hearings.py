@@ -10,7 +10,9 @@ from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.decorators import method_decorator
 from django.views import View
+from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.views.generic import ListView
 
 from apps.accounts.models import User
@@ -144,6 +146,7 @@ class HearingListView(ListView):
         return super().render_to_response(context, **response_kwargs)
 
 
+@method_decorator(xframe_options_sameorigin, name="dispatch")
 class HearingCreateStandaloneView(View):
     def get(self, request):
         form = HearingStandaloneForm(user=request.user)
@@ -165,6 +168,8 @@ class HearingCreateStandaloneView(View):
             h.save()
             sync_hearing_to_google(h)
             messages.success(request, "Duruşma / etkinlik kaydı başarıyla eklendi.")
+            if request.GET.get("pencere"):
+                return HttpResponse("<script>window.parent.location.reload()</script>")
             next_url = request.POST.get("next") or reverse("agenda:calendar")
             return redirect(next_url)
         return render(

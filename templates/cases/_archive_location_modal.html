@@ -10,22 +10,22 @@
       <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Kapat"></button>
     </div>
     <div class="modal-body">
+      {% if errors %}<div class="alert alert-danger">{% for error in errors %}<div>{{ error }}</div>{% endfor %}</div>{% endif %}
       <div class="mb-3">
         <label class="form-label" for="id_archive_folder_no">Klasör Numarası / Adı</label>
-        <input type="text" name="archive_folder_no" id="id_archive_folder_no" class="form-control"
-               value="{{ case.archive_folder_no }}" list="folder-suggestions" placeholder="Örn: Açık 1, Kapalı 15, İcra 4...">
-        <datalist id="folder-suggestions">
-          {% for f in existing_folders %}
-          <option value="{{ f }}">
-          {% endfor %}
-        </datalist>
+        <select name="archive_folder_no" id="id_archive_folder_no" class="form-select" data-archive-folder data-case-id="{{ case.pk }}">
+          <option value="">Klasör seçiniz…</option>
+          {% for f in existing_folders %}<option value="{{ f }}" {% if f == folder_value %}selected{% endif %}>{{ f }}</option>{% endfor %}
+        </select>
         <div class="form-text">Bürodaki fiziksel klasör veya kutunun üzerindeki ad / numara.</div>
       </div>
       <div class="mb-2">
         <label class="form-label" for="id_archive_no">Klasör İçi Dosya Numarası</label>
-        <input type="text" name="archive_no" id="id_archive_no" class="form-control"
-               value="{{ case.archive_no }}" placeholder="Örn: 1, 14, 58...">
-        <div class="form-text">Klasörün içindeki fiziki dosyanın sıra / dosya numarası.</div>
+        <select name="archive_no" id="id_archive_no" class="form-select" data-archive-slot>
+          <option value="">Boş yer seçiniz…</option>
+          {% for slot in slots %}<option value="{{ slot }}" {% if slot == number_value %}selected{% endif %}>{{ slot }}</option>{% endfor %}
+        </select>
+        <div class="form-text" data-archive-help>{% if capacity_missing %}Önce klasör kapasitesini belirleyin.{% else %}Yalnızca boş numaralar listelenir.{% endif %}</div>
       </div>
     </div>
     <div class="modal-footer">

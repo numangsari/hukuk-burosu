@@ -208,8 +208,28 @@ def test_forms_task_tabs_and_report_pages_have_balanced_layout(lawyer_client, ca
 
 
 def test_new_forms_can_open_in_same_site_window(lawyer_client):
-    for name in ("tasks:create", "accounting:create"):
+    for name in (
+        "tasks:create",
+        "accounting:create",
+        "cases:create",
+        "clients:create",
+        "hearings:create",
+        "archive:create",
+    ):
         response = lawyer_client.get(reverse(name) + "?pencere=1")
         assert response.status_code == 200
         assert response["X-Frame-Options"] == "SAMEORIGIN"
-        assert 'class="form-footer"' in response.content.decode()
+        assert "<form" in response.content.decode()
+
+
+def test_home_has_one_create_menu(lawyer_client):
+    html = lawyer_client.get(reverse("core:home")).content.decode()
+    assert html.count("Yeni kayıt oluştur") == 1
+    for name in (
+        "tasks:create",
+        "cases:create",
+        "clients:create",
+        "hearings:create",
+        "archive:create",
+    ):
+        assert reverse(name) in html

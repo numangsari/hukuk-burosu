@@ -15,9 +15,11 @@ from django.db.models import (
     Value,
 )
 from django.db.models.functions import Coalesce
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils.decorators import method_decorator
+from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.views.generic import CreateView, DetailView, ListView, UpdateView, View
 
 from apps.accounting.models import BALANCE_EXPR, ZERO, LedgerEntry
@@ -314,10 +316,15 @@ class ClientFormMixin:
                     "next": self.object.get_absolute_url() + "#muhasebe",
                 }
             )
+            if self.request.GET.get("pencere") and isinstance(self, ClientCreateView):
+                query += "&pencere=1"
             return redirect(f"{reverse('accounting:create')}?{query}")
+        if self.request.GET.get("pencere") and isinstance(self, ClientCreateView):
+            return HttpResponse("<script>window.parent.location.reload()</script>")
         return redirect(self.object)
 
 
+@method_decorator(xframe_options_sameorigin, name="dispatch")
 class ClientCreateView(ClientFormMixin, CreateView):
     def get_initial(self):
         return {"kind": PersonKind.PERSON}

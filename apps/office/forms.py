@@ -18,10 +18,23 @@ class OfficeForm(BootstrapMixin, forms.ModelForm):
             "logo",
             "idle_minutes",
             "notice_default_due_days",
+            "archive_folder_default_capacity",
             "use_assistant_assignee",
             "use_task_points",
         ]
         widgets = {"address": forms.Textarea(attrs={"rows": 2})}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["archive_folder_default_capacity"].required = False
+
+    def clean_archive_folder_default_capacity(self):
+        value = self.cleaned_data["archive_folder_default_capacity"]
+        if value is None:
+            return self.instance.archive_folder_default_capacity or 8
+        if value < 1:
+            raise forms.ValidationError("Kapasite en az 1 olmalıdır.")
+        return value
 
 
 class CalendarForm(BootstrapMixin, forms.ModelForm):

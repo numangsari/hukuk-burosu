@@ -186,7 +186,10 @@ def test_ambiguous_amount_is_not_guessed(value):
 
 
 def test_new_case_can_be_created_from_a_review_row(office_files, client, admin_user):
+    from apps.cases.models import ArchiveFolder
+
     execute()
+    ArchiveFolder.objects.filter(name="Açık 1").update(capacity=8)
     row = OfficeSourceRecord.objects.get(case__isnull=True)
     client.force_login(admin_user)
     url = reverse("cases:create") + f"?kaynak={row.pk}"
@@ -220,6 +223,15 @@ def test_new_case_can_be_created_from_a_review_row(office_files, client, admin_u
     row.refresh_from_db()
     assert row.case and row.case.subject == "ALACAK" and not row.reason
     assert not OfficeSourceRecord.objects.filter(case__isnull=True).exists()
+
+
+def test_import_leaves_out_of_capacity_location_for_review(office_files):
+    from apps.cases.models import ArchiveFolder
+
+    ArchiveFolder.objects.create(name="Açık 1", kind="open", capacity=1)
+    execute()
+    assert not Case.objects.filter(archive_folder_no="Açık 1", archive_no="2").exists()
+    assert OfficeSourceRecord.objects.filter(reason__icontains="1 ile 1").exists()
 
 
 def test_source_prefill_is_ignored_for_non_admin(office_files, client):

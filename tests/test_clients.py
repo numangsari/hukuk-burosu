@@ -65,6 +65,24 @@ def test_create_person_client(lawyer_client, lawyer, intern):
     assert c.powers_of_attorney.count() == 1 and c.poa_label == "V-1"
 
 
+def test_person_create_in_window_refreshes_parent(lawyer_client, lawyer, intern):
+    response = lawyer_client.post(
+        reverse("clients:create") + "?pencere=1",
+        {
+            "kind": "person",
+            "first_name": "Deneme",
+            "last_name": "Kişi",
+            "tckn": VALID_TCKN,
+            "responsible_lawyer": lawyer.pk,
+            "responsible_intern": intern.pk,
+            **formsets(),
+        },
+    )
+    assert response.status_code == 200
+    assert "window.parent.location.reload()" in response.content.decode()
+    assert Client.objects.filter(first_name="DENEME").exists()
+
+
 def test_person_requires_names(lawyer_client, lawyer, intern):
     r = lawyer_client.post(
         reverse("clients:create"),

@@ -138,8 +138,11 @@ def test_archive_folder_detail_and_missing_numbers(client, admin_user, archive_c
 
 
 def test_archive_location_update(client, admin_user, archive_cases):
+    from apps.cases.models import ArchiveFolder
+
     client.force_login(admin_user)
     _, _, _, _, c5 = archive_cases
+    ArchiveFolder.objects.create(name="Açık ARABULUCULUK 1", kind="open", capacity=8)
 
     url = reverse("archive:update_location", kwargs={"pk": c5.pk})
     resp = client.get(url)

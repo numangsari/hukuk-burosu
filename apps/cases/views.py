@@ -1,11 +1,13 @@
 from django.contrib import messages
-from django.core.exceptions import PermissionDenied
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
 from django.db.models import Count, IntegerField, OuterRef, ProtectedError, Q, Subquery, Value
 from django.db.models.functions import Coalesce
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
+from django.utils.decorators import method_decorator
+from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.views.generic import CreateView, DetailView, ListView, UpdateView, View
 
 from apps.accounting.models import LedgerEntry
@@ -19,6 +21,7 @@ from apps.core.text import fold
 from apps.office.models import Court
 
 from . import flows, seizure_types, services, stages, summary
+from .archive_locations import validate_archive_location
 from .documents import mirror_document
 from .forms import (
     CaseCloseForm,
@@ -225,6 +228,18 @@ class CaseFormMixin:
 
     @transaction.atomic
     def form_valid(self, form):
+        try:
+            validate_archive_location(
+                form.cleaned_data.get("archive_folder_no", ""),
+                form.cleaned_data.get("archive_no", ""),
+                form.instance,
+                lock=True,
+            )
+        except ValidationError as error:
+            for field, errors in error.message_dict.items():
+                for message in errors:
+                    form.add_error(field, message)
+            return self.form_invalid(form)
         context = self.get_context_data(form=form)
         formset, co_formset = context["party_formset"], context["co_formset"]
         co_formset.primary_id = (
@@ -309,19 +324,20 @@ class CaseFormMixin:
         return Case.objects.filter(pk=raw).first()
 
 
+@method_decorator(xframe_options_sameorigin, name="dispatch")
 class CaseCreateView(CaseFormMixin, CreateView):
     def get_initial(self):
         initial = {"case_type": CaseType.CIVIL}
         client_id = self.request.GET.get("client")
         related = Case.objects.filter(pk=self.request.GET.get("iliskili") or 0).first()
         if related:
-            # İlgili dosya: müvekkil, sıfat, fiziki arşiv yeri ve sorumlular önceki dosyadan gelir.
+            # İlgili dosyanın klasörü önerilir; iç numara boş yerlerden ayrıca seçilir.
             client_id = related.client_id
             initial.update(
                 subject=related.subject,
                 client_role=related.client_role,
                 archive_folder_no=related.archive_folder_no,
-                archive_no=related.archive_no,
+                archive_no="",
                 responsible_lawyer=related.responsible_lawyer_id,
                 responsible_intern=related.responsible_intern_id,
             )
@@ -381,6 +397,8 @@ class CaseCreateView(CaseFormMixin, CreateView):
                         case.status, case.stage = CaseStatus.CLOSED, ""
                         case.save(update_fields=["status", "stage"], preserve_unknown_stage=True)
                     messages.success(self.request, "Liste satırı bu dosyaya bağlandı.")
+        if self.request.GET.get("pencere") and response.status_code == 302:
+            return HttpResponse("<script>window.parent.location.reload()</script>")
         return response
 
 

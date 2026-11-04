@@ -18,6 +18,15 @@
   </div>
 </div>
 
+{% if folder %}
+<form method="post" class="card p-3 mb-3 d-flex flex-row align-items-end gap-3 flex-wrap">{% csrf_token %}
+  <div><label class="form-label" for="folder-capacity">Klasör kapasitesi</label><input class="form-control" id="folder-capacity" type="number" name="capacity" min="1" max="32767" value="{{ folder.capacity|default_if_none:'' }}" required></div>
+  <button class="btn btn-light">Kapasiteyi kaydet</button>
+  {% if not folder.capacity %}<span class="small text-body-secondary">Bu eski klasörün kapasitesi henüz belirlenmedi.</span>{% endif %}
+</form>
+{% endif %}
+{% if needs_review %}<div class="alert alert-warning">Bu klasörde tekrar eden veya sayı biçiminde olmayan eski dosya numaraları var. Mevcut kayıtlar korunuyor; arşiv yerlerini inceleyin.</div>{% endif %}
+
 {% if missing_numbers %}
 <div class="alert alert-info d-flex align-items-center justify-content-between gap-3 mb-3 py-2">
   <div>
@@ -30,6 +39,7 @@
   </div>
 </div>
 {% endif %}
+{% if folder.capacity and not next_suggested %}<div class="alert alert-warning">Bu klasörde boş yer kalmadı.</div>{% endif %}
 
 <div class="card table-card">
   <div class="card-header d-flex align-items-center justify-content-between">

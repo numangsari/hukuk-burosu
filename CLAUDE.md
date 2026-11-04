@@ -111,6 +111,9 @@ uv run ruff format --check .                         # Format denetimi
 - **Arayüz & Navigasyon:** Sol menüdeki "Sistem" menü grubu sadeleştirme amacıyla kaldırılmış; Sistem monitörü, UYAP/UETS inceleme, Aktivite kaydı, Veri aktarımı ve Django yönetim paneli bağlantıları Ayarlar > Sistem ve Gözlem bölümüne taşınmıştır. Dava/dosya numara girişi tek satırda kompakt ve estetik olarak hizalanmıştır.
 
 ### Fiziki Arşiv Modülü (`/arsiv/`)
+- Fiziki klasörler ayrı kayıt olarak oluşturulur; türü, adı ve kapasitesi vardır. Türler Açık, Kapalı, İcra, Vekaletnameler, İhtarnameler, Arabuluculuklar, Sözleşmeler, Avukatlık Ücret Sözleşmeleri ve serbest ad verilen Diğer seçeneğidir. Yeni klasör kapasitesi ofis ayarındaki varsayılanla (ilk değer 8) önerilir ve değiştirilebilir. Eski klasör adları ve dosya yerleri korunur; eski kapasite en az 8 ve mevcut en büyük sayısal yeri kapsayacak şekilde belirlenmiştir. Tekrarlı veya sayısal olmayan eski yerler klasör detayında inceleme uyarısıyla korunur.
+- Dosyada fiziki klasör ve boş sıra numarası listeden seçilir. Kapasitesi belirli klasörlerde yeni sıra numarası 1 ile kapasite arasında ve benzersiz olmalıdır; yeni dosya için önce fiziki klasör oluşturulur. Eski kayıtlardaki değişmemiş yerler korunur. Kapasite belirlenirken mevcut numaraların uygunluğu kontrol edilir.
+- Ana sayfadaki "Yeni kayıt oluştur" menüsü görev, dosya, müvekkil, gelir/gider, duruşma/etkinlik ve fiziki klasör oluşturma pencerelerine açılır; ilgili modül sayfalarındaki oluşturma bağlantıları da aynı pencereleri kullanır.
 - **Merkezi Fiziki Arşiv Yönetimi (`views_archive.py`):**
   - Sekmeler: *Tümü*, *Açık Arşiv*, *Kapalı Arşiv*, *İcra Arşivi*, *Arşiv Yeri Eksikler* (özellikle UYAP'tan yeni gelen dosyalar).
   - İki Görünüm: Tablo görünümü ve Klasör Gezgini (`view=explorer`).
