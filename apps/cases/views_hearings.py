@@ -238,15 +238,6 @@ class HearingTaskCreateView(View):
             else f"{hearing.title_display} Takip Görevi"
         )
         local_dt = timezone.localtime(hearing.starts_at)
-        notes = (
-            f"Mahkeme / Yer: {hearing.authority or (case.authority if case else '—')}\n"
-            f"Duruşma Saati: {local_dt:%H:%M}"
-        )
-        if hearing.room:
-            notes += f" (Salon: {hearing.room})"
-        if hearing.notes:
-            notes += f"\nNotlar: {hearing.notes}"
-
         initial = {
             "task_type": task_type,
             "title": title,
@@ -255,7 +246,7 @@ class HearingTaskCreateView(View):
             "assignee": assignee,
             "due_date": local_dt.date(),
             "excuse_submitted": hearing.excuse_submitted,
-            "notes": notes,
+            "notes": hearing.notes,
         }
         form = HearingTaskCreateForm(initial=initial, hearing=hearing)
         return render(

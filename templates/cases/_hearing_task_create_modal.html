@@ -9,16 +9,26 @@
     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Kapat"></button>
   </div>
   <div class="modal-body">
-    <div class="alert alert-info py-2 px-3 small mb-3">
-      <strong>Duruşma:</strong> {{ hearing.starts_at|date:"d.m.Y H:i" }} · {{ hearing.authority|default:hearing.case.authority|default:"—" }}
-      {% if hearing.case %}<span class="badge bg-primary-subtle text-primary ms-2">{{ hearing.case.display_name }}</span>{% endif %}
-      <div class="text-body-secondary mt-1">Duruşma sorumlusu, mazeret ve dosya bilgileri güncellenerek sorumluya takip görevi atanır.</div>
+    <div class="hearing-task-summary mb-4">
+      <div class="hearing-task-date">
+        <span class="hearing-task-label"><i class="bi bi-calendar-event me-1"></i>Duruşma tarihi</span>
+        <strong>{{ hearing.starts_at|date:"d.m.Y" }}</strong>
+      </div>
+      <div class="hearing-task-time">
+        <span class="hearing-task-label"><i class="bi bi-clock me-1"></i>Saat</span>
+        <strong>{{ hearing.starts_at|date:"H:i" }}</strong>
+      </div>
+      <div class="hearing-task-place">
+        <span class="hearing-task-label">Mahkeme / yer</span>
+        <strong>{{ hearing.authority|default:hearing.case.authority|default:"—" }}</strong>
+        {% if hearing.room %}<span class="text-body-secondary small">Salon: {{ hearing.room }}</span>{% endif %}
+      </div>
     </div>
     {% if form.non_field_errors %}
       <div class="alert alert-danger py-2">{{ form.non_field_errors }}</div>
     {% endif %}
 
-    <div class="row g-3">
+    <div class="row gx-3 gy-1">
       <div class="col-md-5">
         {% include "partials/field.html" with field=form.task_type %}
       </div>
@@ -31,6 +41,9 @@
       <div class="col-md-6">
         {% include "partials/field.html" with field=form.client %}
       </div>
+      <div class="col-12">
+        {% include "partials/field.html" with field=form.notes %}
+      </div>
       <div class="col-md-4">
         {% include "partials/field.html" with field=form.assignee %}
       </div>
@@ -41,18 +54,15 @@
         {% include "partials/field.html" with field=form.due_date %}
       </div>
       <div class="col-12">
-        <div class="p-2 bg-light-subtle border rounded">
+        <div class="p-3 bg-light-subtle border rounded">
           <div class="form-check mb-0">
             {{ form.excuse_submitted }}
             <label class="form-check-label fw-medium ms-1" for="{{ form.excuse_submitted.id_for_label }}">
-              Mazeret Gönderilecek / Sunulacak
+              Mazeret sunulacak
             </label>
             <div class="form-text small text-body-secondary mt-1">{{ form.excuse_submitted.help_text }}</div>
           </div>
         </div>
-      </div>
-      <div class="col-12">
-        {% include "partials/field.html" with field=form.notes wrap_class="mb-0" %}
       </div>
     </div>
   </div>

@@ -311,6 +311,7 @@ def test_hearing_task_create_view_workflow(lawyer_client, case_factory):
         starts_at=timezone.now() + dt.timedelta(days=2),
         authority="İstanbul 1. Asliye Hukuk Mahkemesi",
         room="3",
+        notes="Tanık listesi için süre istenecek.",
     )
 
     url = reverse("hearings:task_create", args=[hearing.pk])
@@ -319,6 +320,10 @@ def test_hearing_task_create_view_workflow(lawyer_client, case_factory):
     response = lawyer_client.get(url)
     assert response.status_code == 200
     assert "form" in response.context
+    assert response.context["form"]["notes"].value() == "Tanık listesi için süre istenecek."
+    assert "Duruşma notu" in response.content.decode()
+    assert "Duruşma Saati:" not in response.content.decode()
+    assert "Salon: 3" in response.content.decode()
 
     # 2. POST ile görev oluşturulması
     task_type = get_or_create_hearing_task_type()
@@ -345,6 +350,7 @@ def test_hearing_task_create_view_workflow(lawyer_client, case_factory):
     task = hearing.tasks.first()
     assert task.title == "DURUŞMA TAKİP GÖREVİ"
     assert task.client == case.client
+    assert task.notes == "Ön inceleme duruşması"
 
     # 3. Görev zaten varsa GET isteği doğrudan göreve yönlendirir
     resp_redirect = lawyer_client.get(url)

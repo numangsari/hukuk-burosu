@@ -94,6 +94,7 @@ uv run ruff format --check .                         # Format denetimi
 - **Otomatik Duruşma Görevi (`hearing_tasks.py`) & Bağlantılı Görev Akışı:**
   - Duruşmalar bağımsız tıklanabilir sayfa yerine tebligatlar (`PortalNotice`) gibi yönetilir. Bağlantılı görevi olmayan duruşmalar takvimde tıklanamaz (`<span>`) görünür; duruşmalar listesinde ve dosya detayında "Görev oluştur" butonu yer alır.
   - "Görev oluştur" modalı üzerinden Sorumlu, Mazeret ("Mazeret sunulacak"), Dosya, Müvekkil, Son Gün ve Notlar belirlenerek bağlı `Task` oluşturulur.
+  - Duruşma notu görev notuna kaydedilir; mevcut duruşma notu varsa başlangıçta alana getirilir. Tarih, saat ve yer ayrı duruşma bilgilerinden gösterilir.
   - Görev oluşturulduğunda duruşmanın sorumlusu ve mazeret durumu güncellenir, Google Takvim'e otomatik yansıtılır. Bağlantılı görevi olan duruşmalar takvimden ve listeden doğrudan göreve yönlendirir.
   - Duruşmadan 1 gün önce sabah dosya sorumlusuna otomatik görev açılır: `"{case.display_name} DURUŞMASI İŞLEMLERİ YAPILACAK VE MÜVEKKİLE BİLGİ VERİLECEK"`.
   - Görev duruşmaya bağlıdır (`task.hearing`) ve kontrolcüsüz doğrudan kapatılabilir.

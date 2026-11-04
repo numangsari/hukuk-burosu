@@ -410,7 +410,12 @@ class HearingStandaloneForm(BootstrapMixin, forms.ModelForm):
         widgets = {
             "starts_at": DateTimeInput(),
             "ends_at": DateTimeInput(),
-            "notes": forms.Textarea(attrs={"rows": 2}),
+            "notes": forms.Textarea(
+                attrs={
+                    "rows": 3,
+                    "placeholder": "Örn. Duruşmada tanık listesi sunmak üzere süre isteyeceğiz.",
+                }
+            ),
         }
 
     def __init__(self, *args, user=None, **kwargs):
@@ -495,6 +500,8 @@ class HearingTaskCreateForm(BootstrapMixin, forms.ModelForm):
         self.fields["assignee"].required = True
         self.fields["reviewer"].required = False
         self.fields["reviewer"].empty_label = "Kontrolcü yok (Doğrudan kapanır)"
+        self.fields["notes"].label = "Duruşma notu"
+        self.fields["notes"].help_text = "İşlemleri ve hatırlatmaları yazın. Not görevde görünür."
         self.fields["title"].widget.attrs["class"] += " text-uppercase-input"
         if hearing:
             self.initial.setdefault("excuse_submitted", hearing.excuse_submitted)
