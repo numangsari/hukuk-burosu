@@ -11,6 +11,7 @@ from apps.core.whatsapp import (
     build_whatsapp_url,
     clean_phone_for_whatsapp,
     get_case_wa_templates,
+    get_client_wa_templates,
     get_hearing_wa_templates,
 )
 
@@ -123,3 +124,11 @@ def case_wa_templates(case):
     if not case:
         return {}
     return get_case_wa_templates(case)
+
+
+@register.simple_tag
+def client_wa_templates(client):
+    """Müvekkil için hazır şablonlar sözlüğü üretir."""
+    if not client:
+        return {}
+    return get_client_wa_templates(client)

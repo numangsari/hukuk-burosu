@@ -120,9 +120,14 @@ class Client(TimeStampedModel):
     @property
     def primary_phone(self) -> str:
         """Müvekkilin birincil veya ilk telefon numarası."""
-        contact = self.contacts.filter(kind="phone", is_primary=True).first()
+        cache = getattr(self, "_prefetched_objects_cache", None)
+        if cache and "contacts" in cache:
+            phone_contacts = [c for c in self.contacts.all() if c.kind == ContactKind.PHONE]
+            primary = next((c for c in phone_contacts if c.is_primary), None)
+            return primary.value if primary else (phone_contacts[0].value if phone_contacts else "")
+        contact = self.contacts.filter(kind=ContactKind.PHONE, is_primary=True).first()
         if not contact:
-            contact = self.contacts.filter(kind="phone").first()
+            contact = self.contacts.filter(kind=ContactKind.PHONE).first()
         return contact.value if contact else ""
 
     @property

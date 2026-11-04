@@ -21,7 +21,8 @@
     </div>
     <div class="page-actions">
       {% if client.whatsapp_phone %}
-      <button type="button" class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#whatsappModal" data-wa-phone="{{ client.primary_phone }}" data-wa-name="{{ client.name }}" data-wa-message="Sayın {{ client.name }},&#10;&#10;"><i class="bi bi-whatsapp"></i>WhatsApp</button>
+      {% client_wa_templates client as cl_templates %}
+      <button type="button" class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#whatsappModal" data-wa-phone="{{ client.primary_phone }}" data-wa-name="{{ client.name }}" data-wa-templates="{{ cl_templates|json_attr }}"><i class="bi bi-whatsapp"></i>WhatsApp</button>
       {% endif %}
       <a class="btn btn-light" href="{% url 'clients:update' client.pk %}"><i class="bi bi-pencil"></i>Düzenle</a>
       <a class="btn btn-primary" href="{% url 'cases:create' %}?client={{ client.pk }}"><i class="bi bi-folder-plus"></i>Yeni dosya</a>

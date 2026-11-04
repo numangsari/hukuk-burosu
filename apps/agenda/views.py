@@ -117,7 +117,11 @@ class AgendaView(TemplateView):
                 .select_related(
                     "case", "case__client", "case__responsible_lawyer", "client", "assigned_to"
                 )
-                .prefetch_related("tasks")
+                .prefetch_related(
+                    "tasks",
+                    "case__client__contacts",
+                    "client__contacts",
+                )
             )
             now = timezone.now()
             scope = self.request.GET.get("scope", "upcoming")

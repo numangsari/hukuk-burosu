@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from apps.cases.models import Case, Hearing
+    from apps.clients.models import Client
 
 
 def clean_phone_for_whatsapp(value: Any) -> str:
@@ -65,20 +66,40 @@ def format_hearing_result_message(
     if not client:
         client = hearing.client or (hearing.case.client if hearing.case else None)
     client_name = client.name if client else "Müvekkilimiz"
-    case_ref = hearing.case.display_name if hearing.case else (hearing.title or "Dosyanız")
-    authority = hearing.authority or (hearing.case.authority if hearing.case else "")
 
     lines = [f"Sayın {client_name},"]
-    if authority:
-        lines.append(
-            f"{authority} nezdindeki {case_ref} sayılı dosyanızın bugünkü celsesi tamamlanmıştır."
-        )
+    if hearing.case:
+        if hearing.case.authority:
+            case_label = hearing.case.display_name
+        elif hearing.authority:
+            no_disp = hearing.case.official_no_display or hearing.case.display_name
+            case_label = f"{hearing.authority} {no_disp}".strip()
+        else:
+            case_label = hearing.case.display_name
+        lines.append(f"{case_label} sayılı dosyanızın bugünkü celsesi tamamlanmıştır.")
+    elif hearing.authority:
+        title = hearing.title or "Duruşmanız"
+        lines.append(f"{hearing.authority} nezdindeki {title} tamamlanmıştır.")
     else:
-        lines.append(f"{case_ref} sayılı dosyanızın bugünkü celsesi tamamlanmıştır.")
+        title = hearing.title or "Dosyanızın duruşması"
+        lines.append(f"{title} tamamlanmıştır.")
+
+    if hearing.excuse_submitted:
+        lines.append("Not: Bu celse için mahkemeye mazeret dilekçesi sunulmuştur.")
 
     dec = (decisions or hearing.decisions or hearing.result or "").strip()
     if dec:
         lines.append(f"Duruşmada Verilen Karar / Sonuç:\n{dec}")
+
+    # Sonraki duruşma parametre olarak verilmediyse ve dosyada varsa otomatik getir
+    if not next_hearing_dt and hearing.case:
+        next_h = (
+            hearing.case.hearings.filter(starts_at__gt=hearing.starts_at)
+            .order_by("starts_at")
+            .first()
+        )
+        if next_h:
+            next_hearing_dt = next_h.starts_at.strftime("%d.%m.%Y saat %H:%M")
 
     if next_hearing_dt:
         lines.append(f"Bir Sonraki Duruşma Günü: {next_hearing_dt}")
@@ -99,15 +120,24 @@ def format_hearing_reminder_message(
     if not client:
         client = hearing.client or (hearing.case.client if hearing.case else None)
     client_name = client.name if client else "Müvekkilimiz"
-    case_ref = hearing.case.display_name if hearing.case else (hearing.title or "Dosyanız")
-    authority = hearing.authority or (hearing.case.authority if hearing.case else "")
     dt_str = hearing.starts_at.strftime("%d.%m.%Y saat %H:%M")
 
     lines = [f"Sayın {client_name},"]
-    if authority:
-        lines.append(f"{authority} {case_ref} sayılı dosyanızın duruşması {dt_str} tarihindedir.")
+    if hearing.case:
+        if hearing.case.authority:
+            case_label = hearing.case.display_name
+        elif hearing.authority:
+            no_disp = hearing.case.official_no_display or hearing.case.display_name
+            case_label = f"{hearing.authority} {no_disp}".strip()
+        else:
+            case_label = hearing.case.display_name
+        lines.append(f"{case_label} sayılı dosyanızın duruşması {dt_str} tarihindedir.")
+    elif hearing.authority:
+        title = hearing.title or "Duruşmanız"
+        lines.append(f"{hearing.authority} {title} {dt_str} tarihindedir.")
     else:
-        lines.append(f"{case_ref} sayılı dosyanızın duruşması {dt_str} tarihindedir.")
+        title = hearing.title or "Duruşmanız"
+        lines.append(f"{title} {dt_str} tarihindedir.")
 
     details = []
     if hearing.room:
@@ -177,4 +207,22 @@ def get_case_wa_templates(case: "Case", office_name: str | None = None) -> dict[
     return {
         "Dosya Bilgilendirmesi": format_case_info_message(case, office_name=office),
         "Masraf / Avans Talebi": adv_text,
+    }
+
+
+def get_client_wa_templates(client: "Client", office_name: str | None = None) -> dict[str, str]:
+    """Müvekkil kartı için hazır WhatsApp şablonları sözlüğü döner."""
+    from apps.office.models import OfficeSettings
+
+    office = office_name or OfficeSettings.load().name
+    client_name = client.name if client else "Müvekkilimiz"
+
+    return {
+        "Genel İletişim": (f"Sayın {client_name},\n\n\n\nBilgilerinize sunarız.\n{office}"),
+        "Masraf / Avans Bilgisi": (
+            f"Sayın {client_name},\n\n"
+            f"Dosya ve takip masrafları avansı ödemesi için "
+            f"büromuzla iletişime geçmenizi rica ederiz.\n\n"
+            f"İyi çalışmalar dileriz.\n{office}"
+        ),
     }
