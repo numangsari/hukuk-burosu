@@ -17,6 +17,10 @@ from .models import (
 
 
 class ClientForm(PreserveExistingAssigneeMixin, BootstrapMixin, forms.ModelForm):
+    physical_archive_tracks_state = forms.BooleanField(
+        label="Açık / kapalı ayrımı olsun", required=False, initial=True
+    )
+
     class Meta:
         model = Client
         fields = [
@@ -33,12 +37,20 @@ class ClientForm(PreserveExistingAssigneeMixin, BootstrapMixin, forms.ModelForm)
             "responsible_intern",
             "notes",
             "folder_name",
+            "physical_archive_enabled",
         ]
         widgets = {"kind": forms.RadioSelect, "notes": forms.Textarea(attrs={"rows": 3})}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.keep_existing_assignee()
+        if self.instance.pk:
+            from apps.cases.models import ArchiveCategory
+
+            category = ArchiveCategory.objects.filter(client=self.instance).first()
+            if category:
+                self.initial["physical_archive_tracks_state"] = category.tracks_state
+        self.fields["physical_archive_enabled"].widget.attrs["x-model"] = "archiveEnabled"
         self.fields["kind"].choices = PersonKind.choices  # boş seçenek olmasın
         self.fields["kind"].widget.attrs["class"] = "form-check-input"
         self.fields["kind"].widget.attrs["x-model"] = "kind"

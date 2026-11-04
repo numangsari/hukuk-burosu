@@ -69,6 +69,7 @@ class Client(TimeStampedModel):
         blank=True,
         help_text="Ofis klasöründeki müvekkil klasörü. Boşsa otomatik bulunur/oluşturulur.",
     )
+    physical_archive_enabled = models.BooleanField("müvekkile özel fiziki klasör", default=False)
     # Görüntülenen ad ve aksansız arama anahtarı save() içinde doldurulur.
     name = models.CharField("ad / unvan", max_length=300, editable=False, db_index=True)
     search_key = models.CharField(max_length=300, editable=False, db_index=True)

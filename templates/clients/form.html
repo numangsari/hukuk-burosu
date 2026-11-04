@@ -8,7 +8,7 @@
   </div>
 </div>
 {{ intern_by_lawyer|json_script:"intern-by-lawyer" }}
-<form method="post" enctype="multipart/form-data" x-data="clientForm('{{ form.kind.value|default:'person' }}')">
+<form method="post" enctype="multipart/form-data" x-data="clientForm('{{ form.kind.value|default:'person' }}', {% if form.physical_archive_enabled.value %}true{% else %}false{% endif %})">
   {% csrf_token %}
   {% if form.non_field_errors %}<div class="alert alert-danger mb-3">{{ form.non_field_errors }}</div>{% endif %}
   {# Bölümler iki sütuna tarayıcı tarafından dengeli dağıtılır (.form-masonry). #}
@@ -84,6 +84,14 @@
     </div>
     <div class="card">
       <div class="form-section">
+        <div class="form-section-head"><h2>Fiziki klasör</h2><p>Müvekkile özel bir klasör türü oluşturabilirsiniz.</p></div>
+        {% include "partials/field.html" with field=form.physical_archive_enabled %}
+        <div x-show="archiveEnabled" x-cloak>{% include "partials/field.html" with field=form.physical_archive_tracks_state %}</div>
+        <div class="form-text">Tercih değişirse mevcut klasörler ve dosya yerleri korunur.</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="form-section">
         <div class="form-section-head"><h2>Notlar</h2></div>
         {% include "partials/field.html" with field=form.notes %}
         {% if object %}{% include "partials/field.html" with field=form.folder_name %}{% endif %}
@@ -102,10 +110,11 @@
   </div>
 </form>
 <script>
-  function clientForm(kind) {
+  function clientForm(kind, archiveEnabled) {
     const map = JSON.parse(document.getElementById("intern-by-lawyer").textContent);
     return {
       kind,
+      archiveEnabled,
       // Avukat seçilince ona bağlı stajyer (Ayarlar > Kullanıcılar) otomatik seçilir.
       lawyerChanged(e) {
         const intern = map[e.target.value];

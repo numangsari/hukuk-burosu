@@ -1,7 +1,7 @@
 import pytest
 from django.urls import reverse
 
-from apps.cases.models import Case, CaseStatus, CaseType
+from apps.cases.models import ArchiveFolder, Case, CaseStatus, CaseType
 
 
 @pytest.fixture
@@ -183,3 +183,118 @@ def test_archive_excel_export(client, admin_user, archive_cases):
     assert (
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" in resp["Content-Type"]
     )
+
+
+def test_archive_filter_bar_client_and_folder_visibility(client, admin_user):
+    client.force_login(admin_user)
+    url = reverse("archive:list")
+
+    # 1. Dava sekmesinde: Klasör seçimi ve Müvekkil seçimi olmamalı
+    resp_dava = client.get(url + "?scope=dava")
+    assert resp_dava.status_code == 200
+    assert resp_dava.context["show_client_filter"] is False
+    content_dava = resp_dava.content.decode()
+    assert 'name="klasor"' not in content_dava
+    assert 'name="muvekkil"' not in content_dava
+
+    # 2. Tümü sekmesinde: Klasör seçimi ve Müvekkil seçimi olmamalı
+    resp_all = client.get(url + "?scope=all")
+    assert resp_all.status_code == 200
+    assert resp_all.context["show_client_filter"] is False
+    content_all = resp_all.content.decode()
+    assert 'name="klasor"' not in content_all
+    assert 'name="muvekkil"' not in content_all
+
+    # 3. Müvekkile Özel sekmesinde: Yalnızca burada Müvekkil seçimi olmalı
+    resp_client = client.get(url + "?scope=client_specific")
+    assert resp_client.status_code == 200
+    assert resp_client.context["show_client_filter"] is True
+    content_client = resp_client.content.decode()
+    assert 'name="klasor"' not in content_client
+    assert 'name="muvekkil"' in content_client
+
+
+def test_archive_search_narrowed_to_folder_and_client(
+    client, admin_user, client_factory, case_factory
+):
+    client.force_login(admin_user)
+    c_ahmet = client_factory(kind="company", title="Ahmet Yılmaz İnşaat")
+    c_mehmet = client_factory(kind="person", first_name="Mehmet", last_name="Demir")
+
+    folder_a = ArchiveFolder.objects.create(name="Özel Klasör Alfa", kind="open", capacity=10)
+    folder_b = ArchiveFolder.objects.create(name="Beta Klasörü", kind="open", capacity=10)
+
+    case_factory(
+        client=c_ahmet,
+        archive_folder_no=folder_a.name,
+        archive_no="1",
+        subject="Özel Alacak Davası",
+        authority="İstanbul 3. Asliye Ticaret",
+    )
+    case_factory(
+        client=c_mehmet,
+        archive_folder_no=folder_b.name,
+        archive_no="1",
+        subject="Kira Tahliye",
+        authority="Bakırköy 1. Sulh Hukuk",
+    )
+
+    url = reverse("archive:list")
+
+    # 1. Klasör adı ile arama: bulmalı
+    resp = client.get(url, {"q": "Alfa"})
+    names = [f["archive_folder_no"] for f in resp.context["folder_list"]]
+    assert "Özel Klasör Alfa" in names
+    assert "Beta Klasörü" not in names
+
+    # 2. Müvekkil adı ile arama: bulmalı
+    resp = client.get(url, {"q": "Ahmet Yılmaz"})
+    names = [f["archive_folder_no"] for f in resp.context["folder_list"]]
+    assert "Özel Klasör Alfa" in names
+    assert "Beta Klasörü" not in names
+
+    # 3. Mahkeme / Merci ile arama: daraltıldığı için filtrelememeli / eşleşmemeli
+    resp = client.get(url, {"q": "Ticaret"})
+    names = [f["archive_folder_no"] for f in resp.context["folder_list"]]
+    assert "Özel Klasör Alfa" not in names
+
+    # 4. Dava konusu ile arama: daraltıldığı için eşleşmemeli
+    resp = client.get(url, {"q": "Tahliye"})
+    names = [f["archive_folder_no"] for f in resp.context["folder_list"]]
+    assert "Beta Klasörü" not in names
+
+
+def test_archive_status_filter_governed_by_physical_state(client, admin_user):
+    client.force_login(admin_user)
+    folder_open = ArchiveFolder.objects.create(
+        name="Açık Test 1", kind="open", physical_state="open", capacity=10
+    )
+    folder_closed = ArchiveFolder.objects.create(
+        name="Kapalı Test 1", kind="open", physical_state="closed", capacity=10
+    )
+    folder_single = ArchiveFolder.objects.create(
+        name="Arabuluculuk Test 1", kind="open", physical_state="single", capacity=10
+    )
+
+    url = reverse("archive:list")
+
+    # 1. Tümü (durum parametresiz) -> hepsi görünmeli
+    resp_all = client.get(url)
+    names_all = [f["archive_folder_no"] for f in resp_all.context["folder_list"]]
+    assert folder_open.name in names_all
+    assert folder_closed.name in names_all
+    assert folder_single.name in names_all
+
+    # 2. durum=open -> Açık ve Ayrımsız (single) görünmeli, Kapalı görünmemeli
+    resp_open = client.get(url, {"durum": "open"})
+    names_open = [f["archive_folder_no"] for f in resp_open.context["folder_list"]]
+    assert folder_open.name in names_open
+    assert folder_single.name in names_open
+    assert folder_closed.name not in names_open
+
+    # 3. durum=closed -> Yalnızca Kapalı görünmeli, Açık ve Ayrımsız (single) gizlenmeli
+    resp_closed = client.get(url, {"durum": "closed"})
+    names_closed = [f["archive_folder_no"] for f in resp_closed.context["folder_list"]]
+    assert folder_closed.name in names_closed
+    assert folder_open.name not in names_closed
+    assert folder_single.name not in names_closed

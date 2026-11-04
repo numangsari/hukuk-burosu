@@ -5,19 +5,11 @@
 {% block content %}
 <div class="page-header d-flex align-items-center justify-content-between mb-3">
   <div>
-    <div class="eyebrow">Kayıtlar</div>
     <h1 class="page-title mb-0">Fiziki Arşiv</h1>
   </div>
   <div class="d-flex align-items-center gap-2">
     <a class="btn btn-primary" href="{% url 'archive:create' %}"><i class="bi bi-plus-lg me-1"></i>Yeni fiziki klasör</a>
-    <div class="btn-group btn-group-sm" role="group">
-      <a href="{% query_with view='table' page=None %}" class="btn {% if view_mode != 'explorer' %}btn-primary{% else %}btn-light{% endif %}" title="Tablo Görünümü">
-        <i class="bi bi-table me-1"></i>Tablo
-      </a>
-      <a href="{% query_with view='explorer' page=None %}" class="btn {% if view_mode == 'explorer' %}btn-primary{% else %}btn-light{% endif %}" title="Klasör Gezgini">
-        <i class="bi bi-grid me-1"></i>Klasörler
-      </a>
-    </div>
+    <a class="btn btn-light" href="{% url 'archive:category_create' %}"><i class="bi bi-plus-lg me-1"></i>Yeni klasör türü</a>
     <a href="{% url 'archive:export' %}?{{ request.GET.urlencode }}" class="btn btn-light">
       <i class="bi bi-file-earmark-excel me-1"></i>Excel Döküm
     </a>
@@ -26,125 +18,170 @@
 
 <div class="row g-3 mb-3">
   <div class="col-6 col-md-2">
-    <a href="?view=explorer" class="card text-decoration-none h-100 p-3">
+    <a href="{% query_with scope='all' %}" class="card text-decoration-none h-100 p-3 hover-shadow transition">
       <div class="text-body-secondary small mb-1">Fiziki Klasör</div>
       <div class="fs-4 fw-bold text-primary">{{ folder_count }}</div>
+      <div class="text-body-tertiary" style="font-size: 0.75rem;">Arşiv Klasörleri</div>
     </a>
   </div>
   <div class="col-6 col-md-2">
-    <a href="?scope=open" class="card text-decoration-none h-100 p-3 {% if current_scope == 'open' %}border-success shadow-sm{% endif %}">
-      <div class="text-body-secondary small mb-1">Açık Arşiv</div>
-      <div class="fs-4 fw-bold text-success">{{ open_count }}</div>
-    </a>
-  </div>
-  <div class="col-6 col-md-2">
-    <a href="?scope=closed" class="card text-decoration-none h-100 p-3 {% if current_scope == 'closed' %}border-secondary shadow-sm{% endif %}">
-      <div class="text-body-secondary small mb-1">Kapalı Arşiv</div>
-      <div class="fs-4 fw-bold text-secondary">{{ closed_count }}</div>
-    </a>
-  </div>
-  <div class="col-6 col-md-2">
-    <a href="?scope=enforcement" class="card text-decoration-none h-100 p-3 {% if current_scope == 'enforcement' %}border-info shadow-sm{% endif %}">
-      <div class="text-body-secondary small mb-1">İcra Arşivi</div>
-      <div class="fs-4 fw-bold text-info">{{ enforcement_count }}</div>
-    </a>
-  </div>
-  <div class="col-6 col-md-2">
-    <a href="?scope=missing" class="card text-decoration-none h-100 p-3 {% if current_scope == 'missing' %}border-warning shadow-sm{% endif %}">
-      <div class="text-body-secondary small mb-1">Yeri Eksik Olanlar</div>
-      <div class="fs-4 fw-bold {% if missing_count > 0 %}text-warning{% endif %}">{{ missing_count }}</div>
-    </a>
-  </div>
-  <div class="col-6 col-md-2">
-    <a href="?scope=all" class="card text-decoration-none h-100 p-3 {% if current_scope == 'all' %}border-primary shadow-sm{% endif %}">
+    <a href="{% query_with scope='all' %}" class="card text-decoration-none h-100 p-3 hover-shadow transition {% if current_scope == 'all' %}border-primary shadow-sm{% endif %}">
       <div class="text-body-secondary small mb-1">Toplam Dosya</div>
       <div class="fs-4 fw-bold">{{ total_count }}</div>
+      <div class="text-body-tertiary" style="font-size: 0.75rem;">{{ open_count }} Açık · {{ closed_count }} Kapalı</div>
+    </a>
+  </div>
+  <div class="col-6 col-md-2">
+    <a href="{% query_with scope='dava' %}" class="card text-decoration-none h-100 p-3 hover-shadow transition {% if current_scope == 'dava' %}border-info shadow-sm{% endif %}">
+      <div class="text-body-secondary small mb-1">Dava Arşivi</div>
+      <div class="fs-4 fw-bold text-info">{{ dava_count }}</div>
+      <div class="text-body-tertiary" style="font-size: 0.75rem;">Hukuk / Ceza / İdari</div>
+    </a>
+  </div>
+  <div class="col-6 col-md-2">
+    <a href="{% query_with scope='icra' %}" class="card text-decoration-none h-100 p-3 hover-shadow transition {% if current_scope == 'icra' or current_scope == 'enforcement' %}border-danger shadow-sm{% endif %}">
+      <div class="text-body-secondary small mb-1">İcra Arşivi</div>
+      <div class="fs-4 fw-bold text-danger">{{ enforcement_count }}</div>
+      <div class="text-body-tertiary" style="font-size: 0.75rem;">İcra Takipleri</div>
+    </a>
+  </div>
+  <div class="col-6 col-md-2">
+    <a href="{% query_with scope='arabuluculuk' %}" class="card text-decoration-none h-100 p-3 hover-shadow transition {% if current_scope == 'arabuluculuk' or current_scope == 'ihtarname' %}border-success shadow-sm{% endif %}">
+      <div class="text-body-secondary small mb-1">Arabuluculuk & Diğer</div>
+      <div class="fs-4 fw-bold text-success">{{ other_special_count }}</div>
+      <div class="text-body-tertiary" style="font-size: 0.75rem;">Arb. / İhtar / Sözleşme</div>
+    </a>
+  </div>
+  <div class="col-6 col-md-2">
+    <a href="{% query_with scope='missing' %}" class="card text-decoration-none h-100 p-3 hover-shadow transition {% if current_scope == 'missing' %}border-warning shadow-sm{% endif %}">
+      <div class="text-body-secondary small mb-1">Yeri Eksik Olanlar</div>
+      <div class="fs-4 fw-bold {% if missing_count > 0 %}text-warning{% endif %}">{{ missing_count }}</div>
+      <div class="text-body-tertiary" style="font-size: 0.75rem;">Klasör atanmamış</div>
     </a>
   </div>
 </div>
 
-<div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
-  <ul class="nav nav-pills gap-1">
+{# Üst Sekmeler: Tümü - Klasör Tipleri Sırayla - Müvekkile Özel - Arşiv Yeri Eksikler #}
+<div class="mb-3">
+  <ul class="nav nav-pills gap-1 flex-wrap">
+    {% for tab in archive_tabs %}
     <li class="nav-item">
-      <a class="nav-link py-1 px-3 {% if current_scope == 'all' %}active{% endif %}" href="{% query_with scope='all' page=None %}">
-        Tümü
+      <a class="nav-link py-1 px-3 {% if current_scope == tab.scope or current_scope == tab.id %}active{% endif %}" href="{% query_with scope=tab.scope page=None %}">
+        {{ tab.label }}
+        {% if tab.badge %}<span class="badge rounded-pill bg-warning text-dark ms-1">{{ tab.badge }}</span>{% endif %}
       </a>
     </li>
-    <li class="nav-item">
-      <a class="nav-link py-1 px-3 {% if current_scope == 'open' %}active{% endif %}" href="{% query_with scope='open' page=None %}">
-        Açık Arşiv
-      </a>
-    </li>
-    <li class="nav-item">
-      <a class="nav-link py-1 px-3 {% if current_scope == 'closed' %}active{% endif %}" href="{% query_with scope='closed' page=None %}">
-        Kapalı Arşiv
-      </a>
-    </li>
-    <li class="nav-item">
-      <a class="nav-link py-1 px-3 {% if current_scope == 'enforcement' %}active{% endif %}" href="{% query_with scope='enforcement' page=None %}">
-        İcra Arşivi
-      </a>
-    </li>
-    <li class="nav-item">
-      <a class="nav-link py-1 px-3 {% if current_scope == 'missing' %}active{% endif %}" href="{% query_with scope='missing' page=None %}">
-        Arşiv Yeri Eksikler {% if missing_count > 0 %}<span class="badge rounded-pill bg-warning text-dark ms-1">{{ missing_count }}</span>{% endif %}
-      </a>
-    </li>
+    {% endfor %}
   </ul>
 </div>
 
+{# Organize Filtreler: Durum (Solda) - Müvekkil - Klasör - Arama (Sağda) #}
+<style>
+  .archive-status-pills {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    gap: 2px;
+  }
+  .archive-status-pills .btn {
+    font-size: 0.775rem;
+    color: var(--bs-secondary-color, #94a3b8);
+    border: 1px solid transparent;
+    padding: 0.25rem 0.75rem;
+    line-height: 1.35;
+    transition: all 0.15s ease-in-out;
+    cursor: pointer;
+    font-weight: 500;
+  }
+  .archive-status-pills .btn:hover {
+    color: var(--bs-body-color, #ffffff);
+    background: rgba(255, 255, 255, 0.04);
+  }
+  .archive-status-pills .btn-check:checked + .status-pill-all {
+    background: var(--bs-primary, #0d6efd) !important;
+    color: #ffffff !important;
+    font-weight: 600;
+    box-shadow: 0 1px 4px rgba(13, 110, 253, 0.35);
+  }
+  .archive-status-pills .btn-check:checked + .status-pill-open {
+    background: rgba(34, 197, 94, 0.18) !important;
+    color: #4ade80 !important;
+    border-color: rgba(34, 197, 94, 0.35) !important;
+    font-weight: 600;
+    box-shadow: 0 1px 4px rgba(34, 197, 94, 0.2);
+  }
+  .archive-status-pills .btn-check:checked + .status-pill-open i {
+    color: #4ade80 !important;
+  }
+  .archive-status-pills .btn-check:checked + .status-pill-closed {
+    background: rgba(148, 163, 184, 0.16) !important;
+    color: #e2e8f0 !important;
+    border-color: rgba(148, 163, 184, 0.3) !important;
+    font-weight: 600;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+  }
+  .archive-status-pills .btn-check:checked + .status-pill-closed i {
+    color: #cbd5e1 !important;
+  }
+</style>
+
 <div class="card p-3 mb-3">
-  <form method="get" class="row g-2 align-items-end" hx-get="{% url 'archive:list' %}" hx-target="#archive-table" hx-push-url="true">
+  <form method="get" class="row g-2 align-items-center" hx-get="{% url 'archive:list' %}" hx-target="#archive-table" hx-push-url="true" hx-trigger="change, keyup changed delay:400ms from:input[name='q']">
     <input type="hidden" name="scope" value="{{ current_scope }}">
-    <input type="hidden" name="view" value="{{ view_mode }}">
-    <div class="col-md-3">
-      <label class="form-label small text-body-secondary mb-1">Arama</label>
-      <div class="input-group input-group-sm">
-        <span class="input-group-text"><i class="bi bi-search"></i></span>
-        <input type="text" name="q" value="{{ request.GET.q }}" class="form-control" placeholder="Klasör, dosya no, mahkeme, müvekkil...">
+
+    {# 1. Durum Seçici (En Solda & Estetik Segmented Pill) #}
+    {% if show_state_filter %}
+    <div class="col-12 col-md-auto">
+      <div class="archive-status-pills d-inline-flex align-items-center p-1 rounded-pill">
+        <input type="radio" class="btn-check" name="durum" id="durum_all" value="" autocomplete="off" onchange="this.form.requestSubmit()" {% if not current_durum %}checked{% endif %}>
+        <label class="btn btn-sm rounded-pill status-pill-all" for="durum_all">
+          Tümü
+        </label>
+
+        <input type="radio" class="btn-check" name="durum" id="durum_open" value="open" autocomplete="off" onchange="this.form.requestSubmit()" {% if current_durum == 'open' %}checked{% endif %}>
+        <label class="btn btn-sm rounded-pill status-pill-open" for="durum_open">
+          <i class="bi bi-circle-fill me-1 text-success" style="font-size: 6px;"></i>Açık
+        </label>
+
+        <input type="radio" class="btn-check" name="durum" id="durum_closed" value="closed" autocomplete="off" onchange="this.form.requestSubmit()" {% if current_durum == 'closed' %}checked{% endif %}>
+        <label class="btn btn-sm rounded-pill status-pill-closed" for="durum_closed">
+          <i class="bi bi-circle-fill me-1 text-secondary" style="font-size: 6px;"></i>Kapalı
+        </label>
       </div>
     </div>
-    <div class="col-md-3">
-      <label class="form-label small text-body-secondary mb-1">Klasör Seçimi</label>
-      <select name="klasor" class="form-select form-select-sm">
-        <option value="">Tüm Klasörler</option>
-        {% for f in folder_list %}
-        <option value="{{ f.archive_folder_no }}" {% if request.GET.klasor == f.archive_folder_no %}selected{% endif %}>
-          {{ f.archive_folder_no }} ({{ f.total_files }} dosya)
+    {% endif %}
+
+    {# 2. Müvekkil Seçimi (Yalnızca 'Müvekkile Özel' sekmesinde) #}
+    {% if show_client_filter %}
+    <div class="col-12 col-md-4 col-xl-3">
+      <select name="muvekkil" class="form-select form-select-sm" onchange="this.form.requestSubmit()">
+        <option value="">Tüm Müvekkiller (Klasörü Olanlar)</option>
+        {% for m in clients_with_folders %}
+        <option value="{{ m.pk }}" {% if request.GET.muvekkil == m.pk|stringformat:"s" %}selected{% endif %}>
+          {{ m.name }}
         </option>
         {% endfor %}
       </select>
     </div>
-    <div class="col-md-2">
-      <label class="form-label small text-body-secondary mb-1">Dosya Türü</label>
-      <select name="tur" class="form-select form-select-sm">
-        <option value="">Tüm Türler</option>
-        {% for code, label in type_labels.items %}
-        <option value="{{ code }}" {% if request.GET.tur == code %}selected{% endif %}>{{ label }}</option>
-        {% endfor %}
-      </select>
+    {% endif %}
+
+    {# 3. Arama Çubuğu (Genişleyen) #}
+    <div class="col-12 col-md flex-grow-1">
+      <div class="input-group input-group-sm">
+        <span class="input-group-text"><i class="bi bi-search"></i></span>
+        <input type="text" name="q" value="{{ request.GET.q }}" class="form-control" placeholder="Klasör adı, no veya müvekkil ara...">
+      </div>
     </div>
-    <div class="col-md-2">
-      <label class="form-label small text-body-secondary mb-1">Sorumlu Avukat</label>
-      <select name="avukat" class="form-select form-select-sm">
-        <option value="">Tüm Avukatlar</option>
-        {% for l in lawyers %}
-        <option value="{{ l.pk }}" {% if request.GET.avukat == l.pk|stringformat:"s" %}selected{% endif %}>{{ l }}</option>
-        {% endfor %}
-      </select>
-    </div>
-    <div class="col-md-2 d-flex gap-2">
-      <button type="submit" class="btn btn-sm btn-primary flex-grow-1"><i class="bi bi-filter me-1"></i>Filtrele</button>
-      <a href="?scope={{ current_scope }}&view={{ view_mode }}" class="btn btn-sm btn-light" title="Filtreleri Temizle"><i class="bi bi-x-lg"></i></a>
+
+    {# 4. Filtreleri Temizle #}
+    <div class="col-auto">
+      <a href="?scope={{ current_scope }}" class="btn btn-sm btn-outline-secondary" title="Filtreleri Temizle">
+        <i class="bi bi-x-lg"></i>
+      </a>
     </div>
   </form>
 </div>
 
-{% if view_mode == 'explorer' %}
-  {% include "cases/_archive_explorer.html" %}
-{% else %}
-  {% include "cases/_archive_table.html" %}
-{% endif %}
+{% include "cases/_archive_explorer.html" %}
 
 <div class="modal fade" id="location-modal" tabindex="-1" aria-hidden="true"></div>
 {% endblock %}

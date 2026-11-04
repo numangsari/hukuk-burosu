@@ -88,6 +88,33 @@ def _with_suffix(value: str, suffix: str) -> str:
     return value
 
 
+class ArchiveCategory(TimeStampedModel):
+    name = models.CharField("tür adı", max_length=320, unique=True)
+    tracks_state = models.BooleanField("açık / kapalı ayrımı", default=True)
+    default_for_case_types = models.JSONField("varsayılan dosya türleri", default=list, blank=True)
+    client = models.OneToOneField(
+        Client,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="physical_archive_category",
+        verbose_name="özel müvekkil",
+    )
+
+    class Meta:
+        verbose_name = "fiziki klasör türü"
+        verbose_name_plural = "fiziki klasör türleri"
+        ordering = ["name"]
+        constraints = [
+            models.UniqueConstraint(
+                models.functions.Lower("name"), name="archive_category_name_ci_unique"
+            )
+        ]
+
+    def __str__(self):
+        return self.name
+
+
 class ArchiveFolder(TimeStampedModel):
     class Kind(models.TextChoices):
         OPEN = "open", "Açık"
@@ -99,12 +126,31 @@ class ArchiveFolder(TimeStampedModel):
         CONTRACT = "contract", "Sözleşmeler"
         FEE_CONTRACT = "fee_contract", "Avukatlık Ücret Sözleşmeleri"
         OTHER = "other", "Diğer"
+        CATEGORY = "category", "Türlü klasör"
         LEGACY = "legacy", "Eski kayıt"
 
-    name = models.CharField("klasör adı", max_length=50, unique=True)
+    class PhysicalState(models.TextChoices):
+        OPEN = "open", "Açık"
+        CLOSED = "closed", "Kapalı"
+        SINGLE = "single", "Ayrımsız"
+
+    name = models.CharField("klasör adı", max_length=340, unique=True)
     kind = models.CharField("tür", max_length=12, choices=Kind.choices)
     custom_kind = models.CharField("diğer tür adı", max_length=30, blank=True)
     capacity = models.PositiveSmallIntegerField("kapasite", null=True, blank=True)
+    category = models.ForeignKey(
+        ArchiveCategory,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="folders",
+        verbose_name="tür",
+    )
+    physical_state = models.CharField(
+        "fiziki durum", max_length=6, choices=PhysicalState.choices, blank=True
+    )
+    number = models.PositiveIntegerField("klasör numarası", null=True, blank=True)
+    is_active = models.BooleanField("yeni yerleşime açık", default=True)
 
     class Meta:
         verbose_name = "fiziki klasör"
@@ -112,7 +158,11 @@ class ArchiveFolder(TimeStampedModel):
         constraints = [
             models.UniqueConstraint(
                 models.functions.Lower("name"), name="archive_folder_name_ci_unique"
-            )
+            ),
+            models.UniqueConstraint(
+                fields=["category", "physical_state", "number"],
+                name="archive_category_state_number_unique",
+            ),
         ]
         ordering = ["name"]
 
@@ -146,8 +196,17 @@ class Case(TimeStampedModel):
     client_role = models.CharField(
         "müvekkilin sıfatı", max_length=32, choices=PARTY_ROLE_CHOICES, blank=True
     )
-    archive_folder_no = models.CharField("klasör no", max_length=50, blank=True)
+    archive_folder = models.ForeignKey(
+        ArchiveFolder,
+        verbose_name="fiziki klasör",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="cases",
+    )
+    archive_folder_no = models.CharField("klasör no", max_length=340, blank=True)
     archive_no = models.CharField("dosya no", max_length=50, blank=True)
+    archive_needs_review = models.BooleanField("fiziki arşiv yeri incelenecek", default=False)
     official_no = models.CharField("dosya numarası", max_length=100, blank=True)
     # İhtarnamede noterin düzenleme tarihi (numara yalnızca yevmiye numarasıdır).
     official_date = models.DateField("ihtarname tarihi", null=True, blank=True)
@@ -352,6 +411,55 @@ class Case(TimeStampedModel):
             and self.stage not in dict(stages.open_stages(self.case_type))
         ):
             self.stage = stages.default_stage(self.case_type)
+
+        # Fiziki klasör ForeignKey ve metin senkronizasyonu
+        if self.pk:
+            old_vals = (
+                type(self)
+                .objects.filter(pk=self.pk)
+                .values("archive_folder_id", "archive_folder_no")
+                .first()
+            )
+            if old_vals:
+                old_folder_id = old_vals["archive_folder_id"]
+                old_folder_no = old_vals["archive_folder_no"]
+
+                if self.archive_folder_id != old_folder_id:
+                    self.archive_folder_no = self.archive_folder.name if self.archive_folder else ""
+                elif self.archive_folder_no != old_folder_no:
+                    if self.archive_folder_no:
+                        self.archive_folder = ArchiveFolder.objects.filter(
+                            name__iexact=self.archive_folder_no
+                        ).first()
+                    else:
+                        self.archive_folder = None
+                elif self.archive_folder_no and not self.archive_folder_id:
+                    self.archive_folder = ArchiveFolder.objects.filter(
+                        name__iexact=self.archive_folder_no
+                    ).first()
+            else:
+                if self.archive_folder_id:
+                    self.archive_folder_no = self.archive_folder.name
+                elif self.archive_folder_no:
+                    self.archive_folder = ArchiveFolder.objects.filter(
+                        name__iexact=self.archive_folder_no
+                    ).first()
+        else:
+            if self.archive_folder_id:
+                self.archive_folder_no = self.archive_folder.name
+            elif self.archive_folder_no:
+                self.archive_folder = ArchiveFolder.objects.filter(
+                    name__iexact=self.archive_folder_no
+                ).first()
+
+        # update_fields belirtilmişse fiziki klasör alanları senkronize kaydedilsin
+        if "update_fields" in kwargs and kwargs["update_fields"] is not None:
+            uf = set(kwargs["update_fields"])
+            if "archive_folder" in uf or "archive_folder_no" in uf:
+                uf.add("archive_folder")
+                uf.add("archive_folder_no")
+                kwargs["update_fields"] = list(uf)
+
         super().save(*args, **kwargs)
 
     @property

@@ -1,44 +1,121 @@
-<div id="archive-table" class="row g-3">
-  {% for f in folder_list %}
-  <div class="col-sm-6 col-md-4 col-lg-3">
-    <div class="card h-100 border shadow-sm p-3 position-relative hover-shadow transition">
-      <div class="d-flex align-items-start justify-content-between mb-2">
-        <div class="d-flex align-items-center gap-2">
-          <div class="bg-primary-subtle text-primary p-2 rounded">
-            <i class="bi bi-folder-fill fs-5"></i>
+<div id="archive-table">
+  <div class="d-flex align-items-center justify-content-between mb-3 small text-body-secondary">
+    <div>
+      Toplam <strong>{{ filtered_folder_count }}</strong> klasör listeleniyor
+      {% if filtered_folder_count != folder_count %}<span class="text-body-tertiary">({{ folder_count }} kayıtlı klasörden filtrelendi)</span>{% endif %}
+    </div>
+    {% if filtered_folder_count > 0 %}
+    <div class="text-body-tertiary small d-none d-sm-block">
+      {% if filtered_folder_count <= 2 %}
+        <span class="badge bg-body-secondary text-body-secondary"><i class="bi bi-arrows-angle-expand me-1"></i>Geniş Görünüm ({{ filtered_folder_count }} klasör)</span>
+      {% elif filtered_folder_count <= 6 %}
+        <span class="badge bg-body-secondary text-body-secondary"><i class="bi bi-grid me-1"></i>Ferah Görünüm ({{ filtered_folder_count }} klasör)</span>
+      {% elif filtered_folder_count <= 14 %}
+        <span class="badge bg-body-secondary text-body-secondary"><i class="bi bi-grid-3x2-gap me-1"></i>Dengeli Görünüm ({{ filtered_folder_count }} klasör)</span>
+      {% else %}
+        <span class="badge bg-body-secondary text-body-secondary"><i class="bi bi-grid-3x3-gap me-1"></i>Kompakt Görünüm ({{ filtered_folder_count }} klasör)</span>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+
+  {# Dinamik Izgara: Klasör sayısı azaldıkça genişler, çoğaldıkça orantılı olarak daralır #}
+  <div class="archive-dynamic-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, {% if filtered_folder_count <= 2 %}380px{% elif filtered_folder_count <= 5 %}310px{% elif filtered_folder_count <= 14 %}260px{% else %}225px{% endif %}), {% if filtered_folder_count == 1 %}460px{% else %}1fr{% endif %})); gap: 0.875rem;">
+    {% for f in folder_list %}
+    <div class="card p-2.5 p-sm-3 shadow-sm border rounded-3 position-relative hover-shadow transition d-flex flex-column h-100">
+      
+      {# Üst Satır: Kategori İkonu + Kategori Rozeti & Sırtlık Yazdır #}
+      <div class="d-flex align-items-start justify-content-between mb-2 gap-2">
+        <div class="d-flex align-items-center gap-2 min-w-0">
+          <div class="rounded-3 flex-shrink-0 d-flex align-items-center justify-content-center {% if f.physical_state == 'closed' %}bg-secondary-subtle text-secondary{% elif f.category_name == 'İcra' %}bg-danger-subtle text-danger{% elif f.category_name == 'Arabuluculuk' %}bg-success-subtle text-success{% elif f.category_name == 'İhtarname' %}bg-info-subtle text-info{% elif f.is_client_specific %}bg-purple-subtle text-purple{% else %}bg-primary-subtle text-primary{% endif %}" style="width: 34px; height: 34px;">
+            {% if f.physical_state == 'closed' %}
+              <i class="bi bi-folder-x fs-5"></i>
+            {% else %}
+              <i class="bi bi-folder-fill fs-5"></i>
+            {% endif %}
           </div>
-          <div>
-            <h3 class="fs-6 fw-bold mb-0 text-truncate" style="max-width: 170px;" title="{{ f.archive_folder_no }}">
-              <a href="{% url 'archive:folder_detail' f.archive_folder_no %}" class="text-body text-decoration-none stretched-link">
-                {{ f.archive_folder_no }}
-              </a>
-            </h3>
-            <span class="text-body-secondary small">{{ f.total_files }}{% if f.capacity %} / {{ f.capacity }}{% endif %} dosya</span>
+          
+          <div class="d-flex flex-wrap gap-1 min-w-0">
+            {% if f.is_client_specific %}
+              <span class="badge text-bg-dark text-truncate px-2 py-1" style="font-size: 0.7rem; max-width: 140px;" title="Müvekkile Özel: {{ f.category_name }}">Özel Klasör</span>
+            {% elif f.category_name == 'İcra' %}
+              <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1" style="font-size: 0.7rem;">İcra</span>
+            {% elif f.category_name == 'Arabuluculuk' %}
+              <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1" style="font-size: 0.7rem;">Arabuluculuk</span>
+            {% elif f.category_name == 'İhtarname' %}
+              <span class="badge bg-info-subtle text-info border border-info-subtle px-2 py-1" style="font-size: 0.7rem;">İhtarname</span>
+            {% elif f.category_name == 'Sözleşme' %}
+              <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-2 py-1" style="font-size: 0.7rem;">Sözleşme</span>
+            {% elif f.category_name == 'Dava' %}
+              <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1" style="font-size: 0.7rem;">Dava</span>
+            {% else %}
+              <span class="badge bg-secondary-subtle text-secondary px-2 py-1" style="font-size: 0.7rem;">{{ f.category_name }}</span>
+            {% endif %}
+
+            {% if f.physical_state == 'closed' %}
+              <span class="badge bg-secondary px-1.5 py-1" style="font-size: 0.65rem;">Kapalı</span>
+            {% endif %}
           </div>
         </div>
-      </div>
-      <div class="d-flex align-items-center justify-content-between mt-auto pt-2 border-top small text-body-secondary">
-        <div>
-          <span class="text-success fw-medium">{{ f.open_files }} açık</span> · 
-          <span class="text-secondary">{{ f.closed_files }} kapalı</span>
-        </div>
-        <div class="z-2">
-          <a href="{% url 'archive:labels' %}?klasor={{ f.archive_folder_no|urlencode }}&tip=folder" class="btn btn-sm btn-light py-0 px-2" title="Klasör Sırtlığı Yazdır">
-            <i class="bi bi-printer"></i>
+
+        <div class="z-2 flex-shrink-0">
+          <a href="{% url 'archive:labels' %}?klasor={{ f.archive_folder_no|urlencode }}&tip=folder" class="btn btn-sm btn-link text-body-tertiary p-1" title="Klasör Sırtlığı Yazdır">
+            <i class="bi bi-printer fs-6"></i>
           </a>
         </div>
       </div>
+
+      {# Orta Satır: Klasör Başlığı #}
+      <h3 class="mb-2 fw-bold text-body" style="font-size: 0.875rem; line-height: 1.35; min-height: 2.7em; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;" title="{{ f.archive_folder_no }}">
+        <a href="{% url 'archive:folder_detail' f.archive_folder_no %}" class="text-body text-decoration-none stretched-link">
+          {{ f.archive_folder_no }}
+        </a>
+      </h3>
+
+      {# İstatistik Paneli #}
+      <div class="bg-body-tertiary rounded-2 p-2 mb-2 mt-auto">
+        <div class="d-flex align-items-center justify-content-between mb-1 small">
+          <span class="text-body-secondary" style="font-size: 0.75rem;">Toplam Dosya:</span>
+          <span>
+            <strong class="text-body fs-6">{{ f.total_files }}</strong>
+            {% if f.capacity %}<span class="text-body-tertiary small"> / {{ f.capacity }}</span>{% endif %}
+          </span>
+        </div>
+
+        <div class="d-flex align-items-center justify-content-between pt-1 border-top border-secondary-subtle" style="font-size: 0.75rem;">
+          <span class="text-success fw-medium">
+            <i class="bi bi-circle-fill me-1" style="font-size: 6px;"></i>{{ f.open_files }} Açık
+          </span>
+          <span class="text-secondary">
+            <i class="bi bi-circle-fill me-1" style="font-size: 6px;"></i>{{ f.closed_files }} Kapalı
+          </span>
+        </div>
+      </div>
+
+      {# Alt Satır: Doluluk Çubuğu #}
+      {% if f.capacity %}
+      <div>
+        <div class="d-flex align-items-center justify-content-between text-body-secondary mb-1" style="font-size: 0.71875rem;">
+          <span>Doluluk</span>
+          <span class="fw-semibold {% if f.occupancy_pct >= 100 %}text-danger{% elif f.occupancy_pct >= 80 %}text-warning{% else %}text-primary{% endif %}">
+            %{{ f.occupancy_pct }}
+          </span>
+        </div>
+        <div class="progress" style="height: 5px;" role="progressbar" aria-valuenow="{{ f.occupancy_pct }}" aria-valuemin="0" aria-valuemax="100">
+          <div class="progress-bar {% if f.occupancy_pct >= 100 %}bg-danger{% elif f.occupancy_pct >= 80 %}bg-warning{% else %}bg-primary{% endif %}" style="width: {{ f.occupancy_pct }}%;"></div>
+        </div>
+      </div>
+      {% endif %}
+
     </div>
-  </div>
-  {% empty %}
-  <div class="col-12">
-    <div class="card py-5 text-center">
+    {% empty %}
+    <div class="card py-5 text-center w-100" style="grid-column: 1 / -1;">
       <div class="empty-state">
         <i class="bi bi-folder-x fs-1 text-body-tertiary mb-2"></i>
         <strong>Kayıtlı klasör bulunamadı</strong>
-        <div class="text-body-secondary small">Sistemde henüz fiziki klasör adı girilmiş dosya bulunmuyor.</div>
+        <div class="text-body-secondary small">Seçilen filtrelere uygun fiziki klasör bulunamadı.</div>
       </div>
     </div>
+    {% endfor %}
   </div>
-  {% endfor %}
 </div>

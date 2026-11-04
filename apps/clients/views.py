@@ -255,6 +255,14 @@ class ClientFormMixin:
         new_retainers = set()
         with transaction.atomic():
             self.object = form.save()
+            from apps.cases.archive_categories import sync_client_archive
+
+            sync_client_archive(
+                self.object,
+                form.cleaned_data["physical_archive_enabled"],
+                form.cleaned_data["physical_archive_tracks_state"],
+                self.request.user,
+            )
             for prefix, (fs, _) in active.items():
                 fs.instance = self.object
                 items = fs.save(commit=False)

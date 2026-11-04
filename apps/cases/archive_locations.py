@@ -6,8 +6,24 @@ from django.db import IntegrityError, transaction
 from .models import ArchiveFolder, Case
 
 
-def available_archive_slots(folder_name, case=None):
-    folder = ArchiveFolder.objects.filter(name__iexact=folder_name).first() if folder_name else None
+def available_archive_slots(folder_name, case=None, *, client_id=None):
+    folder = (
+        ArchiveFolder.objects.select_related("category").filter(name__iexact=folder_name).first()
+        if folder_name
+        else None
+    )
+    owner_id = client_id if client_id is not None else (case.client_id if case else None)
+    if (
+        folder
+        and folder.category_id
+        and folder.category.client_id
+        and str(folder.category.client_id) != str(owner_id or "")
+    ):
+        return [], None
+    if folder and not folder.is_active:
+        if case and case.pk and case.archive_folder_no.casefold() == folder_name.casefold():
+            return ([case.archive_no] if case.archive_no else []), folder
+        return [], folder
     if not folder or folder.capacity is None:
         current = []
         if (
@@ -37,7 +53,9 @@ def available_archive_slots(folder_name, case=None):
     return numbers, folder
 
 
-def validate_archive_location(folder_name, number, case=None, *, lock=False, import_legacy=False):
+def validate_archive_location(
+    folder_name, number, case=None, *, lock=False, import_legacy=False, client_id=None
+):
     if not folder_name:
         if (
             number
@@ -54,13 +72,26 @@ def validate_archive_location(folder_name, number, case=None, *, lock=False, imp
         return
     folders = ArchiveFolder.objects
     if lock:
-        folders = folders.select_for_update()
-    folder = folders.filter(name__iexact=folder_name).first()
+        folders = folders.select_for_update(of=("self",))
+    folder = folders.select_related("category").filter(name__iexact=folder_name).first()
     if not folder and import_legacy:
         try:
             with transaction.atomic():
+                from .archive_categories import category_for_case
+
+                cat = category_for_case(case) if case else None
+                state = ""
+                if cat:
+                    state = (
+                        ArchiveFolder.PhysicalState.OPEN
+                        if cat.tracks_state
+                        else ArchiveFolder.PhysicalState.SINGLE
+                    )
                 folder = ArchiveFolder.objects.create(
-                    name=folder_name, kind=ArchiveFolder.Kind.LEGACY
+                    name=folder_name,
+                    kind=ArchiveFolder.Kind.CATEGORY if cat else ArchiveFolder.Kind.LEGACY,
+                    category=cat,
+                    physical_state=state,
                 )
         except IntegrityError:
             folder = folders.filter(name__iexact=folder_name).first()
@@ -68,6 +99,13 @@ def validate_archive_location(folder_name, number, case=None, *, lock=False, imp
         if case and case.pk and case.archive_folder_no.casefold() == folder_name.casefold():
             return
         raise ValidationError({"archive_folder_no": "Önce fiziki klasörü oluşturun."})
+    owner_id = client_id if client_id is not None else (case.client_id if case else None)
+    if (
+        folder.category_id
+        and folder.category.client_id
+        and str(folder.category.client_id) != str(owner_id or "")
+    ):
+        raise ValidationError({"archive_folder_no": "Bu klasör başka bir müvekkile özeldir."})
     existing_location = bool(
         case
         and case.pk
@@ -75,6 +113,8 @@ def validate_archive_location(folder_name, number, case=None, *, lock=False, imp
             pk=case.pk, archive_folder_no__iexact=folder_name, archive_no__iexact=number
         ).exists()
     )
+    if not folder.is_active and not existing_location:
+        raise ValidationError({"archive_folder_no": "Bu klasör yeni yerleşime kapalı."})
     if folder.capacity is None:
         if import_legacy or existing_location:
             return

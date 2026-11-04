@@ -18,6 +18,15 @@
       <div class="col-md-4">{% include "partials/field.html" with field=form.closed_on %}</div>
     </div>
   </div>
+  {% if form.archive_folder_no %}
+  <div class="form-section">
+    <div class="form-section-head"><h2>Fiziki arşiv yeri</h2><p>Dosyayı kapalı klasöre kaldırabilirsiniz. Seçilmezse dosya arşivi inceleme listesine düşer.</p></div>
+    <div class="row">
+      <div class="col-md-6">{% include "partials/field.html" with field=form.archive_folder_no %}</div>
+      <div class="col-md-6">{% include "partials/field.html" with field=form.archive_no %}</div>
+    </div>
+  </div>
+  {% endif %}
   {% if has_decision %}
   <div class="form-section">
     <div class="form-section-head"><h2>Karar bilgisi</h2></div>

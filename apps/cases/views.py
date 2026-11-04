@@ -224,6 +224,7 @@ class CaseFormMixin:
         kwargs = super().get_form_kwargs()
         kwargs["can_remove_parties"] = self.request.user.is_office_admin
         kwargs["related_case"] = self._related_case_for_save() or self._related_case()
+        kwargs["user"] = self.request.user
         return kwargs
 
     @transaction.atomic
@@ -234,6 +235,7 @@ class CaseFormMixin:
                 form.cleaned_data.get("archive_no", ""),
                 form.instance,
                 lock=True,
+                client_id=form.cleaned_data["client"].pk if form.cleaned_data.get("client") else "",
             )
         except ValidationError as error:
             for field, errors in error.message_dict.items():

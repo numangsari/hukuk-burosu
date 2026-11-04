@@ -3,10 +3,12 @@
 Her işlem dosya satırını kilitler ve zaman çizelgesine kayıt düşer.
 """
 
+from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils import timezone
 
 from . import stages
+from .archive_categories import category_for_case, validate_case_placement
 from .models import Case, CaseEvent, CaseFlow, CaseStatus
 
 
@@ -51,12 +53,16 @@ def close_case(case, data, user, collections=None):
     case = _locked(case)
     if not case.is_open:
         raise StatusError("Dosya zaten kapalı.")
+    try:
+        target = validate_case_placement(
+            case, "closed", data.get("archive_folder_no", ""), data.get("archive_no", ""), lock=True
+        )
+    except ValidationError as error:
+        raise StatusError(" ".join(error.messages)) from error
     if collections and case.case_type != "enforcement":
         raise StatusError("Bu tahsilat işlemi yalnızca icra dosyaları içindir.")
     if case.case_type == "enforcement":
         from decimal import Decimal
-
-        from django.core.exceptions import ValidationError
 
         from apps.cases.forms import ClosingCollectionForm
 
@@ -78,6 +84,13 @@ def close_case(case, data, user, collections=None):
             closing_accounted=True if validated else None,
         )
     case.status = CaseStatus.CLOSED
+    if target:
+        case.archive_folder = target
+        case.archive_folder_no = target.name
+        case.archive_no = str(int(data["archive_no"]))
+        case.archive_needs_review = False
+    elif case.archive_folder_no and (cat := category_for_case(case)) and cat.tracks_state:
+        case.archive_needs_review = True
     case.closing_reason = data["closing_reason"]
     case.closed_on = data["closed_on"]
     case.closing_note = data.get("closing_note", "")
@@ -88,6 +101,8 @@ def close_case(case, data, user, collections=None):
     case.closing_accounted = data.get("closing_accounted") if case.closing_amount else None
     case.save()
     lines = []
+    if target:
+        lines.append(f"Fiziki arşiv yeri: {case.archive_reference}")
     if case.decision_date or case.decision_no:
         decision = " ".join(
             part
@@ -135,16 +150,27 @@ def close_case(case, data, user, collections=None):
 
 
 @transaction.atomic
-def reopen_case(case, stage, user):
+def reopen_case(case, stage, user, *, archive_folder_no="", archive_no=""):
     case = _locked(case)
     if case.is_open:
         raise StatusError("Dosya zaten açık.")
+    try:
+        target = validate_case_placement(case, "open", archive_folder_no, archive_no, lock=True)
+    except ValidationError as error:
+        raise StatusError(" ".join(error.messages)) from error
     if stage not in dict(stages.open_stages(case.case_type)) and not (
         not stages.open_stages(case.case_type) and not stage
     ):
         raise StatusError("Bu dosya türü için geçersiz aşama.")
     previous = case.closing_label
     case.status = CaseStatus.OPEN
+    if target:
+        case.archive_folder = target
+        case.archive_folder_no = target.name
+        case.archive_no = str(int(archive_no))
+        case.archive_needs_review = False
+    elif case.archive_folder_no and (cat := category_for_case(case)) and cat.tracks_state:
+        case.archive_needs_review = True
     case.stage = stage
     case.closing_reason = ""
     case.closing_note = ""
@@ -158,7 +184,10 @@ def reopen_case(case, stage, user):
     description = "Dosya yeniden açıldı"
     if case.stage_label:
         description += f": {case.stage_label}"
-    _event(case, user, description, f"Önceki kapanış: {previous}")
+    details = f"Önceki kapanış: {previous}"
+    if target:
+        details += f"\nFiziki arşiv yeri: {case.archive_reference}"
+    _event(case, user, description, details)
     return case
 
 

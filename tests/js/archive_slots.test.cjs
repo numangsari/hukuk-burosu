@@ -15,11 +15,12 @@ test('Klasör seçilince yalnızca sunucunun bildirdiği boş yerleri gösterir'
   const help = { textContent: '' };
   const folder = {
     value: 'Açık 1', dataset: { caseId: '5' },
-    closest(selector) { return selector === 'form' ? { querySelector: () => slots } : this; },
+    closest(selector) { return ['[data-folder-create]', '[data-archive-client]'].includes(selector) ? null : selector === 'form' ? { querySelector: () => slots } : this; },
   };
   const document = {
     body: { dataset: { archiveSlotsUrl: '/arsiv/bos-yerler/' } },
     addEventListener(type, handler) { if (type === 'change') onChange = handler; },
+    querySelectorAll() { return []; },
   };
   let requested;
   const fetch = async url => { requested = url; return { ok: true, json: async () => ({ slots: ['1', '3'], capacity_missing: false }) }; };

@@ -11,8 +11,10 @@ from apps.core.uploads import validate_upload
 from apps.imports.portal_forms import PreserveExistingAssigneeMixin
 
 from . import stages
+from .archive_categories import category_for_case, natural_sort_key, validate_case_placement
 from .archive_locations import available_archive_slots, validate_archive_location
 from .models import (
+    ArchiveCategory,
     ArchiveFolder,
     Case,
     CaseEvent,
@@ -27,43 +29,82 @@ from .party_roles import PARTY_ROLES
 
 
 class ArchiveFolderForm(BootstrapMixin, forms.Form):
-    kind = forms.ChoiceField(
-        label="Tür",
-        choices=[
-            choice
-            for choice in ArchiveFolder.Kind.choices
-            if choice[0] != ArchiveFolder.Kind.LEGACY
-        ],
+    category = forms.ModelChoiceField(label="Klasör türü", queryset=ArchiveCategory.objects.all())
+    physical_state = forms.ChoiceField(
+        label="Fiziki durum", choices=ArchiveFolder.PhysicalState.choices
     )
-    custom_kind = forms.CharField(label="Tür adı", max_length=30, required=False)
-    name = forms.CharField(label="Klasör adı / numarası", max_length=43)
     capacity = forms.IntegerField(label="Kapasite", min_value=1, max_value=32767)
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, user=None, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["kind"].widget.attrs["x-model"] = "kind"
+        categories = ArchiveCategory.objects.filter(
+            Q(client__isnull=True) | Q(client__physical_archive_enabled=True)
+        )
+        if user is not None:
+            from apps.clients.models import Client
+            from apps.core.permissions import filter_visible_clients
 
-    def clean_name(self):
-        name = self.cleaned_data["name"].strip()
-        if not name or "/" in name or "\\" in name:
-            raise forms.ValidationError("Geçerli bir klasör adı girin; / ve \\ kullanmayın.")
-        return name
+            categories = categories.filter(
+                Q(client__isnull=True)
+                | Q(client__in=filter_visible_clients(Client.objects.all(), user))
+            )
+        self.fields["category"].queryset = categories
+        self.fields["category"].widget.attrs["data-folder-category"] = ""
+        self.fields["physical_state"].widget.attrs["data-folder-state"] = ""
 
     def clean(self):
         data = super().clean()
-        if data.get("kind") and data.get("name"):
-            labels = dict(ArchiveFolder.Kind.choices)
-            labels.pop("other")
-            label = labels.get(data["kind"], data.get("custom_kind", "").strip())
-            if not label or "/" in label or "\\" in label:
-                self.add_error("custom_kind", "Diğer tür için geçerli bir ad yazın.")
-                return data
-            data["full_name"] = f"{label} {data['name']}"
-            if len(data["full_name"]) > 50:
-                self.add_error("name", "Tür ve klasör adı toplam 50 karakteri aşamaz.")
-            if ArchiveFolder.objects.filter(name__iexact=data["full_name"]).exists():
-                self.add_error("name", "Bu türde ve isimde bir klasör zaten var.")
+        category, state = data.get("category"), data.get("physical_state")
+        if category and state:
+            valid = state in ("open", "closed") if category.tracks_state else state == "single"
+            if not valid:
+                self.add_error("physical_state", "Bu tür için geçerli bir durum seçin.")
         return data
+
+
+class ArchiveCategoryForm(BootstrapMixin, forms.Form):
+    name = forms.CharField(label="Klasör türü adı", max_length=320)
+    capacity = forms.IntegerField(label="İlk klasörlerin kapasitesi", min_value=1, max_value=32767)
+    tracks_state = forms.BooleanField(
+        label="Açık / kapalı ayrımı kullan", required=False, initial=True
+    )
+    is_client_specific = forms.BooleanField(label="Müvekkile özel klasör türü", required=False)
+    client = forms.ModelChoiceField(
+        label="İlgili Müvekkil",
+        queryset=Client.objects.all().order_by("name"),
+        required=False,
+        help_text="Bu klasör türü belirli bir müvekkile mi ait?",
+    )
+
+    def clean(self):
+        data = super().clean()
+        is_client = data.get("is_client_specific")
+        client = data.get("client")
+        if is_client and not client:
+            self.add_error("client", "Müvekkile özel klasör türü için lütfen müvekkil seçin.")
+        elif is_client and client:
+            if ArchiveCategory.objects.filter(client=client).exists():
+                self.add_error(
+                    "client",
+                    "Bu müvekkilin zaten tanımlı özel bir fiziki klasör türü bulunmaktadır.",
+                )
+        else:
+            data["client"] = None
+        return data
+
+    def clean_name(self):
+        name = self.cleaned_data["name"].strip()
+        for prefix in ("Açık ", "Kapalı ", "açık ", "kapalı "):
+            if name.startswith(prefix):
+                name = name[len(prefix) :].strip()
+                break
+        if not name or "/" in name or "\\" in name:
+            raise forms.ValidationError("Geçerli bir tür adı girin; / ve \\ kullanmayın.")
+        if len(f"Kapalı {name} 1") > 340:
+            raise forms.ValidationError("Tür adı çok uzun.")
+        if ArchiveCategory.objects.filter(name__iexact=name).exists():
+            raise forms.ValidationError("Bu klasör türü zaten var.")
+        return name
 
 
 class CaseForm(PreserveExistingAssigneeMixin, BootstrapMixin, forms.ModelForm):
@@ -132,7 +173,7 @@ class CaseForm(PreserveExistingAssigneeMixin, BootstrapMixin, forms.ModelForm):
             "notice_served_on": DateInput(),
         }
 
-    def __init__(self, *args, can_remove_parties=False, related_case=None, **kwargs):
+    def __init__(self, *args, can_remove_parties=False, related_case=None, user=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.keep_existing_assignee()
         self.related_case = related_case
@@ -144,7 +185,27 @@ class CaseForm(PreserveExistingAssigneeMixin, BootstrapMixin, forms.ModelForm):
         self.fields["client"].required = True
         self.fields["archive_folder_no"].required = not self.instance.pk
         self.fields["archive_no"].required = not self.instance.pk
-        names = list(ArchiveFolder.objects.values_list("name", flat=True).order_by("name"))
+        if user is not None:
+            from apps.core.permissions import filter_visible_clients
+
+            self.fields["client"].queryset = filter_visible_clients(
+                self.fields["client"].queryset, user
+            )
+        selected_client = (
+            self.data.get("client", "")
+            if self.is_bound
+            else self.initial.get("client", self.instance.client_id)
+        )
+        selected_client = getattr(selected_client, "pk", selected_client) or ""
+        names = list(
+            ArchiveFolder.objects.filter(is_active=True)
+            .filter(
+                Q(category__client__isnull=True)
+                | Q(category__client_id=selected_client if str(selected_client).isdigit() else None)
+            )
+            .values_list("name", flat=True)
+        )
+        names.sort(key=natural_sort_key)
         if (
             self.instance.pk
             and self.instance.archive_folder_no
@@ -156,13 +217,16 @@ class CaseForm(PreserveExistingAssigneeMixin, BootstrapMixin, forms.ModelForm):
             if self.is_bound
             else self.initial.get("archive_folder_no", self.instance.archive_folder_no)
         )
-        slots, folder = available_archive_slots(selected_folder or "", self.instance)
+        slots, folder = available_archive_slots(
+            selected_folder or "", self.instance, client_id=selected_client
+        )
         self.fields["archive_folder_no"].widget = forms.Select(
             choices=[("", "Klasör seçiniz…"), *((name, name) for name in names)],
             attrs={
                 "class": "form-select",
                 "data-archive-folder": "",
                 "data-case-id": self.instance.pk or "",
+                "data-client-id": selected_client,
             },
         )
         self.fields["archive_folder_no"].help_text = "Kayıtlı fiziki klasörlerden birini seçin."
@@ -186,6 +250,7 @@ class CaseForm(PreserveExistingAssigneeMixin, BootstrapMixin, forms.ModelForm):
                 if not getattr(self.instance, name):
                     self.fields[name].required = False
         self.fields["client"].widget.attrs["data-searchable"] = "Müvekkil ara"
+        self.fields["client"].widget.attrs["data-archive-client"] = ""
         self.fields["enforcement_amount"].min_value = Decimal("0")
         self.fields["enforcement_basis"].widget.attrs["rows"] = 2
         from apps.office.models import OfficeSettings
@@ -311,7 +376,13 @@ class CaseForm(PreserveExistingAssigneeMixin, BootstrapMixin, forms.ModelForm):
         data["archive_folder_no"] = folder
         data["archive_no"] = number
         try:
-            validate_archive_location(folder, number, self.instance)
+            selected_client = data.get("client")
+            validate_archive_location(
+                folder,
+                number,
+                self.instance,
+                client_id=selected_client.pk if selected_client else "",
+            )
             if (
                 number
                 and number.isascii()
@@ -652,7 +723,67 @@ class CaseStageForm(forms.Form):
         self.initial.setdefault("stage", case.stage)
 
 
-class CaseCloseForm(BootstrapMixin, forms.Form):
+class ArchivePlacementMixin:
+    def setup_archive_placement(self, case, state):
+        self.archive_case = case
+        self.archive_state = state
+        category = category_for_case(case)
+        self.archive_required = not category or category.tracks_state
+        self.archive_category_name = category.name if category else ""
+        if not self.archive_required:
+            return
+        folders = (
+            ArchiveFolder.objects.filter(
+                category=category, physical_state=state, is_active=True
+            ).order_by("number")
+            if category
+            else ArchiveFolder.objects.none()
+        )
+        choices = [("", "Klasör seçiniz…"), *((f.name, f.name) for f in folders)]
+        selected = self.data.get("archive_folder_no", "") if self.is_bound else ""
+        slots, _ = available_archive_slots(selected, case)
+        self.fields["archive_folder_no"] = forms.ChoiceField(
+            label="Fiziki klasör",
+            choices=choices,
+            required=False,
+            widget=forms.Select(
+                attrs={
+                    "class": "form-select",
+                    "data-archive-folder": "",
+                    "data-case-id": case.pk,
+                }
+            ),
+        )
+        self.fields["archive_no"] = forms.ChoiceField(
+            label="Boş dosya yeri",
+            choices=[("", "Boş yer seçiniz…"), *((n, n) for n in slots)],
+            required=False,
+            widget=forms.Select(attrs={"class": "form-select", "data-archive-slot": ""}),
+        )
+
+    def clean_archive_placement(self, data):
+        folder = data.get("archive_folder_no", "")
+        number = data.get("archive_no", "")
+        if not self.archive_required or (not folder and not number):
+            return
+        try:
+            validate_case_placement(self.archive_case, self.archive_state, folder, number)
+        except forms.ValidationError as error:
+            self.add_error("archive_no", " ".join(error.messages))
+
+
+class CaseArchivePlacementForm(ArchivePlacementMixin, BootstrapMixin, forms.Form):
+    def __init__(self, *args, case, state, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.setup_archive_placement(case, state)
+
+    def clean(self):
+        data = super().clean()
+        self.clean_archive_placement(data)
+        return data
+
+
+class CaseCloseForm(ArchivePlacementMixin, BootstrapMixin, forms.Form):
     """Dosyayı kapatır. Karar ve tutar alanları türe ve kapanma nedenine göre istenir."""
 
     closing_reason = forms.ChoiceField(label="Kapanma nedeni")
@@ -699,6 +830,7 @@ class CaseCloseForm(BootstrapMixin, forms.Form):
     def __init__(self, *args, case, **kwargs):
         super().__init__(*args, **kwargs)
         self.case = case
+        self.setup_archive_placement(case, "closed")
         reasons = stages.closing_reasons(case.case_type)
         self.fields["closing_reason"].choices = [
             ("", "Seçiniz…"),
@@ -719,6 +851,7 @@ class CaseCloseForm(BootstrapMixin, forms.Form):
 
     def clean(self):
         data = super().clean()
+        self.clean_archive_placement(data)
         year, sequence = data.get("decision_year"), data.get("decision_sequence")
         # Yıl varsayılan olarak dolu gelir; numara boşsa karar numarası girilmemiş sayılır.
         if sequence and not year:
