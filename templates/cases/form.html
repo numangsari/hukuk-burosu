@@ -25,9 +25,9 @@
     <span>Bu dosya <strong>UYAP</strong> kaydına bağlıdır; UYAP'tan alınan alanlar ve taraflar salt okunurdur. Müvekkil, sıfat, fiziki arşiv numarası ve konu gibi büro alanlarını aşağıdan düzenleyebilirsiniz.</span>
   </div>
   {% endif %}
-  {% if related_case %}<input type="hidden" name="related_case" value="{{ related_case.pk }}">
+  {% if related_case %}<input type="hidden" name="related_case" value="{{ related_case.pk|stringformat:'s' }}">
   <div class="alert alert-info m-3 mb-0 py-2 small"><i class="bi bi-link-45deg me-1"></i>Bu dosya, <strong>{{ related_case.display_name }}</strong> dosyasının ilgili dosyası olarak oluşturulacak; safahat ve muhasebe ortak olur.</div>{% endif %}
-  {% if source_record %}<input type="hidden" name="source_record" value="{{ source_record.pk }}">
+  {% if source_record %}<input type="hidden" name="source_record" value="{{ source_record.pk|stringformat:'s' }}">
   <div class="alert alert-info m-3 mb-0 py-2 small"><i class="bi bi-file-earmark-spreadsheet me-1"></i>Bu dosya, <strong>{{ source_record.source_name }} · {{ source_record.sheet }} · {{ source_record.row_number }}. satırdan</strong> oluşturuluyor; kaydedince satır bu dosyaya bağlanır. Kesin olmayan alanları kendiniz seçin.</div>{% endif %}
   {% if form.non_field_errors %}<div class="alert alert-danger m-3 mb-0">{{ form.non_field_errors }}</div>{% endif %}
 

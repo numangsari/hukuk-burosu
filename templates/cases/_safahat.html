@@ -75,7 +75,7 @@
               <a class="btn btn-sm btn-light" href="{{ rel.existing_case.get_absolute_url }}">Dosyayı aç</a>
               <form method="post" action="{% url 'cases:link_add' case.pk %}" class="d-inline">
                 {% csrf_token %}
-                <input type="hidden" name="related" value="{{ rel.existing_case.pk }}">
+                <input type="hidden" name="related" value="{{ rel.existing_case.pk|stringformat:'s' }}">
                 <input type="hidden" name="note" value="UYAP {{ rel.relation }}">
                 <button type="submit" class="btn btn-sm btn-primary"><i class="bi bi-link-45deg"></i>Dosyayı bağla</button>
               </form>
