@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 const {webcrypto} = require('node:crypto');
-const source = fs.readFileSync('uyap-uets-deneme/auto.js', 'utf8');
+const source = fs.readFileSync('uyap-uets-eklentisi/auto.js', 'utf8');
 
 function response(data, bytes) {
   return {ok:true, status:200, headers:{get:() => ''}, json:async () => data,

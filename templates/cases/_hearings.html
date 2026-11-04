@@ -27,6 +27,22 @@
           </form>
         </td>
         <td class="text-end text-nowrap">
+          {% if h.tasks.all %}
+            {% with task=h.tasks.first %}
+            <a class="btn btn-light btn-sm" href="{{ task.get_absolute_url }}" title="Bağlantılı görevi aç">
+              <i class="bi bi-check2-circle me-1 text-success"></i>Görev
+            </a>
+            {% endwith %}
+          {% else %}
+            <button type="button" class="btn btn-primary btn-sm"
+                    title="Bu duruşma için bağlantılı görev oluştur"
+                    hx-get="{% url 'hearings:task_create' h.pk %}"
+                    hx-target="#hearing-task-modal-dialog"
+                    hx-swap="innerHTML"
+                    hx-on::after-request="bootstrap.Modal.getOrCreateInstance(document.getElementById('hearingTaskModal')).show()">
+              <i class="bi bi-plus-lg me-1"></i>Görev oluştur
+            </button>
+          {% endif %}
           <button class="btn btn-light btn-sm" @click="open = !open"><i class="bi bi-journal-text"></i>Sonuç</button>
           {% if request.user.is_office_admin %}<button class="btn-ghost-danger" title="Sil" hx-post="{% url 'cases:hearing_delete' case.pk h.pk %}" hx-target="#hearings" hx-swap="outerHTML" hx-confirm="Duruşma kaydı silinsin mi?"><i class="bi bi-trash"></i></button>{% endif %}
         </td>
@@ -43,4 +59,8 @@
     <div class="col-md-2"><button class="btn btn-primary w-100"><i class="bi bi-plus-lg"></i>Ekle</button></div>
     <div class="col-12">{% include "partials/field.html" with field=hearing_form.notes wrap_class="" %}</div>
   </form>
+</div>
+
+<div class="modal fade" id="hearingTaskModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg" id="hearing-task-modal-dialog"></div>
 </div>

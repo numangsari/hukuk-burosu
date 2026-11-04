@@ -473,3 +473,33 @@ def test_client_role_rejects_other_case_type(lawyer_client, client_factory):
     )
     assert "client_role" in response.context["form"].errors
     assert not Case.objects.exists()
+
+
+def test_party_role_validation_on_administrative_case_with_disabled_case_type(
+    lawyer_client, client_factory, case_factory
+):
+    from apps.imports.models import PortalCase
+
+    owner = client_factory()
+    case = case_factory(owner, case_type="administrative", client_role="defendant_authority")
+    PortalCase.objects.create(
+        case=case, fingerprint="fp-admin-1", authority="İSTANBUL 14. İDARE", number="2025/1"
+    )
+    party = Party.objects.create(kind="person", name="NERİMAN DURSUN")
+    link = case.party_links.create(party=party, role="plaintiff")
+
+    # UYAP bağlantılı dosyalarda case_type alanı HTML'de disabled olduğu için
+    # tarayıcı bu alanı POST verisinde göndermez:
+    data = _case_data(
+        owner,
+        archive_folder_no=case.archive_folder_no,
+        archive_no=case.archive_no,
+        client_role="defendant_authority",
+    )
+    data.pop("case_type", None)
+    data[f"party_role_{link.pk}"] = "plaintiff"
+
+    response = lawyer_client.post(reverse("cases:update", args=[case.pk]), data)
+    assert response.status_code == 302
+    link.refresh_from_db()
+    assert link.role == "plaintiff"

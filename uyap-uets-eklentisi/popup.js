@@ -159,7 +159,7 @@ document.getElementById('download').addEventListener('click', async () => {
   const url = URL.createObjectURL(new Blob([JSON.stringify(captures, null, 2)], { type: 'application/json' }));
   const link = document.createElement('a');
   link.href = url;
-  link.download = 'uyap-uets-deneme.json';
+  link.download = 'uyap-uets-aktarim.json';
   link.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 });

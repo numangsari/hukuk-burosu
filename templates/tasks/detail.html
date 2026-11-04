@@ -122,7 +122,7 @@
     <textarea class="form-control mb-3" id="close-note" name="comment" rows="3" required></textarea>
     {% endif %}
 
-    {% if task.requires_accounting %}
+    {% if task.requires_accounting or task.task_type.requires_accounting %}
     <label class="form-label" for="ledger-entry">Yapılan gelir/gider işlemi *</label>
     <select class="form-select mb-2" id="ledger-entry" name="ledger_id" required>
       <option value="">Kayıt seçin</option>

@@ -14,18 +14,18 @@ import logging
 
 from django.utils import timezone
 
-from apps.cases.models import Hearing, HearingStatus
+from apps.cases.models import Hearing, HearingKind, HearingStatus
 from apps.office.models import OfficeSettings
 
 log = logging.getLogger(__name__)
 
 
-def get_calendar_service(office: OfficeSettings | None = None):
+def get_calendar_service(office: OfficeSettings | None = None, require_enabled: bool = True):
     """Google Calendar v3 API istemcisini döndürür; ayar yoksa None döner."""
     if office is None:
         office = OfficeSettings.load()
 
-    if not office.google_calendar_api_enabled:
+    if require_enabled and not office.google_calendar_api_enabled:
         return None, None
 
     cal_id = (office.google_calendar_id or "").strip()
@@ -51,20 +51,71 @@ def get_calendar_service(office: OfficeSettings | None = None):
 
 def hearing_to_google_payload(hearing: Hearing) -> dict:
     """Hearing modelini Google Calendar Event payload formatına çevirir."""
-    kind_label = hearing.get_kind_display()
-    title = hearing.title_display
-    summary = f"[{kind_label}] {title}"
+    office = OfficeSettings.load()
+
+    # Önek: Keşif için [Keşif] (Duruşma ve Ön İnceleme için önek yok)
+    prefix = ""
+    if hearing.kind == HearingKind.DISCOVERY:
+        prefix = "[Keşif] "
+    elif hearing.kind == HearingKind.MEDIATION:
+        prefix = "[Arabuluculuk] "
+    elif hearing.kind == HearingKind.CLIENT_MEETING:
+        prefix = "[Görüşme] "
+    elif hearing.kind == HearingKind.OFFICE_MEETING:
+        prefix = "[Toplantı] "
+    elif hearing.kind == HearingKind.EXPERT:
+        prefix = "[Bilirkişi] "
+    elif hearing.kind == HearingKind.OTHER:
+        prefix = "[Diğer] "
+
+    # Sorumlu adı veya Mazeret:
+    # Kullanıcı kuralı: Soyadı yazılmasın (yalnızca adı), köşeli parantez olmasın,
+    # mazeret gönderilecek seçildiyse Mazeret yazılsın.
+    if hearing.excuse_submitted:
+        responsible_str = "Mazeret"
+    else:
+        responsible = hearing.assigned_to
+        if not responsible and hearing.case:
+            responsible = hearing.case.responsible_lawyer
+        if responsible:
+            responsible_str = (responsible.first_name or responsible.username).strip()
+        else:
+            responsible_str = hearing.get_kind_display()
+
+    case_part = ""
+    if hearing.case:
+        case_part = hearing.case.display_name
+    elif hearing.authority:
+        case_part = hearing.authority
+    elif hearing.title:
+        case_part = hearing.title
+    else:
+        case_part = hearing.get_kind_display()
+
+    client = hearing.client or (hearing.case.client if hearing.case else None)
+    client_part = f" ({client})" if client else ""
+
+    summary = f"{prefix}{responsible_str} - {case_part}{client_part}".strip()
 
     lines = []
     if hearing.case:
         lines.append(f"Dosya: {hearing.case.display_name}")
         lines.append(f"Esas/No: {hearing.case.official_no or '—'}")
-    if hearing.client:
-        lines.append(f"Müvekkil: {hearing.client}")
+    if client:
+        lines.append(f"Müvekkil: {client}")
     if hearing.assigned_to:
-        lines.append(f"Sorumlu / Görevli: {hearing.assigned_to}")
+        lines.append(f"Duruşma Sorumlusu: {hearing.assigned_to}")
     elif hearing.case and hearing.case.responsible_lawyer:
         lines.append(f"Sorumlu Avukat: {hearing.case.responsible_lawyer}")
+
+    authority = hearing.authority or (hearing.case.authority if hearing.case else "")
+    if authority:
+        lines.append(f"Mahkeme/Birim: {authority}")
+    if hearing.room:
+        lines.append(f"Duruşma Salonu: {hearing.room}")
+
+    if hearing.excuse_submitted:
+        lines.append("\n[SİSTEM BİLGİSİ: Bu duruşmaya mazeret sunulması kararlaştırılmıştır.]")
 
     if hearing.notes:
         lines.append(f"\nNotlar:\n{hearing.notes}")
@@ -73,19 +124,8 @@ def hearing_to_google_payload(hearing: Hearing) -> dict:
     if hearing.portal_ref:
         lines.append(f"\nUYAP Ref: {hearing.portal_ref}")
 
-    office = OfficeSettings.load()
     lines.append(f"\n(Bu etkinlik {office.name} Otomasyonu tarafından oluşturulmuştur.)")
-
     description = "\n".join(lines)
-
-    location_parts = []
-    if hearing.authority:
-        location_parts.append(hearing.authority)
-    elif hearing.case and hearing.case.authority:
-        location_parts.append(hearing.case.authority)
-    if hearing.room:
-        location_parts.append(f"Salon: {hearing.room}")
-    location = " — ".join(location_parts)
 
     starts_at = timezone.localtime(hearing.starts_at)
     if hearing.ends_at:
@@ -94,10 +134,22 @@ def hearing_to_google_payload(hearing: Hearing) -> dict:
         ends_at = starts_at + dt.timedelta(minutes=30)
 
     tz_str = "Europe/Istanbul"
+    # Etkinlik türüne göre Google Takvim rengi:
+    if hearing.kind in (HearingKind.HEARING, HearingKind.PRELIMINARY):
+        color_id = getattr(office, "google_color_hearing", "9") or "9"
+    elif hearing.kind == HearingKind.DISCOVERY:
+        color_id = getattr(office, "google_color_discovery", "2") or "2"
+    elif hearing.kind in (HearingKind.CLIENT_MEETING, HearingKind.OFFICE_MEETING):
+        color_id = getattr(office, "google_color_meeting", "5") or "5"
+    elif hearing.kind == HearingKind.MEDIATION:
+        color_id = getattr(office, "google_color_mediation", "11") or "11"
+    else:
+        color_id = getattr(office, "google_color_other", "8") or "8"
+
     return {
         "summary": summary,
         "description": description,
-        "location": location,
+        "colorId": color_id,
         "start": {
             "dateTime": starts_at.isoformat(),
             "timeZone": tz_str,
@@ -219,3 +271,47 @@ def sync_all_hearings_to_google() -> dict:
         "synced": synced,
         "errors": errors,
     }
+
+
+def test_google_calendar_connection(office: OfficeSettings | None = None) -> tuple[bool, str]:
+    """Google Takvim API bağlantısını test eder: (başarılı_mı, mesaj) döndürür."""
+    if office is None:
+        office = OfficeSettings.load()
+
+    cal_id = (office.google_calendar_id or "").strip()
+    raw_json = (office.google_service_account_json or "").strip()
+
+    if not cal_id:
+        return False, "Google Takvim ID tanımlanmamış."
+    if not raw_json:
+        return False, "Google Service Account JSON anahtarı girilmemiş."
+
+    service, cal_id = get_calendar_service(office, require_enabled=False)
+    if service is None:
+        return False, "Google Calendar servisi başlatılamadı. JSON anahtarını kontrol edin."
+
+    from googleapiclient.errors import HttpError
+
+    try:
+        cal = service.calendars().get(calendarId=cal_id).execute()
+        summary = cal.get("summary", cal_id)
+        tz = cal.get("timeZone", "")
+        return True, f'Google Takvim bağlantısı başarılı! Hedef takvim: "{summary}" ({tz})'
+    except HttpError as e:
+        status = getattr(e, "status_code", None) or getattr(e, "resp", {}).status
+        if status == 404:
+            return (
+                False,
+                f"Takvim bulunamadı (404). '{cal_id}' ID'sinin doğruluğunu ve "
+                "takvimin Service Account e-postasıyla paylaşıldığını kontrol edin.",
+            )
+        if status == 403:
+            return (
+                False,
+                "Erişim yetkisi yetersiz (403). Google Takvim > Ayarlar > "
+                "'Belirli kişilerle paylaş' bölümünden Service Account e-postasına "
+                "'Etkinliklerde değişiklik yapma' izni verin.",
+            )
+        return False, f"Google API Hatası ({status}): {e}"
+    except Exception as e:
+        return False, f"Bağlantı sırasında beklenmeyen bir hata oluştu: {e}"

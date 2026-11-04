@@ -25,23 +25,77 @@ class OfficeForm(BootstrapMixin, forms.ModelForm):
 
 
 class CalendarForm(BootstrapMixin, forms.ModelForm):
-    """Gizli iCal adresi ekranda gösterilmez; boş bırakılırsa mevcut adres korunur."""
+    """Ofis Google Takvim ayarları (iCal salt okunur ve Google Calendar API yazma)."""
 
-    clear = forms.BooleanField(label="Takvim bağlantısını kaldır", required=False)
+    clear = forms.BooleanField(label="iCal takvim bağlantısını kaldır", required=False)
+    clear_api_key = forms.BooleanField(
+        label="Kayıtlı Service Account JSON anahtarını kaldır", required=False
+    )
 
     class Meta:
         model = OfficeSettings
-        fields = ["calendar_ics_url"]
+        fields = [
+            "calendar_ics_url",
+            "google_calendar_api_enabled",
+            "google_calendar_id",
+            "google_color_hearing",
+            "google_color_discovery",
+            "google_color_meeting",
+            "google_color_mediation",
+            "google_color_other",
+            "google_service_account_json",
+        ]
         widgets = {
             "calendar_ics_url": forms.PasswordInput(
                 attrs={"placeholder": "https://calendar.google.com/calendar/ical/.../basic.ics"}
-            )
+            ),
+            "google_calendar_id": forms.TextInput(
+                attrs={"placeholder": "primary veya ofis@gmail.com / ...@group.calendar.google.com"}
+            ),
+            "google_service_account_json": forms.Textarea(
+                attrs={
+                    "rows": 4,
+                    "placeholder": '{"type": "service_account", "project_id": "...", ...}',
+                    "style": "font-family: monospace; font-size: 0.85rem;",
+                }
+            ),
+        }
+        labels = {
+            "calendar_ics_url": "iCal gizli adresi",
+            "google_calendar_api_enabled": "Duruşmaları Google Takvim'e otomatik aktar",
+            "google_calendar_id": "Google Takvim ID",
+            "google_color_hearing": "Duruşma / Ön İnceleme Rengi",
+            "google_color_discovery": "Keşif Rengi",
+            "google_color_meeting": "Müvekkil Görüşmesi / Toplantı Rengi",
+            "google_color_mediation": "Arabuluculuk Rengi",
+            "google_color_other": "Bilirkişi / Diğer Rengi",
+            "google_service_account_json": "Google Service Account JSON anahtarı",
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["calendar_ics_url"].required = False
-        self._previous = self.instance.calendar_ics_url
+        self.fields["google_calendar_id"].required = False
+        for f in (
+            "google_color_hearing",
+            "google_color_discovery",
+            "google_color_meeting",
+            "google_color_mediation",
+            "google_color_other",
+            "google_service_account_json",
+        ):
+            self.fields[f].required = False
+        self._previous_ics = self.instance.calendar_ics_url
+        self._previous_json = self.instance.google_service_account_json
+        if self._previous_json:
+            self.fields["google_service_account_json"].widget.attrs["placeholder"] = (
+                "Anahtar tanımlı. Değiştirmek istemiyorsanız boş bırakın."
+            )
+            self.initial["google_service_account_json"] = ""
+
+    def clean_google_calendar_event_color(self):
+        val = (self.cleaned_data.get("google_calendar_event_color") or "").strip()
+        return val or "9"
 
     def clean_calendar_ics_url(self):
         value = self.cleaned_data.get("calendar_ics_url", "").strip()
@@ -49,12 +103,56 @@ class CalendarForm(BootstrapMixin, forms.ModelForm):
             raise forms.ValidationError("Adres https:// ile başlamalı.")
         return value
 
+    def clean_google_service_account_json(self):
+        value = self.cleaned_data.get("google_service_account_json", "").strip()
+        if not value:
+            return ""
+        import json
+
+        try:
+            parsed = json.loads(value)
+            if not isinstance(parsed, dict):
+                raise ValueError
+        except Exception:
+            raise forms.ValidationError(
+                "Girilen Service Account anahtarı geçerli bir JSON formatında değil."
+            ) from None
+        return value
+
+    def clean(self):
+        cleaned_data = super().clean()
+        api_enabled = cleaned_data.get("google_calendar_api_enabled")
+        cal_id = (cleaned_data.get("google_calendar_id") or "").strip()
+        clear_key = cleaned_data.get("clear_api_key")
+        json_val = (
+            ""
+            if clear_key
+            else (cleaned_data.get("google_service_account_json") or self._previous_json)
+        )
+
+        if api_enabled:
+            if not cal_id:
+                self.add_error("google_calendar_id", "API aktarımı açıkken Takvim ID zorunludur.")
+            if not json_val:
+                self.add_error(
+                    "google_service_account_json",
+                    "API aktarımı açıkken Service Account JSON anahtarı zorunludur.",
+                )
+        return cleaned_data
+
     def save(self, commit=True):
         obj = super().save(commit=False)
         if self.cleaned_data.get("clear"):
             obj.calendar_ics_url = ""
         elif not self.cleaned_data.get("calendar_ics_url"):
-            obj.calendar_ics_url = self._previous
+            obj.calendar_ics_url = self._previous_ics
+
+        if self.cleaned_data.get("clear_api_key"):
+            obj.google_service_account_json = ""
+            obj.google_calendar_api_enabled = False
+        elif not self.cleaned_data.get("google_service_account_json"):
+            obj.google_service_account_json = self._previous_json
+
         if commit:
             obj.save()
         return obj
@@ -115,7 +213,14 @@ class DocumentsRootForm(BootstrapMixin, forms.ModelForm):
 class TaskTypeForm(BootstrapMixin, forms.ModelForm):
     class Meta:
         model = TaskType
-        fields = ["name", "points", "requires_document", "is_active", "order"]
+        fields = [
+            "name",
+            "points",
+            "requires_document",
+            "requires_accounting",
+            "is_active",
+            "order",
+        ]
 
     def clean_name(self):
         from apps.core.text import tr_capitalize_words
@@ -123,7 +228,7 @@ class TaskTypeForm(BootstrapMixin, forms.ModelForm):
         return tr_capitalize_words(self.cleaned_data["name"])
 
 
-TaskTypeFormSet = forms.modelformset_factory(TaskType, form=TaskTypeForm, extra=1)
+TaskTypeFormSet = forms.modelformset_factory(TaskType, form=TaskTypeForm, extra=1, can_delete=True)
 
 
 class BackupSettingsForm(BootstrapMixin, forms.ModelForm):

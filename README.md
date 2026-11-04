@@ -31,7 +31,7 @@ Hukuk büroları için özel olarak tasarlanmış; dava, icra, müvekkil, görev
 - **Personel Görev Puanları:** Tamamlanan görev türlerine göre personel performans puanlaması.
 
 ### 5. UYAP & UETS Otomasyonu
-- **Tarayıcı Eklentisi:** UYAP Avukat Portal ve UETS oturumlarıyla doğrudan haberleşen yerel tarayıcı eklentisi (`uyap-uets-deneme`).
+- **Tarayıcı Eklentisi:** UYAP Avukat Portal ve UETS oturumlarıyla doğrudan haberleşen yerel tarayıcı eklentisi (`uyap-uets-eklentisi`).
 - **Dosya, Taraf ve Duruşma Eşitleme:** UYAP'taki dosya bilgileri, taraf listeleri, duruşmalar ve icra dosya hesapları sisteme otomatik aktarılır.
 - **Süreli Tebligat Görevleri:** UETS'ten gelen tebligatlardan otomatik yasal süre rozetleri hesaplanır ve tek tıkla görev oluşturulur.
 

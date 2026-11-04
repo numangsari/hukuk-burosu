@@ -50,6 +50,7 @@ class CaseForm(PreserveExistingAssigneeMixin, BootstrapMixin, forms.ModelForm):
                 "inputmode": "numeric",
                 "pattern": "[0-9]*",
                 "maxlength": "12",
+                "placeholder": "Sıra No",
                 "@input": r"$el.value = $el.value.replace(/\D/g, '')",
             }
         ),
@@ -122,11 +123,17 @@ class CaseForm(PreserveExistingAssigneeMixin, BootstrapMixin, forms.ModelForm):
         if not self.use_assistant:
             self.fields.pop("responsible_intern", None)
         kind = (
-            self.data.get("case_type")
-            if self.is_bound
-            else self.initial.get("case_type", self.instance.case_type or "civil")
+            (self.data.get("case_type") if (self.is_bound and self.data.get("case_type")) else None)
+            or getattr(self.instance, "case_type", None)
+            or self.initial.get("case_type")
+            or "civil"
         )
-        self.fields["client_role"].choices = [("", "Seçiniz…"), *PARTY_ROLES.get(kind, [])]
+        client_choices = [("", "Seçiniz…"), *PARTY_ROLES.get(kind, [])]
+        if self.instance.client_role and self.instance.client_role not in dict(client_choices):
+            client_choices.append(
+                (self.instance.client_role, self.instance.get_client_role_display())
+            )
+        self.fields["client_role"].choices = client_choices
         self.fields["client_role"].widget.attrs["data-party-role"] = ""
         self.fields["client_role"].required = not (imported and not self.instance.client_role)
         self.existing_party_rows = []
@@ -134,7 +141,7 @@ class CaseForm(PreserveExistingAssigneeMixin, BootstrapMixin, forms.ModelForm):
             for link in self.instance.party_links.select_related("party"):
                 name = f"party_role_{link.pk}"
                 choices = list(PARTY_ROLES.get(kind, []))
-                if kind == self.instance.case_type and link.role not in dict(choices):
+                if link.role and link.role not in dict(choices):
                     choices.append((link.role, link.get_role_display()))
                 self.fields[name] = forms.ChoiceField(
                     label="Taraf sıfatı",
@@ -442,6 +449,74 @@ class HearingResultForm(BootstrapMixin, forms.ModelForm):
         model = Hearing
         fields = ["status", "result"]
         widgets = {"result": forms.Textarea(attrs={"rows": 2})}
+
+
+class HearingTaskCreateForm(BootstrapMixin, forms.ModelForm):
+    excuse_submitted = forms.BooleanField(
+        label="Mazeret sunulacak",
+        required=False,
+        help_text=(
+            "Bu duruşmaya mazeret sunulacaksa işaretleyin "
+            "(Google Takvim'e ve ajandaya Mazeret olarak yansır)."
+        ),
+    )
+    client = forms.ModelChoiceField(
+        label="Müvekkil",
+        queryset=Client.objects.all(),
+        required=False,
+    )
+    case = forms.ModelChoiceField(
+        label="Dosya",
+        queryset=Case.objects.exclude(status=CaseStatus.CLOSED),
+        required=False,
+    )
+
+    class Meta:
+        from apps.tasks.models import Task
+
+        model = Task
+        fields = [
+            "task_type",
+            "title",
+            "case",
+            "assignee",
+            "reviewer",
+            "due_date",
+            "notes",
+        ]
+        widgets = {
+            "due_date": DateInput(),
+            "notes": forms.Textarea(attrs={"rows": 2}),
+        }
+
+    def __init__(self, *args, hearing=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.hearing = hearing
+        self.fields["assignee"].required = True
+        self.fields["reviewer"].required = False
+        self.fields["reviewer"].empty_label = "Kontrolcü yok (Doğrudan kapanır)"
+        self.fields["title"].widget.attrs["class"] += " text-uppercase-input"
+        if hearing:
+            self.initial.setdefault("excuse_submitted", hearing.excuse_submitted)
+
+    def clean(self):
+        cleaned_data = super().clean()
+        case = cleaned_data.get("case")
+        client = cleaned_data.get("client")
+        if case and case.client:
+            cleaned_data["client"] = case.client
+        elif case and not case.client:
+            self.add_error(
+                "case", "Bu dosyanın müvekkili henüz seçilmemiş. Önce dosyadan müvekkil seçin."
+            )
+        elif not case and not client:
+            self.add_error("client", "Müvekkil seçimi zorunludur.")
+
+        a = cleaned_data.get("assignee")
+        r = cleaned_data.get("reviewer")
+        if a and r and a == r:
+            self.add_error("reviewer", "Kontrolcü, sorumludan farklı biri olmalı.")
+        return cleaned_data
 
 
 class CaseEventForm(BootstrapMixin, forms.ModelForm):

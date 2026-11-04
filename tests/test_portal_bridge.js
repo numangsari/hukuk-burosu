@@ -14,7 +14,7 @@ test('Hesap değişince sorgu ve aktarım için izin vermez', async () => {
   }}};
   const location = {hostname:'ptt.etebligat.gov.tr', origin:'https://ptt.etebligat.gov.tr'};
   const document = {querySelectorAll() { return [{textContent:'Seçili Hesap: ' + name}]; }};
-  vm.runInNewContext(fs.readFileSync('uyap-uets-deneme/bridge.js', 'utf8'), {window, document, location, chrome});
+  vm.runInNewContext(fs.readFileSync('uyap-uets-eklentisi/bridge.js', 'utf8'), {window, document, location, chrome});
   extensionListener({type:'auto_scan'});
   await new Promise(resolve => setImmediate(resolve));
   assert.ok(messages.some(item => item.source === 'ozkurt-auto'));

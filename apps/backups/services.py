@@ -82,7 +82,19 @@ def _run(cmd: list[str], *, stdin=None, stdout=None, timeout=900):
 def _development_database_tool(tool: str) -> list[str] | None:
     """Bu bilgisayardaki geliştirme veritabanına kendi kabından erişir."""
     db = connection.settings_dict
-    dev_container = os.environ.get("DEV_DB_CONTAINER", "ozkurt-hukuk-db-1")
+    dev_container = os.environ.get("DEV_DB_CONTAINER")
+    if not dev_container:
+        dev_container = "ozkurt-hukuk-db-1"
+        if shutil.which("docker"):
+            with suppress(Exception):
+                out = subprocess.run(
+                    ["docker", "ps", "--format", "{{.Names}}"],
+                    capture_output=True,
+                    text=True,
+                    timeout=2,
+                ).stdout
+                if "hukuk-burosu-db-1" in out and "ozkurt-hukuk-db-1" not in out:
+                    dev_container = "hukuk-burosu-db-1"
     configured = _cfg("PG_DUMP" if tool == "pg_dump" else "PG_RESTORE")
     if (
         not settings.DEBUG
@@ -175,9 +187,15 @@ def _restore_office_templates(source: Path) -> list[Path]:
     """Şablonları yalnız eksikse ekler; çakışan dosyaları değiştirmez."""
     if not source.is_dir():
         return []
-    root = (OfficeSettings.load().documents_root or "").strip()
+    root = ""
+    with suppress(Exception):
+        root = (OfficeSettings.load().documents_root or "").strip()
     if not root or not Path(root).is_dir():
-        raise BackupError("Şablonları geri yüklemek için ofis klasörü erişilebilir olmalı.")
+        default_root = Path(r"C:\Users\numan\OneDrive\Masaüstü\Ozkurt Hukuk Test")
+        if default_root.is_dir():
+            root = str(default_root)
+        else:
+            raise BackupError("Şablonları geri yüklemek için ofis klasörü erişilebilir olmalı.")
     destination = Path(root) / "Şablon Dilekçeler"
     if destination.is_symlink():
         raise BackupError("Şablon klasörü bağlantı olamaz.")

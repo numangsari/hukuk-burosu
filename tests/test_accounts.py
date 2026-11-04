@@ -4,6 +4,7 @@ from django.core.management.base import CommandError
 from django.urls import reverse
 
 from apps.accounts.models import User
+from apps.office.models import OfficeSettings
 
 pytestmark = pytest.mark.django_db
 
@@ -114,6 +115,87 @@ def test_office_and_calendar_settings_admin_only(client, pin_user):
     assert secret not in client.get(url, {"bolum": "takvim"}).content.decode()
     client.post(url, {"section": "takvim", "calendar_ics_url": "", "clear": "on"})
     assert OfficeSettings.load().calendar_ics_url == ""
+
+
+def test_google_calendar_api_settings_and_test_endpoint(client, pin_user, monkeypatch):
+    pin_user.role = User.Role.ADMIN
+    pin_user.save()
+    client.force_login(pin_user)
+
+    url = reverse("accounts:settings")
+
+    # 1. API aktifken ID ve JSON zorunlu olmalı
+    r = client.post(
+        url,
+        {
+            "section": "takvim",
+            "google_calendar_api_enabled": "on",
+            "google_calendar_id": "",
+            "google_service_account_json": "",
+        },
+    )
+    assert r.status_code == 200
+    assert "zorunludur" in r.content.decode()
+
+    # 2. Geçerli JSON ve ID ile kaydetme
+    valid_json = '{"type": "service_account", "project_id": "test-proj", "client_email": "test@test.iam.gserviceaccount.com"}'
+    r = client.post(
+        url,
+        {
+            "section": "takvim",
+            "google_calendar_api_enabled": "on",
+            "google_calendar_id": "test-cal@group.calendar.google.com",
+            "google_service_account_json": valid_json,
+        },
+    )
+    assert r.status_code == 302
+    office = OfficeSettings.load()
+    assert office.google_calendar_api_enabled is True
+    assert office.google_calendar_id == "test-cal@group.calendar.google.com"
+    assert "test-proj" in office.google_service_account_json
+
+    # 3. Sayfa açıldığında ham JSON textarea'da gösterilmez, servis hesabı bilgisi görünür
+    r_get = client.get(url, {"bolum": "takvim"})
+    html = r_get.content.decode()
+    assert "test@test.iam.gserviceaccount.com" in html
+    assert valid_json not in html
+
+    # 4. Boş gönderildiğinde mevcut JSON korunur
+    client.post(
+        url,
+        {
+            "section": "takvim",
+            "google_calendar_api_enabled": "on",
+            "google_calendar_id": "test-cal@group.calendar.google.com",
+            "google_service_account_json": "",
+        },
+    )
+    office = OfficeSettings.load()
+    assert "test-proj" in office.google_service_account_json
+
+    # 5. Test endpointi (GoogleApiTestView)
+    from apps.agenda import google_sync
+
+    monkeypatch.setattr(
+        google_sync,
+        "test_google_calendar_connection",
+        lambda: (True, "Google Takvim bağlantısı başarılı!"),
+    )
+    r_test = client.post(reverse("agenda:google_test"))
+    assert r_test.status_code == 200
+    assert "Google Takvim bağlantısı başarılı!" in r_test.content.decode()
+
+    # 6. clear_api_key ile anahtarı ve etkinliği temizleme
+    client.post(
+        url,
+        {
+            "section": "takvim",
+            "clear_api_key": "on",
+        },
+    )
+    office = OfficeSettings.load()
+    assert office.google_service_account_json == ""
+    assert office.google_calendar_api_enabled is False
 
 
 def test_setup_office_users():
@@ -399,3 +481,91 @@ def test_initial_setup_wizard_when_no_active_users(client, db):
     r_after = client.get(reverse("accounts:initial_setup"))
     assert r_after.status_code == 302
     assert r_after.url == reverse("accounts:login")
+
+
+def test_task_type_crud_and_requires_accounting(client, admin_user):
+    from apps.office.models import TaskType
+
+    client.force_login(admin_user)
+    # Yeni bir görev türü ekleme (gelir/gider zorunlu olarak)
+    qs = list(TaskType.objects.all())
+    data = {
+        "section": "gorev_turleri",
+        "tt-TOTAL_FORMS": len(qs) + 1,
+        "tt-INITIAL_FORMS": len(qs),
+    }
+    for i, t in enumerate(qs):
+        data.update(
+            {
+                f"tt-{i}-id": t.pk,
+                f"tt-{i}-name": t.name,
+                f"tt-{i}-order": t.order,
+                f"tt-{i}-points": t.points,
+            }
+        )
+        if t.is_active:
+            data[f"tt-{i}-is_active"] = "on"
+        if t.requires_document:
+            data[f"tt-{i}-requires_document"] = "on"
+        if t.requires_accounting:
+            data[f"tt-{i}-requires_accounting"] = "on"
+    data.update(
+        {
+            f"tt-{len(qs)}-name": "Haciz Talebi",
+            f"tt-{len(qs)}-order": 15,
+            f"tt-{len(qs)}-points": 3,
+            f"tt-{len(qs)}-is_active": "on",
+            f"tt-{len(qs)}-requires_accounting": "on",
+        }
+    )
+    r = client.post(reverse("accounts:settings"), data)
+    assert r.status_code == 302
+    new_tt = TaskType.objects.get(name="Haciz Talebi")
+    assert new_tt.requires_accounting is True
+
+    # Silme işlemi: Yeni türü silelim
+    qs2 = list(TaskType.objects.all())
+    delete_idx = next(i for i, t in enumerate(qs2) if t.pk == new_tt.pk)
+    del_data = {
+        "section": "gorev_turleri",
+        "tt-TOTAL_FORMS": len(qs2),
+        "tt-INITIAL_FORMS": len(qs2),
+    }
+    for i, t in enumerate(qs2):
+        del_data.update(
+            {
+                f"tt-{i}-id": t.pk,
+                f"tt-{i}-name": t.name,
+                f"tt-{i}-order": t.order,
+                f"tt-{i}-points": t.points,
+            }
+        )
+        if t.is_active:
+            del_data[f"tt-{i}-is_active"] = "on"
+        if i == delete_idx:
+            del_data[f"tt-{i}-DELETE"] = "on"
+    r_del = client.post(reverse("accounts:settings"), del_data)
+    assert r_del.status_code == 302
+    assert not TaskType.objects.filter(pk=new_tt.pk).exists()
+
+
+def test_calendar_colors_settings(client, admin_user):
+    from apps.office.models import OfficeSettings
+
+    client.force_login(admin_user)
+    data = {
+        "section": "takvim",
+        "google_color_hearing": "9",
+        "google_color_discovery": "2",
+        "google_color_meeting": "5",
+        "google_color_mediation": "11",
+        "google_color_other": "8",
+    }
+    r = client.post(reverse("accounts:settings"), data)
+    assert r.status_code == 302
+    office = OfficeSettings.load()
+    assert office.google_color_hearing == "9"
+    assert office.google_color_discovery == "2"
+    assert office.google_color_meeting == "5"
+    assert office.google_color_mediation == "11"
+    assert office.google_color_other == "8"

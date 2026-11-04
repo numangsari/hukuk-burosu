@@ -46,16 +46,6 @@
       <div class="nav-section">Finans ve Rapor</div>
       {% if can_view_accounting %}<a class="side-link {% if ns == 'accounting' %}active{% endif %}" href="{% url 'accounting:list' %}"><i class="bi bi-wallet2"></i>Muhasebe</a>{% endif %}
       <a class="side-link {% if ns == 'reports' %}active{% endif %}" href="{% url 'reports:index' %}"><i class="bi bi-bar-chart-line"></i>Raporlar</a>
-      <div class="nav-section">Sistem</div>
-      {% if request.user.is_office_admin %}
-      <a class="side-link" href="{% url 'accounts:settings' %}?bolum=monitor"><i class="bi bi-activity"></i>Sistem monitörü</a>
-      <a class="side-link" href="{% url 'portal_review' %}"><i class="bi bi-cloud-arrow-down"></i>UYAP ve UETS inceleme</a>
-      {% endif %}
-      <a class="side-link {% if ns == 'activity' %}active{% endif %}" href="{% url 'activity:list' %}"><i class="bi bi-clock-history"></i>Aktivite kaydı</a>
-      {% if request.user.is_office_admin %}
-      <a class="side-link" href="{% url 'accounts:settings' %}?bolum=veri_aktarim"><i class="bi bi-database-down"></i>Veri içe / dışa aktar</a>
-      <a class="side-link" href="{% url 'admin:index' %}"><i class="bi bi-sliders"></i>Yönetim paneli</a>
-      {% endif %}
       <div class="nav-section">Kısayollar</div>
       {% include "partials/office_links.html" %}
     </nav>

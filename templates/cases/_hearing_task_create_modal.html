@@ -1,0 +1,63 @@
+{# Duruşmadan Görev Oluşturma Modalı (HTMX ile #hearing-task-modal-dialog içine yüklenir) #}
+<form class="modal-content" method="post" action="{% url 'hearings:task_create' hearing.pk %}"
+      hx-post="{% url 'hearings:task_create' hearing.pk %}"
+      hx-target="#hearing-task-modal-dialog"
+      hx-disabled-elt="find button[type=submit]">
+  {% csrf_token %}
+  <div class="modal-header">
+    <h2 class="modal-title fs-6"><i class="bi bi-calendar-check me-2 text-primary"></i>Duruşma İçin Görev Oluştur</h2>
+    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Kapat"></button>
+  </div>
+  <div class="modal-body">
+    <div class="alert alert-info py-2 px-3 small mb-3">
+      <strong>Duruşma:</strong> {{ hearing.starts_at|date:"d.m.Y H:i" }} · {{ hearing.authority|default:hearing.case.authority|default:"—" }}
+      {% if hearing.case %}<span class="badge bg-primary-subtle text-primary ms-2">{{ hearing.case.display_name }}</span>{% endif %}
+      <div class="text-body-secondary mt-1">Duruşma sorumlusu, mazeret ve dosya bilgileri güncellenerek sorumluya takip görevi atanır.</div>
+    </div>
+    {% if form.non_field_errors %}
+      <div class="alert alert-danger py-2">{{ form.non_field_errors }}</div>
+    {% endif %}
+
+    <div class="row g-3">
+      <div class="col-md-5">
+        {% include "partials/field.html" with field=form.task_type %}
+      </div>
+      <div class="col-md-7">
+        {% include "partials/field.html" with field=form.title %}
+      </div>
+      <div class="col-md-6">
+        {% include "partials/field.html" with field=form.case %}
+      </div>
+      <div class="col-md-6">
+        {% include "partials/field.html" with field=form.client %}
+      </div>
+      <div class="col-md-4">
+        {% include "partials/field.html" with field=form.assignee %}
+      </div>
+      <div class="col-md-4">
+        {% include "partials/field.html" with field=form.reviewer %}
+      </div>
+      <div class="col-md-4">
+        {% include "partials/field.html" with field=form.due_date %}
+      </div>
+      <div class="col-12">
+        <div class="p-2 bg-light-subtle border rounded">
+          <div class="form-check mb-0">
+            {{ form.excuse_submitted }}
+            <label class="form-check-label fw-medium ms-1" for="{{ form.excuse_submitted.id_for_label }}">
+              Mazeret Gönderilecek / Sunulacak
+            </label>
+            <div class="form-text small text-body-secondary mt-1">{{ form.excuse_submitted.help_text }}</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-12">
+        {% include "partials/field.html" with field=form.notes wrap_class="mb-0" %}
+      </div>
+    </div>
+  </div>
+  <div class="modal-footer">
+    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Vazgeç</button>
+    <button type="submit" class="btn btn-primary"><i class="bi bi-check2 me-1"></i>Görevi Oluştur</button>
+  </div>
+</form>

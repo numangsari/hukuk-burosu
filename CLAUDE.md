@@ -1,6 +1,8 @@
 # Hukuk Büro Yönetim Sistemi — Geliştirici & Mimari El Kitabı
 
-Bu dosya projenin tek bilgi kaynağıdır (`Single Source of Truth`). Geliştirici ajanlar ve katkıda bulunanlar kuralları buradan okur (`AGENTS.md` buraya yönlendirir). Oturum başında okuyun, yapılan değişikliklerden sonra güncelleyin. Değer değil, yalnızca ortam değişkeni adları yazılır.
+Bu dosya projenin **mimari ve geliştirme kuralları için** tek bilgi kaynağıdır (`Single Source of Truth`). Geliştirici ajanlar ve katkıda bulunanlar kuralları buradan okur (`AGENTS.md` buraya yönlendirir). Oturum başında okuyun; mimari, iş kuralı, entegrasyon veya çalışma komutu değiştiğinde güncelleyin. Küçük ve mevcut kuralları etkilemeyen düzenlemelerde gereksiz dokümantasyon değişikliği yapmayın. Gizli değerler, gerçek kullanıcı/müvekkil verileri ve tokenlar yazılmaz; gerekiyorsa yalnızca ortam değişkeni adları belirtilir.
+
+> **Belge statüsü:** 1–4. bölümler mevcut sistemin dokümante edilmiş davranışlarını anlatır. 5–12. bölümler geliştirme ajanları için **uygulanacak kurallardır**; yeni kuralların yazılması ilgili güvenlik/teknik özelliğin kodda zaten uygulandığı anlamına gelmez. Davranıştan emin olunmadığında kod ve testlerle doğrulayın.
 
 ---
 
@@ -67,7 +69,7 @@ uv run ruff format --check .                         # Format denetimi
   - `accounting_edit_mode`: `everyone` (herkes gelir/gider ekleyebilir) veya `restricted` (yalnızca yönetici, muhasebe ve yetkililer).
   - `notice_default_due_days`: UETS tebligatları için varsayılan ek süre (varsayılan: 14 gün).
   - `use_task_points`: Personel görev puanı sistemini açıp kapatır.
-- **`TaskType`:** Kategorize edilmiş görev türleri, varsayılan puanları ve belge zorunluluğu bayrağı.
+- **`TaskType`:** Kategorize edilmiş görev türleri, varsayılan puanları, belge zorunluluğu (`requires_document`) ve gelir/gider zorunluluğu (`requires_accounting`) bayrakları. Yöneticiler Ayarlar > Görev türleri ekranından yeni türler ekleyebilir, mevcutları silebilir veya ayarlarını düzenleyebilir.
 - **`Court`:** Yargı merci listesi.
 
 ### `apps/clients`
@@ -89,13 +91,20 @@ uv run ruff format --check .                         # Format denetimi
   - Hafta Görünümü (`view=week`): Saatlik ve günlük ajanda.
   - Liste / Duruşmalar Görünümü (`view=list`): Yaklaşanlar, Bugün, Sonuç Bekleyenler, Geçmiş ve Tümü sekmeleri. Sayaçlar, sorumlu/tür/durum filtreleri, hızlı ara karar modalı ve Excel dökümü.
 - **`Hearing` Modeli:** Hem dava duruşmalarını hem de dosyasız müvekkil randevularını, arabuluculuk oturumlarını ve ofis toplantılarını destekler (`case=None`, `client`, `title`, `assigned_to`, `ends_at`).
-- **Otomatik Duruşma Görevi (`hearing_tasks.py`):**
+- **Otomatik Duruşma Görevi (`hearing_tasks.py`) & Bağlantılı Görev Akışı:**
+  - Duruşmalar bağımsız tıklanabilir sayfa yerine tebligatlar (`PortalNotice`) gibi yönetilir. Bağlantılı görevi olmayan duruşmalar takvimde tıklanamaz (`<span>`) görünür; duruşmalar listesinde ve dosya detayında "Görev oluştur" butonu yer alır.
+  - "Görev oluştur" modalı üzerinden Sorumlu, Mazeret ("Mazeret sunulacak"), Dosya, Müvekkil, Son Gün ve Notlar belirlenerek bağlı `Task` oluşturulur.
+  - Görev oluşturulduğunda duruşmanın sorumlusu ve mazeret durumu güncellenir, Google Takvim'e otomatik yansıtılır. Bağlantılı görevi olan duruşmalar takvimden ve listeden doğrudan göreve yönlendirir.
   - Duruşmadan 1 gün önce sabah dosya sorumlusuna otomatik görev açılır: `"{case.display_name} DURUŞMASI İŞLEMLERİ YAPILACAK VE MÜVEKKİLE BİLGİ VERİLECEK"`.
   - Görev duruşmaya bağlıdır (`task.hearing`) ve kontrolcüsüz doğrudan kapatılabilir.
   - Görev kapatılırken: duruşmaya girilmediyse *"Mazeret Gönderildi"* (mazeret açıklamasıyla), girildiyse *"Duruşmada Verilen Kararlar"* zorunlu doldurulup *"Müvekkile Bilgi Verildi / Verilmedi"* seçenekleri işaretlenir. Bilgiler duruşma kartına ve dosya zaman çizelgesine (`CaseEvent`) otomatik işlenir.
 - **Google Takvim API Tek Yönlü Entegrasyon (`google_sync.py`):**
-  - Sistemdeki duruşma ve toplantılar ofis Google Takvimi'ne tek yönlü aktarılır ve güncellenir.
+  - Ayarlar sayfasında iki bağımsız bölüm: 1) Salt okunur iCal okuma adresi (`calendar_ics_url`), 2) Google Calendar API eşitleme ayarları (`google_calendar_api_enabled`, `google_calendar_id`, `google_service_account_json`).
+  - Ayarlar arayüzünde canlı API bağlantı testi (`/takvim/google-test/`, `test_google_calendar_connection`) ve tüm duruşmaları toplu eşitleme desteği.
+  - Sistemdeki duruşma ve toplantılar ofis Google Takvimi'ne tek yönlü aktarılır ve güncellenir. Başlık formatı: `[Keşif] Sorumlu Adı - Mahkeme Esas No (Müvekkil)` (Duruşma ve Ön İncelemede önek yoktur; Keşifte `[Keşif] ` öneki konur. Sorumlu kişinin soyadı yazılmaz yalnızca adı yazılır ve köşeli parantez kullanılmaz; mazeret sunulmuşsa `Mazeret - ...` olarak aktarılır). Konum alanı sadeleştirme amacıyla Google Takvim'e gönderilmez.
+  - Renk desteği: Etkinlik türüne göre ayarlanabilir Google Takvim renk seçimi (`google_color_hearing`: Duruşma/Ön İnceleme - varsayılan Mavi 9, `google_color_discovery`: Keşif - varsayılan Yeşil 2, `google_color_meeting`: Müvekkil Görüşmesi/Toplantı - varsayılan Sarı 5, `google_color_mediation`: Arabuluculuk - varsayılan Kırmızı 11, `google_color_other`: Bilirkişi/Diğer - varsayılan Gri 8).
   - Google Takvim'deki mevcut veya harici etkinliklere kesinlikle dokunulmaz; mükerrer kayıt `google_event_id` ile engellenir.
+- **Arayüz & Navigasyon:** Sol menüdeki "Sistem" menü grubu sadeleştirme amacıyla kaldırılmış; Sistem monitörü, UYAP/UETS inceleme, Aktivite kaydı, Veri aktarımı ve Django yönetim paneli bağlantıları Ayarlar > Sistem ve Gözlem bölümüne taşınmıştır. Dava/dosya numara girişi tek satırda kompakt ve estetik olarak hizalanmıştır.
 
 ### Fiziki Arşiv Modülü (`/arsiv/`)
 - **Merkezi Fiziki Arşiv Yönetimi (`views_archive.py`):**
@@ -122,8 +131,8 @@ uv run ruff format --check .                         # Format denetimi
 - **Kayıt Bütünlüğü:** Muhasebe hareketi silinmez; gerekirse iptal edilir (`cancelled`). Kasa toplamları ve bakiyeler yalnızca bakiye görme yetkisi (`can_view_balances`) olan kullanıcılara gösterilir.
 
 ### `apps/imports` & UYAP/UETS Entegrasyonu
-- **Tarayıcı Eklentisi (`uyap-uets-deneme`):** UYAP Avukat Portal ve UETS oturumlarını yerel sunucuya bağlar.
-- **Tam Dosya & Taraf Eşitlemesi (`portal_case_sync.py`):** Canlı UYAP aktarımında eşleşen büro dosyası yoksa otomatik `Case` açılır; vekili olduğumuz taraf sistemdeki bir müvekkille eşleşirse bağlanır, eşleşmezse `client=None` bırakılarak "Eksik büro bilgisi" filtresine (`?missing=1`) düşer. UYAP'tan gelen duruşmalar `Hearing` kaydı olarak aktarılır.
+- **Tarayıcı Eklentisi (`uyap-uets-eklentisi`):** UYAP Avukat Portal ve UETS oturumlarını yerel sunucuya bağlar.
+- **Dosya Bilgisi & Taraf Eşitlemesi (`portal_case_sync.py`):** Canlı UYAP aktarımında eşleşen büro dosyası yoksa otomatik `Case` açılır; vekili olduğumuz taraf sistemdeki bir müvekkille eşleşirse bağlanır, eşleşmezse `client=None` bırakılarak "Eksik büro bilgisi" filtresine (`?missing=1`) düşer. UYAP'tan gelen duruşmalar `Hearing` kaydı olarak aktarılır. **UYAP dosyalarının evrakları henüz otomatik çekilmez**; sisteme ayrıca yüklenmiş belgelerle UYAP dosya bilgileri birbirinden ayrıdır.
 - **Tebligat Yönetimi:** UETS tebligatlarından tebliğ tarihine yasal süre eklenerek süreli görev oluşturma pop-up'ı.
 
 ### `apps/reports` & Sistem Monitörü
@@ -140,7 +149,7 @@ uv run ruff format --check .                         # Format denetimi
 
 ## 4. İş Kuralları ve Prensipler
 
-1. **Dosya ve Müvekkil İlişkisi:** Her görev bir dosyaya, her dosya bir müvekkile bağlıdır. Görevdeki müvekkil dosyadan otomatik gelir.
+1. **Dosya ve Müvekkil İlişkisi:** Görevler ilgili dosya bağlamında yönetilir; görevdeki müvekkil bilgisi dosyadan türetilir. **İstisna:** UYAP'tan yeni aktarılan ve müvekkili henüz eşleştirilemeyen `Case` kayıtlarında `client=None` olabilir. Bu dosyalarda müvekkil varmış gibi varsayım yapılmaz; eşleştirme kullanıcı tarafından tamamlanır. Yeni kod bu geçici durumu güvenli biçimde ele almalıdır.
 2. **Kayıt Silme Yetkisi:** Dosya, müvekkil, duruşma ve muhasebe kayıtlarını yalnızca yönetici silebilir. Muhasebe hareketleri fiziksel silinmek yerine iptal edilir.
 3. **Ofis Klasör Yapısı:** Belgeler `OfficeSettings.documents_root` altında düzenli hiyerarşide tutulur: `<Kök>\Müvekkiller\<Müvekkil Adı>\<Dosya Adı>\`.
 4. **Türkçe Karakter Standardı:** Müvekkil adları, dosya konuları ve görev başlıkları model seviyesinde Türkçe kurallarla büyük harfe dönüştürülür (`tr_upper`).
@@ -151,5 +160,96 @@ uv run ruff format --check .                         # Format denetimi
 ## 5. Çalışma Standartları
 
 - **Kod Dili:** Kodlar, fonksiyonlar, modeller ve değişkenler İngilizce; kullanıcı arayüzü, hata mesajları, commit mesajları ve dokümantasyon **Türkçe** olmalıdır.
-- **Test ve Denetim:** Yapılan her değişiklikten sonra `uv run pytest` ve `uv run ruff check .` çalıştırılmalı; testler firesiz geçmeli ve lint hatası bulunmamalıdır.
-- **Tek Bilgi Kaynağı:** Projeye dair tüm kararlar ve yapısal değişiklikler bu dosyada (`CLAUDE.md`) güncellenerek kayıt altına alınır.
+- **Test ve Denetim:** Yapılan her kod değişikliğinden sonra ilgili hedefli testler, ardından `uv run pytest`, `uv run ruff check .` ve `uv run ruff format --check .` çalıştırılmalıdır. Çalıştırılamayan komutlar veya başarısız sonuçlar açıkça raporlanır; sonuç uydurulmaz.
+- **Tek Bilgi Kaynağı:** Mimari kararlar, kalıcı iş kuralları, entegrasyon sınırları ve geliştirme komutlarındaki değişiklikler bu dosyada (`CLAUDE.md`) güncellenir. Geçici görev notları veya her küçük refaktör buraya yazılmaz.
+
+---
+
+## 6. Geliştirici Ajan İş Akışı (Zorunlu)
+
+Ajan her görevde şu sırayı izler; kullanıcı açıkça daha dar kapsam istemedikçe doğrulamayı atlamaz:
+
+1. **Anla:** İsteği, beklenen sonucu, etkilenen kullanıcı rollerini ve iş kurallarını belirle. Belirsiz kritik davranışı mevcut kod/testlerden doğrula; varsayımı gerçek olarak yazma.
+2. **İncele:** İlgili `models`, `views`, `forms`, `services`/yardımcı fonksiyonlar, template'ler, URL'ler, mevcut testler ve entegrasyon noktalarını oku. `git status` ile başlangıç değişikliklerini kontrol et; kullanıcıya ait değişiklikleri koru.
+3. **Planla:** Etkilenecek dosyaları, veri modeli veya migration ihtiyacını, izin kontrollerini, hata durumlarını ve test senaryolarını kısaca belirle. Gereksiz kapsam genişletme.
+4. **Uygula:** Küçük ve odaklı değişiklikler yap. Var olan mimariyi ve adlandırmayı izle; açıklanmamış yeni bağımlılık, servis veya genel soyutlama ekleme.
+5. **Doğrula:** Olumlu/olumsuz yolları, rol kısıtlarını, veri bütünlüğünü ve geriye dönük uyumluluğu test et. Bölüm 10'daki kontrolleri çalıştır.
+6. **Belgele ve bildir:** İlgili kalıcı kural değişmişse `CLAUDE.md` dosyasını güncelle. Sonuçta değişenleri, test sonuçlarını, uygulanmayan noktaları ve riskleri kısa raporla.
+
+**Güvenli değişiklik ilkeleri:** Kullanıcının ilgisiz değişikliklerini silme; izinsiz `git reset --hard`, `git clean`, veri silme veya production üzerinde migration çalıştırma. Hata düzeltirken önce tekrar üretilebilir bir test oluşturmayı tercih et. Büyük refaktörü kullanıcı istemedikçe işlevsel değişiklikten ayrı tut.
+
+---
+
+## 7. Mimari ve Kod Organizasyonu Kuralları
+
+- **Modül sahipliği:** `accounts` kimlik/rol, `clients` müvekkil, `cases` dosya/safahat, `tasks` görev/onay, `agenda` duruşma/takvim, `imports` dış veri aktarımı, `accounting` finans, `backups` yedekleme alanlarını sahiplenir. Başka bir modülün iş kuralını kopyalama; sahibi olan modülün mevcut arayüzünü kullan.
+- **Katman sorumluluğu:** `models` veri kuralları ve bütünlüğü; `forms` kullanıcı girdisi ve form doğrulaması; `views` HTTP akışı/yetki denetimi; `templates` sunum; `services` veya mevcut yardımcı fonksiyonlar birden çok adımlı işlemler ve haricî entegrasyonlar içindir. Mevcut kodda başka bir konvansiyon varsa önce onu incele; yeni bir `services.py` yapısını sırf standart olsun diye zorunlu kılma.
+- **İş mantığı:** Kritik kuralları yalnızca template/JavaScript içinde bırakma. HTMX uçları dahil bütün mutasyonlarda sunucu tarafında doğrulama ve yetki kontrolü yap.
+- **Bağımlılıklar:** Çapraz modül importlarında döngü oluşturma; yeni bağımlılık için gerekçe, çevrimdışı çalışma etkisi, kurulum/paketleme etkisi ve test ihtiyacını değerlendir.
+- **Entegrasyon izolasyonu:** UYAP/UETS, Google Calendar, dosya sistemi ve veritabanı işlemlerini mümkün olduğunca birbirinden ayrılabilir arayüzlerde tut. Ağ hatası, yinelenen kayıt, kısmi başarısızlık ve yeniden deneme senaryolarını ele al.
+- **Kullanıcı deneyimi:** Mevcut Türkçe arayüz, HTMX/Alpine.js yaklaşımı ve CDN'siz çalışma korunur. Yeni ekranlar erişim kontrolü, boş durum ve anlaşılır hata mesajı içerir.
+
+---
+
+## 8. Güvenlik ve Gizlilik Kuralları
+
+- **Sunucu tarafı yetki:** Her dosya, görev, belge, rapor ve finans kaydı için görüntüleme/değiştirme iznini istek bazında doğrula. Arayüzde düğmeyi gizlemek tek başına güvenlik değildir. `case_visibility_mode`, rol ve özel finans izinlerini birlikte değerlendir.
+- **Dosya erişimi:** Yüklemelerde dosya türü, boyut ve uzantı/içerik uygunluğunu denetle; kullanıcıdan gelen dosya yoluna güvenme. `documents_root` ve `media/` dışına path traversal ile erişimi önle. Dosya indirmelerinde de izin denetimi yap.
+- **Kimlik doğrulama:** Mevcut 4 haneli PIN ve başarısız denemede kilit bulunmaması **mevcut risk** olarak kayıtlıdır; bunları güvenli kabul etme. Üretimde hız sınırlaması/deneme engeli, güvenli oturum ayarları ve daha güçlü kimlik doğrulama için ayrı iyileştirme planı oluştur. Bu dosya, önlemlerin kodlandığını iddia etmez.
+- **Yedekler:** Şu an yedek ZIP'leri parolasızdır. Şifreli yedek, ayrı konumda koruma, erişim kısıtları ve düzenli geri yükleme testi **hedef iyileştirmelerdir**; uygulanmadan mevcut özellik diye sunma.
+- **Gizli bilgiler:** API anahtarı, bağlantı bilgisi, kimlik/vergi numarası, IBAN, müvekkil belgesi ve gerçek dosya içeriğini log, test fikstürü, ekran görüntüsü, kod yorumu veya dokümantasyona taşıma. Testlerde sentetik veri kullan.
+- **Dış servisler:** LAN/çevrimdışı çalışma temel varsayımdır. Müvekkil verilerini veya belgelerini yeni bir dış servise aktaran entegrasyon kullanıcı onayı, veri minimizasyonu, güvenlik ve ilgili mevzuat değerlendirmesi olmadan eklenmez.
+- **İşlem izi:** Önemli değişikliklerin mevcut `django-auditlog` mekanizmasını atlamadığını kontrol et. Loglarda gizli içerik tutulmasını engelle.
+
+---
+
+## 9. Veritabanı, Dosya Sistemi ve İşlem Bütünlüğü
+
+1. **Migration:** Model/alan/constraint değişikliğinde Django migration oluştur; var olan migration dosyalarını yeniden yazma. Önce veri göçü ve eski kayıtlarla uyumu değerlendir. Üretim veritabanında izinsiz migrate/restore çalıştırma.
+2. **Transaction:** Bir işlemin birden fazla kaydı tutarlı biçimde değiştirmesi gerekiyorsa `transaction.atomic()` ve uygun benzersizlik/kilit mekanizmalarını değerlendir. Özellikle safahat, tahsilat, görev kapama/puanlama ve sayaç atamalarında yarım işlemi önle.
+3. **Tekrarlanabilirlik:** UYAP/UETS/Google senkronizasyonları, otomatik görevler ve yeniden denenebilir komutlar aynı olay için mükerrer kayıt üretmemelidir. Mevcut kimlik/eşleştirme alanlarını koru.
+4. **Silme ve düzeltme:** Yönetici yetkisi, muhasebede iptal yaklaşımı ve geçmiş kayıtlarını koruma kuralını bozma. Silme/güncelleme işlemlerinde bağlı kayıtların ve audit geçmişinin etkisini test et.
+5. **Dosya bütünlüğü:** `TaskDocument`, `media/` ve ofis klasörüne kopyalanan belge sürümleri arasında tutarlılığı koru. Veritabanı işlemi ile dosya sistemi işlemi tek atomik işlem değildir; başarısızlıkta telafi/temizlik ve tekrar deneme davranışını tanımla.
+6. **Null ve istisnalar:** UYAP'tan gelen `Case.client=None` ve dosyasız `Hearing.case=None` gibi belgelenmiş istisnalar için güvenli davranış ve test ekle.
+
+---
+
+## 10. Test, Kalite ve Hata Yönetimi
+
+- **Yeni davranış = yeni test:** İş kuralı değişikliğinde en az bir başarılı, bir hatalı/istisnai senaryo ve ilgili izin testi yaz veya güncelle. Regresyon hatasını mümkünse önce başarısız testle göster.
+- **Kritik test alanları:** Rol ve dosya görünürlüğü; görev–kontrolcü onay akışı; müvekkili eşleşmeyen UYAP dosyaları; muhasebe bakiyesi ve iptal; tebligat görevleri; dosya yükleme/indirme; mükerrer senkronizasyon; yedek/geri yükleme.
+- **Dış bağımlılıklar:** Testleri gerçek UYAP/UETS, Google API, üretim sunucusu ve müvekkil belgelerine bağlama. Mock/fake ve sentetik veri kullan; ağ yokken başarısızlık davranışını test et.
+- **Hata yönetimi:** Beklenen kullanıcı hatalarını anlaşılır Türkçe mesajla döndür; teknik ayrıntı ve gizli veri sızdırma. Kritik hataları yapılandırılmış, gereğinden fazla veri içermeyen loglarla kaydet. Hataları sessizce yutup başarılı sonuç dönme.
+- **Kontrol sırası:** Önce etkilenen modülün hedefli testleri, ardından proje çapında aşağıdaki komutlar:
+
+```bash
+uv run pytest
+uv run ruff check .
+uv run ruff format --check .
+```
+
+- **Raporlama:** Komut başarısızsa neyin ve neden başarısız olduğunu belirt. Testler çalıştırılmadıysa açıkça söyle; başarılıymış gibi yazma. Değişiklik yapmadan önce var olan hataları yeni hatalardan ayır.
+
+---
+
+## 11. Hukuki Süreler ve Dış Veri Sınırları
+
+- **Süre hesabı:** `notice_default_due_days` (varsayılan 14), hukuki sürelerin tamamı için geçerli bir kural değildir; görev oluştururken kullanılan varsayılan ayardır. Kesin süre, tebliğ usulü, başlangıç günü, tatil, dava/takip türü ve ilgili mevzuata göre değişir. Doğrulanmamış süreyi kesin hukuki son gün gibi gösterme; kullanıcı incelemesi gerektiren durumları belirt.
+- **UYAP veri kapsamı:** Eşitlenen dosya bilgileri, taraflar ve duruşmalar, **UYAP dosya evraklarının** da indirildiği anlamına gelmez. Evrak tabanlı işlemler yalnızca gerçekten yüklenmiş/erişilebilir dosyalar üzerinden yürütülür.
+- **Onay mekanizması:** `task_review_mode` ile belirlenen kontrolcü akışını atlama. Duruşma görevinin dokümante edilmiş kontrolcüsüz kapanış istisnasını ve diğer istisnaları değişiklik öncesinde doğrula.
+
+---
+
+## 12. Tamamlanma Kriterleri (Definition of Done)
+
+Bir geliştirme ancak aşağıdaki koşullar sağlandığında **tamamlandı** olarak bildirilir:
+
+- [ ] İstenen davranış uygulanmış; kapsam dışı mevcut işlevler korunmuştur.
+- [ ] Roller, dosya görünürlüğü ve gerekli sunucu tarafı izinler kontrol edilmiştir.
+- [ ] Giriş doğrulaması, hata/boş durum ve veri bütünlüğü senaryoları ele alınmıştır.
+- [ ] İlgili yeni/güncel testler yazılmış; hedefli ve tam test/lint/format kontrolleri çalıştırılmıştır.
+- [ ] Migration, yeni ayar, yeni bağımlılık veya paketleme etkisi varsa değerlendirilmiş ve gerekli talimatlar eklenmiştir.
+- [ ] Kalıcı mimari/iş kuralı değişikliği varsa `CLAUDE.md` güncellenmiştir.
+- [ ] Değişen dosyalar, doğrulama sonuçları, açık riskler ve yapılmayan işler kullanıcıya özetlenmiştir.
+
+**Koşullardan biri sağlanamadıysa** işi tamamlandı diye sunma; hangi koşulun eksik kaldığını belirt.

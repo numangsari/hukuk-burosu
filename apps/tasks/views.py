@@ -292,11 +292,14 @@ class TaskDetailView(DetailView):
         t, u = self.object, self.request.user
         from apps.accounting.models import LedgerEntry
 
+        requires_accounting = t.requires_accounting or bool(
+            t.task_type and t.task_type.requires_accounting
+        )
         ledger_entries = (
             LedgerEntry.objects.active()
             .filter(client_id=t.client_id)
             .filter(Q(case_id=t.case_id) | Q(case__isnull=True))
-            if t.requires_accounting
+            if requires_accounting
             else LedgerEntry.objects.none()
         )
         if t.assignee_id == u.pk and not t.assignee_seen:

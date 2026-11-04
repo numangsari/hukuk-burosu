@@ -230,7 +230,9 @@ def test_google_sync_creates_and_patches_event(case_factory, monkeypatch):
     mock_patch_exec = MagicMock(return_value={"id": "google-ev-123"})
     mock_events.patch.return_value.execute = mock_patch_exec
 
-    monkeypatch.setattr(google_sync, "get_calendar_service", lambda: (mock_service, office.google_calendar_id))
+    monkeypatch.setattr(
+        google_sync, "get_calendar_service", lambda: (mock_service, office.google_calendar_id)
+    )
 
     case = case_factory()
     hearing = Hearing.objects.create(
@@ -255,3 +257,131 @@ def test_google_sync_creates_and_patches_event(case_factory, monkeypatch):
     assert res_id2 == "google-ev-123"
     assert not mock_events.insert.called
     assert mock_events.patch.called
+
+
+def test_hearing_to_google_payload_custom_format_and_color(case_factory):
+    from apps.agenda.google_sync import hearing_to_google_payload
+
+    office = OfficeSettings.load()
+    office.google_color_hearing = "9"
+    office.google_color_discovery = "2"
+    office.save()
+
+    case = case_factory()
+    hearing = Hearing.objects.create(
+        case=case,
+        kind=HearingKind.HEARING,
+        starts_at=timezone.now() + dt.timedelta(days=2),
+        assigned_to=case.responsible_lawyer,
+    )
+    payload = hearing_to_google_payload(hearing)
+    assert payload["colorId"] == "9"
+    assert "location" not in payload
+    # Duruşmada önek olmaz, sorumlu sadece ilk adıyla ve köşeli parantezsiz yazılır
+    resp_name = case.responsible_lawyer.first_name or case.responsible_lawyer.username
+    assert payload["summary"].startswith(f"{resp_name} - ")
+    assert case.client.name in payload["summary"]
+
+    # Mazeret durumu: Mazeret de parantezsiz yazılır
+    hearing.excuse_submitted = True
+    payload_excuse = hearing_to_google_payload(hearing)
+    assert payload_excuse["summary"].startswith("Mazeret - ")
+
+    # Keşif durumu: [Keşif] öneki ve keşif rengi
+    discovery = Hearing.objects.create(
+        case=case,
+        kind=HearingKind.DISCOVERY,
+        starts_at=timezone.now() + dt.timedelta(days=3),
+        assigned_to=case.responsible_lawyer,
+    )
+    payload_disc = hearing_to_google_payload(discovery)
+    assert payload_disc["colorId"] == "2"
+    assert payload_disc["summary"].startswith(f"[Keşif] {resp_name} - ")
+
+
+def test_hearing_task_create_view_workflow(lawyer_client, case_factory):
+    from django.urls import reverse
+
+    from apps.cases.hearing_tasks import get_or_create_hearing_task_type
+
+    case = case_factory()
+    hearing = Hearing.objects.create(
+        case=case,
+        kind=HearingKind.HEARING,
+        starts_at=timezone.now() + dt.timedelta(days=2),
+        authority="İstanbul 1. Asliye Hukuk Mahkemesi",
+        room="3",
+    )
+
+    url = reverse("hearings:task_create", args=[hearing.pk])
+
+    # 1. GET isteği formu döndürür
+    response = lawyer_client.get(url)
+    assert response.status_code == 200
+    assert "form" in response.context
+
+    # 2. POST ile görev oluşturulması
+    task_type = get_or_create_hearing_task_type()
+    post_data = {
+        "task_type": str(task_type.pk),
+        "title": "DURUŞMA TAKİP GÖREVİ",
+        "case": str(case.pk),
+        "client": str(case.client.pk),
+        "assignee": str(case.responsible_lawyer.pk),
+        "reviewer": "",
+        "due_date": (timezone.now() + dt.timedelta(days=2)).date().isoformat(),
+        "excuse_submitted": "on",
+        "notes": "Ön inceleme duruşması",
+    }
+    response = lawyer_client.post(url, post_data, HTTP_HX_REQUEST="true")
+    assert response.status_code == 200
+    assert response.headers.get("HX-Refresh") == "true"
+
+    hearing.refresh_from_db()
+    assert hearing.assigned_to == case.responsible_lawyer
+    assert hearing.excuse_submitted is True
+    assert hearing.tasks.count() == 1
+
+    task = hearing.tasks.first()
+    assert task.title == "DURUŞMA TAKİP GÖREVİ"
+    assert task.client == case.client
+
+    # 3. Görev zaten varsa GET isteği doğrudan göreve yönlendirir
+    resp_redirect = lawyer_client.get(url)
+    assert resp_redirect.status_code == 302
+    assert resp_redirect.url == task.get_absolute_url()
+
+
+def test_hearing_events_url_based_on_connected_task(case_factory):
+    from apps.agenda.services import hearing_events
+    from apps.cases.hearing_tasks import get_or_create_hearing_task_type
+
+    case = case_factory()
+    now = timezone.now()
+    Hearing.objects.create(
+        case=case,
+        kind=HearingKind.HEARING,
+        starts_at=now + dt.timedelta(days=1),
+    )
+    h_with_task = Hearing.objects.create(
+        case=case,
+        kind=HearingKind.HEARING,
+        starts_at=now + dt.timedelta(days=2),
+    )
+    task_type = get_or_create_hearing_task_type()
+    task = Task.objects.create(
+        task_type=task_type,
+        title="DURUŞMA İŞLEMLERİ",
+        case=case,
+        client=case.client,
+        assignee=case.responsible_lawyer,
+        due_date=(now + dt.timedelta(days=2)).date(),
+        hearing=h_with_task,
+    )
+
+    events = hearing_events(now.date(), (now + dt.timedelta(days=5)).date())
+
+    # Görevi olmayan duruşma için url boş string olmalı (tıklanamaz span)
+    assert any(ev.url == "" for ev in events if ev.source == "hearing")
+    # Görevi olan duruşma için url doğrudan task.get_absolute_url() olmalı
+    assert any(ev.url == task.get_absolute_url() for ev in events if ev.source == "hearing")

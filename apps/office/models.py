@@ -69,6 +69,56 @@ class OfficeSettings(models.Model):
         blank=True,
         help_text="Google Cloud Service Account JSON içeriği. Güvenli şekilde saklanır.",
     )
+    GOOGLE_COLOR_CHOICES = [
+        ("9", "Mavi (Yaban Mersini) — Varsayılan"),
+        ("7", "Açık Mavi (Tavuskuşu)"),
+        ("1", "Lavanta"),
+        ("2", "Yeşil (Adaçayı)"),
+        ("10", "Koyu Yeşil (Fesleğen)"),
+        ("5", "Sarı (Muz)"),
+        ("6", "Turuncu (Mandalina)"),
+        ("11", "Kırmızı (Domates)"),
+        ("4", "Pembe (Flamingo)"),
+        ("3", "Mor (Üzüm)"),
+        ("8", "Gri (Grafit)"),
+    ]
+    google_calendar_event_color = models.CharField(
+        "Google Takvim genel varsayılan rengi",
+        max_length=10,
+        default="9",
+        choices=GOOGLE_COLOR_CHOICES,
+        help_text="Google Takvim'e aktarılan etkinliklerin genel rengi.",
+    )
+    google_color_hearing = models.CharField(
+        "Duruşma / Ön İnceleme rengi",
+        max_length=10,
+        default="9",
+        choices=GOOGLE_COLOR_CHOICES,
+    )
+    google_color_discovery = models.CharField(
+        "Keşif rengi",
+        max_length=10,
+        default="2",
+        choices=GOOGLE_COLOR_CHOICES,
+    )
+    google_color_meeting = models.CharField(
+        "Müvekkil Görüşmesi / Toplantı rengi",
+        max_length=10,
+        default="5",
+        choices=GOOGLE_COLOR_CHOICES,
+    )
+    google_color_mediation = models.CharField(
+        "Arabuluculuk rengi",
+        max_length=10,
+        default="11",
+        choices=GOOGLE_COLOR_CHOICES,
+    )
+    google_color_other = models.CharField(
+        "Bilirkişi / Diğer rengi",
+        max_length=10,
+        default="8",
+        choices=GOOGLE_COLOR_CHOICES,
+    )
     documents_root = models.CharField(
         "ofis klasörü",
         max_length=500,
@@ -170,6 +220,9 @@ class LookupModel(models.Model):
 
 class TaskType(LookupModel):
     requires_document = models.BooleanField("kontrole göndermek için belge zorunlu", default=False)
+    requires_accounting = models.BooleanField(
+        "kontrole göndermek için gelir / gider zorunlu", default=False
+    )
     points = models.PositiveSmallIntegerField("puan", default=0)
     categories = models.JSONField("kategoriler", default=list, blank=True)
     petition_template = models.CharField("dilekçe şablonu", max_length=255, blank=True)

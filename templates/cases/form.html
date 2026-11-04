@@ -59,27 +59,32 @@
         </div>
       </div>
       <div class="col-md-6" x-show="labels.official_no" x-cloak>
-        <div class="form-label" id="official-number-label" x-text="labels.official_no">Dosya Numarası</div>
-        <div class="input-group year-seq" role="group" aria-labelledby="official-number-label">
-          <label class="visually-hidden" for="{{ form.official_year.id_for_label }}" x-show="caseType !== 'notice'">Yıl</label>
-          <span class="contents-wrap" x-show="caseType !== 'notice'" style="display:contents">{{ form.official_year }}
-          <span class="input-group-text">/</span></span>
-          <label class="visually-hidden" for="{{ form.official_sequence.id_for_label }}">Numara</label>
-          {{ form.official_sequence }}
+        <div class="mb-3">
+          <label class="form-label d-flex justify-content-between align-items-center" for="{{ form.official_sequence.id_for_label }}">
+            <span id="official-number-label" x-text="labels.official_no">Dosya Numarası</span>
+            <span class="small text-body-secondary fw-normal" x-show="['civil','criminal','administrative'].includes(caseType)">Tür</span>
+          </label>
+          <div class="d-flex align-items-center gap-2">
+            <div x-show="caseType !== 'notice'" style="width: 95px; flex-shrink: 0;">
+              {{ form.official_year }}
+            </div>
+            <span class="text-body-secondary fw-bold" x-show="caseType !== 'notice'">/</span>
+            <div class="flex-grow-1">
+              {{ form.official_sequence }}
+            </div>
+            <div x-show="['civil','criminal','administrative'].includes(caseType)" style="width: 125px; flex-shrink: 0;">
+              {{ form.official_no_kind }}
+            </div>
+          </div>
+          {% for e in form.official_year.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}
+          {% for e in form.official_sequence.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}
+          {% if form.official_sequence.help_text %}<div class="form-text">{{ form.official_sequence.help_text }}</div>{% endif %}
+          <div class="mt-2" x-show="caseType === 'notice'" x-cloak>
+            <label class="form-label" for="{{ form.official_date.id_for_label }}">Tarih</label>
+            {{ form.official_date }}
+            {% for e in form.official_date.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}
+          </div>
         </div>
-        {% for e in form.official_year.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}
-        {% for e in form.official_sequence.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}
-        {% if form.official_sequence.help_text %}<div class="form-text">{{ form.official_sequence.help_text }}</div>{% endif %}
-        <div class="mt-2" x-show="caseType === 'notice'" x-cloak>
-          <label class="form-label" for="{{ form.official_date.id_for_label }}">Tarih</label>
-          {{ form.official_date }}
-          {% for e in form.official_date.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}
-        </div>
-        <div class="mt-2" x-show="['civil','criminal','administrative'].includes(caseType)" x-cloak>
-          <label class="form-label" for="{{ form.official_no_kind.id_for_label }}">Numara türü</label>
-          {{ form.official_no_kind }}
-        </div>
-        <div class="mb-3"></div>
       </div>
       <div class="col-12" x-show="caseType === 'notice'" x-cloak>
         <div class="row g-3 mb-3">

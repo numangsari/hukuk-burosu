@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 
 test('Pencere bağlantı kaydını ve ayarlar bağlantısını gösterir', async () => {
-  const html = fs.readFileSync('uyap-uets-deneme/popup.html', 'utf8');
+  const html = fs.readFileSync('uyap-uets-eklentisi/popup.html', 'utf8');
   const elements = Object.fromEntries([...html.matchAll(/id="([^"]+)"/g)].map(([, id]) => [id, {
     textContent: '', disabled: false, style: {}, addEventListener(_event, fn) { this.click = fn; }
   }]));
@@ -15,7 +15,7 @@ test('Pencere bağlantı kaydını ve ayarlar bağlantısını gösterir', async
   };
   elements['auto-scan'].disabled = false;
   let intervalId;
-  vm.runInNewContext(fs.readFileSync('uyap-uets-deneme/popup.js', 'utf8'), {
+  vm.runInNewContext(fs.readFileSync('uyap-uets-eklentisi/popup.js', 'utf8'), {
     chrome, document: {getElementById(id) { return elements[id]; }}, URL, Blob, setTimeout,
     setInterval(fn, ms) { intervalId = setInterval(fn, ms); return intervalId; },
     clearInterval(id) { clearInterval(id); }

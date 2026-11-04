@@ -216,7 +216,7 @@ def perform(
             if not comment:
                 raise ValidationError("Görevi kapatmak için sonuç notu yazmalısınız.")
 
-        if task.requires_accounting:
+        if task.requires_accounting or (task.task_type and task.task_type.requires_accounting):
             entry = (
                 LedgerEntry.objects.filter(
                     pk=ledger_id if str(ledger_id).isdigit() else 0,
@@ -273,7 +273,7 @@ def perform(
     )  # fmt: skip
 
     if key == "close":
-        if task.requires_accounting:
+        if task.requires_accounting or (task.task_type and task.task_type.requires_accounting):
             TaskEvent.objects.create(
                 task=task,
                 actor=user,

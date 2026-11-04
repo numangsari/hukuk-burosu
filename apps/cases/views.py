@@ -156,9 +156,10 @@ class CaseFormMixin:
         ctx["party_roles"] = PARTY_ROLES
         ctx["party_lanes"] = party_lanes()
         kind = (
-            self.request.POST.get("case_type", "civil")
-            if self.request.method == "POST"
-            else ctx["form"]["case_type"].value() or "civil"
+            self.request.POST.get("case_type")
+            or (self.object.case_type if getattr(self, "object", None) else None)
+            or (ctx["form"]["case_type"].value() if "case_type" in ctx["form"].fields else None)
+            or "civil"
         )
         if "party_formset" not in ctx:
             related = self._related_case()
@@ -457,7 +458,7 @@ class CaseDetailView(DetailView):
             tasks=case.tasks.select_related("task_type", "assignee", "reviewer").order_by(
                 "status", "due_date"
             ),
-            hearings=list(case.hearings.order_by("-starts_at")),
+            hearings=list(case.hearings.prefetch_related("tasks").order_by("-starts_at")),
             hearing_form=HearingForm(initial={"authority": case.authority}),
             now=timezone.now(),
             today=timezone.localdate(),

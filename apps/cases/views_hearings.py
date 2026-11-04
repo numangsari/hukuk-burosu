@@ -4,6 +4,7 @@ import datetime as dt
 
 from django.contrib import messages
 from django.core.paginator import Paginator
+from django.db import transaction
 from django.db.models import Q
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -17,7 +18,12 @@ from apps.agenda.google_sync import delete_hearing_from_google, sync_hearing_to_
 from apps.core.pagination import page_size
 from apps.core.permissions import AdminRequiredMixin, filter_visible_cases
 
-from .forms import HearingForm, HearingResultForm, HearingStandaloneForm
+from .forms import (
+    HearingForm,
+    HearingResultForm,
+    HearingStandaloneForm,
+    HearingTaskCreateForm,
+)
 from .models import Case, CaseEvent, Hearing, HearingKind, HearingStatus
 
 
@@ -33,6 +39,7 @@ class HearingListView(ListView):
             .select_related(
                 "case", "case__client", "case__responsible_lawyer", "client", "assigned_to"
             )
+            .prefetch_related("tasks")
             .order_by("starts_at")
         )
 
@@ -202,6 +209,111 @@ class HearingResultModalView(View):
         return render(
             request,
             "cases/_hearing_result_modal.html",
+            {"hearing": hearing, "form": form},
+        )
+
+
+class HearingTaskCreateView(View):
+    """Duruşma için sorumlu, mazeret, dosya/müvekkil içeren bağlantılı görev oluşturur."""
+
+    def get(self, request, pk):
+        hearing = get_object_or_404(
+            Hearing.objects.select_related("case", "case__client", "client", "assigned_to"), pk=pk
+        )
+        existing_task = hearing.tasks.first()
+        if existing_task:
+            messages.info(request, "Bu duruşma için zaten bir görev oluşturulmuş.")
+            return redirect(existing_task.get_absolute_url())
+
+        from .hearing_tasks import get_or_create_hearing_task_type
+
+        task_type = get_or_create_hearing_task_type()
+        case = hearing.case
+        client = hearing.client or (case.client if case else None)
+        assignee = hearing.assigned_to or (case.responsible_lawyer if case else None)
+
+        title = (
+            f"{case.display_name} Duruşması ve Müvekkil Bilgilendirme"
+            if case
+            else f"{hearing.title_display} Takip Görevi"
+        )
+        local_dt = timezone.localtime(hearing.starts_at)
+        notes = (
+            f"Mahkeme / Yer: {hearing.authority or (case.authority if case else '—')}\n"
+            f"Duruşma Saati: {local_dt:%H:%M}"
+        )
+        if hearing.room:
+            notes += f" (Salon: {hearing.room})"
+        if hearing.notes:
+            notes += f"\nNotlar: {hearing.notes}"
+
+        initial = {
+            "task_type": task_type,
+            "title": title,
+            "case": case,
+            "client": client,
+            "assignee": assignee,
+            "due_date": local_dt.date(),
+            "excuse_submitted": hearing.excuse_submitted,
+            "notes": notes,
+        }
+        form = HearingTaskCreateForm(initial=initial, hearing=hearing)
+        return render(
+            request,
+            "cases/_hearing_task_create_modal.html",
+            {"hearing": hearing, "form": form},
+        )
+
+    def post(self, request, pk):
+        hearing = get_object_or_404(
+            Hearing.objects.select_related("case", "case__client", "client", "assigned_to"), pk=pk
+        )
+        existing_task = hearing.tasks.first()
+        if existing_task:
+            messages.info(request, "Bu duruşma için zaten bir görev oluşturulmuş.")
+            return redirect(existing_task.get_absolute_url())
+
+        form = HearingTaskCreateForm(request.POST, hearing=hearing)
+        if form.is_valid():
+            with transaction.atomic():
+                task = form.save(commit=False)
+                task.hearing = hearing
+                client = form.cleaned_data.get("client") or (
+                    task.case.client if task.case else None
+                )
+                task.client = client
+                task.save()
+
+                # Duruşmayı güncelle (sorumlu, mazeret, dosya, müvekkil):
+                hearing.assigned_to = task.assignee
+                hearing.excuse_submitted = form.cleaned_data.get("excuse_submitted", False)
+                if task.case and not hearing.case:
+                    hearing.case = task.case
+                if task.client and not hearing.client:
+                    hearing.client = task.client
+                hearing.save(
+                    update_fields=[
+                        "assigned_to",
+                        "excuse_submitted",
+                        "case",
+                        "client",
+                        "updated_at",
+                    ]
+                )
+
+            # Google Takvim senkronizasyonu
+            sync_hearing_to_google(hearing)
+
+            messages.success(request, f"{hearing.title_display} için görev oluşturuldu.")
+            if request.headers.get("HX-Request"):
+                response = HttpResponse(status=200)
+                response["HX-Refresh"] = "true"
+                return response
+            return redirect(reverse("agenda:calendar") + "?view=list")
+
+        return render(
+            request,
+            "cases/_hearing_task_create_modal.html",
             {"hearing": hearing, "form": form},
         )
 

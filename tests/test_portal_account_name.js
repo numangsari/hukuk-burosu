@@ -14,7 +14,7 @@ async function run(host, nodes) {
       storage:{local:{async set(value) { Object.assign(stored, value); }}}},
     MutationObserver:class { observe() {} }, setInterval() {}, clearTimeout() {}, setTimeout() {}
   };
-  vm.runInNewContext(fs.readFileSync('uyap-uets-deneme/account-name.js', 'utf8'), context);
+  vm.runInNewContext(fs.readFileSync('uyap-uets-eklentisi/account-name.js', 'utf8'), context);
   await new Promise(resolve => setImmediate(resolve));
   return {sent, stored};
 }

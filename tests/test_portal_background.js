@@ -17,7 +17,7 @@ function setup() {
     alarms: {onAlarm:event, create() {}},
     tabs: {onUpdated:event, async query() { return []; }}
   };
-  vm.runInNewContext(fs.readFileSync('uyap-uets-deneme/background.js','utf8'), {
+  vm.runInNewContext(fs.readFileSync('uyap-uets-eklentisi/background.js','utf8'), {
     chrome, URL, AbortSignal, setTimeout() {}, Date, Math, JSON, Promise,
     fetch: async (url, options) => { healthRequests.push({url, body: JSON.parse(options.body)}); return {ok:true}; }
   });
@@ -67,7 +67,7 @@ test('Kaynak sahibi ayrımı tamamlanana kadar aktarım başlamaz', async () => 
 });
 
 test('Portal sayfalarına yalnızca ad kontrolü yüklenir', () => {
-  const manifest = JSON.parse(fs.readFileSync('uyap-uets-deneme/manifest.json', 'utf8'));
+  const manifest = JSON.parse(fs.readFileSync('uyap-uets-eklentisi/manifest.json', 'utf8'));
   assert.ok(manifest.content_scripts.some(entry => entry.js.includes('pair.js')));
   const portal = manifest.content_scripts.filter(entry => entry.matches.some(match => match.includes('uyap.gov.tr') || match.includes('etebligat.gov.tr')));
   assert.deepEqual(portal.flatMap(entry => entry.js), ['account-name.js']);

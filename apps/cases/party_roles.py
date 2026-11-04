@@ -20,13 +20,17 @@ PARTY_ROLES = {
         ("injured", "Suçtan Zarar Gören"),
         ("financially_liable", "Malen Sorumlu"),
         ("complainant_accused", "Müşteki-Sanık"),
+        ("interested", "İlgili Kişi"),
+        ("other", "Diğer"),
     ],
     "administrative": [
         ("plaintiff", "Davacı"),
         ("defendant_authority", "Davalı İdare"),
+        ("defendant", "Davalı"),
         ("plaintiff_intervener", "Davacı Yanında Müdahil"),
         ("defendant_intervener", "Davalı Yanında Müdahil"),
         ("interested", "İlgili Kişi"),
+        ("other", "Diğer"),
     ],
     "enforcement": [
         ("creditor", "Alacaklı"),
@@ -120,7 +124,7 @@ PARTY_SIDES = {
         "Davacı tarafı",
         ["plaintiff", "plaintiff_intervener"],
         "Davalı idare tarafı",
-        ["defendant_authority", "defendant_intervener"],
+        ["defendant_authority", "defendant", "defendant_intervener"],
     ),
     "enforcement": (
         "Alacaklı tarafı",

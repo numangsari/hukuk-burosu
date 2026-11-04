@@ -7,15 +7,19 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps.cases.models import CaseStatus, Hearing, HearingStatus
+from apps.core.text import tr_capitalize_words
 from apps.office.models import TaskType
 from apps.tasks.models import Task
 
 log = logging.getLogger(__name__)
 
-TASK_TYPE_NAME = "Duruşma ve Müvekkil Bilgilendirme"
+TASK_TYPE_NAME = tr_capitalize_words("Duruşma ve Müvekkil Bilgilendirme")
 
 
 def get_or_create_hearing_task_type() -> TaskType:
+    tt = TaskType.objects.filter(name__iexact=TASK_TYPE_NAME).first()
+    if tt:
+        return tt
     tt, _ = TaskType.objects.get_or_create(
         name=TASK_TYPE_NAME,
         defaults={
@@ -63,10 +67,7 @@ def create_due_hearing_tasks(reference_date: dt.date | None = None) -> list[Task
         title = f"{h.case.display_name} Duruşması İşlemleri Yapılacak ve Müvekkile Bilgi Verilecek"
         due_d = local_dt.date()
 
-        notes = (
-            f"Mahkeme / Yer: {h.authority or h.case.authority}\n"
-            f"Duruşma Saati: {local_dt:%H:%M}"
-        )
+        notes = f"Mahkeme / Yer: {h.authority or h.case.authority}\nDuruşma Saati: {local_dt:%H:%M}"
         if h.room:
             notes += f" (Salon: {h.room})"
         if h.notes:

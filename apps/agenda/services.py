@@ -196,8 +196,6 @@ def task_events(start: dt.date, end: dt.date) -> list[Event]:
 
 def hearing_events(start: dt.date, end: dt.date) -> list[Event]:
     """[start, end) aralığındaki duruşmaları takvim etkinliği olarak gösterir."""
-    from django.urls import reverse
-
     from apps.cases.models import Hearing
 
     start_dt = timezone.make_aware(dt.datetime.combine(start, dt.time.min))
@@ -205,6 +203,7 @@ def hearing_events(start: dt.date, end: dt.date) -> list[Event]:
     hearings = (
         Hearing.objects.filter(starts_at__gte=start_dt, starts_at__lt=end_dt)
         .select_related("case", "case__client", "client")
+        .prefetch_related("tasks")
         .order_by("starts_at")
     )
     events = []
@@ -214,11 +213,9 @@ def hearing_events(start: dt.date, end: dt.date) -> list[Event]:
         location = h.authority or (h.case.authority if h.case else "")
         if h.room:
             location += f" (Salon: {h.room})" if location else f"Salon: {h.room}"
-        url = (
-            h.case.get_absolute_url() + "#t-durusmalar"
-            if h.case
-            else (reverse("agenda:calendar") + "?view=list")
-        )
+        # Duruşma tek başına tıklanmaz; bağlantılı görevi varsa doğrudan göreve gider:
+        task = h.tasks.first()
+        url = task.get_absolute_url() if task else ""
         end_time = (
             timezone.localtime(h.ends_at) if h.ends_at else (local_s + dt.timedelta(minutes=30))
         )

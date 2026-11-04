@@ -112,6 +112,22 @@
             {% endif %}
           </td>
           <td class="text-end text-nowrap">
+            {% if h.tasks.all %}
+              {% with task=h.tasks.first %}
+              <a class="btn btn-sm btn-light" href="{{ task.get_absolute_url }}" title="Bağlantılı görevi aç">
+                <i class="bi bi-check2-circle me-1 text-success"></i>Görev
+              </a>
+              {% endwith %}
+            {% else %}
+              <button type="button" class="btn btn-sm btn-primary"
+                      title="Bu duruşma için bağlantılı görev oluştur"
+                      hx-get="{% url 'hearings:task_create' h.pk %}"
+                      hx-target="#hearing-task-modal-dialog"
+                      hx-swap="innerHTML"
+                      hx-on::after-request="bootstrap.Modal.getOrCreateInstance(document.getElementById('hearingTaskModal')).show()">
+                <i class="bi bi-plus-lg me-1"></i>Görev oluştur
+              </button>
+            {% endif %}
             <button class="btn btn-sm btn-light" title="Sonuç / Ara Karar Gir"
                     hx-get="{% url 'hearings:result' h.pk %}"
                     hx-target="#result-modal"
@@ -147,3 +163,9 @@
   </div>
   {% include "partials/pagination.html" with page_obj=page_obj %}
 </div>
+
+{# Pop-up Modal Konteynerleri #}
+<div class="modal fade" id="hearingTaskModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg" id="hearing-task-modal-dialog"></div>
+</div>
+<div class="modal fade" id="result-modal" tabindex="-1" aria-hidden="true"></div>

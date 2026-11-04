@@ -6,7 +6,7 @@ from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.decorators import login_not_required
 from django.contrib.auth.views import LoginView
 from django.core.cache import cache
-from django.db.models import Q, Sum
+from django.db.models import ProtectedError, Q, Sum
 from django.http import HttpResponse, HttpResponseForbidden
 from django.shortcuts import redirect, render
 from django.urls import reverse
@@ -131,10 +131,28 @@ class SettingsView(View):
 
     def _render(self, request, forms, active):
         office = OfficeSettings.load()
+        service_account_info = None
+        if office.google_service_account_json:
+            import json
+
+            try:
+                data = json.loads(office.google_service_account_json)
+                service_account_info = {
+                    "client_email": data.get("client_email", ""),
+                    "project_id": data.get("project_id", ""),
+                }
+            except Exception:
+                pass
+
         ctx = {
             "forms": forms,
             "active": active,
+            "office": office,
             "calendar_connected": bool(office.calendar_ics_url),
+            "service_account_info": service_account_info,
+            "google_api_configured": bool(
+                office.google_service_account_json and office.google_calendar_id
+            ),
         }
         if active == "eklenti" and is_admin(request.user):
             from datetime import timedelta
@@ -283,20 +301,22 @@ class SettingsView(View):
                     | Q(archive_no="")
                 ).count(),
                 "tasks_open": Task.objects.filter(status__in=OPEN_STATUSES).count(),
-                "tasks_review": Task.objects.filter(status=TaskStatus.IN_REVIEW).count(),
+                "tasks_review": Task.objects.filter(status=TaskStatus.REVIEW).count(),
                 "tasks_overdue": Task.objects.filter(
                     status__in=OPEN_STATUSES, due_date__lt=today
                 ).count(),
-                "documents": Document.objects.filter(is_current=True).count(),
+                "documents": Document.objects.count(),
                 "ledger_active": LedgerEntry.objects.filter(is_cancelled=False).count(),
                 "seizures_due": Seizure.objects.filter(
                     case__status=CaseStatus.OPEN,
-                    renewal_date__isnull=False,
-                    renewal_date__lte=today + dt.timedelta(days=14),
+                    renewal_on__isnull=False,
+                    renewal_on__lte=today + dt.timedelta(days=14),
                 ).count(),
                 "portal_cases": PortalCase.objects.count(),
                 "portal_notices": PortalNotice.objects.count(),
-                "portal_notices_pending": PortalNotice.objects.filter(resolution="").count(),
+                "portal_notices_pending": PortalNotice.objects.filter(
+                    resolved_at__isnull=True
+                ).count(),
                 "portal_captures": PortalCapture.objects.count(),
             },
         }
@@ -404,7 +424,15 @@ class SettingsView(View):
             return redirect("accounts:settings")
         if not form.is_valid():
             return self._render(request, forms, section)
-        saved = form.save()
+        try:
+            saved = form.save()
+        except ProtectedError:
+            messages.error(
+                request,
+                "Silinmek istenen görev türüne ait sistemde kayıtlı görev(ler) bulunduğu için "
+                "silinemedi. Bu türü silmek yerine pasife alabilirsiniz.",
+            )
+            return self._render(request, forms, section)
         if section == "kullanicilar":
             messages.success(request, f"{saved} kaydedildi.")
             return redirect(f"{reverse('accounts:settings')}?bolum=kullanicilar&id={saved.pk}")

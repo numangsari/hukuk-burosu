@@ -126,6 +126,9 @@ class TaskForm(BootstrapMixin, forms.ModelForm):
         self.document_type_ids = list(
             types.filter(requires_document=True).values_list("pk", flat=True)
         )
+        self.accounting_type_ids = list(
+            types.filter(requires_accounting=True).values_list("pk", flat=True)
+        )
         self.supervisor_map = dict(
             User.objects.filter(supervisor__isnull=False).values_list("pk", "supervisor_id")
         )
@@ -157,6 +160,8 @@ class TaskForm(BootstrapMixin, forms.ModelForm):
             self.add_error(
                 "reviewer", "Yardımcı personel görevlerinde kontrolcü seçimi zorunludur."
             )
+        if data.get("task_type") and data["task_type"].requires_accounting:
+            data["requires_accounting"] = True
         return data
 
 

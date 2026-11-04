@@ -17,7 +17,7 @@ def hearings_partial(request, case, form=None):
         {
             "case": case,
             "hearing_form": form or HearingForm(initial={"authority": case.authority}),
-            "hearings": case.hearings.order_by("-starts_at"),
+            "hearings": case.hearings.prefetch_related("tasks").order_by("-starts_at"),
             "now": timezone.now(),
         },
     )

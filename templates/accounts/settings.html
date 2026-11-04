@@ -24,10 +24,13 @@
       <a class="{% if active == 'eklenti' %}active{% endif %}" href="?bolum=eklenti"><i class="bi bi-puzzle"></i>Eklenti ayarları</a>
       <a class="{% if active == 'takvim' %}active{% endif %}" href="?bolum=takvim"><i class="bi bi-calendar3"></i>Google Takvim
         {% if calendar_connected %}<span class="chip chip-success ms-auto">Bağlı</span>{% endif %}</a>
-      <div class="nav-group">Gözlem ve Veri</div>
+      <div class="nav-group">Sistem ve Gözlem</div>
       <a class="{% if active == 'monitor' %}active{% endif %}" href="?bolum=monitor"><i class="bi bi-activity"></i>Sistem monitörü</a>
+      <a href="{% url 'portal_review' %}"><i class="bi bi-cloud-arrow-down"></i>UYAP ve UETS inceleme</a>
+      <a href="{% url 'activity:list' %}"><i class="bi bi-clock-history"></i>Aktivite kaydı</a>
       <a class="{% if active == 'kullanici_analizi' %}active{% endif %}" href="?bolum=kullanici_analizi"><i class="bi bi-person-lines-fill"></i>Kullanıcı analizi</a>
       <a class="{% if active == 'veri_aktarim' %}active{% endif %}" href="?bolum=veri_aktarim"><i class="bi bi-database-down"></i>Veri içe / dışa aktar</a>
+      <a href="{% url 'admin:index' %}" target="_blank"><i class="bi bi-sliders"></i>Yönetim paneli</a>
       {% endif %}
     </nav>
   </div>
@@ -205,28 +208,98 @@
 
   {% elif active == "gorev_turleri" %}
     {% with fs=forms.gorev_turleri %}
-    <form method="post" class="card" style="max-width: 860px">{% csrf_token %}<input type="hidden" name="section" value="gorev_turleri">
+    <form method="post" class="card" style="max-width: 960px">{% csrf_token %}<input type="hidden" name="section" value="gorev_turleri">
       {{ fs.management_form }}
       <div class="form-section">
-        <div class="form-section-head"><h2>Görev türleri</h2><p>"Belge zorunlu" işaretli türlerde görev, belge yüklenmeden kontrole gönderilemez. Kullanılmayan türü pasife alın; son satırdan yeni tür ekleyin.</p></div>
+        <div class="form-section-head">
+          <h2>Görev türleri</h2>
+          <p>Görev türlerini düzenleyebilir, yeni türler ekleyebilir veya kullanmadıklarınızı silebilir / pasife alabilirsiniz. "Belge zorunlu" türlerde dilekçe yüklenmeden, "Gelir/Gider zorunlu" türlerde muhasebe kaydı yapılmadan görev kapatılamaz.</p>
+        </div>
         {% if fs.non_form_errors %}<div class="alert alert-danger">{{ fs.non_form_errors }}</div>{% endif %}
-        <table class="table perm-table mb-0">
-          <thead><tr><th>Tür adı</th>{% if office.use_task_points %}<th>Puan</th>{% endif %}<th class="text-center">Belge zorunlu</th><th class="text-center">Aktif</th><th style="width: 90px">Sıra</th></tr></thead>
-          <tbody>
-          {% for f in fs %}
-            <tr>
-              <td>{{ f.id }}{{ f.name }}{% for e in f.name.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}</td>
-              {% if office.use_task_points %}<td>{{ f.points }}{% for e in f.points.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}</td>{% else %}<td class="d-none">{{ f.points }}</td>{% endif %}
-              <td class="text-center">{{ f.requires_document }}</td>
-              <td class="text-center">{{ f.is_active }}</td>
-              <td>{{ f.order }}</td>
-            </tr>
-          {% endfor %}
-          </tbody>
-        </table>
+        <div class="table-responsive">
+          <table class="table perm-table align-middle mb-0" id="task-types-table">
+            <thead>
+              <tr>
+                <th>Tür Adı</th>
+                {% if office.use_task_points %}<th style="width: 80px;">Puan</th>{% endif %}
+                <th class="text-center" style="width: 110px;">Belge Zorunlu</th>
+                <th class="text-center" style="width: 110px;">Gelir/Gider Zorunlu</th>
+                <th class="text-center" style="width: 70px;">Aktif</th>
+                <th style="width: 75px;">Sıra</th>
+                <th class="text-center" style="width: 60px;">Sil</th>
+              </tr>
+            </thead>
+            <tbody id="task-types-tbody">
+            {% for f in fs %}
+              <tr class="{% if not f.instance.pk %}table-light border-top-2{% endif %}">
+                <td>
+                  {{ f.id }}
+                  {{ f.name }}
+                  {% for e in f.name.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}
+                </td>
+                {% if office.use_task_points %}
+                <td>
+                  {{ f.points }}
+                  {% for e in f.points.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}
+                </td>
+                {% else %}
+                <td class="d-none">{{ f.points }}</td>
+                {% endif %}
+                <td class="text-center">{{ f.requires_document }}</td>
+                <td class="text-center">{{ f.requires_accounting }}</td>
+                <td class="text-center">{{ f.is_active }}</td>
+                <td>{{ f.order }}</td>
+                <td class="text-center">
+                  {% if f.instance.pk %}
+                    <label class="form-check m-0 d-inline-flex justify-content-center align-items-center cursor-pointer text-danger" title="Bu görev türünü sil">
+                      {{ f.DELETE }}
+                    </label>
+                  {% else %}
+                    <span class="badge bg-secondary-subtle text-secondary small">Yeni</span>
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <div class="p-3 border-top bg-light-subtle d-flex justify-content-between align-items-center">
+          <button type="button" class="btn btn-sm btn-outline-primary" id="add-task-type-btn">
+            <i class="bi bi-plus-lg me-1"></i>Yeni Görev Türü Ekle
+          </button>
+          <span class="small text-body-secondary">Mevcut bir türü silmek için "Sil" kutusunu işaretleyip Kaydet'e basın.</span>
+        </div>
       </div>
       <div class="form-footer"><button class="btn btn-primary"><i class="bi bi-check2"></i>Kaydet</button></div>
     </form>
+
+    <template id="empty-form-template">
+      <tr class="table-light">
+        <td>{{ fs.empty_form.id }}{{ fs.empty_form.name }}</td>
+        {% if office.use_task_points %}<td>{{ fs.empty_form.points }}</td>{% else %}<td class="d-none">{{ fs.empty_form.points }}</td>{% endif %}
+        <td class="text-center">{{ fs.empty_form.requires_document }}</td>
+        <td class="text-center">{{ fs.empty_form.requires_accounting }}</td>
+        <td class="text-center">{{ fs.empty_form.is_active }}</td>
+        <td>{{ fs.empty_form.order }}</td>
+        <td class="text-center"><span class="badge bg-secondary-subtle text-secondary small">Yeni</span></td>
+      </tr>
+    </template>
+    <script>
+      document.addEventListener('DOMContentLoaded', function() {
+        const addBtn = document.getElementById('add-task-type-btn');
+        if (addBtn) {
+          addBtn.addEventListener('click', function() {
+            const totalForms = document.getElementById('id_tt-TOTAL_FORMS');
+            if (!totalForms) return;
+            const count = parseInt(totalForms.value, 10);
+            const tmpl = document.getElementById('empty-form-template').innerHTML;
+            const newRowHtml = tmpl.replace(/__prefix__/g, count);
+            document.getElementById('task-types-tbody').insertAdjacentHTML('beforeend', newRowHtml);
+            totalForms.value = count + 1;
+          });
+        }
+      });
+    </script>
     {% endwith %}
 
   {% elif active == "yetkiler" %}
@@ -310,23 +383,164 @@
 
   {% elif active == "takvim" %}
     {% with form=forms.takvim %}
-    <form method="post" class="card" style="max-width: 760px">{% csrf_token %}<input type="hidden" name="section" value="takvim">
-      <div class="form-section">
-        <div class="form-section-head"><h2>Google Takvim</h2><p>Ofis takvimi salt okunur olarak ana sayfada ve Takvim sayfasında gösterilir.</p></div>
-        <div class="alert {% if calendar_connected %}alert-success{% else %}alert-warning{% endif %} d-flex gap-2">
-          <i class="bi {% if calendar_connected %}bi-check-circle-fill{% else %}bi-info-circle-fill{% endif %}"></i>
-          <div>{% if calendar_connected %}Takvim bağlı. Adresi değiştirmek için yenisini girin; boş bırakırsanız mevcut adres korunur.{% else %}Henüz takvim bağlanmadı.{% endif %}</div>
+    <form method="post" style="max-width: 820px">{% csrf_token %}<input type="hidden" name="section" value="takvim">
+      
+      <div class="alert alert-info d-flex gap-2 mb-3">
+        <i class="bi bi-info-circle-fill fs-5"></i>
+        <div>
+          <b>Google Takvim Entegrasyonu</b> iki bağımsız parçadan oluşur:
+          <ul class="mb-0 mt-1 ps-3">
+            <li><b>1. Takvim Okuma (iCal):</b> Ofis Google Takviminizdeki etkinlikleri sistem takviminde görüntülemek için (Tek yönlü içe).</li>
+            <li><b>2. Duruşma Eşitleme (API):</b> Sistemdeki duruşmaları Google Takvim'e otomatik yazmak için (Tek yönlü dışa).</li>
+          </ul>
         </div>
-        <ol class="small text-body-secondary mb-3 ps-3">
-          <li>Ofisin Google hesabıyla <b>calendar.google.com</b> adresini açın.</li>
-          <li>Sol taraftaki takvimin yanındaki <b>⋮ &gt; Ayarlar ve paylaşım</b>'a tıklayın.</li>
-          <li><b>Takvimi entegre et</b> bölümündeki <b>iCal biçiminde gizli adres</b>'i kopyalayıp aşağıya yapıştırın.</li>
-        </ol>
-        {% include "partials/field.html" with field=form.calendar_ics_url %}
-        {% if calendar_connected %}{% include "partials/field.html" with field=form.clear wrap_class="" %}{% endif %}
-        <div class="form-text mt-2"><i class="bi bi-shield-lock"></i> Bu adres takvime erişim anahtarıdır; kimseyle paylaşmayın. Sistemde yalnızca sunucuda saklanır ve ekranda gösterilmez.</div>
       </div>
-      <div class="form-footer"><button class="btn btn-primary"><i class="bi bi-check2"></i>Kaydet</button></div>
+
+      <!-- ================= 1. BÖLÜM: iCal OKUMA ================= -->
+      <div class="card mb-3">
+        <div class="card-header d-flex align-items-center justify-content-between">
+          <h2 class="card-title h6 mb-0">
+            <i class="bi bi-box-arrow-in-down me-2 text-primary"></i>1. Google Takvim'den Etkinlik Okuma (iCal Bağlantısı)
+          </h2>
+          {% if calendar_connected %}
+            <span class="badge bg-success-subtle text-success border border-success-subtle"><i class="bi bi-check-circle me-1"></i>Bağlı</span>
+          {% else %}
+            <span class="badge bg-secondary-subtle text-secondary border">Bağlı Değil</span>
+          {% endif %}
+        </div>
+        <div class="card-body">
+          <p class="small text-body-secondary mb-2">
+            Ofis Google Takviminizdeki mevcut etkinlikler salt okunur olarak ana sayfadaki ajandada ve Takvim sayfasında (Ay/Hafta) görevlerle birlikte listelenir.
+          </p>
+          <div class="alert {% if calendar_connected %}alert-success{% else %}alert-light border{% endif %} py-2 px-3 small d-flex gap-2 mb-3">
+            <i class="bi {% if calendar_connected %}bi-check-circle-fill text-success{% else %}bi-info-circle text-muted{% endif %}"></i>
+            <div>{% if calendar_connected %}Takvim bağlı. Adresi değiştirmek için yenisini girin; boş bırakırsanız mevcut adres korunur.{% else %}Henüz iCal adresi tanımlanmadı.{% endif %}</div>
+          </div>
+          <ol class="small text-body-secondary mb-3 ps-3">
+            <li>Google hesabınızla <b>calendar.google.com</b> adresini açın.</li>
+            <li>Sol taraftaki takvimin yanındaki <b>⋮ &gt; Ayarlar ve paylaşım</b>'a tıklayın.</li>
+            <li><b>Takvimi entegre et</b> bölümündeki <b>iCal biçiminde gizli adres</b>'i kopyalayıp aşağıya yapıştırın.</li>
+          </ol>
+          {% include "partials/field.html" with field=form.calendar_ics_url %}
+          {% if calendar_connected %}
+            <div class="mt-2">
+              {% include "partials/field.html" with field=form.clear wrap_class="" %}
+            </div>
+          {% endif %}
+          <div class="form-text mt-2"><i class="bi bi-shield-lock me-1"></i>Bu adres gizli erişim anahtarıdır; sistemde yalnızca sunucu tarafında güvenle saklanır ve ekranda tekrar gösterilmez.</div>
+        </div>
+      </div>
+
+      <!-- ================= 2. BÖLÜM: GOOGLE TAKVİM API (YAZMA) ================= -->
+      <div class="card mb-3">
+        <div class="card-header d-flex align-items-center justify-content-between">
+          <h2 class="card-title h6 mb-0">
+            <i class="bi bi-box-arrow-up-right me-2 text-success"></i>2. Google Takvim'e Duruşma Yazma (Google Calendar API)
+          </h2>
+          {% if office.google_calendar_api_enabled %}
+            <span class="badge bg-success-subtle text-success border border-success-subtle"><i class="bi bi-broadcast me-1"></i>Otomatik Aktarım Açık</span>
+          {% elif google_api_configured %}
+            <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle">Yapılandırıldı (Kapalı)</span>
+          {% else %}
+            <span class="badge bg-secondary-subtle text-secondary border">Yapılandırılmadı</span>
+          {% endif %}
+        </div>
+        <div class="card-body">
+          <p class="small text-body-secondary mb-2">
+            Sistemde açılan veya güncellenen dava duruşmaları, keşifler ve randevular ofis Google Takvimi'ne tek yönlü otomatik işlenir. <b>Google Takvim'deki harici hiçbir etkinliğe asla dokunulmaz.</b>
+          </p>
+
+          {% if service_account_info %}
+          <div class="alert alert-light border py-2 px-3 small d-flex align-items-center justify-content-between mb-3">
+            <div>
+              <i class="bi bi-key-fill text-primary me-1"></i><b>Kayıtlı Servis Hesabı:</b> <code>{{ service_account_info.client_email }}</code>
+              {% if service_account_info.project_id %}<span class="text-body-secondary ms-2">(Proje: {{ service_account_info.project_id }})</span>{% endif %}
+            </div>
+          </div>
+          {% endif %}
+
+          <div class="mb-3">
+            {% include "partials/field.html" with field=form.google_calendar_api_enabled %}
+          </div>
+          <div class="row g-2 mb-3">
+            <div class="col-md-12">
+              {% include "partials/field.html" with field=form.google_calendar_id %}
+            </div>
+            <div class="col-md-12">
+              {% include "partials/field.html" with field=form.google_service_account_json %}
+            </div>
+          </div>
+
+          <div class="card bg-light-subtle border mb-3">
+            <div class="card-header py-2 px-3 bg-transparent">
+              <span class="fw-semibold small"><i class="bi bi-palette me-1 text-primary"></i>Etkinlik Türlerine Göre Google Takvim Renkleri</span>
+            </div>
+            <div class="card-body p-3">
+              <p class="small text-body-secondary mb-3">
+                Google Takvim'e aktarılırken her etkinlik türü için kullanılacak takvim rengini seçin:
+              </p>
+              <div class="row g-3">
+                <div class="col-md-6">
+                  {% include "partials/field.html" with field=form.google_color_hearing %}
+                </div>
+                <div class="col-md-6">
+                  {% include "partials/field.html" with field=form.google_color_discovery %}
+                </div>
+                <div class="col-md-6">
+                  {% include "partials/field.html" with field=form.google_color_meeting %}
+                </div>
+                <div class="col-md-6">
+                  {% include "partials/field.html" with field=form.google_color_mediation %}
+                </div>
+                <div class="col-md-6">
+                  {% include "partials/field.html" with field=form.google_color_other %}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {% if office.google_service_account_json %}
+          <div class="mb-3">
+            {% include "partials/field.html" with field=form.clear_api_key wrap_class="" %}
+          </div>
+          {% endif %}
+
+          <details class="small text-body-secondary mt-3">
+            <summary class="cursor-pointer text-primary fw-medium"><i class="bi bi-question-circle me-1"></i>Google API Kurulum Rehberi (Nasıl Yapılır?)</summary>
+            <ol class="mt-2 ps-3">
+              <li><b>Google Cloud Console</b>'da (console.cloud.google.com) bir proje oluşturun ve <b>Google Calendar API</b>'yi etkinleştirin.</li>
+              <li><b>Credentials &gt; Create Credentials &gt; Service Account</b> adımıyla bir servis hesabı oluşturup bir <b>JSON anahtarı</b> indirin.</li>
+              <li>İndirilen JSON dosyasının içeriğini yukarıdaki alana yapıştırın.</li>
+              <li>Google Takvim'de takviminizin <b>Ayarlar ve Paylaşım &gt; Belirli kişiler veya gruplarla paylaş</b> bölümünden Service Account e-posta adresini ekleyip <b>"Etkinliklerde değişiklik yapma"</b> izni verin.</li>
+              <li>Takvim kimliğini (ana takvim için <code>primary</code> veya takvim e-posta adresi) Takvim ID alanına yazın.</li>
+            </ol>
+          </details>
+
+          <div id="api-test-result"></div>
+        </div>
+      </div>
+
+      <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 pt-1 mb-4">
+        <button type="submit" class="btn btn-primary px-4"><i class="bi bi-check2 me-1"></i>Ayarları Kaydet</button>
+        <div class="d-flex gap-2">
+          <button type="button" class="btn btn-outline-primary"
+                  hx-post="{% url 'agenda:google_test' %}"
+                  hx-target="#api-test-result"
+                  hx-indicator="#test-spinner">
+            <span class="spinner-border spinner-border-sm me-1 d-none" id="test-spinner" role="status"></span>
+            <i class="bi bi-plug me-1"></i>API Bağlantısını Test Et
+          </button>
+          {% if office.google_calendar_api_enabled %}
+          <button type="button" class="btn btn-outline-secondary"
+                  hx-post="{% url 'agenda:google_test' %}"
+                  hx-vals='{"action": "sync_all"}'
+                  hx-target="#api-test-result"
+                  hx-confirm="Sistemdeki tüm aktif duruşma ve etkinlikler Google Takvim'e aktarılacak. Devam edilsin mi?">
+            <i class="bi bi-arrow-repeat me-1"></i>Tüm Duruşmaları Şimdi Eşitle
+          </button>
+          {% endif %}
+        </div>
+      </div>
     </form>
     {% endwith %}
 
