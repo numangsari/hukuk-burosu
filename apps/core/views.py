@@ -4,7 +4,7 @@ from django.db.models import OuterRef, Subquery
 from django.utils import timezone
 from django.views.generic import TemplateView
 
-from apps.agenda.services import combined_events
+from apps.agenda.services import calendar_events
 from apps.agenda.views import group_by_day
 from apps.tasks.models import Task, TaskEvent, TaskStatus
 
@@ -66,7 +66,7 @@ class HomeView(TemplateView):
 
         create_due_hearing_tasks(today)
 
-        result = combined_events(today, today + dt.timedelta(days=AGENDA_DAYS))
+        result = calendar_events(today, today + dt.timedelta(days=AGENDA_DAYS), user=user)
         by_day = group_by_day(result.events)
         own = own_tasks_for(user)
         # Yalnızca kontrolcü olabilen rollerde (yönetici, kıdemli avukat, avukat) gösterilir.

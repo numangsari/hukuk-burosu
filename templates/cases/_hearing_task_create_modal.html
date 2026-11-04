@@ -59,6 +59,10 @@
             </label>
             <div class="form-text small text-body-secondary mt-1">{{ form.excuse_submitted.help_text }}</div>
           </div>
+          <div class="form-check mt-3">
+            {{ form.is_remote }}
+            <label class="form-check-label fw-medium ms-1" for="{{ form.is_remote.id_for_label }}">E-duruşma</label>
+          </div>
         </div>
       </div>
     </div>

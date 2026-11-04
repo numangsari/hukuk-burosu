@@ -262,6 +262,7 @@ class HearingTaskCreateView(View):
             "assignee": assignee,
             "due_date": local_dt.date(),
             "excuse_submitted": hearing.excuse_submitted,
+            "is_remote": hearing.is_remote,
             "notes": hearing.notes,
         }
         form = HearingTaskCreateForm(initial=initial, hearing=hearing)
@@ -295,6 +296,7 @@ class HearingTaskCreateView(View):
                 # Duruşmayı güncelle (sorumlu, mazeret, dosya, müvekkil):
                 hearing.assigned_to = task.assignee
                 hearing.excuse_submitted = form.cleaned_data.get("excuse_submitted", False)
+                hearing.is_remote = form.cleaned_data.get("is_remote", False)
                 if task.case and not hearing.case:
                     hearing.case = task.case
                 if task.client and not hearing.client:
@@ -303,6 +305,7 @@ class HearingTaskCreateView(View):
                     update_fields=[
                         "assigned_to",
                         "excuse_submitted",
+                        "is_remote",
                         "case",
                         "client",
                         "updated_at",

@@ -309,6 +309,8 @@ def hearing_events(start: dt.date, end: dt.date, user=None) -> list[Event]:
     for h in hearings:
         local_s = timezone.localtime(h.starts_at)
         title = f"{h.get_kind_display()}: {h.title_display}"
+        if h.is_remote:
+            title = f"E-duruşma · {title}"
         location = h.authority or (h.case.authority if h.case else "")
         if h.room:
             location += f" (Salon: {h.room})" if location else f"Salon: {h.room}"

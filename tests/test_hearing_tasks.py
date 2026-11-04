@@ -476,6 +476,7 @@ def test_hearing_task_create_view_workflow(lawyer_client, case_factory):
         "reviewer": "",
         "due_date": (timezone.now() + dt.timedelta(days=2)).date().isoformat(),
         "excuse_submitted": "on",
+        "is_remote": "on",
         "notes": "Ön inceleme duruşması",
     }
     response = lawyer_client.post(url, post_data, HTTP_HX_REQUEST="true")
@@ -485,6 +486,10 @@ def test_hearing_task_create_view_workflow(lawyer_client, case_factory):
     hearing.refresh_from_db()
     assert hearing.assigned_to == case.responsible_lawyer
     assert hearing.excuse_submitted is True
+    assert hearing.is_remote is True
+    from apps.agenda.google_sync import hearing_to_google_payload
+
+    assert "E-duruşma" in hearing_to_google_payload(hearing)["summary"]
     assert hearing.tasks.count() == 1
 
     task = hearing.tasks.first()

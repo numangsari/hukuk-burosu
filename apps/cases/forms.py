@@ -526,7 +526,7 @@ class DocumentForm(BootstrapMixin, forms.ModelForm):
 class HearingForm(BootstrapMixin, forms.ModelForm):
     class Meta:
         model = Hearing
-        fields = ["kind", "starts_at", "authority", "room", "notes"]
+        fields = ["kind", "starts_at", "authority", "room", "notes", "is_remote"]
         widgets = {"starts_at": DateTimeInput(), "notes": forms.Textarea(attrs={"rows": 1})}
 
 
@@ -561,6 +561,7 @@ class HearingStandaloneForm(BootstrapMixin, forms.ModelForm):
             "authority",
             "room",
             "notes",
+            "is_remote",
         ]
         widgets = {
             "starts_at": DateTimeInput(),
@@ -620,6 +621,7 @@ class HearingTaskCreateForm(BootstrapMixin, forms.ModelForm):
             "(Google Takvim'e ve ajandaya Mazeret olarak yansır)."
         ),
     )
+    is_remote = forms.BooleanField(label="E-duruşma", required=False)
     client = forms.ModelChoiceField(
         label="Müvekkil",
         queryset=Client.objects.all(),
@@ -659,6 +661,7 @@ class HearingTaskCreateForm(BootstrapMixin, forms.ModelForm):
         self.fields["title"].widget.attrs["class"] += " text-uppercase-input"
         if hearing:
             self.initial.setdefault("excuse_submitted", hearing.excuse_submitted)
+            self.initial.setdefault("is_remote", hearing.is_remote)
 
     def clean(self):
         cleaned_data = super().clean()

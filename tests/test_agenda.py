@@ -258,7 +258,7 @@ def test_calendar_hides_restricted_case_and_its_google_copy(
 
 
 @pytest.mark.parametrize("configured", [False, True])
-def test_home_shows_tasks_calendar_shows_appointments_and_google_events(
+def test_home_and_calendar_show_appointments_without_tasks(
     lawyer_client, case_factory, monkeypatch, configured
 ):
     from django.utils import timezone
@@ -277,7 +277,7 @@ def test_home_shows_tasks_calendar_shows_appointments_and_google_events(
     appointment = ClientAppointment.objects.create(
         client=case.client, title="Eski randevu", starts_at=now
     )
-    task = Task.objects.create(
+    Task.objects.create(
         case=case,
         title="Örnek görev",
         due_date=today,
@@ -301,8 +301,8 @@ def test_home_shows_tasks_calendar_shows_appointments_and_google_events(
         assert response.status_code == 200
         events = response.context["agenda"].events
         if url == "/":
-            assert any(e.title == task.title for e in events)
-            assert '<span class="t">GÖREV</span>' in response.content.decode()
+            assert not any(e.source == "task" for e in events)
+            assert any(e.title == "Randevu: Eski randevu" for e in events)
         else:
             assert not any(e.source == "task" for e in events)
             assert any(e.title == "Randevu: Eski randevu" for e in events)

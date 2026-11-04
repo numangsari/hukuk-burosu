@@ -668,6 +668,7 @@ class Hearing(TimeStampedModel):
     result = models.TextField("sonuç / ara karar", blank=True)
     decisions = models.TextField("duruşmada verilen kararlar", blank=True)
     excuse_submitted = models.BooleanField("mazeret gönderildi", default=False)
+    is_remote = models.BooleanField("e-duruşma", default=False)
     client_informed = models.BooleanField("müvekkile bilgi verildi", null=True, blank=True)
     client_not_informed_reason = models.TextField("müvekkile bilgi verilmeme sebebi", blank=True)
     portal_ref = models.CharField(

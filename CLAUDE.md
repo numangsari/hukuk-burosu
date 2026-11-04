@@ -102,6 +102,7 @@ uv run ruff format --check .                         # Format denetimi
   - Görev kapatılırken: duruşmaya girilmediyse *"Mazeret Gönderildi"* (mazeret açıklamasıyla), girildiyse *"Duruşmada Verilen Kararlar"* zorunlu doldurulup *"Müvekkile Bilgi Verildi / Verilmedi"* seçenekleri işaretlenir. Bilgiler duruşma kartına ve dosya zaman çizelgesine (`CaseEvent`) otomatik işlenir.
   - Görev tamamlanırken isteğe bağlı yeni duruşma tarihi ve saati girilebilir; aynı dosya ve saatte kayıt varsa tekrar oluşturulmaz. UYAP aktarımı bu kayıtla aynı dosya ve saat üzerinden eşleşir. Duruşma görevlerinde dilekçe zorunluluğu uygulanmaz.
 - **Google Takvim API Tek Yönlü Entegrasyon (`google_sync.py`):**
+  - Duruşma görev penceresinde e-duruşma işaretlenebilir; bilgi duruşma listesinde ve Google Takvim başlığında gösterilir.
   - Ayarlar sayfasında iki bağımsız bölüm: 1) Salt okunur iCal okuma adresi (`calendar_ics_url`), 2) Google Calendar API eşitleme ayarları (`google_calendar_api_enabled`, `google_calendar_id`, `google_service_account_json`).
   - Ayarlar arayüzünde canlı API bağlantı testi (`/takvim/google-test/`, `test_google_calendar_connection`) ve tüm duruşmaları toplu eşitleme desteği.
   - Sistemdeki duruşma ve toplantılar ofis Google Takvimi'ne tek yönlü aktarılır ve güncellenir. Başlık formatı: `[Keşif] Sorumlu Adı - Mahkeme Esas No (Müvekkil)` (Duruşma ve Ön İncelemede önek yoktur; Keşifte `[Keşif] ` öneki konur. Sorumlu kişinin soyadı yazılmaz yalnızca adı yazılır ve köşeli parantez kullanılmaz; mazeret sunulmuşsa `Mazeret - ...` olarak aktarılır). Konum alanı sadeleştirme amacıyla Google Takvim'e gönderilmez.
@@ -148,6 +149,7 @@ uv run ruff format --check .                         # Format denetimi
 
 ### `apps/imports` & UYAP/UETS Entegrasyonu
 - **Tarayıcı Eklentisi (`uyap-uets-eklentisi`):** UYAP Avukat Portal ve UETS oturumlarını yerel sunucuya bağlar.
+- **UYAP evrak ön hazırlığı:** Eklenti `/list_dosya_evraklar.ajx` üzerinden evrak listelerini sayfalı alır; bu işlem evrak içeriklerini indirmez. İçerik indirme yolu ve yanıt biçimi doğrulanmadan otomatik indirme eklenmemeli. Sonraki uygulamada erişim izni, belge kimliğiyle tekrar önleme, yarım kalan işlemi sürdürme ve müvekkili eşleşmemiş dosyalar ele alınmalı.
 - **Dosya Bilgisi & Taraf Eşitlemesi (`portal_case_sync.py`):** Canlı UYAP aktarımında eşleşen büro dosyası yoksa otomatik `Case` açılır; vekili olduğumuz taraf sistemdeki bir müvekkille eşleşirse bağlanır, eşleşmezse `client=None` bırakılarak "Eksik büro bilgisi" filtresine (`?missing=1`) düşer. UYAP'tan gelen duruşmalar `Hearing` kaydı olarak aktarılır. **UYAP dosyalarının evrakları henüz otomatik çekilmez**; sisteme ayrıca yüklenmiş belgelerle UYAP dosya bilgileri birbirinden ayrıdır.
 - **Tebligat Yönetimi:** UETS tebligatlarından tebliğ tarihine yasal süre eklenerek süreli görev oluşturma pop-up'ı.
 

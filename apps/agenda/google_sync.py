@@ -67,6 +67,8 @@ def hearing_to_google_payload(hearing: Hearing) -> dict:
         prefix = "[Bilirkişi] "
     elif hearing.kind == HearingKind.OTHER:
         prefix = "[Diğer] "
+    if hearing.is_remote:
+        prefix = "[E-duruşma] " + prefix
 
     # Sorumlu adı veya Mazeret:
     # Kullanıcı kuralı: Soyadı yazılmasın (yalnızca adı), köşeli parantez olmasın,
