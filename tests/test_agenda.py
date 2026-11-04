@@ -107,7 +107,7 @@ def test_calendar_page_month_and_week(lawyer_client, monkeypatch):
     r = lawyer_client.get(reverse("agenda:calendar"), {"date": "2026-11-05"})
     html = r.content.decode()
     assert "Kasım 2026" in html and "Duruşma - Örnek" in html
-    assert 'data-bs-target="#googleEventModal"' in html
+    assert 'data-bs-target="#calendarEventModal"' in html
     assert 'data-event-location="İstanbul Adliyesi"' in html
     assert 'data-event-end="07.11.2026"' in html
     assert "Yalnızca görüntüleme" in html

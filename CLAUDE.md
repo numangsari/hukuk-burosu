@@ -93,9 +93,9 @@ uv run ruff format --check .                         # Format denetimi
 - **`Hearing` Modeli:** Hem dava duruşmalarını hem de dosyasız müvekkil randevularını, arabuluculuk oturumlarını ve ofis toplantılarını destekler (`case=None`, `client`, `title`, `assigned_to`, `ends_at`).
 - **Otomatik Duruşma Görevi (`hearing_tasks.py`) & Bağlantılı Görev Akışı:**
   - Duruşmalar bağımsız sayfa yerine tebligatlar (`PortalNotice`) gibi yönetilir; duruşmalar listesinde ve dosya detayında "Görev oluştur" butonu yer alır.
-  - Görevi olmayan duruşmaya takvimde tıklanınca "Görev oluştur" penceresi açılır; Sorumlu, Mazeret ("Mazeret sunulacak"), Dosya, Müvekkil, Son Gün ve Notlar belirlenerek bağlı `Task` oluşturulur.
+  - Duruşma Listesi'ndeki "Görev oluştur" penceresi üzerinden Sorumlu, Mazeret ("Mazeret sunulacak"), Dosya, Müvekkil, Son Gün ve Notlar belirlenerek bağlı `Task` oluşturulur.
   - Duruşma notu görev notuna kaydedilir; mevcut duruşma notu varsa başlangıçta alana getirilir. Tarih, saat ve yer ayrı duruşma bilgilerinden gösterilir.
-  - Görev oluşturulduğunda duruşmanın sorumlusu ve mazeret durumu güncellenir, Google Takvim'e otomatik yansıtılır. Bağlantılı görevi olan duruşmalar takvimden ve listeden doğrudan göreve yönlendirir.
+  - Görev oluşturulduğunda duruşmanın sorumlusu ve mazeret durumu güncellenir, Google Takvim'e otomatik yansıtılır. Bağlantılı görev Duruşma Listesi'nden açılır.
   - Duruşmadan 1 gün önce sabah dosya sorumlusuna otomatik görev açılır: `"{case.display_name} DURUŞMASI İŞLEMLERİ YAPILACAK VE MÜVEKKİLE BİLGİ VERİLECEK"`.
   - Görev duruşmaya bağlıdır (`task.hearing`) ve kontrolcüsüz doğrudan kapatılabilir.
   - Görev kapatılırken: duruşmaya girilmediyse *"Mazeret Gönderildi"* (mazeret açıklamasıyla), girildiyse *"Duruşmada Verilen Kararlar"* zorunlu doldurulup *"Müvekkile Bilgi Verildi / Verilmedi"* seçenekleri işaretlenir. Bilgiler duruşma kartına ve dosya zaman çizelgesine (`CaseEvent`) otomatik işlenir.
@@ -107,7 +107,7 @@ uv run ruff format --check .                         # Format denetimi
   - Renk desteği: Etkinlik türüne göre ayarlanabilir Google Takvim renk seçimi (`google_color_hearing`: Duruşma/Ön İnceleme - varsayılan Mavi 9, `google_color_discovery`: Keşif - varsayılan Yeşil 2, `google_color_meeting`: Müvekkil Görüşmesi/Toplantı - varsayılan Sarı 5, `google_color_mediation`: Arabuluculuk - varsayılan Kırmızı 11, `google_color_other`: Bilirkişi/Diğer - varsayılan Gri 8).
   - Google Takvim'deki mevcut veya harici etkinliklere kesinlikle dokunulmaz; mükerrer kayıt `google_event_id` ile engellenir.
   - Google etkinlikleri varsa iCal adresinden, yoksa etkin API bağlantısından salt okunur alınır. Sistemin gönderdiği etkinlikler kimlikleriyle ayrılarak takvimde ikinci kez gösterilmez; dosya ve müvekkil görünürlük yetkileri uygulanır.
-  - Harici Google etkinliklerine takvimde tıklanınca tarih, saat, yer ve açıklama salt okunur bilgi penceresinde gösterilir.
+  - Takvimdeki tüm etkinliklere tıklanınca tarih, saat ve mevcut ayrıntılar salt okunur bilgi penceresinde gösterilir; duruşma görevleri Duruşma Listesi'nden yönetilir.
 - **Arayüz & Navigasyon:** Sol menüdeki "Sistem" menü grubu sadeleştirme amacıyla kaldırılmış; Sistem monitörü, UYAP/UETS inceleme, Aktivite kaydı, Veri aktarımı ve Django yönetim paneli bağlantıları Ayarlar > Sistem ve Gözlem bölümüne taşınmıştır. Dava/dosya numara girişi tek satırda kompakt ve estetik olarak hizalanmıştır.
 
 ### Fiziki Arşiv Modülü (`/arsiv/`)

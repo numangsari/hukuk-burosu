@@ -459,7 +459,7 @@ def test_hearing_task_create_view_workflow(lawyer_client, case_factory):
     assert response.headers["HX-Redirect"] == task.get_absolute_url()
 
 
-def test_hearing_events_url_based_on_connected_task(case_factory):
+def test_hearing_events_show_information_regardless_of_connected_task(case_factory):
     from apps.agenda.services import hearing_events
     from apps.cases.hearing_tasks import get_or_create_hearing_task_type
 
@@ -476,7 +476,7 @@ def test_hearing_events_url_based_on_connected_task(case_factory):
         starts_at=now + dt.timedelta(days=2),
     )
     task_type = get_or_create_hearing_task_type()
-    task = Task.objects.create(
+    Task.objects.create(
         task_type=task_type,
         title="DURUŞMA İŞLEMLERİ",
         case=case,
@@ -488,21 +488,39 @@ def test_hearing_events_url_based_on_connected_task(case_factory):
 
     events = hearing_events(now.date(), (now + dt.timedelta(days=5)).date())
 
-    # Görevi olmayan duruşma görev oluşturma penceresini açar.
-    assert any(ev.task_create_url for ev in events if ev.source == "hearing")
-    # Görevi olan duruşma için url doğrudan task.get_absolute_url() olmalı
-    assert any(ev.url == task.get_absolute_url() for ev in events if ev.source == "hearing")
+    assert len(events) == 2
+    assert all(not event.url and event.client_name for event in events)
 
 
-def test_calendar_hearing_without_task_opens_creation_form(lawyer_client, case_factory):
+def test_calendar_hearing_opens_information_not_task_creation(lawyer_client, case_factory):
     from django.urls import reverse
 
     case = case_factory()
-    hearing = Hearing.objects.create(case=case, starts_at=timezone.now())
+    from apps.clients.models import ClientAppointment
+
+    hearing = Hearing.objects.create(case=case, starts_at=timezone.now(), authority="Örnek mahkeme")
+    other = Hearing.objects.create(case=case, starts_at=timezone.now() + dt.timedelta(hours=1))
+    task = Task.objects.create(
+        case=case,
+        client=case.client,
+        title="Bağlı görev",
+        due_date=timezone.localdate(),
+        task_type=TaskType.objects.first(),
+        assignee=case.responsible_lawyer,
+        hearing=other,
+    )
+    ClientAppointment.objects.create(
+        client=case.client, title="Örnek görüşme", starts_at=timezone.now()
+    )
     url = reverse("hearings:task_create", args=[hearing.pk])
     for view in ("month", "week"):
         response = lawyer_client.get(reverse("agenda:calendar"), {"view": view})
-        assert f'hx-get="{url}"' in response.content.decode()
+        content = response.content.decode()
+        assert 'data-bs-target="#calendarEventModal"' in content
+        assert f'hx-get="{url}"' not in content
+        assert task.get_absolute_url() not in content
+        assert 'data-event-location="Örnek mahkeme"' in content
+        assert 'data-event-source="Randevu"' in content
     response = lawyer_client.get(url, HTTP_HX_REQUEST="true")
     assert response.status_code == 200
     assert "Duruşma İçin Görev Oluştur" in response.content.decode()

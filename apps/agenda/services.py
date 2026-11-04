@@ -40,7 +40,9 @@ class Event:
     source: str = "google"  # Google takvimi, görev veya duruşma
     url: str = ""
     remote_id: str = ""
-    task_create_url: str = ""
+    client_name: str = ""
+    responsible: str = ""
+    status: str = ""
 
     @property
     def start_date(self) -> dt.date:
@@ -291,8 +293,7 @@ def hearing_events(start: dt.date, end: dt.date, user=None) -> list[Event]:
     end_dt = timezone.make_aware(dt.datetime.combine(end, dt.time.min))
     hearings = (
         Hearing.objects.filter(starts_at__gte=start_dt, starts_at__lt=end_dt)
-        .select_related("case", "case__client", "client")
-        .prefetch_related("tasks")
+        .select_related("case", "case__client", "case__responsible_lawyer", "client", "assigned_to")
         .order_by("starts_at")
     )
     if user is not None:
@@ -311,13 +312,9 @@ def hearing_events(start: dt.date, end: dt.date, user=None) -> list[Event]:
         location = h.authority or (h.case.authority if h.case else "")
         if h.room:
             location += f" (Salon: {h.room})" if location else f"Salon: {h.room}"
-        from django.urls import reverse
-
-        task = h.tasks.first()
-        url = task.get_absolute_url() if task else ""
-        end_time = (
-            timezone.localtime(h.ends_at) if h.ends_at else (local_s + dt.timedelta(minutes=30))
-        )
+        end_time = timezone.localtime(h.ends_at) if h.ends_at else None
+        client = h.client or (h.case.client if h.case else None)
+        responsible = h.assigned_to or (h.case.responsible_lawyer if h.case else None)
         events.append(
             Event(
                 title=title,
@@ -328,8 +325,9 @@ def hearing_events(start: dt.date, end: dt.date, user=None) -> list[Event]:
                 description=h.notes or h.result or "",
                 days=[local_s.date()],
                 source="hearing",
-                url=url,
-                task_create_url=reverse("hearings:task_create", args=[h.pk]) if not task else "",
+                client_name=str(client) if client else "",
+                responsible=str(responsible) if responsible else "",
+                status=h.get_status_display(),
             )
         )
     return events
@@ -369,8 +367,10 @@ def calendar_events(start: dt.date, end: dt.date, user=None) -> AgendaResult:
                 end=None,
                 all_day=False,
                 days=[local_start.date()],
-                source="hearing",
+                source="appointment",
                 location=appointment.location,
+                client_name=str(appointment.client),
+                status=appointment.get_status_display(),
             )
         )
     result.events = sorted(
