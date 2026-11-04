@@ -1,4 +1,5 @@
 import datetime as dt
+from unittest.mock import MagicMock
 
 import pytest
 from django.core.cache import cache
@@ -9,6 +10,33 @@ from apps.agenda.services import CalendarError, events_between, parse_events
 from apps.office.models import OfficeSettings
 
 pytestmark = pytest.mark.django_db
+
+
+def test_google_connection_checks_events_with_existing_permissions(monkeypatch):
+    from apps.agenda import google_sync
+
+    office = OfficeSettings(google_calendar_id="test-calendar", google_service_account_json="{}")
+    service = MagicMock()
+    monkeypatch.setattr(
+        google_sync, "get_calendar_service", lambda *args, **kwargs: (service, "test-calendar")
+    )
+
+    ok, message = google_sync.test_google_calendar_connection(office)
+
+    assert ok is True
+    assert "etkinlikler okunabiliyor" in message
+    service.events().list.assert_called_once_with(calendarId="test-calendar", maxResults=1)
+    service.calendars.assert_not_called()
+
+
+def test_google_connection_reports_missing_calendar():
+    from apps.agenda.google_sync import test_google_calendar_connection
+
+    ok, message = test_google_calendar_connection(OfficeSettings())
+
+    assert ok is False
+    assert "tanımlanmamış" in message
+
 
 # Uydurma örnek takvim: saatli, tüm gün (2 günlük) ve haftalık tekrar eden etkinlik.
 ICS = """BEGIN:VCALENDAR

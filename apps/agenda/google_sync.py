@@ -293,10 +293,8 @@ def test_google_calendar_connection(office: OfficeSettings | None = None) -> tup
     from googleapiclient.errors import HttpError
 
     try:
-        cal = service.calendars().get(calendarId=cal_id).execute()
-        summary = cal.get("summary", cal_id)
-        tz = cal.get("timeZone", "")
-        return True, f'Google Takvim bağlantısı başarılı! Hedef takvim: "{summary}" ({tz})'
+        service.events().list(calendarId=cal_id, maxResults=1).execute()
+        return True, "Google Takvim bağlantısı başarılı; etkinlikler okunabiliyor."
     except HttpError as e:
         status = getattr(e, "status_code", None) or getattr(e, "resp", {}).status
         if status == 404:
