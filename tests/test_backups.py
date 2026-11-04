@@ -1,4 +1,5 @@
 import datetime as dt
+import json
 import zipfile
 
 import pytest
@@ -40,6 +41,42 @@ def test_backup_creates_unencrypted_zip_and_copy(backup_env):
     with zipfile.ZipFile(path) as zf:
         assert zf.read("db.dump") == b"PGDMP sahte dokum"
         assert zf.read("media/cases/1/dilekce.pdf") == b"%PDF belge"
+
+
+def test_scheduled_backup_keeps_documents_separate_and_restore_preserves_them(
+    backup_env, monkeypatch
+):
+    office = OfficeSettings.load()
+    office.documents_root = str(backup_env / "Ofis")
+    office.save()
+    rec = services.run_backup(BackupRecord.Kind.SCHEDULED)
+    assert rec.status == "ok", rec.message
+    document = backup_env / "Ofis" / "Sistem Belgeleri" / "cases" / "1" / "dilekce.pdf"
+    assert document.read_bytes() == b"%PDF belge"
+    archive = backup_env / "yedekler" / rec.file_name
+    with zipfile.ZipFile(archive) as zf:
+        assert json.loads(zf.read("manifest.json"))["database_only"] is True
+        assert not any(name.startswith("media/") for name in zf.namelist())
+    original = backup_env / "media" / "cases" / "1" / "dilekce.pdf"
+    original.write_bytes(b"son belge")
+    calls = []
+    monkeypatch.setattr(services, "_run", lambda cmd, stdin=None, **kw: calls.append(stdin.read()))
+    services.restore(archive)
+    assert calls == [b"PGDMP sahte dokum"]
+    assert original.read_bytes() == b"son belge"
+
+
+def test_scheduled_backup_refuses_to_overwrite_different_document(backup_env):
+    office = OfficeSettings.load()
+    office.documents_root = str(backup_env / "Ofis")
+    office.save()
+    target = backup_env / "Ofis" / "Sistem Belgeleri" / "cases" / "1" / "dilekce.pdf"
+    target.parent.mkdir(parents=True)
+    target.write_bytes(b"korunacak")
+    rec = services.run_backup(BackupRecord.Kind.SCHEDULED)
+    assert rec.status == "error"
+    assert "farklı içerikli" in rec.message
+    assert target.read_bytes() == b"korunacak"
 
 
 def test_backup_without_password_succeeds(backup_env, monkeypatch):

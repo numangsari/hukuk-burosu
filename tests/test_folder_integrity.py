@@ -10,6 +10,13 @@ from apps.office.models import OfficeSettings
 pytestmark = pytest.mark.django_db
 
 
+def test_writable_check_preserves_existing_file(tmp_path):
+    existing = tmp_path / ".yazma-testi"
+    existing.write_bytes(b"orijinal")
+    assert folders.check_writable(str(tmp_path)) == ""
+    assert existing.read_bytes() == b"orijinal"
+
+
 @pytest.fixture
 def office_root(tmp_path):
     root = tmp_path / "Ofis"

@@ -11,6 +11,7 @@ işlem durmaz, FolderError ile uyarı verilir.
 import logging
 import re
 import shutil
+import tempfile
 from pathlib import Path
 
 from django.db import transaction
@@ -222,9 +223,8 @@ def check_writable(path_str: str) -> str:
         return "Tam bir klasör yolu girin (ör. D:\\Hukuk Belgeleri)."
     try:
         path.mkdir(parents=True, exist_ok=True)
-        probe = path / ".yazma-testi"
-        probe.write_text("ok", encoding="utf-8")
-        probe.unlink()
+        with tempfile.TemporaryFile(dir=path) as probe:
+            probe.write(b"ok")
     except OSError as e:
         return f"Klasöre yazılamıyor: {e.strerror or e}"
     return ""

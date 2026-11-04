@@ -165,7 +165,7 @@
       <div class="col-xl-6">
         <form method="post" class="card">{% csrf_token %}<input type="hidden" name="section" value="klasor">
           <div class="form-section">
-            <div class="form-section-head"><h2>Ofis klasörü</h2><p>Belgeler, dilekçe şablonları ve günlük yedeklerin kopyaları bu klasörde tutulur. Yedekler parola istemez.</p></div>
+            <div class="form-section-head"><h2>Ofis klasörü</h2><p>Belgeler, dilekçe şablonları ve günlük veritabanı yedekleri bu klasörde tutulur. Yedekler parola istemez.</p></div>
             {% if backup_problem %}<div class="alert alert-warning py-2 small">{{ backup_problem }}</div>{% endif %}
             {% include "partials/field.html" with field=form.documents_root %}
             {% include "partials/field.html" with field=form.backup_time %}
@@ -173,10 +173,11 @@
               <div class="ms-3"><i class="bi bi-folder2"></i> Müvekkiller</div>
               <div class="ms-3"><i class="bi bi-folder2"></i> Şablon Dilekçeler</div>
               <div class="ms-3"><i class="bi bi-folder2"></i> Güncel Sistem Listeleri</div>
+              <div class="ms-3"><i class="bi bi-folder2"></i> Sistem Belgeleri</div>
               <div class="ms-3"><i class="bi bi-folder2"></i> Yedekler</div>
             </div>
             <p class="form-text mt-3 mb-0">Klasörü değiştirirseniz önceki dosyalar eski konumlarında kalır; kullanmaya devam etmek için içeriği yeni klasöre kopyalayın.</p>
-            <p class="form-text mt-2 mb-0">Bu klasörü OneDrive veya başka bir yedekleme hizmetiyle yedeklemeniz önerilir. Yedeklemenin tamamlandığını kullandığınız hizmetten kontrol edin.</p>
+            <p class="form-text mt-2 mb-0">Bu klasörü OneDrive veya başka bir hizmetle ayrıca yedekleyin. Günlük yedek yalnızca veritabanını içerir; sistem belgeleri ayrı klasörde saklanır. Yedeklemenin tamamlandığını kullandığınız hizmetten kontrol edin.</p>
           </div>
           <div class="form-footer"><button class="btn btn-primary">Kaydet ve dene</button></div>
         </form>
@@ -186,7 +187,7 @@
           {% for issue in office_lists.issues %}<div class="text-danger mt-1">{{ issue.file }}: {{ issue.reason }}</div>{% endfor %}
           <div class="text-body-secondary mt-2">Bir liste açıksa veya değiştirilmişse korunur; kapatılıp sorun giderildiğinde yeniden denenir. Takvim listesi son bir yıl ile gelecek iki yılı kapsar.</div>
         </div></div>
-        <div class="card mt-3"><div class="card-body small"><h2 class="section-title">Geri yükleme</h2>Sunucu bilgisayarda uygulamayı durdurup kurulum klasöründeki yedekten geri yükleme aracını kullanın.</div></div>
+        <div class="card mt-3"><div class="card-body small"><h2 class="section-title">Geri yükleme</h2>Sunucu bilgisayarda uygulamayı durdurup kurulum klasöründeki yedekten geri yükleme aracını kullanın. Günlük veritabanı yedeği mevcut belgeleri değiştirmez; yeni kurulumda Sistem Belgeleri klasöründeki kopyayı ayrıca geri yükleyin.</div></div>
       </div>
       <div class="col-xl-6"><div class="card table-card">
         <div class="card-header"><h2 class="card-title">Son yedekler</h2><form method="post" action="{% url 'backups:now' %}" class="ms-auto">{% csrf_token %}<button class="btn btn-sm btn-primary" {% if backup_problem %}disabled{% endif %}>Şimdi yedek al</button></form></div>
@@ -590,7 +591,7 @@
                 <tr>
                   <td>
                     <div class="fw-medium">Günlük yedekleme</div>
-                    <div class="cell-sub">Her gün saat {{ office.backup_time|time:"H:i" }} (PostgreSQL + Belgeler)</div>
+                    <div class="cell-sub">Her gün saat {{ office.backup_time|time:"H:i" }} (veritabanı ve ayrı belge kopyası)</div>
                   </td>
                   <td>
                     {% if backup_stale %}<span class="chip chip-danger">Gecikti</span>{% else %}<span class="chip chip-success">Normal</span>{% endif %}

@@ -1,8 +1,7 @@
 """Günlük yedek ve geri yükleme.
 
-Yedek = PostgreSQL dökümü (pg_dump -Fc) + yüklenen belgeler (MEDIA_ROOT), tek bir
-parolasız ZIP içinde. Önce sunucudaki BACKUP_DIR'e yazılır, ardından ofis klasörünün Yedekler
-alt klasörüne kopyalanır.
+Günlük yedek veritabanı dökümünü arşive alır, sistem belgelerini ofis klasörüne ayrı kopyalar.
+Elle alınan yedekler belgeleri de arşive ekler. Arşivler parolasızdır.
 Saklama: son 30 günün günlük yedeği + son 12 ayın ilk yedeği; diğerleri silinir.
 
 Env değişkenleri: BACKUP_PASSWORD (eski yedekler için), BACKUP_DIR,
@@ -131,6 +130,49 @@ def _add_media(zf, media_root: Path) -> int:
             if path.is_file():
                 zf.write(path, f"media/{path.relative_to(media_root).as_posix()}")
                 count += 1
+    return count
+
+
+def _copy_media_to_office(media_root: Path, office_root: Path) -> int:
+    """Sistem belgelerini değiştirmeden ofis klasöründe ayrı bir kopyada korur."""
+    destination = office_root / "Sistem Belgeleri"
+    if destination.is_symlink() or media_root.is_symlink():
+        raise BackupError("Belge yedeğinde klasör bağlantısı kullanılamaz.")
+    source_resolved, target_resolved = media_root.resolve(), destination.resolve()
+    if source_resolved == target_resolved or target_resolved.is_relative_to(source_resolved):
+        raise BackupError("Belge yedeği kaynak klasörün içinde olamaz.")
+    destination.mkdir(parents=True, exist_ok=True)
+    if not media_root.exists():
+        return 0
+    count = 0
+    for source in media_root.rglob("*"):
+        if source.is_symlink():
+            raise BackupError("Sistem belgelerinde klasör veya dosya bağlantısı var.")
+        if not source.is_file():
+            continue
+        target = destination / source.relative_to(media_root)
+        for parent in [target, *target.parents]:
+            if parent == destination.parent:
+                break
+            if parent.is_symlink():
+                raise BackupError("Belge yedeğinin hedefinde bağlantı var.")
+        target.parent.mkdir(parents=True, exist_ok=True)
+        if target.exists():
+            if not target.is_file() or not filecmp.cmp(source, target, shallow=True):
+                raise BackupError("Belge yedeğinde farklı içerikli aynı adlı dosya var.")
+        else:
+            created = False
+            try:
+                with source.open("rb") as src, target.open("xb") as dst:
+                    created = True
+                    shutil.copyfileobj(src, dst)
+                shutil.copystat(source, target)
+            except OSError:
+                if created:
+                    with suppress(OSError):
+                        target.unlink()
+                raise
+        count += 1
     return count
 
 
@@ -264,7 +306,7 @@ def apply_retention(directory: Path, today: dt.date | None = None) -> list[str]:
     return removed
 
 
-def run_backup(kind=BackupRecord.Kind.SCHEDULED) -> BackupRecord:
+def run_backup(kind=BackupRecord.Kind.MANUAL) -> BackupRecord:
     rec = BackupRecord.objects.create(kind=kind)
     target = None
     archive_created = False
@@ -276,6 +318,11 @@ def run_backup(kind=BackupRecord.Kind.SCHEDULED) -> BackupRecord:
         out_dir.mkdir(parents=True, exist_ok=True)
         now = timezone.localtime()
         office = OfficeSettings.load()
+        database_only = kind == BackupRecord.Kind.SCHEDULED
+        if database_only:
+            if not office.documents_root:
+                raise BackupError("Belgeleri korumak için önce ofis klasörünü seçin.")
+            _copy_media_to_office(Path(settings.MEDIA_ROOT), Path(office.documents_root))
         name = f"{office.slug}-yedek-{now:%Y%m%d-%H%M%S}.zip"
         target = out_dir / name
         with tempfile.TemporaryDirectory() as tmp:
@@ -284,7 +331,7 @@ def run_backup(kind=BackupRecord.Kind.SCHEDULED) -> BackupRecord:
             with zipfile.ZipFile(target, "x", compression=zipfile.ZIP_DEFLATED) as zf:
                 archive_created = True
                 zf.write(dump, "db.dump")
-                files = _add_media(zf, Path(settings.MEDIA_ROOT))
+                files = 0 if database_only else _add_media(zf, Path(settings.MEDIA_ROOT))
                 templates = _add_office_templates(zf)
                 lists = _add_office_lists(zf)
                 zf.writestr(
@@ -296,6 +343,7 @@ def run_backup(kind=BackupRecord.Kind.SCHEDULED) -> BackupRecord:
                             "template_files": templates,
                             "list_files": lists,
                             "format": 1,
+                            "database_only": database_only,
                         },
                         ensure_ascii=False,
                     ),
@@ -382,6 +430,17 @@ def restore(zip_path: Path, password: str | None = None):
             raise BackupError("Yedek açılamadı: parola yanlış veya dosya bozuk.") from e
         if not (tmp / "db.dump").is_file():
             raise BackupError("Yedek içinde veritabanı dökümü yok.")
+        database_only = False
+        if (tmp / "manifest.json").is_file():
+            try:
+                database_only = (
+                    json.loads((tmp / "manifest.json").read_text("utf-8")).get(
+                        "database_only", False
+                    )
+                    is True
+                )
+            except (ValueError, OSError, AttributeError) as e:
+                raise BackupError("Yedek bilgileri okunamadı.") from e
         fallback = _development_database_tool("pg_restore")
         cmd = [
             *(fallback or shlex.split(_cfg("PG_RESTORE", "pg_restore"), posix=False)),
@@ -393,6 +452,10 @@ def restore(zip_path: Path, password: str | None = None):
             *(["--username=ozkurt", "--dbname=ozkurt"] if fallback else [f"--dbname={_db_url()}"]),
         ]
         try:
+            if database_only:
+                with open(tmp / "db.dump", "rb") as f:
+                    _run(cmd, stdin=f, timeout=1800)
+                return
             media_root.parent.mkdir(parents=True, exist_ok=True)
             with tempfile.TemporaryDirectory(
                 prefix=".geri-yukleme-", dir=media_root.parent
