@@ -20,14 +20,14 @@ def login(user):
 
 def test_setup_users_start_pin_is_optional_to_change():
     call_command("setup_office_users", pin=PIN)
-    u = User.objects.get(username="nursu.ozkok")
+    u = User.objects.get(username="avukat.ayse")
     assert not u.must_change_pin
     assert login(u).get(reverse("clients:list")).status_code == 200
 
 
 def test_must_change_pin_then_released():
     call_command("setup_office_users", pin=PIN)
-    u = User.objects.get(username="nursu.ozkok")
+    u = User.objects.get(username="avukat.ayse")
     u.must_change_pin = True
     u.save()
     c = login(u)

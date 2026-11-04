@@ -74,7 +74,7 @@ def _cache_key(url: str, kind: str) -> str:
 def fetch_ics(url: str) -> str:
     if not url.lower().startswith(("https://", "http://")):
         raise CalendarError("Takvim adresi http(s) ile başlamalı.")
-    req = urllib.request.Request(url, headers={"User-Agent": "OzkurtHukuk/1.0"})
+    req = urllib.request.Request(url, headers={"User-Agent": "HukukBuroYonetimi/1.0"})
     try:
         with urllib.request.urlopen(req, timeout=10) as resp:  # noqa: S310 (adres yalnızca yönetici girer)
             data = resp.read(MAX_BYTES + 1)

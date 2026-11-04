@@ -73,7 +73,8 @@ def hearing_to_google_payload(hearing: Hearing) -> dict:
     if hearing.portal_ref:
         lines.append(f"\nUYAP Ref: {hearing.portal_ref}")
 
-    lines.append("\n(Bu etkinlik Özkurt Hukuk Otomasyonu tarafından oluşturulmuştur.)")
+    office = OfficeSettings.load()
+    lines.append(f"\n(Bu etkinlik {office.name} Otomasyonu tarafından oluşturulmuştur.)")
 
     description = "\n".join(lines)
 

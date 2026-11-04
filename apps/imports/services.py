@@ -24,6 +24,7 @@ from apps.cases.models import Case, CaseStatus, CaseType
 from apps.clients.models import Client, ClientContact, ClientIban, PersonKind
 from apps.core.text import fold
 from apps.core.validators import normalize_iban, validate_iban, validate_tckn, validate_vkn
+from apps.office.models import OfficeSettings
 
 CLIENT_COLS = [
     "Tür (Gerçek/Tüzel)", "Ad", "Soyad", "TC kimlik no", "Unvan", "Vergi kimlik no", "Vergi dairesi",
@@ -77,8 +78,9 @@ def template_bytes() -> bytes:
         wb["Dosyalar"].add_data_validation(dv_type)
         dv_type.add("B2:B2000")
     notes = wb.create_sheet("Açıklamalar", 0)
+    office = OfficeSettings.load()
     for line in [
-        "Özkurt Hukuk — veri aktarım şablonu",
+        f"{office.name} — veri aktarım şablonu",
         "",
         "• Her sayfada ilk satır başlıktır; değiştirmeyin. Örnek satırları silin.",
         "• Müvekkiller: Gerçek kişide Ad ve Soyad, tüzel kişide Unvan zorunludur.",

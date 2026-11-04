@@ -20,10 +20,7 @@ from apps.core.text import fold, poa_reference_number, tr_upper
 
 from .models import PowerOfAttorneyReview, PowerOfAttorneyReviewMember
 
-DEFAULT_TEAMS = (
-    ("nursu.ozkok", "ecenur.kucuk"),
-    ("gokturk.kizilkaya", "omer.faruk.ozbakir"),
-)
+DEFAULT_TEAMS = ()
 
 
 @dataclass

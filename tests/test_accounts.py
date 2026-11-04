@@ -119,14 +119,14 @@ def test_office_and_calendar_settings_admin_only(client, pin_user):
 def test_setup_office_users():
     call_command("setup_office_users", pin=TEST_PIN)
     assert User.objects.count() == 6
-    admin = User.objects.get(username="ali.samet.ozkurt")
+    admin = User.objects.get(username="yonetici.avukat")
     assert admin.is_office_admin and admin.is_superuser
     assert admin.check_password(TEST_PIN)
-    assert admin.initials == "AÖ"
+    assert admin.initials == "AY"
     assert list(User.objects.values_list("username", flat=True))[:3] == [
-        "ali.samet.ozkurt",
-        "irfan.mesut.baysal",
-        "nursu.ozkok",
+        "yonetici.avukat",
+        "avukat.ayse",
+        "avukat.mehmet",
     ]
     # Tekrar çalıştırmak mevcut PIN'i değiştirmez.
     admin.set_password("999999")

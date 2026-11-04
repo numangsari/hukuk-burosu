@@ -81,7 +81,13 @@ class DocumentsRootForm(BootstrapMixin, forms.ModelForm):
                 Path(os.environ.get("APPDATA", ""))
                 / "Microsoft/Windows/Start Menu/Programs/Startup"
             )
-            enabled = (startup / "Ozkurt Hukuk Gelistirme Yedek.lnk").is_file()
+            enabled = any(
+                (startup / name).is_file()
+                for name in [
+                    "Hukuk Burosu Gelistirme Yedek.lnk",
+                    "Ozkurt Hukuk Gelistirme Yedek.lnk",
+                ]
+            )
             self.fields["backup_time"].help_text = (
                 (
                     "Oturum açıkken otomatik kontrol çalışır; "

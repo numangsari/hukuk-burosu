@@ -7,7 +7,7 @@ $tools = $PSScriptRoot
 Add-Type -AssemblyName System.Windows.Forms
 $dlg = New-Object System.Windows.Forms.OpenFileDialog
 $dlg.Title = "Geri yüklenecek yedeği seçin"
-$dlg.Filter = "Yedek arşivleri (*-yedek-*.zip)|*-yedek-*.zip"
+$dlg.Filter = "Yedek arşivleri (*-yedek-*.zip;*.zip)|*-yedek-*.zip;*.zip"
 $dlg.InitialDirectory = Join-Path (Split-Path $tools) "data\backups"
 if ($dlg.ShowDialog() -ne "OK") { exit 0 }
 $answer = [System.Windows.Forms.MessageBox]::Show(
@@ -19,17 +19,24 @@ if ($LASTEXITCODE -ne 0) {
     [System.Windows.Forms.MessageBox]::Show("Güvenlik yedeği alınamadı. Geri yükleme başlatılmadı.", "Yedekten geri yükle", "OK", "Error") | Out-Null
     exit 1
 }
-& (Join-Path $tools "OzkurtHukukApp.exe") stop
+
+$appExe = Join-Path $tools "HukukBuroApp.exe"
+if (-not (Test-Path $appExe)) { $appExe = Join-Path $tools "OzkurtHukukApp.exe" }
+
+& $appExe stop
 if ($LASTEXITCODE -ne 0) {
     [System.Windows.Forms.MessageBox]::Show("Uygulama durdurulamadı. Geri yükleme başlatılmadı.", "Yedekten geri yükle", "OK", "Error") | Out-Null
     exit 1
 }
+Stop-ScheduledTask -TaskName "Hukuk Buro Hatirlatma" -ErrorAction SilentlyContinue
+Stop-ScheduledTask -TaskName "Hukuk Buro Haciz Takibi" -ErrorAction SilentlyContinue
 Stop-ScheduledTask -TaskName "Ozkurt Hukuk Hatirlatma" -ErrorAction SilentlyContinue
 Stop-ScheduledTask -TaskName "Ozkurt Hukuk Haciz Takibi" -ErrorAction SilentlyContinue
+
 try {
     & (Join-Path $tools "manage.cmd") restore $dlg.FileName --yes
     if ($LASTEXITCODE -ne 0) { throw "Geri yükleme başarısız." }
-    & (Join-Path $tools "OzkurtHukukApp.exe") start
+    & $appExe start
     if ($LASTEXITCODE -ne 0) { throw "Veriler geri yüklendi, ancak uygulama başlatılamadı." }
     [System.Windows.Forms.MessageBox]::Show("Geri yükleme tamamlandı.", "Yedekten geri yükle") | Out-Null
 } catch {

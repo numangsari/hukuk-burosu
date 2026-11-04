@@ -325,6 +325,61 @@ wheels = [
 ]
 
 [[package]]
+name = "hukuk-burosu"
+version = "0.1.0"
+source = { virtual = "." }
+dependencies = [
+    { name = "django" },
+    { name = "django-auditlog" },
+    { name = "django-environ" },
+    { name = "django-htmx" },
+    { name = "google-api-python-client" },
+    { name = "google-auth" },
+    { name = "icalendar" },
+    { name = "openpyxl" },
+    { name = "psycopg", extra = ["binary"] },
+    { name = "pyzipper" },
+    { name = "recurring-ical-events" },
+    { name = "reportlab" },
+    { name = "waitress" },
+    { name = "whitenoise" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "factory-boy" },
+    { name = "pytest" },
+    { name = "pytest-django" },
+    { name = "ruff" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "django", specifier = ">=5.2,<5.3" },
+    { name = "django-auditlog", specifier = ">=3.4.1" },
+    { name = "django-environ", specifier = ">=0.14.0" },
+    { name = "django-htmx", specifier = ">=1.29.0" },
+    { name = "google-api-python-client", specifier = ">=2.201.0" },
+    { name = "google-auth", specifier = ">=2.62.1" },
+    { name = "icalendar", specifier = ">=7.3.0" },
+    { name = "openpyxl", specifier = ">=3.1.5" },
+    { name = "psycopg", extras = ["binary"], specifier = ">=3.2" },
+    { name = "pyzipper", specifier = ">=0.4.0" },
+    { name = "recurring-ical-events", specifier = ">=3.8.2" },
+    { name = "reportlab", specifier = ">=5.1.0" },
+    { name = "waitress", specifier = ">=3.0.2" },
+    { name = "whitenoise", specifier = ">=6.12.0" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "factory-boy", specifier = ">=3.3.3" },
+    { name = "pytest", specifier = ">=9.2.0" },
+    { name = "pytest-django", specifier = ">=4.14.0" },
+    { name = "ruff", specifier = ">=0.17.3" },
+]
+
+[[package]]
 name = "icalendar"
 version = "7.3.0"
 source = { registry = "https://pypi.org/simple" }
@@ -377,61 +432,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/19/14/cf3a6b6448849656e1e5f4e2101f3988dc6789724050096aba1bc5ccf592/opentelemetry_api-1.45.2.tar.gz", hash = "sha256:d7b0008e21e5fd61cbe7a7f34ca3b6905a78ab677d9bc395e299359c75cda6b4", size = 73277, upload-time = "2026-10-29T17:29:37.888Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/a9/2d/610db864d7513158cebb8f36cc88e67e73bd6c7aa1905ef18d89e1281c81/opentelemetry_api-1.45.2-py3-none-any.whl", hash = "sha256:2cbd737377e710ee740d261c94e93fa0f08e6d037c18f17513cc0a2d94479a34", size = 60335, upload-time = "2026-10-29T17:29:06.955Z" },
-]
-
-[[package]]
-name = "ozkurt-hukuk"
-version = "0.1.0"
-source = { virtual = "." }
-dependencies = [
-    { name = "django" },
-    { name = "django-auditlog" },
-    { name = "django-environ" },
-    { name = "django-htmx" },
-    { name = "google-api-python-client" },
-    { name = "google-auth" },
-    { name = "icalendar" },
-    { name = "openpyxl" },
-    { name = "psycopg", extra = ["binary"] },
-    { name = "pyzipper" },
-    { name = "recurring-ical-events" },
-    { name = "reportlab" },
-    { name = "waitress" },
-    { name = "whitenoise" },
-]
-
-[package.dev-dependencies]
-dev = [
-    { name = "factory-boy" },
-    { name = "pytest" },
-    { name = "pytest-django" },
-    { name = "ruff" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "django", specifier = ">=5.2,<5.3" },
-    { name = "django-auditlog", specifier = ">=3.4.1" },
-    { name = "django-environ", specifier = ">=0.14.0" },
-    { name = "django-htmx", specifier = ">=1.29.0" },
-    { name = "google-api-python-client", specifier = ">=2.201.0" },
-    { name = "google-auth", specifier = ">=2.62.1" },
-    { name = "icalendar", specifier = ">=7.3.0" },
-    { name = "openpyxl", specifier = ">=3.1.5" },
-    { name = "psycopg", extras = ["binary"], specifier = ">=3.2" },
-    { name = "pyzipper", specifier = ">=0.4.0" },
-    { name = "recurring-ical-events", specifier = ">=3.8.2" },
-    { name = "reportlab", specifier = ">=5.1.0" },
-    { name = "waitress", specifier = ">=3.0.2" },
-    { name = "whitenoise", specifier = ">=6.12.0" },
-]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "factory-boy", specifier = ">=3.3.3" },
-    { name = "pytest", specifier = ">=9.2.0" },
-    { name = "pytest-django", specifier = ">=4.14.0" },
-    { name = "ruff", specifier = ">=0.17.3" },
 ]
 
 [[package]]

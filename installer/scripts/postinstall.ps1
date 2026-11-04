@@ -20,7 +20,10 @@ $Data = Join-Path $InstallDir "data"
 $PgData = Join-Path $Data "pgdata"
 $Env = Join-Path $App ".env"
 $Manage = Join-Path $InstallDir "tools\manage.cmd"
-$PgService = "OzkurtHukukDB"
+$PgService = "HukukBuroDB"
+if (-not (Get-Service $PgService -ErrorAction SilentlyContinue) -and (Get-Service "OzkurtHukukDB" -ErrorAction SilentlyContinue)) {
+    $PgService = "OzkurtHukukDB"
+}
 $Port = 5432
 
 function New-Secret([int]$Length = 40) {
@@ -43,11 +46,13 @@ foreach ($d in @($Data, "$Data\media", "$Data\backups", (Join-Path $InstallDir "
 $firstInstall = -not (Test-Path $Env)
 if ($firstInstall) {
     $dbPass = New-Secret 32
+    $dbUser = "hukuk"
+    $dbName = "hukuk"
     @(
         "DJANGO_SETTINGS_MODULE=config.settings.prod"
         "DJANGO_SECRET_KEY=$(New-Secret 60)"
         "DJANGO_ALLOWED_HOSTS=*"
-        "DATABASE_URL=postgres://ozkurt:$dbPass@127.0.0.1:$Port/ozkurt"
+        "DATABASE_URL=postgres://$($dbUser):$dbPass@127.0.0.1:$Port/$dbName"
         "MEDIA_ROOT=$Data\media"
         "STATIC_ROOT=$App\staticfiles"
         "LOG_FILE=$InstallDir\logs\app.log"
@@ -59,15 +64,18 @@ if ($firstInstall) {
     icacls $Env /inheritance:r /grant:r "*S-1-5-32-544:F" "*S-1-5-18:F" | Out-Null
 
 } else {
-    $dbPass = ((Get-Content $Env | Where-Object { $_ -like "DATABASE_URL=*" }) -replace '^.*://ozkurt:([^@]+)@.*$', '$1')
+    $dbUrlLine = (Get-Content $Env | Where-Object { $_ -like "DATABASE_URL=*" })
+    $dbPass = ($dbUrlLine -replace '^.*://[^:]+:([^@]+)@.*$', '$1')
+    $dbUser = ($dbUrlLine -replace '^.*://([^:]+):.*$', '$1')
+    $dbName = ($dbUrlLine -replace '^.*/([^/?]+).*$', '$1')
 }
 
 # 2) PostgreSQL veri klasörü ve servisi
 if (-not (Test-Path (Join-Path $PgData "PG_VERSION"))) {
-    $pw = Join-Path $env:TEMP "ozk-pw.txt"
+    $pw = Join-Path $env:TEMP "db-pw.txt"
     Set-Content -Encoding ascii -NoNewline $pw $dbPass
     try {
-        Invoke-Checked "$Pg\initdb.exe" @("-D", $PgData, "-U", "ozkurt", "--pwfile=$pw", "-E", "UTF8",
+        Invoke-Checked "$Pg\initdb.exe" @("-D", $PgData, "-U", $dbUser, "--pwfile=$pw", "-E", "UTF8",
             "--auth=scram-sha-256", "--locale-provider=icu", "--icu-locale=tr-TR", "--locale=C")
     } finally { Remove-Item $pw -Force -ErrorAction SilentlyContinue }
     # Yalnızca bu bilgisayardan bağlantı
@@ -83,8 +91,8 @@ for ($i = 0; $i -lt 30; $i++) {
     Start-Sleep -Seconds 1
 }
 $env:PGPASSWORD = $dbPass
-$exists = & "$Pg\psql.exe" -h 127.0.0.1 -p $Port -U ozkurt -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname='ozkurt'"
-if ($exists -ne "1") { Invoke-Checked "$Pg\createdb.exe" @("-h", "127.0.0.1", "-p", "$Port", "-U", "ozkurt", "ozkurt") }
+$exists = & "$Pg\psql.exe" -h 127.0.0.1 -p $Port -U $dbUser -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname='$dbName'"
+if ($exists -ne "1") { Invoke-Checked "$Pg\createdb.exe" @("-h", "127.0.0.1", "-p", "$Port", "-U", $dbUser, $dbName) }
 Remove-Item Env:\PGPASSWORD
 
 # 3) Veritabanı şeması, statik dosyalar, kullanıcılar
@@ -93,13 +101,19 @@ Invoke-Checked $Manage @("collectstatic", "--noinput")
 # Yeni kurulumda ilk yönetici tarayıcıdaki İlk Kurulum ekranında oluşturulur.
 
 # 4) Uygulama servisi (WinSW)
-$svc = Join-Path $InstallDir "tools\OzkurtHukukApp.exe"
-if (-not (Get-Service "OzkurtHukukApp" -ErrorAction SilentlyContinue)) { Invoke-Checked $svc @("install") }
+$appSvcName = "HukukBuroApp"
+$svc = Join-Path $InstallDir "tools\HukukBuroApp.exe"
+if (-not (Test-Path $svc)) {
+    $svc = Join-Path $InstallDir "tools\OzkurtHukukApp.exe"
+    $appSvcName = "OzkurtHukukApp"
+}
+if (-not (Get-Service $appSvcName -ErrorAction SilentlyContinue)) { Invoke-Checked $svc @("install") }
 & $svc restart | Out-Null
 
 # 5) Güvenlik duvarı: yalnızca özel (ofis) ağdan 80 numaralı port
-if (-not (Get-NetFirewallRule -DisplayName "Ozkurt Hukuk" -ErrorAction SilentlyContinue)) {
-    New-NetFirewallRule -DisplayName "Ozkurt Hukuk" -Direction Inbound -Protocol TCP -LocalPort 80 -Action Allow -Profile Private, Domain | Out-Null
+$fwName = "Hukuk Buro Yonetimi"
+if (-not (Get-NetFirewallRule -DisplayName $fwName -ErrorAction SilentlyContinue)) {
+    New-NetFirewallRule -DisplayName $fwName -Direction Inbound -Protocol TCP -LocalPort 80 -Action Allow -Profile Private, Domain | Out-Null
 }
 
 # 6) Yedek görevi: 30 dakikada bir kontrol eder, ayarlanan saatte (veya PC açılınca) günde bir kez yedekler
@@ -109,11 +123,13 @@ $triggers = @(
     (New-ScheduledTaskTrigger -Once -At (Get-Date).Date -RepetitionInterval (New-TimeSpan -Minutes 30))
 )
 $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit (New-TimeSpan -Hours 2)
-Register-ScheduledTask -TaskName "Ozkurt Hukuk Yedek" -Action $action -Trigger $triggers -Settings $settings `
+Register-ScheduledTask -TaskName "Hukuk Buro Yedek" -Action $action -Trigger $triggers -Settings $settings `
     -User "SYSTEM" -RunLevel Highest -Force | Out-Null
 
-# WhatsApp bağlantısı kullanım dışı; önceki sürümün hatırlatma görevi kaldırılır.
+# Eski zamanlanmış görevlerin temizliği
+Unregister-ScheduledTask -TaskName "Ozkurt Hukuk Yedek" -Confirm:$false -ErrorAction SilentlyContinue
 Unregister-ScheduledTask -TaskName "Ozkurt Hukuk Hatirlatma" -Confirm:$false -ErrorAction SilentlyContinue
+Unregister-ScheduledTask -TaskName "Hukuk Buro Hatirlatma" -Confirm:$false -ErrorAction SilentlyContinue
 
 # Haciz yenileme günleri, sayfa açık olmasa da beş dakikada bir denetlenir.
 $seizureScript = Join-Path $InstallDir "tools\check-reminders.ps1"
@@ -125,8 +141,9 @@ $seizureTriggers = @(
 )
 $seizureSettings = New-ScheduledTaskSettingsSet -StartWhenAvailable -AllowStartIfOnBatteries `
     -DontStopIfGoingOnBatteries -ExecutionTimeLimit (New-TimeSpan -Minutes 4) -MultipleInstances IgnoreNew
-Register-ScheduledTask -TaskName "Ozkurt Hukuk Haciz Takibi" -Action $seizureAction `
+Register-ScheduledTask -TaskName "Hukuk Buro Haciz Takibi" -Action $seizureAction `
     -Trigger $seizureTriggers -Settings $seizureSettings -User "SYSTEM" -RunLevel Highest -Force | Out-Null
+Unregister-ScheduledTask -TaskName "Ozkurt Hukuk Haciz Takibi" -Confirm:$false -ErrorAction SilentlyContinue
 
 # Ofis klasöründeki görüntüleme tabloları düzenli güncellenir.
 $listScript = Join-Path $InstallDir "tools\check-office-lists.ps1"
@@ -138,14 +155,15 @@ $listTriggers = @(
 )
 $listSettings = New-ScheduledTaskSettingsSet -StartWhenAvailable -AllowStartIfOnBatteries `
     -DontStopIfGoingOnBatteries -ExecutionTimeLimit (New-TimeSpan -Seconds 0) -MultipleInstances IgnoreNew
-Register-ScheduledTask -TaskName "Ozkurt Hukuk Listeler" -Action $listAction `
+Register-ScheduledTask -TaskName "Hukuk Buro Listeler" -Action $listAction `
     -Trigger $listTriggers -Settings $listSettings -User "SYSTEM" -RunLevel Highest -Force | Out-Null
+Unregister-ScheduledTask -TaskName "Ozkurt Hukuk Listeler" -Confirm:$false -ErrorAction SilentlyContinue
 
 # 7) İstemci kısayolu (diğer PC'lerin masaüstüne kopyalanacak)
 $url = "http://$($env:COMPUTERNAME)/"
 $shortcut = "[InternetShortcut]`r`nURL=$url`r`n"
-Set-Content -Encoding ascii (Join-Path $InstallDir "Ozkurt Hukuk.url") $shortcut
-Set-Content -Encoding ascii (Join-Path ([Environment]::GetFolderPath("CommonDesktopDirectory")) "Ozkurt Hukuk.url") $shortcut
+Set-Content -Encoding ascii (Join-Path $InstallDir "Hukuk Buro Yonetimi.url") $shortcut
+Set-Content -Encoding ascii (Join-Path ([Environment]::GetFolderPath("CommonDesktopDirectory")) "Hukuk Buro Yonetimi.url") $shortcut
 
 # 8) Sağlık kontrolü
 $ok = $false

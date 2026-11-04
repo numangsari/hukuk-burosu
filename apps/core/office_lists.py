@@ -18,8 +18,8 @@ from apps.reports.base import Column, ReportResult
 from apps.reports.renderers import to_xlsx
 
 DIRECTORY = "Güncel Sistem Listeleri"
-STATE_FILE = ".ozkurt-liste-durumu.json"
-SIGNATURE = "ozkurt-office-lists-v1"
+STATE_FILE = ".ofis-liste-durumu.json"
+SIGNATURE = "hukuk-office-lists-v1"
 LOCK_ID = 793401256
 
 # Gizli bağlantılar, oturum bilgileri ve parolalar hiçbir listede bulunmaz.
@@ -431,7 +431,7 @@ def _atomic_write(path: Path, data: bytes) -> None:
     temp = None
     try:
         with tempfile.NamedTemporaryFile(
-            prefix=".ozkurt-", suffix=".tmp", dir=path.parent, delete=False
+            prefix=".ofis-", suffix=".tmp", dir=path.parent, delete=False
         ) as stream:
             temp = Path(stream.name)
             stream.write(data)

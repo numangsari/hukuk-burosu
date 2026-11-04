@@ -40,7 +40,7 @@ class OfficeSettings(models.Model):
             "ekleyebilir / iptal edebilir",
         )
 
-    name = models.CharField("ofis adı", max_length=200, default="Özkurt Hukuk Bürosu")
+    name = models.CharField("ofis adı", max_length=200, default="Hukuk Bürosu")
     address = models.TextField("adres", blank=True)
     phone = models.CharField("telefon", max_length=50, blank=True)
     email = models.EmailField("e-posta", blank=True)
@@ -73,7 +73,7 @@ class OfficeSettings(models.Model):
         "ofis klasörü",
         max_length=500,
         blank=True,
-        help_text=r"Sunucu PC'de belgelerin kopyalanacağı kök klasör, ör. D:\Ozkurt Hukuk Ofis",
+        help_text=r"Sunucu PC'de belgelerin kopyalanacağı kök klasör, ör. D:\Hukuk Belgeleri",
     )
     idle_minutes = models.PositiveSmallIntegerField(
         "boşta kalınca oturumu kapat (dakika)",

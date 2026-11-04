@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
   Özkurt Hukuk kurulum paketini (Setup.exe) üretir. Geliştirici makinesinde çalıştırılır.
 
@@ -75,6 +75,7 @@ foreach ($junk in @("pgAdmin 4", "doc", "StackBuilder", "symbols", "include")) {
 $tools = Join-Path $Build "tools"
 New-Item -ItemType Directory -Force $tools | Out-Null
 $winsw = Get-Cached "https://github.com/winsw/winsw/releases/download/$WinSWVersion/WinSW-x64.exe" "WinSW-x64-$WinSWVersion.exe"
+Copy-Item $winsw (Join-Path $tools "HukukBuroApp.exe")
 Copy-Item $winsw (Join-Path $tools "OzkurtHukukApp.exe")
 Copy-Item (Join-Path $PSScriptRoot "scripts\*") $tools
 
@@ -102,6 +103,6 @@ $iscc = @("${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe", "$env:ProgramFiles\I
           "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe") |
     Where-Object { Test-Path $_ } | Select-Object -First 1
 if (-not $iscc) { throw "Inno Setup 6 bulunamadı. Kurmak için: winget install JRSoftware.InnoSetup" }
-& $iscc "/DAppVersion=$Version" "/DBuildDir=$Build" (Join-Path $PSScriptRoot "OzkurtHukuk.iss")
+& $iscc "/DAppVersion=$Version" "/DBuildDir=$Build" (Join-Path $PSScriptRoot "HukukBurosu.iss")
 if ($LASTEXITCODE -ne 0) { throw "Inno Setup derlemesi başarısız." }
-Write-Host "Hazır: $(Join-Path $PSScriptRoot "dist\OzkurtHukuk-Kurulum-$Version.exe")"
+Write-Host "Hazır: $(Join-Path $PSScriptRoot "dist\HukukBuro-Kurulum-$Version.exe")"

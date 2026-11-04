@@ -1,0 +1,21 @@
+<!-- WinSW yapılandırması: uygulamayı Windows servisi olarak çalıştırır (HukukBuroApp.exe ile aynı ad). -->
+<service>
+  <id>HukukBuroApp</id>
+  <name>Hukuk Büro Uygulama</name>
+  <description>Hukuk büro yönetim sistemi (Waitress, port 80)</description>
+  <executable>%BASE%\..\python\python.exe</executable>
+  <arguments>-m waitress --listen=0.0.0.0:80 --threads=12 --channel-timeout=300 config.wsgi:application</arguments>
+  <workingdirectory>%BASE%\..\app</workingdirectory>
+  <env name="DJANGO_SETTINGS_MODULE" value="config.settings.prod"/>
+  <env name="PYTHONUTF8" value="1"/>
+  <depend>HukukBuroDB</depend>
+  <startmode>Automatic</startmode>
+  <delayedAutoStart>false</delayedAutoStart>
+  <onfailure action="restart" delay="10 sec"/>
+  <onfailure action="restart" delay="30 sec"/>
+  <logpath>%BASE%\..\logs</logpath>
+  <log mode="roll-by-size">
+    <sizeThreshold>5120</sizeThreshold>
+    <keepFiles>5</keepFiles>
+  </log>
+</service>

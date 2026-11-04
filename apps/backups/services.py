@@ -82,19 +82,20 @@ def _run(cmd: list[str], *, stdin=None, stdout=None, timeout=900):
 def _development_database_tool(tool: str) -> list[str] | None:
     """Bu bilgisayardaki geliştirme veritabanına kendi kabından erişir."""
     db = connection.settings_dict
+    dev_container = os.environ.get("DEV_DB_CONTAINER", "ozkurt-hukuk-db-1")
     configured = _cfg("PG_DUMP" if tool == "pg_dump" else "PG_RESTORE")
     if (
         not settings.DEBUG
         or configured
         or _cfg("BACKUP_DATABASE_URL")
         or shutil.which(tool)
-        or db["NAME"] != "ozkurt"
-        or db["USER"] != "ozkurt"
+        or db["NAME"] not in ("ozkurt", "hukuk")
+        or db["USER"] not in ("ozkurt", "hukuk")
         or db["HOST"] not in ("localhost", "127.0.0.1")
         or str(db["PORT"]) != "5434"
     ):
         return None
-    return ["docker", "exec", "-i", "ozkurt-hukuk-db-1", tool]
+    return ["docker", "exec", "-i", dev_container, tool]
 
 
 def dump_database(target: Path):

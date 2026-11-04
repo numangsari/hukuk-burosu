@@ -219,7 +219,7 @@ def check_writable(path_str: str) -> str:
     """Ayarlar ekranı için: klasör yoksa oluşturur, yazılabilir mi dener. Hata metni döner."""
     path = Path(path_str)
     if not path.is_absolute():
-        return "Tam bir klasör yolu girin (ör. D:\\Ozkurt Hukuk Ofis)."
+        return "Tam bir klasör yolu girin (ör. D:\\Hukuk Belgeleri)."
     try:
         path.mkdir(parents=True, exist_ok=True)
         probe = path / ".yazma-testi"
