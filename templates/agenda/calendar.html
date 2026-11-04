@@ -172,7 +172,7 @@
         <span class="cal-day">{{ cell.date.day }}</span>
         <div class="cal-events" tabindex="0" role="region" aria-label="{{ cell.date|date:'d.m.Y' }} etkinlikleri">
         {% for ev in cell.events %}
-          {% if ev.task_create_url %}<button type="button" hx-get="{{ ev.task_create_url }}" hx-target="#hearing-task-modal-dialog" hx-swap="innerHTML" hx-on::after-request="if (event.detail.successful) bootstrap.Modal.getOrCreateInstance(document.getElementById('hearingTaskModal')).show()"{% elif ev.url %}<a href="{{ ev.url }}"{% else %}<span{% endif %} class="cal-ev src-{{ ev.source }}{% if ev.all_day %} all-day{% endif %}" title="{{ ev.time_label }} · {{ ev.title }}{% if ev.location %} · {{ ev.location }}{% endif %}">
+          {% if ev.task_create_url %}<button type="button" hx-get="{{ ev.task_create_url }}" hx-target="#hearing-task-modal-dialog" hx-swap="innerHTML" hx-on::after-request="if (event.detail.successful) bootstrap.Modal.getOrCreateInstance(document.getElementById('hearingTaskModal')).show()"{% elif ev.source == 'google' %}<button type="button" data-bs-toggle="modal" data-bs-target="#googleEventModal" data-event-title="{{ ev.title }}" data-event-start="{{ ev.start|date:'d.m.Y' }}{% if not ev.all_day %} {{ ev.start|date:'H:i' }}{% endif %}" data-event-end="{% if ev.display_end %}{{ ev.display_end|date:'d.m.Y' }}{% if not ev.all_day %} {{ ev.display_end|date:'H:i' }}{% endif %}{% endif %}" data-event-all-day="{% if ev.all_day %}1{% endif %}" data-event-location="{{ ev.location }}" data-event-description="{{ ev.description }}"{% elif ev.url %}<a href="{{ ev.url }}"{% else %}<span{% endif %} class="cal-ev src-{{ ev.source }}{% if ev.all_day %} all-day{% endif %}" title="{{ ev.time_label }} · {{ ev.title }}{% if ev.location %} · {{ ev.location }}{% endif %}">
             {% if ev.source == "task" %}
               <b>{{ ev.time_label }}</b>
             {% elif ev.source == "hearing" %}
@@ -182,7 +182,7 @@
             {% endif %}
             {{ ev.title }}
             {% if view == 'week' and ev.location %}<small class="d-block opacity-75"><i class="bi bi-geo-alt"></i> {{ ev.location }}</small>{% endif %}
-          </{% if ev.task_create_url %}button{% elif ev.url %}a{% else %}span{% endif %}>
+          </{% if ev.task_create_url or ev.source == 'google' %}button{% elif ev.url %}a{% else %}span{% endif %}>
         {% endfor %}
         </div>
       </div>
@@ -192,6 +192,34 @@
 <div class="modal fade" id="hearingTaskModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg" id="hearing-task-modal-dialog"></div>
 </div>
+<div class="modal fade" id="googleEventModal" tabindex="-1" aria-labelledby="google-event-title" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered"><div class="modal-content">
+    <div class="modal-header"><h2 class="modal-title fs-5" id="google-event-title"></h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Kapat"></button></div>
+    <div class="modal-body">
+      <div class="small text-body-secondary mb-3"><i class="bi bi-calendar-event me-1"></i>Google Takvim · Yalnızca görüntüleme</div>
+      <dl class="mb-0">
+        <dt>Başlangıç</dt><dd id="google-event-start"></dd>
+        <div id="google-event-end-row"><dt>Bitiş</dt><dd id="google-event-end"></dd></div>
+        <div id="google-event-location-row"><dt>Yer</dt><dd id="google-event-location"></dd></div>
+        <div id="google-event-description-row"><dt>Açıklama</dt><dd id="google-event-description" class="mb-0" style="white-space: pre-wrap; overflow-wrap: anywhere"></dd></div>
+      </dl>
+    </div>
+    <div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Kapat</button></div>
+  </div></div>
+</div>
+<script>
+  document.getElementById('googleEventModal').addEventListener('show.bs.modal', event => {
+    const data = event.relatedTarget.dataset;
+    document.getElementById('google-event-title').textContent = data.eventTitle;
+    document.getElementById('google-event-start').textContent = data.eventStart + (data.eventAllDay ? ' · Tüm gün' : '');
+    for (const name of ['end', 'location', 'description']) {
+      const value = data['event' + name[0].toUpperCase() + name.slice(1)];
+      const row = document.getElementById('google-event-' + name + '-row');
+      row.hidden = !value || (name === 'end' && data.eventAllDay && value === data.eventStart);
+      document.getElementById('google-event-' + name).textContent = value;
+    }
+  });
+</script>
 <div class="d-flex gap-3 small text-body-secondary mt-2">
   <span><span class="legend src-google"></span>Google Takvim</span>
   <span><span class="legend" style="background:#0d6efd;"></span>DURUŞMA / ETKİNLİK</span>

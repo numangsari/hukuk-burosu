@@ -57,6 +57,7 @@ def test_parse_events_local_time_all_day_and_recurrence():
     seminar = next(e for e in events if e.title == "Seminer")
     assert seminar.all_day and seminar.time_label == "Tüm gün"
     assert seminar.days == [dt.date(2026, 11, 6), dt.date(2026, 11, 7)]  # DTEND hariç
+    assert seminar.display_end == dt.date(2026, 11, 7)
 
 
 def test_not_configured():
@@ -106,6 +107,10 @@ def test_calendar_page_month_and_week(lawyer_client, monkeypatch):
     r = lawyer_client.get(reverse("agenda:calendar"), {"date": "2026-11-05"})
     html = r.content.decode()
     assert "Kasım 2026" in html and "Duruşma - Örnek" in html
+    assert 'data-bs-target="#googleEventModal"' in html
+    assert 'data-event-location="İstanbul Adliyesi"' in html
+    assert 'data-event-end="07.11.2026"' in html
+    assert "Yalnızca görüntüleme" in html
     assert '<h1 class="page-title mb-0">Takvim</h1>' in html
     assert "Duruşma Listesi" in html and "Ajanda &amp; Duruşmalar" not in html
     r = lawyer_client.get(reverse("agenda:calendar"), {"view": "week", "date": "2026-11-05"})

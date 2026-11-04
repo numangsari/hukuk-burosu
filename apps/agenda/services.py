@@ -47,6 +47,12 @@ class Event:
         return self.start if self.all_day else self.start.date()
 
     @property
+    def display_end(self):
+        if self.all_day and self.end:
+            return self.end - dt.timedelta(days=1)
+        return self.end
+
+    @property
     def time_label(self) -> str:
         if self.source == "task":
             return "GÖREV"
