@@ -38,10 +38,11 @@
       <a class="side-link {% if ns == 'core' %}active{% endif %}" href="{% url 'core:home' %}"><i class="bi bi-grid-1x2"></i>Ana sayfa</a>
       <a class="side-link {% if ns == 'tasks' %}active{% endif %}" href="{% url 'tasks:list' %}"><i class="bi bi-check2-square"></i>Görevler</a>
       <a class="side-link" href="{% url 'notice_list' %}"><i class="bi bi-envelope"></i>Tebligatlar</a>
-      <a class="side-link {% if ns == 'agenda' %}active{% endif %}" href="{% url 'agenda:calendar' %}"><i class="bi bi-calendar3"></i>Takvim</a>
+      <a class="side-link {% if ns == 'agenda' or ns == 'hearings' %}active{% endif %}" href="{% url 'agenda:calendar' %}"><i class="bi bi-calendar3"></i>Takvim</a>
       <div class="nav-section">Kayıtlar</div>
       <a class="side-link {% if ns == 'clients' %}active{% endif %}" href="{% url 'clients:list' %}"><i class="bi bi-people"></i>Müvekkiller</a>
       <a class="side-link {% if ns == 'cases' %}active{% endif %}" href="{% url 'cases:list' %}"><i class="bi bi-folder2-open"></i>Dosyalar</a>
+      <a class="side-link {% if ns == 'archive' %}active{% endif %}" href="{% url 'archive:list' %}"><i class="bi bi-archive"></i>Fiziki Arşiv</a>
       <div class="nav-section">Finans ve Rapor</div>
       {% if can_view_accounting %}<a class="side-link {% if ns == 'accounting' %}active{% endif %}" href="{% url 'accounting:list' %}"><i class="bi bi-wallet2"></i>Muhasebe</a>{% endif %}
       <a class="side-link {% if ns == 'reports' %}active{% endif %}" href="{% url 'reports:index' %}"><i class="bi bi-bar-chart-line"></i>Raporlar</a>

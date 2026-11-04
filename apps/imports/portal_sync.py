@@ -78,7 +78,15 @@ def find_name_permission(name, permission):
 
 def local_request(request):
     try:
-        return ipaddress.ip_address(request.META.get("REMOTE_ADDR", "")).is_loopback
+        ip = ipaddress.ip_address(request.META.get("REMOTE_ADDR", ""))
+        if ip.is_loopback:
+            return True
+        # Özel ofis ağı (RFC 1918: 10.x, 172.16-31.x, 192.168.x)
+        return (
+            ip in ipaddress.ip_network("10.0.0.0/8")
+            or ip in ipaddress.ip_network("172.16.0.0/12")
+            or ip in ipaddress.ip_network("192.168.0.0/16")
+        )
     except ValueError:
         return False
 

@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Özkurt Hukuk — Deneme Eklentisi",
+  "name": "Hukuk Bürosu — UYAP ve UETS Eklentisi",
   "version": "0.2.0",
-  "description": "Özkurt Hukuk deneme bağlantısı ve durum kontrolü.",
+  "description": "Hukuk bürosu UYAP ve UETS bağlantısı ve veri senkronizasyonu.",
   "permissions": [
     "storage",
     "unlimitedStorage",
@@ -12,7 +12,8 @@
     "https://avukat.uyap.gov.tr/*",
     "https://avukatbeta.uyap.gov.tr/*",
     "https://*.etebligat.gov.tr/*",
-    "http://127.0.0.1/*"
+    "http://*/*",
+    "https://*/*"
   ],
   "background": {
     "service_worker": "background.js"
@@ -23,7 +24,8 @@
   "content_scripts": [
     {
       "matches": [
-        "http://127.0.0.1/portal-inceleme/baglanti/*"
+        "http://*/portal-inceleme/baglanti/*",
+        "https://*/portal-inceleme/baglanti/*"
       ],
       "js": [
         "pair.js"

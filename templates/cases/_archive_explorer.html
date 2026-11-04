@@ -1,0 +1,44 @@
+<div id="archive-table" class="row g-3">
+  {% for f in folder_list %}
+  <div class="col-sm-6 col-md-4 col-lg-3">
+    <div class="card h-100 border shadow-sm p-3 position-relative hover-shadow transition">
+      <div class="d-flex align-items-start justify-content-between mb-2">
+        <div class="d-flex align-items-center gap-2">
+          <div class="bg-primary-subtle text-primary p-2 rounded">
+            <i class="bi bi-folder-fill fs-5"></i>
+          </div>
+          <div>
+            <h3 class="fs-6 fw-bold mb-0 text-truncate" style="max-width: 170px;" title="{{ f.archive_folder_no }}">
+              <a href="{% url 'archive:folder_detail' f.archive_folder_no %}" class="text-body text-decoration-none stretched-link">
+                {{ f.archive_folder_no }}
+              </a>
+            </h3>
+            <span class="text-body-secondary small">{{ f.total_files }} dosya</span>
+          </div>
+        </div>
+      </div>
+      <div class="d-flex align-items-center justify-content-between mt-auto pt-2 border-top small text-body-secondary">
+        <div>
+          <span class="text-success fw-medium">{{ f.open_files }} açık</span> · 
+          <span class="text-secondary">{{ f.closed_files }} kapalı</span>
+        </div>
+        <div class="z-2">
+          <a href="{% url 'archive:labels' %}?klasor={{ f.archive_folder_no|urlencode }}&tip=folder" class="btn btn-sm btn-light py-0 px-2" title="Klasör Sırtlığı Yazdır">
+            <i class="bi bi-printer"></i>
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% empty %}
+  <div class="col-12">
+    <div class="card py-5 text-center">
+      <div class="empty-state">
+        <i class="bi bi-folder-x fs-1 text-body-tertiary mb-2"></i>
+        <strong>Kayıtlı klasör bulunamadı</strong>
+        <div class="text-body-secondary small">Sistemde henüz fiziki klasör adı girilmiş dosya bulunmuyor.</div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>

@@ -11,7 +11,16 @@ from apps.core.uploads import validate_upload
 from apps.imports.portal_forms import PreserveExistingAssigneeMixin
 
 from . import stages
-from .models import Case, CaseEvent, CaseParty, Document, Hearing, PartyRole, Seizure
+from .models import (
+    Case,
+    CaseEvent,
+    CaseParty,
+    CaseStatus,
+    Document,
+    Hearing,
+    PartyRole,
+    Seizure,
+)
 from .party_roles import PARTY_ROLES
 
 
@@ -357,6 +366,75 @@ class HearingForm(BootstrapMixin, forms.ModelForm):
         model = Hearing
         fields = ["kind", "starts_at", "authority", "room", "notes"]
         widgets = {"starts_at": DateTimeInput(), "notes": forms.Textarea(attrs={"rows": 1})}
+
+
+class HearingStandaloneForm(BootstrapMixin, forms.ModelForm):
+    case = forms.ModelChoiceField(
+        label="Dosya",
+        queryset=Case.objects.none(),
+        required=False,
+        widget=forms.Select(
+            attrs={"data-searchable": "true", "data-placeholder": "Dosya seçin (isteğe bağlı)..."}
+        ),
+    )
+    client = forms.ModelChoiceField(
+        label="Müvekkil",
+        queryset=Client.objects.all(),
+        required=False,
+        widget=forms.Select(
+            attrs={"data-searchable": "true", "data-placeholder": "Müvekkil seçin..."}
+        ),
+    )
+
+    class Meta:
+        model = Hearing
+        fields = [
+            "title",
+            "kind",
+            "case",
+            "client",
+            "assigned_to",
+            "starts_at",
+            "ends_at",
+            "authority",
+            "room",
+            "notes",
+        ]
+        widgets = {
+            "starts_at": DateTimeInput(),
+            "ends_at": DateTimeInput(),
+            "notes": forms.Textarea(attrs={"rows": 2}),
+        }
+
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        from apps.core.permissions import filter_visible_cases
+
+        qs = Case.objects.filter(status=CaseStatus.OPEN).select_related("client")
+        if user:
+            qs = filter_visible_cases(qs, user)
+        self.fields["case"].queryset = qs
+
+        def _label(obj):
+            client_name = obj.client.name if obj.client else "Müvekkilsiz"
+            return f"{obj.archive_reference or '-'} · {obj.display_name} · {client_name}"
+
+        self.fields["case"].label_from_instance = _label
+
+    def clean(self):
+        cleaned_data = super().clean()
+        case = cleaned_data.get("case")
+        client = cleaned_data.get("client")
+        title = cleaned_data.get("title")
+
+        if case and not client:
+            cleaned_data["client"] = case.client
+
+        if not case and not client and not title:
+            raise forms.ValidationError(
+                "Lütfen bir dosya, müvekkil veya etkinlik başlığı belirtiniz."
+            )
+        return cleaned_data
 
 
 class HearingResultForm(BootstrapMixin, forms.ModelForm):

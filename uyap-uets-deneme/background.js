@@ -7,13 +7,22 @@ function redact(value, depth = 0) {
   }
   return value;
 }
+async function getServerUrl() {
+  const data = await chrome.storage.local.get('server_url');
+  return data.server_url || 'http://127.0.0.1:3000';
+}
 let queue = Promise.resolve();
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message?.type === 'pair') {
     let source;
     try { source = new URL(sender.url); } catch { return; }
-    if (sender.frameId !== 0 || source.origin !== 'http://127.0.0.1:3000' || source.pathname !== '/portal-inceleme/baglanti/' || !/^[A-Za-z0-9_-]{43}$/.test(message.key || '')) return;
-    chrome.storage.local.set({sync_key: message.key}).then(() => { sendResponse({ok: true}); reportHealth(); setTimeout(() => startScans(true), 5000); }).catch(() => sendResponse({ok: false}));
+    if (sender.frameId !== 0 || source.pathname !== '/portal-inceleme/baglanti/' || !/^[A-Za-z0-9_-]{43}$/.test(message.key || '')) return;
+    const serverUrl = source.origin;
+    chrome.storage.local.set({sync_key: message.key, server_url: serverUrl}).then(() => {
+      sendResponse({ok: true});
+      reportHealth();
+      setTimeout(() => startScans(true), 5000);
+    }).catch(() => sendResponse({ok: false}));
     return true;
   }
   if (message?.type === 'start_scans' && sender.url === chrome.runtime.getURL('popup.html')) {
@@ -31,7 +40,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     (async () => {
       const {sync_key: key} = await chrome.storage.local.get('sync_key');
       if (!key) return {ok:false, unavailable:true};
-      const response = await fetch('http://127.0.0.1:3000/portal-inceleme/isim-kontrol/', {
+      const serverUrl = await getServerUrl();
+      const response = await fetch(`${serverUrl}/portal-inceleme/isim-kontrol/`, {
         method:'POST', credentials:'omit', headers:{'Content-Type':'application/json', Authorization:`Bearer ${key}`},
         body:JSON.stringify({source:uyap ? 'uyap' : 'uets', name:message.name}), signal:AbortSignal.timeout(5000)
       });
@@ -62,7 +72,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     (async () => {
       const {sync_key: key} = await chrome.storage.local.get('sync_key');
       if (!key) return {ok: false};
-      const response = await fetch('http://127.0.0.1:3000/portal-inceleme/eklentiden-al/', {
+      const serverUrl = await getServerUrl();
+      const response = await fetch(`${serverUrl}/portal-inceleme/eklentiden-al/`, {
         method: 'POST', credentials: 'omit', headers: {'Content-Type': 'application/json', Authorization: `Bearer ${key}`},
         body: JSON.stringify(redact(message.data)), signal: AbortSignal.timeout(120000)
       });
@@ -130,7 +141,8 @@ async function reportHealth() {
       const state = values['scan_' + source];
       data[source] = {status: HEALTH_STATES.has(state) ? state : 'bekliyor', attempted: values['attempted_' + source] || null, completed: values['completed_' + source] || null};
     }
-    await fetch('http://127.0.0.1:3000/portal-inceleme/durum/', {
+    const serverUrl = await getServerUrl();
+    await fetch(`${serverUrl}/portal-inceleme/durum/`, {
       method: 'POST', credentials: 'omit', headers: {'Content-Type':'application/json', Authorization: `Bearer ${values.sync_key}`},
       body: JSON.stringify(data), signal: AbortSignal.timeout(5000)
     });

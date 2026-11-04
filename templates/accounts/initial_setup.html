@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block title %}İlk Kurulum — Büro Yönetim Sistemi{% endblock %}
+{% block anonymous %}
+<div class="login-page py-5">
+  <div class="login-brand mb-4">
+    <span class="eyebrow">Hukuk Bürosu Yönetim Sistemi</span>
+    <h1>İlk Kurulum Sihirbazı</h1>
+    <p>Hukuk büronuzun temel bilgilerini ve ilk yönetici hesabını oluşturun.</p>
+  </div>
+
+  <div class="card shadow-lg border-0" style="width: min(100%, 760px); border-radius: 20px;">
+    <div class="card-body p-4 p-md-5">
+      <form method="post" novalidate>
+        {% csrf_token %}
+        {% if form.non_field_errors %}
+          <div class="alert alert-danger">{{ form.non_field_errors|join:" " }}</div>
+        {% endif %}
+
+        <div class="row g-4">
+          <div class="col-12 col-md-6">
+            <h2 class="section-title mb-3"><i class="bi bi-building me-1"></i>1. Ofis Kimliği ve Çalışma Düzeni</h2>
+            <div class="mb-3">
+              <label class="form-label" for="{{ form.office_name.id_for_label }}">{{ form.office_name.label }} *</label>
+              {{ form.office_name }}
+              {% if form.office_name.errors %}<div class="invalid-feedback d-block">{{ form.office_name.errors|join:" " }}</div>{% endif %}
+            </div>
+            <div class="mb-3">
+              <label class="form-label" for="{{ form.phone.id_for_label }}">{{ form.phone.label }}</label>
+              {{ form.phone }}
+              {% if form.phone.errors %}<div class="invalid-feedback d-block">{{ form.phone.errors|join:" " }}</div>{% endif %}
+            </div>
+            <div class="mb-3">
+              <label class="form-label" for="{{ form.address.id_for_label }}">{{ form.address.label }}</label>
+              {{ form.address }}
+              {% if form.address.errors %}<div class="invalid-feedback d-block">{{ form.address.errors|join:" " }}</div>{% endif %}
+            </div>
+            <div class="mb-3">
+              <label class="form-label" for="{{ form.documents_root.id_for_label }}">{{ form.documents_root.label }}</label>
+              {{ form.documents_root }}
+              {% if form.documents_root.help_text %}<div class="form-text">{{ form.documents_root.help_text }}</div>{% endif %}
+              {% if form.documents_root.errors %}<div class="invalid-feedback d-block">{{ form.documents_root.errors|join:" " }}</div>{% endif %}
+            </div>
+            <div class="form-check mt-3">
+              {{ form.use_assistant_assignee }}
+              <label class="form-check-label fw-medium" for="{{ form.use_assistant_assignee.id_for_label }}">
+                {{ form.use_assistant_assignee.label }}
+              </label>
+              {% if form.use_assistant_assignee.help_text %}
+                <div class="form-text">{{ form.use_assistant_assignee.help_text }}</div>
+              {% endif %}
+            </div>
+          </div>
+
+          <div class="col-12 col-md-6">
+            <h2 class="section-title mb-3"><i class="bi bi-person-badge me-1"></i>2. İlk Yönetici Hesabı</h2>
+            <div class="row g-2 mb-3">
+              <div class="col-6">
+                <label class="form-label" for="{{ form.first_name.id_for_label }}">{{ form.first_name.label }} *</label>
+                {{ form.first_name }}
+                {% if form.first_name.errors %}<div class="invalid-feedback d-block">{{ form.first_name.errors|join:" " }}</div>{% endif %}
+              </div>
+              <div class="col-6">
+                <label class="form-label" for="{{ form.last_name.id_for_label }}">{{ form.last_name.label }} *</label>
+                {{ form.last_name }}
+                {% if form.last_name.errors %}<div class="invalid-feedback d-block">{{ form.last_name.errors|join:" " }}</div>{% endif %}
+              </div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label" for="{{ form.title.id_for_label }}">{{ form.title.label }}</label>
+              {{ form.title }}
+              {% if form.title.errors %}<div class="invalid-feedback d-block">{{ form.title.errors|join:" " }}</div>{% endif %}
+            </div>
+            <div class="row g-2 mb-3">
+              <div class="col-6">
+                <label class="form-label" for="{{ form.pin.id_for_label }}">{{ form.pin.label }} *</label>
+                {{ form.pin }}
+                {% if form.pin.errors %}<div class="invalid-feedback d-block">{{ form.pin.errors|join:" " }}</div>{% endif %}
+              </div>
+              <div class="col-6">
+                <label class="form-label" for="{{ form.pin2.id_for_label }}">{{ form.pin2.label }} *</label>
+                {{ form.pin2 }}
+                {% if form.pin2.errors %}<div class="invalid-feedback d-block">{{ form.pin2.errors|join:" " }}</div>{% endif %}
+              </div>
+            </div>
+            <div class="alert alert-info small mb-0">
+              <i class="bi bi-info-circle me-1"></i>
+              Kurulum tamamlandığında <strong>Yönetici</strong> olarak oturumunuz açılır. Diğer avukat, stajyer, katip, sekreter ve muhasebe personelini daha sonra <strong>Ayarlar &gt; Kullanıcılar</strong> ekranından ekleyebilirsiniz.
+            </div>
+          </div>
+        </div>
+
+        <hr class="my-4">
+        <div class="d-flex justify-content-end">
+          <button type="submit" class="btn btn-primary px-4">
+            <i class="bi bi-check2-circle"></i> Kurulumu Tamamla ve Başla
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

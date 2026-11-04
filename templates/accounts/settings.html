@@ -17,7 +17,9 @@
         {% if backup_stale %}<span class="chip chip-danger ms-auto">!</span>{% elif office.documents_root %}<span class="chip chip-success ms-auto">Ayarlı</span>{% endif %}</a>
       <a class="{% if active == 'gorev_turleri' %}active{% endif %}" href="?bolum=gorev_turleri"><i class="bi bi-list-check"></i>Görev türleri</a>
       <a href="{% url 'accounts:petition_templates' %}"><i class="bi bi-file-earmark-text"></i>Şablon dilekçeler</a>
+      {% if office.use_task_points %}
       <a class="{% if active == 'puanlar' %}active{% endif %}" href="?bolum=puanlar"><i class="bi bi-bar-chart"></i>Personel puanları</a>
+      {% endif %}
       <a class="{% if active == 'yetkiler' %}active{% endif %}" href="?bolum=yetkiler"><i class="bi bi-shield-check"></i>Yetkiler ve çalışma düzeni</a>
       <a class="{% if active == 'eklenti' %}active{% endif %}" href="?bolum=eklenti"><i class="bi bi-puzzle"></i>Eklenti ayarları</a>
       <a class="{% if active == 'takvim' %}active{% endif %}" href="?bolum=takvim"><i class="bi bi-calendar3"></i>Google Takvim
@@ -94,9 +96,11 @@
           <div class="col-md-4">{% include "partials/field.html" with field=form.email %}</div>
           <div class="col-md-4">{% include "partials/field.html" with field=form.tax_office %}</div>
           <div class="col-md-4">{% include "partials/field.html" with field=form.tax_number %}</div>
-          <div class="col-md-8">{% include "partials/field.html" with field=form.logo %}</div>
-          <div class="col-md-4">{% include "partials/field.html" with field=form.idle_minutes %}</div>
-          <div class="col-12">{% include "partials/field.html" with field=form.use_assistant_assignee wrap_class="" %}</div>
+          <div class="col-md-6">{% include "partials/field.html" with field=form.logo %}</div>
+          <div class="col-md-3">{% include "partials/field.html" with field=form.idle_minutes %}</div>
+          <div class="col-md-3">{% include "partials/field.html" with field=form.notice_default_due_days %}</div>
+          <div class="col-12">{% include "partials/field.html" with field=form.use_assistant_assignee %}</div>
+          <div class="col-12">{% include "partials/field.html" with field=form.use_task_points wrap_class="" %}</div>
         </div>
       </div>
       <div class="form-footer"><button class="btn btn-primary"><i class="bi bi-check2"></i>Kaydet</button></div>
@@ -207,12 +211,12 @@
         <div class="form-section-head"><h2>Görev türleri</h2><p>"Belge zorunlu" işaretli türlerde görev, belge yüklenmeden kontrole gönderilemez. Kullanılmayan türü pasife alın; son satırdan yeni tür ekleyin.</p></div>
         {% if fs.non_form_errors %}<div class="alert alert-danger">{{ fs.non_form_errors }}</div>{% endif %}
         <table class="table perm-table mb-0">
-          <thead><tr><th>Tür adı</th><th>Puan</th><th class="text-center">Belge zorunlu</th><th class="text-center">Aktif</th><th style="width: 90px">Sıra</th></tr></thead>
+          <thead><tr><th>Tür adı</th>{% if office.use_task_points %}<th>Puan</th>{% endif %}<th class="text-center">Belge zorunlu</th><th class="text-center">Aktif</th><th style="width: 90px">Sıra</th></tr></thead>
           <tbody>
           {% for f in fs %}
             <tr>
               <td>{{ f.id }}{{ f.name }}{% for e in f.name.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}</td>
-              <td>{{ f.points }}{% for e in f.points.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}</td>
+              {% if office.use_task_points %}<td>{{ f.points }}{% for e in f.points.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}</td>{% else %}<td class="d-none">{{ f.points }}</td>{% endif %}
               <td class="text-center">{{ f.requires_document }}</td>
               <td class="text-center">{{ f.is_active }}</td>
               <td>{{ f.order }}</td>

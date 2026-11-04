@@ -236,3 +236,125 @@ class BalanceViewersForm(forms.Form):
             qs_all_cases.filter(pk__in=chosen_all_cases).update(can_view_all_cases=True)
             qs_all_cases.exclude(pk__in=chosen_all_cases).update(can_view_all_cases=False)
         return None
+
+
+class InitialSetupForm(BootstrapMixin, forms.Form):
+    """Hiç aktif kullanıcı yokken açılan Hukuk Bürosu İlk Kurulum sihirbazı formu."""
+
+    office_name = forms.CharField(
+        label="Ofis / Büro adı",
+        max_length=200,
+        widget=forms.TextInput(attrs={"placeholder": "Örn: Yılmaz Hukuk Bürosu"}),
+    )
+    phone = forms.CharField(label="Ofis telefonu (isteğe bağlı)", max_length=50, required=False)
+    address = forms.CharField(
+        label="Ofis adresi (isteğe bağlı)",
+        required=False,
+        widget=forms.Textarea(attrs={"rows": 2}),
+    )
+    documents_root = forms.CharField(
+        label="Ofis belge klasörü (isteğe bağlı)",
+        max_length=500,
+        required=False,
+        help_text=(
+            r"Sunucu bilgisayarda belgelerin ve yedeklerin saklanacağı klasör "
+            r"(örn: D:\Hukuk Ofis)."
+        ),
+    )
+    use_assistant_assignee = forms.BooleanField(
+        label="Yardımcı sorumlu (stajyer / katip) kullan",
+        required=False,
+        initial=True,
+        help_text=(
+            "Müvekkil ve dosyalarda sorumlu avukatın yanında yardımcı sorumlu da seçilsin mi?"
+        ),
+    )
+    first_name = forms.CharField(label="Yönetici adı", max_length=150)
+    last_name = forms.CharField(label="Yönetici soyadı", max_length=150)
+    title = forms.CharField(
+        label="Unvan",
+        max_length=100,
+        initial="Yönetici Avukat",
+        required=False,
+    )
+    pin = forms.CharField(
+        label="4 haneli giriş PIN kodu",
+        max_length=4,
+        widget=forms.PasswordInput(
+            attrs={"inputmode": "numeric", "autocomplete": "new-password", "maxlength": "4"}
+        ),
+    )
+    pin2 = forms.CharField(
+        label="PIN kodu (tekrar)",
+        max_length=4,
+        widget=forms.PasswordInput(
+            attrs={"inputmode": "numeric", "autocomplete": "new-password", "maxlength": "4"}
+        ),
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        office = OfficeSettings.load()
+        if not self.is_bound:
+            self.initial.setdefault("office_name", office.name)
+            self.initial.setdefault("use_assistant_assignee", office.use_assistant_assignee)
+
+    def clean_documents_root(self):
+        from apps.core.folders import check_writable
+
+        value = (self.cleaned_data.get("documents_root") or "").strip()
+        if value and (error := check_writable(value)):
+            raise forms.ValidationError(error)
+        return value
+
+    def clean(self):
+        data = super().clean()
+        pin = data.get("pin", "")
+        pin2 = data.get("pin2", "")
+        if pin:
+            try:
+                password_validation.validate_password(pin)
+            except forms.ValidationError as e:
+                self.add_error("pin", e)
+        if pin and pin2 and pin != pin2:
+            self.add_error("pin2", "PIN kodları eşleşmiyor.")
+        return data
+
+    def save(self):
+        from django.db import transaction
+
+        from apps.core.text import fold, tr_upper
+
+        with transaction.atomic():
+            office = OfficeSettings.load()
+            office.name = self.cleaned_data["office_name"].strip()
+            office.phone = (self.cleaned_data.get("phone") or "").strip()
+            office.address = (self.cleaned_data.get("address") or "").strip()
+            office.documents_root = (self.cleaned_data.get("documents_root") or "").strip()
+            office.use_assistant_assignee = bool(self.cleaned_data.get("use_assistant_assignee"))
+            office.save()
+
+            first_name = self.cleaned_data["first_name"].strip()
+            last_name = tr_upper(self.cleaned_data["last_name"].strip())
+            base = ".".join(fold(f"{first_name} {last_name}").split()) or "yonetici"
+            username, n = base, 2
+            while User.objects.filter(username=username).exists():
+                username, n = f"{base}{n}", n + 1
+
+            user = User(
+                username=username,
+                first_name=first_name,
+                last_name=last_name,
+                role=User.Role.ADMIN,
+                title=(self.cleaned_data.get("title") or "Yönetici Avukat").strip(),
+                is_active=True,
+                is_staff=True,
+                is_superuser=True,
+                must_change_pin=False,
+                can_view_balances=True,
+                can_manage_accounting=True,
+                can_view_all_cases=True,
+            )
+            user.set_password(self.cleaned_data["pin"])
+            user.save()
+            return user

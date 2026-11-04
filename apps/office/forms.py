@@ -17,7 +17,9 @@ class OfficeForm(BootstrapMixin, forms.ModelForm):
             "tax_number",
             "logo",
             "idle_minutes",
+            "notice_default_due_days",
             "use_assistant_assignee",
+            "use_task_points",
         ]
         widgets = {"address": forms.Textarea(attrs={"rows": 2})}
 

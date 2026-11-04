@@ -1,12 +1,23 @@
 {% extends "base.html" %}
-{% block title %}Eklenti bağlantısı{% endblock %}
+{% block title %}Eklenti bağlantısı — {{ office.name }}{% endblock %}
 {% block content %}
-<h1 class="h3">Eklenti bağlantısı</h1>
-{% if pair_key %}
-{{ pair_key|json_script:"portal-pair-key" }}
-<p id="portal-pair-status">Eklentiye bağlantı bilgisi aktarılıyor. Eklenti yüklü değilse bu sayfayı kapatın.</p>
-{% else %}
-<p>Bu bilgisayardaki eklentiyi deneme sunucusuna bağlayın.</p>
-<form method="post">{% csrf_token %}<button class="btn btn-primary" type="submit">Eklentiyi bağla</button></form>
-{% endif %}
+<div class="card p-4" style="max-width: 640px">
+  <h1 class="h4 mb-3"><i class="bi bi-puzzle me-2"></i>Tarayıcı Eklentisi Bağlantısı</h1>
+  {% if pair_key %}
+  {{ pair_key|json_script:"portal-pair-key" }}
+  <div class="alert alert-info">
+    <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+    <span id="portal-pair-status">Eklentiye bağlantı bilgisi ve sunucu adresi (<code>{{ request.scheme }}://{{ request.get_host }}</code>) aktarılıyor...</span>
+  </div>
+  <p class="text-body-secondary small">Tarayıcınızda eklenti etkinse bağlantı birkaç saniye içinde otomatik tamamlanacaktır.</p>
+  <a class="btn btn-light btn-sm" href="{% url 'accounts:settings' %}?bolum=eklenti"><i class="bi bi-arrow-left me-1"></i>Eklenti ayarlarına dön</a>
+  {% else %}
+  <p>Bu tarayıcıdaki UYAP ve UETS eklentisini sunucuya bağlayın. Eklenti verileri bu sunucu adresine (<strong>{{ request.scheme }}://{{ request.get_host }}</strong>) aktaracaktır.</p>
+  <form method="post">
+    {% csrf_token %}
+    <button class="btn btn-primary" type="submit"><i class="bi bi-link-45deg me-1"></i>Eklentiyi bağla</button>
+    <a class="btn btn-light ms-2" href="{% url 'accounts:settings' %}?bolum=eklenti">Geri</a>
+  </form>
+  {% endif %}
+</div>
 {% endblock %}

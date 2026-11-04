@@ -53,6 +53,22 @@ class OfficeSettings(models.Model):
         blank=True,
         help_text="Google Takvim > Ayarlar > Takvimi entegre et > iCal biçiminde gizli adres",
     )
+    google_calendar_api_enabled = models.BooleanField(
+        "Google Takvim API aktif",
+        default=False,
+        help_text="Açık olduğunda duruşma ve toplantılar Google Takvim'e otomatik yazılır.",
+    )
+    google_calendar_id = models.CharField(
+        "Google Takvim ID",
+        max_length=255,
+        blank=True,
+        help_text="Duruşmaların yazılacağı takvim (örn: primary veya takvim e-posta adresi).",
+    )
+    google_service_account_json = models.TextField(
+        "Google Service Account JSON anahtarı",
+        blank=True,
+        help_text="Google Cloud Service Account JSON içeriği. Güvenli şekilde saklanır.",
+    )
     documents_root = models.CharField(
         "ofis klasörü",
         max_length=500,
@@ -93,6 +109,22 @@ class OfficeSettings(models.Model):
         choices=AccountingEditMode.choices,
         default=AccountingEditMode.EVERYONE,
     )
+    notice_default_due_days = models.PositiveSmallIntegerField(
+        "UETS tebligat varsayılan görev süresi (gün)",
+        default=14,
+        help_text=(
+            "UETS tebligatlarından görev oluştururken veya süre rozeti hesaplanırken "
+            "tebliğ tarihine eklenecek varsayılan gün sayısı (ör. 7, 14, 15)."
+        ),
+    )
+    use_task_points = models.BooleanField(
+        "personel görev puanı sistemini kullan",
+        default=True,
+        help_text=(
+            "Açık olduğunda görev türlerinde puanlar tanımlanır, kapatılan görevlerden puan "
+            "kazanılır ve Ayarlar > Personel puanları ekranı görünür."
+        ),
+    )
 
     class Meta:
         verbose_name = "ofis ayarları"
@@ -109,6 +141,18 @@ class OfficeSettings(models.Model):
     def load(cls) -> "OfficeSettings":
         obj, _ = cls.objects.get_or_create(pk=1)
         return obj
+
+    @property
+    def slug(self) -> str:
+        """Yedek ve dışa aktarım dosya adlarında kullanılacak kısa ASCII ad."""
+        import re
+
+        from apps.core.text import fold
+
+        parts = [p for p in re.split(r"[^a-z0-9]+", fold(self.name or "")) if p]
+        stop_words = {"hukuk", "burosu", "buro", "avukatlik", "ofisi", "ofis", "ortakligi"}
+        core = [p for p in parts if p not in stop_words] or parts
+        return "-".join(core[:2])[:24] or "hukuk-burosu"
 
 
 class LookupModel(models.Model):

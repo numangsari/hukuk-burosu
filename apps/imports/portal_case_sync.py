@@ -5,9 +5,20 @@ from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 
 from django.db import transaction
+from django.utils import timezone
 
 from apps.accounts.models import User
-from apps.cases.models import Case, CaseCoClient, CaseFlow, CaseParty, CaseStatus, NumberKind
+from apps.cases.models import (
+    Case,
+    CaseCoClient,
+    CaseFlow,
+    CaseParty,
+    CaseStatus,
+    Hearing,
+    HearingKind,
+    HearingStatus,
+    NumberKind,
+)
 from apps.cases.party_roles import PARTY_ROLES
 from apps.clients.models import Client, Party
 from apps.core.text import fold, tr_upper
@@ -611,6 +622,7 @@ def sync_portal_case(
             )
 
     case.save(preserve_unknown_stage=True)
+    sync_record_hearings(case, record, default_user=default_user)
 
     if sync_related:
         for rel in extract_related_cases(record):
@@ -666,3 +678,104 @@ def missing_related_cases_for_view(case: Case) -> list[dict]:
             }
         )
     return missing
+
+
+def map_hearing_kind(raw_kind: str) -> str:
+    f = fold(str(raw_kind or ""))
+    if "kesif" in f:
+        return HearingKind.DISCOVERY
+    if "on inceleme" in f:
+        return HearingKind.PRELIMINARY
+    if "bilirkisi" in f:
+        return HearingKind.EXPERT
+    if "arabuluculuk" in f:
+        return HearingKind.MEDIATION
+    if "durusma" in f:
+        return HearingKind.HEARING
+    return HearingKind.OTHER
+
+
+def map_hearing_status(result_desc: str) -> str:
+    f = fold(str(result_desc or ""))
+    if "ertelendi" in f or "tarih verildi" in f:
+        return HearingStatus.POSTPONED
+    if "yapildi" in f or "karara cikti" in f or "hukum" in f:
+        return HearingStatus.HELD
+    if "iptal" in f:
+        return HearingStatus.CANCELLED
+    return HearingStatus.PLANNED
+
+
+def parse_hearing_datetime(raw_str: str) -> datetime | None:
+    if not raw_str:
+        return None
+    s = str(raw_str).strip()
+    if "." in s:
+        s = s.split(".")[0]
+    for fmt in (
+        "%Y-%m-%d %H:%M:%S",
+        "%Y-%m-%d %H:%M",
+        "%d.%m.%Y %H:%M",
+        "%d.%m.%Y %H:%M:%S",
+        "%Y-%m-%d",
+        "%d.%m.%Y",
+    ):
+        try:
+            dt_obj = datetime.strptime(s, fmt)
+            if timezone.is_naive(dt_obj):
+                dt_obj = timezone.make_aware(dt_obj)
+            return dt_obj
+        except ValueError:
+            continue
+    return None
+
+
+def sync_record_hearings(case: Case, record: PortalCase, default_user=None):
+    """UYAP duruşmalarını Hearing kayıtlarına eşitler."""
+    data = record.data if isinstance(record.data, dict) else {}
+    durusmalar = data.get("durusmalar") or []
+    for item in durusmalar:
+        if not isinstance(item, dict):
+            continue
+        dt_val = parse_hearing_datetime(item.get("tarihSaat") or item.get("durusmaTarihi"))
+        if not dt_val:
+            continue
+        portal_ref = str(item.get("kayitId") or item.get("durusmaId") or "").strip()
+        auth = str(item.get("yerelBirimAd") or case.authority or "")[:200]
+        kind = map_hearing_kind(item.get("islemTuruAciklama") or item.get("tur"))
+        room = str(item.get("salon") or item.get("durusmaSalonu") or "")[:100]
+        result_desc = str(item.get("islemSonucuAciklama") or "").strip()
+        status = map_hearing_status(result_desc)
+        notes = str(item.get("talepDurumu") or "")
+
+        hearing = None
+        if portal_ref:
+            hearing = Hearing.objects.filter(case=case, portal_ref=portal_ref).first()
+        if not hearing:
+            hearing = Hearing.objects.filter(case=case, starts_at=dt_val).first()
+
+        if hearing:
+            updates = []
+            if portal_ref and hearing.portal_ref != portal_ref:
+                hearing.portal_ref = portal_ref
+                updates.append("portal_ref")
+            if auth and hearing.authority != auth:
+                hearing.authority = auth
+                updates.append("authority")
+            if room and hearing.room != room:
+                hearing.room = room
+                updates.append("room")
+            if updates:
+                hearing.save(update_fields=updates)
+        else:
+            Hearing.objects.create(
+                case=case,
+                kind=kind,
+                starts_at=dt_val,
+                authority=auth,
+                room=room,
+                notes=notes,
+                status=status,
+                portal_ref=portal_ref,
+                created_by=case.created_by or default_user,
+            )

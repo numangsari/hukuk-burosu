@@ -320,6 +320,13 @@ class TaskDetailView(DetailView):
 class TaskActionView(View):
     def post(self, request, pk):
         task = get_object_or_404(Task, pk=pk)
+        client_informed_raw = request.POST.get("client_informed")
+        client_informed = None
+        if client_informed_raw in ("true", "1", "yes"):
+            client_informed = True
+        elif client_informed_raw in ("false", "0", "no"):
+            client_informed = False
+
         try:
             services.perform(
                 task,
@@ -327,6 +334,10 @@ class TaskActionView(View):
                 request.user,
                 request.POST.get("comment", ""),
                 request.POST.get("ledger_id", ""),
+                hearing_outcome=request.POST.get("hearing_outcome", ""),
+                hearing_decisions=request.POST.get("hearing_decisions", ""),
+                client_informed=client_informed,
+                client_not_informed_reason=request.POST.get("client_not_informed_reason", ""),
             )
         except ValidationError as e:
             messages.error(request, " ".join(e.messages))

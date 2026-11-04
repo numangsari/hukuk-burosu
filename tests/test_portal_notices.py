@@ -234,3 +234,21 @@ def test_uyap_fields_appear_without_changing_office_fields(client):
     case.refresh_from_db()
     assert case.subject == "OFİS KONUSU" and case.client_id == owner.pk
     assert case.documents.count() == 0
+
+
+@pytest.mark.django_db
+def test_notice_due_date_uses_office_settings():
+    import datetime as dt
+
+    from apps.imports.portal_matching import calculate_notice_due_date
+    from apps.office.models import OfficeSettings
+
+    delivered = dt.date(2026, 11, 1)
+    office = OfficeSettings.load()
+    office.notice_default_due_days = 14
+    office.save(update_fields=["notice_default_due_days"])
+    assert calculate_notice_due_date(delivered) == dt.date(2026, 11, 15)
+
+    office.notice_default_due_days = 7
+    office.save(update_fields=["notice_default_due_days"])
+    assert calculate_notice_due_date(delivered) == dt.date(2026, 11, 8)

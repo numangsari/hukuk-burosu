@@ -16,7 +16,7 @@ from django.utils import timezone
 
 from apps.accounting.models import LedgerEntry
 from apps.cases.documents import publish_task_documents
-from apps.cases.models import CaseEvent
+from apps.cases.models import CaseEvent, HearingStatus
 from apps.core.permissions import is_admin
 
 from .models import Task, TaskEvent, TaskPoint, TaskStatus
@@ -41,6 +41,10 @@ def requires_review(task: Task) -> bool:
 @transaction.atomic
 def award_closed_task_points(task):
     """Kapatma işlemi tamamlandığında puanları bir kez kaydeder."""
+    from apps.office.models import OfficeSettings
+
+    if not OfficeSettings.load().use_task_points:
+        return
     task = Task.objects.select_for_update(of=("self",)).select_related("task_type").get(pk=task.pk)
     if task.status != S.DONE or not task.completed_at:
         raise ValidationError("Puan yalnızca kapatılmış görev için kaydedilebilir.")
@@ -137,7 +141,18 @@ def can_edit(task: Task, user) -> bool:
 
 
 @transaction.atomic
-def perform(task: Task, key: str, user, comment: str = "", ledger_id: str = "") -> Task:
+def perform(
+    task: Task,
+    key: str,
+    user,
+    comment: str = "",
+    ledger_id: str = "",
+    *,
+    hearing_outcome: str = "",
+    hearing_decisions: str = "",
+    client_informed: bool | None = None,
+    client_not_informed_reason: str = "",
+) -> Task:
     action = ACTIONS.get(key)
     if action is None:
         raise ValidationError("Geçersiz işlem.")
@@ -148,8 +163,59 @@ def perform(task: Task, key: str, user, comment: str = "", ledger_id: str = "") 
         raise PermissionDenied("Bu işlemi yapma yetkiniz yok.")
     comment = (comment or "").strip()
     if key == "close":
-        if not comment:
-            raise ValidationError("Görevi kapatmak için sonuç notu yazmalısınız.")
+        if task.hearing_id:
+            raw_outcome = hearing_outcome or task.hearing_outcome or "attended"
+            hearing_outcome = raw_outcome.strip().lower()
+            if hearing_outcome == "excused":
+                task.hearing_outcome = "excused"
+                task.hearing.excuse_submitted = True
+                task.hearing.status = HearingStatus.POSTPONED
+                excuse_note = comment or "Duruşmaya mazeret sunuldu."
+                if excuse_note:
+                    existing_notes = task.hearing.notes.strip()
+                    task.hearing.notes = f"{existing_notes}\n[Mazeret]: {excuse_note}".strip()
+                task.hearing.save(
+                    update_fields=["excuse_submitted", "status", "notes", "updated_at"]
+                )
+                if not comment:
+                    comment = "Mazeret gönderildi."
+            else:
+                hearing_outcome = "attended"
+                decisions = (hearing_decisions or "").strip()
+                if not decisions:
+                    raise ValidationError("Duruşmada verilen kararları girmelisiniz.")
+                if client_informed is None:
+                    raise ValidationError("Müvekkile bilgi verilip verilmediğini belirtiniz.")
+                reason = (client_not_informed_reason or "").strip()
+                if not client_informed and not reason:
+                    raise ValidationError("Müvekkile bilgi verilmeme sebebini yazmalısınız.")
+
+                task.hearing_outcome = "attended"
+                task.hearing_decisions = decisions
+                task.client_informed = client_informed
+                task.client_not_informed_reason = reason if not client_informed else ""
+
+                task.hearing.status = HearingStatus.HELD
+                task.hearing.decisions = decisions
+                task.hearing.result = decisions
+                task.hearing.client_informed = client_informed
+                task.hearing.client_not_informed_reason = reason if not client_informed else ""
+                task.hearing.save(
+                    update_fields=[
+                        "status",
+                        "decisions",
+                        "result",
+                        "client_informed",
+                        "client_not_informed_reason",
+                        "updated_at",
+                    ]
+                )
+                if not comment:
+                    comment = f"Duruşma yapıldı. Kararlar: {decisions}"
+        else:
+            if not comment:
+                raise ValidationError("Görevi kapatmak için sonuç notu yazmalısınız.")
+
         if task.requires_accounting:
             entry = (
                 LedgerEntry.objects.filter(
@@ -194,6 +260,10 @@ def perform(task: Task, key: str, user, comment: str = "", ledger_id: str = "") 
             "revision_requested",
             "approval_seen",
             "assignee_seen",
+            "hearing_outcome",
+            "hearing_decisions",
+            "client_informed",
+            "client_not_informed_reason",
             "updated_at",
         ]
     )
@@ -221,6 +291,30 @@ def perform(task: Task, key: str, user, comment: str = "", ledger_id: str = "") 
                 description=f"{task.assignee}" + (f" · belgeler: {names}" if names else ""),
                 created_by=user,
             )
+        if task.hearing_id and task.case_id:
+            if task.hearing_outcome == "excused":
+                CaseEvent.objects.create(
+                    case=task.case,
+                    date=timezone.localdate(),
+                    kind=CaseEvent.Kind.HEARING,
+                    title=f"Mazeret bildirildi: {task.hearing.title_display}",
+                    description=comment or "Duruşmaya mazeret sunuldu.",
+                    created_by=user,
+                )
+            else:
+                info_msg = (
+                    "Müvekkile bilgi verildi."
+                    if task.client_informed
+                    else f"Müvekkile bilgi verilmedi (Sebep: {task.client_not_informed_reason})"
+                )
+                CaseEvent.objects.create(
+                    case=task.case,
+                    date=timezone.localdate(),
+                    kind=CaseEvent.Kind.HEARING,
+                    title=f"Duruşma yapıldı: {task.hearing.title_display}",
+                    description=f"Kararlar:\n{task.hearing_decisions}\n\n{info_msg}",
+                    created_by=user,
+                )
         award_closed_task_points(task)
     elif key == "reopen":
         task.points_awarded.all().delete()

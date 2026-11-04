@@ -1,0 +1,32 @@
+<div class="modal-dialog modal-dialog-centered">
+  <form method="post" action="{% url 'hearings:result' hearing.pk %}" class="modal-content" hx-post="{% url 'hearings:result' hearing.pk %}" hx-target="#result-modal" hx-swap="innerHTML">
+    {% csrf_token %}
+    <div class="modal-header">
+      <div>
+        <h2 class="modal-title fs-6 mb-1">Duruşma Sonucu / Ara Karar</h2>
+        <div class="text-body-secondary small">{{ hearing.starts_at|date:"d.m.Y H:i" }} · {{ hearing.case.display_name }}</div>
+      </div>
+      <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Kapat"></button>
+    </div>
+    <div class="modal-body">
+      <div class="mb-3">
+        <label class="form-label" for="id_status">Duruşma Durumu</label>
+        <select name="status" id="id_status" class="form-select">
+          <option value="held" {% if hearing.status == 'held' %}selected{% endif %}>Yapıldı</option>
+          <option value="postponed" {% if hearing.status == 'postponed' %}selected{% endif %}>Ertelendi</option>
+          <option value="cancelled" {% if hearing.status == 'cancelled' %}selected{% endif %}>İptal</option>
+          <option value="planned" {% if hearing.status == 'planned' %}selected{% endif %}>Planlandı</option>
+        </select>
+      </div>
+      <div class="mb-2">
+        <label class="form-label" for="id_result">Sonuç / Ara Karar Tutanağı</label>
+        <textarea name="result" id="id_result" class="form-control" rows="4" placeholder="Duruşmada alınan ara kararlar, ertelenme gerekçesi veya sonuç özeti...">{{ hearing.result }}</textarea>
+        <div class="form-text">Girilen sonuç metni dosyanın zaman çizelgesine de otomatik olarak kaydedilir.</div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-light" data-bs-dismiss="modal">Vazgeç</button>
+      <button type="submit" class="btn btn-primary"><i class="bi bi-check2"></i>Kaydet</button>
+    </div>
+  </form>
+</div>

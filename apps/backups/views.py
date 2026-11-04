@@ -47,11 +47,13 @@ class BackupDownloadView(AdminRequiredMixin, View):
 class ExportAllListsZipView(AdminRequiredMixin, View):
     def get(self, request):
         from apps.core.office_lists import export_all_lists_zip
+        from apps.office.models import OfficeSettings
 
         data = export_all_lists_zip()
         stamp = timezone.localtime().strftime("%Y%m%d-%H%M")
+        slug = OfficeSettings.load().slug
         response = HttpResponse(data, content_type="application/zip")
-        response["Content-Disposition"] = f'attachment; filename="ozkurt-tum-tablolar-{stamp}.zip"'
+        response["Content-Disposition"] = f'attachment; filename="{slug}-tum-tablolar-{stamp}.zip"'
         return response
 
 

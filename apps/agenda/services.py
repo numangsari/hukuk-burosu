@@ -37,7 +37,7 @@ class Event:
     location: str = ""
     description: str = ""
     days: list[dt.date] = field(default_factory=list)
-    source: str = "google"  # Google takvimi veya görev
+    source: str = "google"  # Google takvimi, görev veya duruşma
     url: str = ""
 
     @property
@@ -48,6 +48,9 @@ class Event:
     def time_label(self) -> str:
         if self.source == "task":
             return "GÖREV"
+        if self.source == "hearing":
+            label = f"{self.start:%H:%M}"
+            return f"DURUŞMA {label}" if not self.all_day else "DURUŞMA"
         if self.all_day:
             return "Tüm gün"
         label = f"{self.start:%H:%M}"
@@ -191,11 +194,58 @@ def task_events(start: dt.date, end: dt.date) -> list[Event]:
     return events
 
 
-def combined_events(start: dt.date, end: dt.date) -> AgendaResult:
+def hearing_events(start: dt.date, end: dt.date) -> list[Event]:
+    """[start, end) aralığındaki duruşmaları takvim etkinliği olarak gösterir."""
+    from django.urls import reverse
+
+    from apps.cases.models import Hearing
+
+    start_dt = timezone.make_aware(dt.datetime.combine(start, dt.time.min))
+    end_dt = timezone.make_aware(dt.datetime.combine(end, dt.time.min))
+    hearings = (
+        Hearing.objects.filter(starts_at__gte=start_dt, starts_at__lt=end_dt)
+        .select_related("case", "case__client", "client")
+        .order_by("starts_at")
+    )
+    events = []
+    for h in hearings:
+        local_s = timezone.localtime(h.starts_at)
+        title = f"{h.get_kind_display()}: {h.title_display}"
+        location = h.authority or (h.case.authority if h.case else "")
+        if h.room:
+            location += f" (Salon: {h.room})" if location else f"Salon: {h.room}"
+        url = (
+            h.case.get_absolute_url() + "#t-durusmalar"
+            if h.case
+            else (reverse("agenda:calendar") + "?view=list")
+        )
+        end_time = (
+            timezone.localtime(h.ends_at) if h.ends_at else (local_s + dt.timedelta(minutes=30))
+        )
+        events.append(
+            Event(
+                title=title,
+                start=local_s,
+                end=end_time,
+                all_day=False,
+                location=location,
+                description=h.notes or h.result or "",
+                days=[local_s.date()],
+                source="hearing",
+                url=url,
+            )
+        )
+    return events
+
+
+def combined_events(start: dt.date, end: dt.date, include_hearings: bool = False) -> AgendaResult:
     """Google etkinlikleri ile açık görevleri aynı takvimde birleştirir."""
     result = events_between(start, end)
+    all_events = list(result.events) + task_events(start, end)
+    if include_hearings:
+        all_events += hearing_events(start, end)
     result.events = sorted(
-        result.events + task_events(start, end),
+        all_events,
         key=lambda event: (
             event.start_date,
             not event.all_day,

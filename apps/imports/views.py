@@ -48,11 +48,14 @@ def _tmp_path(token: str) -> Path:
 
 class TemplateDownloadView(AdminRequiredMixin, View):
     def get(self, request):
+        from apps.office.models import OfficeSettings
+
+        slug = OfficeSettings.load().slug
         resp = HttpResponse(
             services.template_bytes(),
             content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         )
-        resp["Content-Disposition"] = 'attachment; filename="ozkurt-aktarim-sablonu.xlsx"'
+        resp["Content-Disposition"] = f'attachment; filename="{slug}-aktarim-sablonu.xlsx"'
         return resp
 
 

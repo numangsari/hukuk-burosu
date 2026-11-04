@@ -32,7 +32,7 @@ from apps.office.models import OfficeSettings
 
 from .models import BackupRecord
 
-NAME_RE = re.compile(r"^ozkurt-yedek-(\d{8})-(\d{6})\.zip$")
+NAME_RE = re.compile(r"^[a-z0-9-]+-yedek-(\d{8})-(\d{6})\.zip$")
 KEEP_DAILY = 30
 KEEP_MONTHLY = 12
 
@@ -256,7 +256,8 @@ def run_backup(kind=BackupRecord.Kind.SCHEDULED) -> BackupRecord:
         out_dir = local_dir()
         out_dir.mkdir(parents=True, exist_ok=True)
         now = timezone.localtime()
-        name = f"ozkurt-yedek-{now:%Y%m%d-%H%M%S}.zip"
+        office = OfficeSettings.load()
+        name = f"{office.slug}-yedek-{now:%Y%m%d-%H%M%S}.zip"
         target = out_dir / name
         with tempfile.TemporaryDirectory() as tmp:
             dump = Path(tmp) / "db.dump"

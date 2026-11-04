@@ -1,0 +1,28 @@
+bu proje, bir hukuk bürosunun günlük işini tek yerden yöneten bir ofis yönetim platformudur.
+Sistemin merkezinde Dosya kavramı vardır. Müvekkil, görev ve muhasebe kayıtlarının hepsi bir dosyaya bağlanır. Böylece bir davanın ya da işin tüm geçmişi tek ekrandan izlenir.
+
+Modüller
+Sistem modüllerden oluşur; her ana ekran bir modüldür.
+Modül
+Ne yapar
+Müvekkil
+Gerçek ve tüzel kişi kartı: kimlik, iletişim, vekalet, IBAN, sorumlu avukat. Liste satırında dosya sayısı, açık görev sayısı ve bakiye görünür; tipe, vekalete, sorumluya, borçlu olma ve açık göreve göre süzülür ve sıralanır.
+Dosya
+Dava/iş dosyası. Tüm diğer kayıtların bağlandığı merkez. Detay sayfasında ilgili görev, belge, tebligat ve hareketler toplanır.
+Görev
+Sorumlu ile kontrolcü arasında onay döngüsüyle ilerleyen işler (aşağıda ayrıntılı).
+Muhasebe
+Vekalet ücreti, masraf, tahsilat ve ödeme hareketleri; müvekkil cari bakiyesi.
+Dashboard
+Günlük özet: bekleyen görevler, yaklaşan tarihler.
+Global arama
+Tüm kayıt türlerinde tek kutudan arama.
+Aktivite
+Kim, ne zaman, neyi değiştirdi kaydı (audit).
+Rapor
+Excel ve PDF çıktı.
+Ofis / Ayarlar
+Ofis bilgileri ve ofis  ayarları
+Personel
+Kullanıcı ekleme, rol atama, parola atama, pasife alma, silme.
+Bakiye formülü: vekalet ücreti + masraf − tahsilat. Ödeme hareketleri bakiyeye girmez.

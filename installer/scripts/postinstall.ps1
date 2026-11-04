@@ -1,4 +1,4 @@
-﻿<#
+<#
   Kurulum/güncelleme sonrası çalışır (Inno Setup [Run]). Tekrar çalıştırılması güvenlidir.
   - İlk kurulumda: .env (gizli anahtarlar), PostgreSQL veri klasörü ve servisi, veritabanı,
     ofis kullanıcıları ve servis ayarları.
@@ -90,7 +90,7 @@ Remove-Item Env:\PGPASSWORD
 # 3) Veritabanı şeması, statik dosyalar, kullanıcılar
 Invoke-Checked $Manage @("migrate", "--noinput")
 Invoke-Checked $Manage @("collectstatic", "--noinput")
-if ($firstInstall -and $Pin) { Invoke-Checked $Manage @("setup_office_users", "--pin", $Pin) }
+# Yeni kurulumda ilk yönetici tarayıcıdaki İlk Kurulum ekranında oluşturulur.
 
 # 4) Uygulama servisi (WinSW)
 $svc = Join-Path $InstallDir "tools\OzkurtHukukApp.exe"
@@ -150,7 +150,7 @@ Set-Content -Encoding ascii (Join-Path ([Environment]::GetFolderPath("CommonDesk
 # 8) Sağlık kontrolü
 $ok = $false
 for ($i = 0; $i -lt 30 -and -not $ok; $i++) {
-    try { $ok = (Invoke-WebRequest "http://localhost/hesap/giris/" -UseBasicParsing -TimeoutSec 5).StatusCode -eq 200 } catch { Start-Sleep 2 }
+    try { $ok = (Invoke-WebRequest "http://localhost/" -UseBasicParsing -TimeoutSec 5).StatusCode -eq 200 } catch { Start-Sleep 2 }
 }
 if (-not $ok) { throw "Uygulama yanıt vermiyor. Ayrıntı: $InstallDir\logs" }
 Write-Host "Kurulum tamamlandı. Adres: $url"

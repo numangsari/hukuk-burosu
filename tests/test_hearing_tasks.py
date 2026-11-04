@@ -1,0 +1,257 @@
+import datetime as dt
+from unittest.mock import MagicMock
+
+import pytest
+from django.core.exceptions import ValidationError
+from django.utils import timezone
+
+from apps.cases.hearing_tasks import create_due_hearing_tasks
+from apps.cases.models import CaseEvent, Hearing, HearingKind, HearingStatus
+from apps.office.models import OfficeSettings, TaskType
+from apps.tasks import services
+from apps.tasks.models import Task, TaskStatus
+
+pytestmark = pytest.mark.django_db
+
+
+def test_create_due_hearing_tasks_one_day_before(case_factory):
+    case = case_factory()
+    now = timezone.now()
+    tomorrow_morning = now + dt.timedelta(days=1)
+
+    hearing = Hearing.objects.create(
+        case=case,
+        kind=HearingKind.HEARING,
+        starts_at=tomorrow_morning,
+        authority="İstanbul 1. Asliye Hukuk Mahkemesi",
+        room="12",
+    )
+
+    created_tasks = create_due_hearing_tasks(reference_date=now.date())
+    assert len(created_tasks) == 1
+    task = created_tasks[0]
+
+    assert task.hearing == hearing
+    assert task.case == case
+    assert task.client == case.client
+    assert task.assignee == case.responsible_lawyer
+    assert task.reviewer is None
+    assert "DURUŞMASI İŞLEMLERİ YAPILACAK VE MÜVEKKİLE BİLGİ VERİLECEK" in task.title
+
+    # İkinci kez çağrıldığında mükerrer üretilmemeli
+    again = create_due_hearing_tasks(reference_date=now.date())
+    assert len(again) == 0
+
+
+def test_close_hearing_task_with_excuse(case_factory):
+    case = case_factory()
+    hearing = Hearing.objects.create(
+        case=case,
+        kind=HearingKind.HEARING,
+        starts_at=timezone.now() + dt.timedelta(hours=2),
+    )
+    task_type = TaskType.objects.first()
+    task = Task.objects.create(
+        case=case,
+        title="Duruşma görevi",
+        due_date=timezone.localdate(),
+        task_type=task_type,
+        assignee=case.responsible_lawyer,
+        reviewer=None,
+        hearing=hearing,
+    )
+
+    services.perform(
+        task=task,
+        key="close",
+        user=case.responsible_lawyer,
+        comment="Mesleki mazeret sunuldu.",
+        hearing_outcome="excused",
+    )
+
+    task.refresh_from_db()
+    hearing.refresh_from_db()
+
+    assert task.status == TaskStatus.DONE
+    assert task.hearing_outcome == "excused"
+    assert hearing.excuse_submitted is True
+    assert hearing.status == HearingStatus.POSTPONED
+    assert "Mesleki mazeret sunuldu." in hearing.notes
+
+    event = CaseEvent.objects.filter(case=case, kind=CaseEvent.Kind.HEARING).first()
+    assert event is not None
+    assert "Mazeret" in event.title
+
+
+def test_close_hearing_task_attended_requires_decisions_and_client_info(case_factory):
+    case = case_factory()
+    hearing = Hearing.objects.create(
+        case=case,
+        kind=HearingKind.HEARING,
+        starts_at=timezone.now() + dt.timedelta(hours=2),
+    )
+    task = Task.objects.create(
+        case=case,
+        title="Duruşma görevi",
+        due_date=timezone.localdate(),
+        task_type=TaskType.objects.first(),
+        assignee=case.responsible_lawyer,
+        reviewer=None,
+        hearing=hearing,
+    )
+
+    # 1. Karar yazılmadıysa hata vermeli
+    with pytest.raises(ValidationError, match="kararları girmelisiniz"):
+        services.perform(
+            task=task,
+            key="close",
+            user=case.responsible_lawyer,
+            hearing_outcome="attended",
+            hearing_decisions="",
+        )
+
+    # 2. Müvekkil bilgisi seçilmediyse hata vermeli
+    with pytest.raises(ValidationError, match="Müvekkile bilgi verilip verilmediğini"):
+        services.perform(
+            task=task,
+            key="close",
+            user=case.responsible_lawyer,
+            hearing_outcome="attended",
+            hearing_decisions="Bilirkişi raporu beklenmesine karar verildi.",
+            client_informed=None,
+        )
+
+    # 3. Bilgi verilmedi seçilip sebep yazılmadıysa hata vermeli
+    with pytest.raises(ValidationError, match="sebebini yazmalısınız"):
+        services.perform(
+            task=task,
+            key="close",
+            user=case.responsible_lawyer,
+            hearing_outcome="attended",
+            hearing_decisions="Bilirkişi raporu beklenmesine karar verildi.",
+            client_informed=False,
+            client_not_informed_reason="",
+        )
+
+    # 4. Bilgi verilmedi + sebep yazıldı -> başarıyla kapanmalı
+    services.perform(
+        task=task,
+        key="close",
+        user=case.responsible_lawyer,
+        hearing_outcome="attended",
+        hearing_decisions="Bilirkişi raporu beklenmesine karar verildi.",
+        client_informed=False,
+        client_not_informed_reason="Müvekkil yurtdışında, telefon kapalı.",
+    )
+
+    task.refresh_from_db()
+    hearing.refresh_from_db()
+
+    assert task.status == TaskStatus.DONE
+    assert task.hearing_outcome == "attended"
+    assert hearing.status == HearingStatus.HELD
+    assert hearing.decisions == "Bilirkişi raporu beklenmesine karar verildi."
+    assert hearing.client_informed is False
+    assert hearing.client_not_informed_reason == "Müvekkil yurtdışında, telefon kapalı."
+
+
+def test_close_hearing_task_attended_client_informed_success(case_factory):
+    case = case_factory()
+    hearing = Hearing.objects.create(
+        case=case,
+        kind=HearingKind.HEARING,
+        starts_at=timezone.now() + dt.timedelta(hours=2),
+    )
+    task = Task.objects.create(
+        case=case,
+        title="Duruşma görevi",
+        due_date=timezone.localdate(),
+        task_type=TaskType.objects.first(),
+        assignee=case.responsible_lawyer,
+        reviewer=None,
+        hearing=hearing,
+    )
+
+    services.perform(
+        task=task,
+        key="close",
+        user=case.responsible_lawyer,
+        hearing_outcome="attended",
+        hearing_decisions="Tanık dinlendi, sonraki celse 12.03.2027.",
+        client_informed=True,
+    )
+
+    task.refresh_from_db()
+    hearing.refresh_from_db()
+
+    assert task.status == TaskStatus.DONE
+    assert hearing.status == HearingStatus.HELD
+    assert hearing.client_informed is True
+    assert "Tanık dinlendi" in hearing.result
+
+    event = CaseEvent.objects.filter(case=case, kind=CaseEvent.Kind.HEARING).first()
+    assert event is not None
+    assert "Müvekkile bilgi verildi" in event.description
+
+
+def test_google_sync_disabled_by_default(case_factory):
+    from apps.agenda.google_sync import sync_hearing_to_google
+
+    case = case_factory()
+    hearing = Hearing.objects.create(
+        case=case,
+        kind=HearingKind.HEARING,
+        starts_at=timezone.now() + dt.timedelta(days=2),
+    )
+    # API kapalıyken None döner, hata atmaz
+    event_id = sync_hearing_to_google(hearing)
+    assert event_id is None
+    assert hearing.google_event_id == ""
+
+
+def test_google_sync_creates_and_patches_event(case_factory, monkeypatch):
+    from apps.agenda import google_sync
+
+    office = OfficeSettings.load()
+    office.google_calendar_api_enabled = True
+    office.google_calendar_id = "test-cal@group.calendar.google.com"
+    office.google_service_account_json = '{"project_id": "test"}'
+    office.save()
+
+    mock_service = MagicMock()
+    mock_events = MagicMock()
+    mock_service.events.return_value = mock_events
+
+    # insert dönüşü
+    mock_insert_exec = MagicMock(return_value={"id": "google-ev-123"})
+    mock_events.insert.return_value.execute = mock_insert_exec
+
+    # patch dönüşü
+    mock_patch_exec = MagicMock(return_value={"id": "google-ev-123"})
+    mock_events.patch.return_value.execute = mock_patch_exec
+
+    monkeypatch.setattr(google_sync, "get_calendar_service", lambda: (mock_service, office.google_calendar_id))
+
+    case = case_factory()
+    hearing = Hearing.objects.create(
+        case=case,
+        kind=HearingKind.HEARING,
+        starts_at=timezone.now() + dt.timedelta(days=2),
+    )
+
+    # 1. İlk eşitleme: insert çağrılmalı ve google_event_id kaydedilmeli
+    res_id = google_sync.sync_hearing_to_google(hearing)
+    assert res_id == "google-ev-123"
+    hearing.refresh_from_db()
+    assert hearing.google_event_id == "google-ev-123"
+    assert mock_events.insert.called
+
+    # 2. İkinci eşitleme: patch çağrılmalı, yeni insert yapılmamalı (mükerrer kayıt engeli)
+    mock_events.insert.reset_mock()
+    hearing.authority = "Yeni Mahkeme"
+    hearing.save()
+
+    res_id2 = google_sync.sync_hearing_to_google(hearing)
+    assert res_id2 == "google-ev-123"
+    assert not mock_events.insert.called
+    assert mock_events.patch.called

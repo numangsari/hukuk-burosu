@@ -1,56 +1,57 @@
-# Kaldığımız Yer (4 Kasım 2026 — Genel Hukuk Bürosu Uyarlaması)
+# Kaldığımız Yer (4 Kasım 2026 — Takvim/Duruşmalar & Fiziki Arşiv Entegrasyonu)
 
-Bu dosya, programı **herhangi bir hukuk bürosunun kullanabileceği genel amaçlı bir ürün** haline getirmek için başlattığımız **5 adımlı dönüşüm planında** kaldığımız noktayı ve tamamlanan/bekleyen adımları özetler.
-
----
-
-## ✅ Tamamlanan Adımlar
-
-### Adım 1: Genişletilmiş Kullanıcı Rolleri ve İsteğe Bağlı Yardımcı Sorumlu Yapısı (TAMAMLANDI)
-- **7 Kullanıcı Rolü (`apps/accounts/models.py` — `accounts/0006`):**
-  1. `admin` — **Yönetici**
-  2. `senior` — **Kıdemli Avukat**
-  3. `lawyer` — **Avukat**
-  4. `intern` — **Stajyer Avukat**
-  5. `paralegal` — **İcra Katibi / Takip Memuru**
-  6. `secretary` — **Sekreter / Büro Yönetimi**
-  7. `accountant` — **Muhasebe / Finans**
-- **İsteğe Bağlı Yardımcı Sorumlu Ayarı (`OfficeSettings.use_assistant_assignee` — `office/0016`):**
-  - `Ayarlar > Ofis bilgileri` ekranına **"Yardımcı sorumlu (stajyer / katip) kullan"** kutucuğu eklendi (varsayılan: `True`).
-  - `False` seçiliyse müvekkil ve dosya formlarında/listelerinde/özetlerinde yardımcı sorumlu alanı gizlenir (`clients/0009`, `cases/0033`).
-
-### Adım 2: Modüler Yetki ve Çalışma Düzeni Ayarları (`Ayarlar > Yetkiler ve çalışma düzeni` — TAMAMLANDI)
-- **Dosya ve Müvekkil Görünürlüğü (`OfficeSettings.case_visibility_mode` + `User.can_view_all_cases` — `accounts/0007`, `office/0017`):**
-  - `public` (Herkese açık) ve `restricted` (Sorumlu bazlı: Yönetici, Kıdemli Avukat, Sekreter, Muhasebe ve seçilen kişiler tümünü; Avukat, Stajyer ve Katip yalnızca sorumlu/görevli olduğu müvekkil ve dosyaları görür).
-- **Görevlerde Kontrolcü Onayı İş Akışı (`OfficeSettings.task_review_mode` + `Task.reviewer` nullable — `tasks/0013`):**
-  - `required` (Her zaman zorunlu), `assistants_only` (Yalnızca yardımcı personel için zorunlu; avukatlar doğrudan kapatabilir), `optional` (Kontrolcü isteğe bağlı; boşsa doğrudan kapanır).
-- **Muhasebe Kaydı Ekleme ve İptal Etme Yetkisi (`OfficeSettings.accounting_edit_mode` + `User.can_manage_accounting`):**
-  - `everyone` (Herkes ekleyebilir/iptal edebilir) ve `restricted` (Yalnızca Yönetici, Muhasebe rolü ve seçilen kişiler ekleyebilir/iptal edebilir).
+Bu dosya, programın güncel durumunu, tamamlanan modülleri ve mimari kararları özetler.
 
 ---
 
-## ⏳ Sıradaki Adım (Buradan Devam Edilecek)
+## 🏛️ Yeni Eklenen & Birleştirilen Modüller
 
-### Adım 3: İlk Kurulum Sihirbazı (Onboarding) & Dinamik Ofis Kimliği
-Kullanıcıya aşağıdaki **3 tasarım sorusu** soruldu, bu soruların yanıtlarıyla Adım 3'e başlanacak:
-
-1. **İlk Kurulum Ekranı (Onboarding Sihirbazı):**
-   - Veritabanında henüz hiç aktif kullanıcı yoksa (yeni kurulumda), giriş ekranı (`/hesap/giris/`) yerine otomatik olarak **"Hukuk Bürosu İlk Kurulum"** sayfası açılsın mı?
-   - Bu ekranda tek adımda:
-     - **Ofis Adı** (ve isteğe bağlı Telefon / Adres / Logo / Ofis Klasörü)
-     - **Yardımcı sorumlu kullanılsın mı?** tercihi
-     - **İlk Yönetici (Ad, Soyad, Unvan ve 4 haneli PIN)**
-     alınıp kaydedilince doğrudan yönetici olarak oturum açılsın mı?
-2. **Dosya ve Yedek İsimlendirmelerinin Dinamikleştirilmesi:**
-   - Yedek dosyalarında (`ozkurt-yedek-20261104.zip`), toplu Excel dışa aktarımda (`ozkurt-guncel-listeler-....zip`), içe aktarım şablonunda (`ozkurt-aktarim-sablonu.xlsx`) ve varsayılan ofis adında sabit geçen `"ozkurt"` ifadeleri `OfficeSettings.name` değerinden otomatik üretilen kısa adla dinamikleştirilsin mi?
-3. **`setup_office_users` Komutu:**
-   - Mevcut `manage.py setup_office_users` komutu korunsun ama yeni kurulum betiğinde (`postinstall.ps1`) otomatik çalıştırılması yerine yeni ofisler kurulum sihirbazıyla kendi kullanıcılarını mı oluştursun?
+### 1. Birleşik Takvim & Duruşmalar Modülü (`/takvim/`)
+Kullanıcı talimatı doğrultusunda **Duruşmalar ve Takvim tek modülde birleştirildi**. Yan menüde tek bir başlık yer alır: **Takvim** (`bi-calendar3`).
+- **Tek Sayfada 3 Görünüm Seçeneği (`/takvim/`):**
+  1. **Ay Görünümü (`view=month`):** Google Takvim etkinlikleri ve açık görevlerin son günlerini ızgara takvim üzerinde gösterir.
+  2. **Hafta Görünümü (`view=week`):** Saatlik ve günlük detaylı haftalık ajanda görünümü.
+  3. **Liste / Duruşmalar Görünümü (`view=list`):** Tüm duruşma ve ofis etkinliklerini filtreli tablo olarak sunar:
+     - Sekmeler: *Yaklaşan Duruşmalar* (`scope=upcoming`), *Bugün* (`scope=today`), *Sonuç / Ara Karar Bekleyenler* (`scope=pending_result`), *Geçmiş* (`scope=past`) ve *Tümü* (`scope=all`).
+     - Hızlı arama, sorumlu, tür ve durum filtreleri.
+     - Tek tıkla *Ara Karar / Sonuç Tutanağı Girme* modalı.
+     - Excel Dökümü indirme (`/durusmalar/disa-aktar/`).
+- **Dosyasız Müvekkil Görüşmeleri & Toplantılar Desteği:**
+  - `Hearing` modeli genişletildi (`case=None` desteği, `client`, `title`, `assigned_to`, `ends_at`).
+  - Dosyası henüz açılmamış müvekkillerle yapılan görüşmeler, arabuluculuk oturumları veya ofis içi toplantılar doğrudan kaydedilebilir.
+- **Otomatik Duruşma Görevi Servisi (`apps/cases/hearing_tasks.py`):**
+  - **Duruşmadan 1 gün önce sabah** (ve duruşma günü) dosya sorumlusuna otomatik kontrolcüsüz (`reviewer=None`, doğrudan kapatılabilen) görev açılır:
+    `"{case.display_name} DURUŞMASI İŞLEMLERİ YAPILACAK VE MÜVEKKİLE BİLGİ VERİLECEK"`
+  - Görev `task.hearing` alanıyla duruşmaya bağlanır ve mükerrer görev açılması engellenir.
+- **Özel Duruşma Görevi Kapatma Prosedürü (`apps/tasks/services.py` & `templates/tasks/detail.html`):**
+  - Duruşma görevini kapatırken kullanıcıya iki seçenek sunulur:
+    1. **"Mazeret Gönderildi (Duruşmaya Girilmedi)":** Mazeret açıklaması girilir; `Hearing.excuse_submitted = True` ve `Hearing.status = POSTPONED` olur, dosya zaman çizelgesine (`CaseEvent`) mazeret sunulduğu işlenir.
+    2. **"Duruşmaya Girildi":** "Duruşmada Verilen Kararlar" zorunlu olarak doldurulur; "Müvekkile Bilgi Verildi mi?" (Evet / Hayır; Hayır ise sebebi zorunlu) seçilir. Bilgiler duruşma kaydına (`decisions`, `client_informed`, `client_not_informed_reason`) ve dosya zaman çizelgesine (`CaseEvent`) otomatik işlenir.
+- **Google Takvim API Tek Yönlü Entegrasyonu (`apps/agenda/google_sync.py`):**
+  - Kullanıcı ofis ayarlarından (`OfficeSettings`) Google Takvim API'yi bağladığında sistem tüm duruşma ve toplantıları Google Takvim'e tek yönlü olarak aktarır ve günceller.
+  - **Kritik Güvenlik İlkesi:** Google Takvim'deki harici / mevcut etkinliklere asla dokunulmaz, silinmez veya değiştirilmez. Veri akışı %100 tek yönlüdür ve `google_event_id` üzerinden mükerrer kayıtlar engellenir.
 
 ---
 
-## 📋 Kalan Adımlar (Adım 3'ten Sonra Tek Tek Yapılacak)
+### 2. Fiziki Arşiv Modülü (`/arsiv/`)
+- **Merkezi Fiziki Arşiv ve Klasör Yönetimi (`apps/cases/views_archive.py`):**
+  - Sekmeler: *Tümü* (`scope=all`), *Açık Arşiv* (`scope=open`), *Kapalı Arşiv* (`scope=closed`), *İcra Arşivi* (`scope=enforcement`), *Arşiv Yeri Eksikler* (`scope=missing` — özellikle UYAP'tan yeni çekilen ve henüz fiziki yeri verilmemiş dosyalar).
+  - İki Görünüm Modu:
+    1. **Tablo Görünümü:** Klasör No, Dosya No, birleşik arşiv referansı (`Açık 1 / 10`), kurum, müvekkil, durum, açılış tarihi ve hızlı düzenle butonu.
+    2. **Klasör Gezgini (`view=explorer`):** Bürodaki 168 fiziki klasörün kartlar halinde gösterimi, içindeki dosya sayıları ve açık/kapalı dağılımı.
+- **Klasör Detayı ve Boş Numara Tespiti (`/arsiv/klasor/<folder_name>/`):**
+  - Klasör içindeki dosyaları sıra numarasına göre dizer.
+  - **Boşta / Atlanmış Dosya Numaralarını** otomatik tespit eder (Örn: 1 ve 3 doluysa "2 numaralı dosya boşta" uyarısı verir ve sıradaki yeni numarayı önerir).
+- **Hızlı Arşiv Yeri Güncelleme:**
+  - Dosyayı baştan sona açmadan modal pencerede tek tıkla klasör no ve dosya no güncelleme imkânı.
+- **Yazdırılabilir Arşiv Etiketleri (`/arsiv/etiketler/`):**
+  - `@media print` A4 şablonunda standart **Klasör Sırtlığı** (`tip=folder`) ve **Dosya Kapak Etiketi** (`tip=case`) yazdırma desteği.
+- **Excel Dışa Aktarım (`/arsiv/disa-aktar/`):**
+  - Tüm arşiv envanterini Excel tablosu olarak indirme.
 
-- **Adım 4: UYAP / UETS Tarayıcı Eklentisinde Dinamik Sunucu Adresi**
-  - Eklenti ayarlarında ve eşleştirme ekranında sunucu adresinin (`http://127.0.0.1:3000` veya ofis yerel IP'si `http://192.168.x.x`) yapılandırılabilir olması.
-- **Adım 5: Ofise Göre Özelleştirilebilir İş Kuralları**
-  - UETS tebligat varsayılan süre gününün (`+14` gün) ve personel görev puanı sisteminin (`TaskPoint`) `Ayarlar > Ofis bilgileri / Görev türleri` üzerinden açılıp kapatılabilmesi veya değiştirilebilmesi.
+---
+
+## 🎯 Doğrulama ve Test Durumu
+- `uv run pytest`: **567 testin 567'si de eksiksiz geçti.**
+- `uv run ruff check .`: **Sıfır hata, tertemiz kod.**
+- Dev sunucusu arka planda canlı çalışıyor (`http://0.0.0.0:8000/`).

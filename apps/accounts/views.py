@@ -1,7 +1,9 @@
 import contextlib
 
 from django.contrib import messages
+from django.contrib.auth import login as auth_login
 from django.contrib.auth import update_session_auth_hash
+from django.contrib.auth.decorators import login_not_required
 from django.contrib.auth.views import LoginView
 from django.core.cache import cache
 from django.db.models import Q, Sum
@@ -9,6 +11,7 @@ from django.http import HttpResponse, HttpResponseForbidden
 from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.decorators import method_decorator
 from django.views import View
 
 from apps.core.permissions import is_admin
@@ -21,19 +24,56 @@ from apps.office.forms import (
 )
 from apps.office.models import OfficeSettings, TaskType
 
-from .forms import BalanceViewersForm, PinChangeForm, PinLoginForm, ProfileForm, UserAdminForm
+from .forms import (
+    BalanceViewersForm,
+    InitialSetupForm,
+    PinChangeForm,
+    PinLoginForm,
+    ProfileForm,
+    UserAdminForm,
+)
 from .models import User
 
 
+@method_decorator(login_not_required, name="dispatch")
 class PinLoginView(LoginView):
     template_name = "accounts/login.html"
     authentication_form = PinLoginForm
     redirect_authenticated_user = True
 
+    def dispatch(self, request, *args, **kwargs):
+        if not User.objects.filter(is_active=True).exists():
+            return redirect("accounts:initial_setup")
+        return super().dispatch(request, *args, **kwargs)
+
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx["users"] = User.objects.filter(is_active=True)
         return ctx
+
+
+@method_decorator(login_not_required, name="dispatch")
+class InitialSetupView(View):
+    """Hiç aktif kullanıcı olmadığında açılan ilk kurulum (onboarding) sihirbazı."""
+
+    template_name = "accounts/initial_setup.html"
+
+    def dispatch(self, request, *args, **kwargs):
+        if User.objects.filter(is_active=True).exists():
+            return redirect("accounts:login")
+        return super().dispatch(request, *args, **kwargs)
+
+    def get(self, request):
+        return render(request, self.template_name, {"form": InitialSetupForm()})
+
+    def post(self, request):
+        form = InitialSetupForm(request.POST)
+        if not form.is_valid():
+            return render(request, self.template_name, {"form": form})
+        user = form.save()
+        auth_login(request, user)
+        messages.success(request, "Hukuk bürosu ilk kurulumu tamamlandı. Hoş geldiniz!")
+        return redirect("core:home")
 
 
 class SettingsView(View):

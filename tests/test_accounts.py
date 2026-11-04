@@ -336,3 +336,66 @@ def test_accounting_edit_mode_restricted(db):
     lawyer.can_manage_accounting = True
     lawyer.save(update_fields=["can_manage_accounting"])
     assert can_edit(lawyer) is True
+
+
+def test_initial_setup_wizard_when_no_active_users(client, db):
+    from apps.office.models import OfficeSettings
+
+    User.objects.all().delete()
+    # Aktif kullanıcı yokken giriş ekranı İlk Kurulum sihirbazına yönlendirir
+    r_login = client.get(reverse("accounts:login"))
+    assert r_login.status_code == 302
+    assert r_login.url == reverse("accounts:initial_setup")
+
+    r_get = client.get(reverse("accounts:initial_setup"))
+    assert r_get.status_code == 200
+    assert "İlk Kurulum Sihirbazı" in r_get.content.decode()
+
+    # Hatalı PIN eşleşmemesi
+    r_bad = client.post(
+        reverse("accounts:initial_setup"),
+        {
+            "office_name": "Kaya Hukuk Bürosu",
+            "first_name": "Ahmet",
+            "last_name": "Kaya",
+            "title": "Kurucu Avukat",
+            "pin": "1234",
+            "pin2": "4321",
+        },
+    )
+    assert r_bad.status_code == 200
+    assert "pin2" in r_bad.context["form"].errors
+
+    # Geçerli kurulum
+    r_ok = client.post(
+        reverse("accounts:initial_setup"),
+        {
+            "office_name": "Kaya Hukuk Bürosu",
+            "phone": "0212 555 00 00",
+            "address": "İstanbul",
+            "use_assistant_assignee": "",  # False
+            "first_name": "Ahmet",
+            "last_name": "Kaya",
+            "title": "Kurucu Avukat",
+            "pin": "2580",
+            "pin2": "2580",
+        },
+    )
+    assert r_ok.status_code == 302
+    assert r_ok.url == reverse("core:home")
+
+    office = OfficeSettings.load()
+    assert office.name == "Kaya Hukuk Bürosu"
+    assert office.slug == "kaya"
+    assert office.use_assistant_assignee is False
+
+    admin = User.objects.get(username="ahmet.kaya")
+    assert admin.role == User.Role.ADMIN
+    assert admin.last_name == "KAYA"
+    assert admin.is_superuser is True
+    assert admin.check_password("2580")
+
+    # Kullanıcı oluştuktan sonra İlk Kurulum sayfası tekrar açılmaz, girişe yönlendirir
+    r_after = client.get(reverse("accounts:initial_setup"))
+    assert r_after.status_code == 302
+    assert r_after.url == reverse("accounts:login")

@@ -413,3 +413,43 @@ def test_extension_checks_name_against_separate_source_permissions(monkeypatch):
     assert check("IŞIL İNCİ", "uyap").json() == {"ok": False}
     assert check("FARKLI KİŞİ", "uets").json() == {"ok": False}
     assert check("IŞIL İNCİ", "uets", "wrong").status_code == 403
+
+
+@pytest.mark.django_db
+@override_settings(DEBUG=True)
+def test_local_request_allows_office_lan_ips_and_rejects_external(monkeypatch):
+    monkeypatch.setitem(connection.settings_dict, "NAME", "ozkurt_deneme")
+    monkeypatch.setitem(connection.settings_dict, "PORT", "5435")
+    admin = User.objects.create_user(username="lan-admin", role=User.Role.ADMIN)
+    lawyer = User.objects.create_user(username="lan-lawyer", first_name="Işıl", last_name="İnci")
+    PortalLawyerAccess.objects.create(user=lawyer, identity_number="10000000146", uets_enabled=True)
+    key = "lan-test-key"
+    PortalConnection.objects.create(owner=admin, key_hash=hashlib.sha256(key.encode()).hexdigest())
+    client = Client()
+
+    url = "/portal-inceleme/isim-kontrol/"
+    payload = json.dumps({"name": "IŞIL İNCİ", "source": "uets"})
+    auth = f"Bearer {key}"
+
+    # Yerel ofis ağı (192.168.x.x, 10.x.x.x) erişebilir
+    for lan_ip in ("127.0.0.1", "192.168.1.100", "10.0.0.15", "172.16.5.20"):
+        resp = client.post(
+            url,
+            payload,
+            content_type="application/json",
+            HTTP_AUTHORIZATION=auth,
+            REMOTE_ADDR=lan_ip,
+        )
+        assert resp.status_code == 200, f"{lan_ip} erişebilmeli"
+        assert resp.json() == {"ok": True}
+
+    # Dış internet / bilinmeyen IP erişemez (404)
+    for ext_ip in ("192.0.2.1", "198.51.100.2", "8.8.8.8"):
+        resp = client.post(
+            url,
+            payload,
+            content_type="application/json",
+            HTTP_AUTHORIZATION=auth,
+            REMOTE_ADDR=ext_ip,
+        )
+        assert resp.status_code == 404, f"{ext_ip} engellenmeli"

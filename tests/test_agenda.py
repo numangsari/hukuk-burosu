@@ -125,7 +125,9 @@ def test_home_and_calendar_show_tasks_and_all_google_events(
     case = case_factory()
     today = timezone.localdate()
     now = timezone.now()
-    hearing = Hearing.objects.create(case=case, starts_at=now, authority="Eski duruşma")
+    hearing = Hearing.objects.create(
+        case=case, starts_at=now - dt.timedelta(days=10), authority="Eski duruşma"
+    )
     appointment = ClientAppointment.objects.create(
         client=case.client, title="Eski randevu", starts_at=now
     )

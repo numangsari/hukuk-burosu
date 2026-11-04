@@ -30,6 +30,7 @@ from .forms import (
     CoClientFormSet,
     CollectionFormSet,
     DocumentForm,
+    HearingForm,
     PartyFormSet,
 )
 from .models import (
@@ -456,6 +457,8 @@ class CaseDetailView(DetailView):
             tasks=case.tasks.select_related("task_type", "assignee", "reviewer").order_by(
                 "status", "due_date"
             ),
+            hearings=list(case.hearings.order_by("-starts_at")),
+            hearing_form=HearingForm(initial={"authority": case.authority}),
             now=timezone.now(),
             today=timezone.localdate(),
         )

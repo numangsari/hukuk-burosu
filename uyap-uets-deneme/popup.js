@@ -6,6 +6,7 @@ function redact(value) {
   }
   return value;
 }
+let currentServerUrl = 'http://127.0.0.1:3000';
 async function availableCaptures() {
   const captures = (await chrome.storage.local.get('captures')).captures || [];
   return captures.filter(item => !/login|logout|auth|token|session|sifre|password|giris|nats/i.test(item.path || '')).map(redact);
@@ -15,8 +16,13 @@ async function refresh() {
   const nameStates = await chrome.storage.local.get(['name_uyap', 'name_uets']);
   const labels = {izinli:'Son kontrol: izinli', izin_yok:'Son kontrol: eşleşme yok', okunamadi:'Ad okunamadı', baglanti_yok:'Bağlantı yok'};
   for (const source of ['uyap', 'uets']) document.getElementById(source + '-name-state').textContent = labels[nameStates['name_' + source]] || 'Bekliyor';
-  const connection = await chrome.storage.local.get('sync_key');
-  document.getElementById('connection-state').textContent = connection.sync_key ? 'Bağlantı kaydı var' : 'Bağlantı kurulmamış';
+  const {sync_key: syncKey} = await chrome.storage.local.get('sync_key');
+  const {server_url: serverUrl} = await chrome.storage.local.get('server_url');
+  if (serverUrl) currentServerUrl = serverUrl;
+  const connection = {sync_key: syncKey, server_url: currentServerUrl};
+  const serverEl = document.getElementById('server-state');
+  if (serverEl) serverEl.textContent = currentServerUrl;
+  document.getElementById('connection-state').textContent = syncKey ? 'Bağlantı kaydı var' : 'Bağlantı kurulmamış';
   const status = await chrome.storage.local.get(['status_uyap', 'status_uets']);
   document.getElementById('status').textContent = `${captures.length} yanıt kaydedildi. UYAP: ${status.status_uyap || 'Bekliyor'}. UETS: ${status.status_uets || 'Bekliyor'}.`;
   document.getElementById('download').disabled = !captures.length;
@@ -167,7 +173,7 @@ document.getElementById('diagnostics').addEventListener('click', async () => {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 });
 document.getElementById('open-settings').addEventListener('click', () => {
-  chrome.tabs.create({url: 'http://127.0.0.1:3000/hesap/ayarlar/?bolum=eklenti'});
+  chrome.tabs.create({url: `${currentServerUrl}/hesap/ayarlar/?bolum=eklenti`});
 });
 refresh();
 setInterval(refresh, 3000);

@@ -52,6 +52,18 @@ class Task(TimeStampedModel):
     due_date = models.DateField("son gün")
     notes = models.TextField("notlar", blank=True)
     requires_accounting = models.BooleanField("gelir/gider kaydı", null=True, blank=True)
+    hearing = models.ForeignKey(
+        "cases.Hearing",
+        verbose_name="bağlı duruşma / etkinlik",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="tasks",
+    )
+    hearing_outcome = models.CharField("duruşma sonucu türü", max_length=50, blank=True)
+    hearing_decisions = models.TextField("duruşma kararları", blank=True)
+    client_informed = models.BooleanField("müvekkile bilgi verildi", null=True, blank=True)
+    client_not_informed_reason = models.TextField("müvekkile bilgi verilmeme sebebi", blank=True)
     status = models.CharField(
         "durum", max_length=20, choices=TaskStatus.choices, default=TaskStatus.ACTIVE
     )

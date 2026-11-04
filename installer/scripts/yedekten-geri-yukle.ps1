@@ -1,4 +1,4 @@
-﻿<#
+<#
   Seçilen yedeği geri yükler: servis durdurulur, geri yüklenir, servis başlatılır.
   Yönetici olarak çalıştırın (sağ tık > PowerShell ile çalıştır > Evet).
 #>
@@ -7,7 +7,7 @@ $tools = $PSScriptRoot
 Add-Type -AssemblyName System.Windows.Forms
 $dlg = New-Object System.Windows.Forms.OpenFileDialog
 $dlg.Title = "Geri yüklenecek yedeği seçin"
-$dlg.Filter = "Özkurt yedekleri (ozkurt-yedek-*.zip)|ozkurt-yedek-*.zip"
+$dlg.Filter = "Yedek arşivleri (*-yedek-*.zip)|*-yedek-*.zip"
 $dlg.InitialDirectory = Join-Path (Split-Path $tools) "data\backups"
 if ($dlg.ShowDialog() -ne "OK") { exit 0 }
 $answer = [System.Windows.Forms.MessageBox]::Show(

@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% load ui %}
+{% block title %}Klasör: {{ folder_name }} — {{ office.name }}{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex align-items-center justify-content-between mb-3">
+  <div>
+    <div class="eyebrow"><a href="{% url 'archive:list' %}?view=explorer"><i class="bi bi-chevron-left"></i> Fiziki Arşiv</a></div>
+    <div class="d-flex align-items-center gap-2">
+      <h1 class="page-title mb-0"><i class="bi bi-folder2-open text-primary me-2"></i>{{ folder_name }}</h1>
+      <span class="badge bg-secondary-subtle text-secondary fs-6">{{ total_cases }} dosya</span>
+    </div>
+  </div>
+  <div class="d-flex align-items-center gap-2">
+    <a href="{% url 'archive:labels' %}?klasor={{ folder_name|urlencode }}&tip=folder" class="btn btn-light">
+      <i class="bi bi-printer me-1"></i>Klasör Sırtlığı Yazdır
+    </a>
+  </div>
+</div>
+
+{% if missing_numbers %}
+<div class="alert alert-info d-flex align-items-center justify-content-between gap-3 mb-3 py-2">
+  <div>
+    <i class="bi bi-info-circle-fill me-2"></i><strong>Boş / Atlanmış Dosya Numaraları:</strong>
+    Bu klasörde şu sıra numaraları boşta görünüyor: 
+    <span class="fw-bold">{{ missing_numbers|join:", " }}</span>
+  </div>
+  <div class="text-nowrap small text-body-secondary">
+    Sıradaki yeni numara: <strong>{{ next_suggested }}</strong>
+  </div>
+</div>
+{% endif %}
+
+<div class="card table-card">
+  <div class="card-header d-flex align-items-center justify-content-between">
+    <h2 class="card-title mb-0">Klasör İçi Dosyalar</h2>
+    <span class="small text-body-secondary">Dosya numarasına göre sıralıdır</span>
+  </div>
+  <div class="table-responsive">
+    <table class="table mb-0 align-middle">
+      <thead>
+        <tr>
+          <th style="width: 100px;">Dosya No</th>
+          <th>Dosya / Konu</th>
+          <th>Mahkeme / Kurum</th>
+          <th>Müvekkil</th>
+          <th>Sorumlu</th>
+          <th style="width: 110px;">Durum</th>
+          <th style="width: 100px;">Açılış</th>
+          <th style="width: 80px;" class="text-end">İşlem</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in cases %}
+        <tr>
+          <td>
+            <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1 fs-6 fw-bold">
+              {{ c.archive_no|default:"—" }}
+            </span>
+          </td>
+          <td>
+            <div class="cell-main">
+              <a href="{{ c.get_absolute_url }}" class="fw-semibold">
+                {{ c.display_name }}
+              </a>
+            </div>
+            {% if c.subject and c.case_type != "consultancy" and c.case_type != "other" %}
+            <div class="cell-sub text-body-secondary small">{{ c.subject|truncatechars:45 }}</div>
+            {% endif %}
+          </td>
+          <td class="small">{{ c.authority|default:"—" }}</td>
+          <td>
+            <div class="cell-main">
+              {% if c.client %}
+              <a href="{{ c.client.get_absolute_url }}" class="fw-medium text-body">
+                <i class="bi bi-person me-1"></i>{{ c.client }}
+              </a>
+              {% else %}
+              <span class="chip chip-warning no-dot py-0">Müvekkilsiz</span>
+              {% endif %}
+            </div>
+          </td>
+          <td>
+            <div class="small text-nowrap">
+              {% if c.responsible_lawyer %}{{ c.responsible_lawyer }}{% else %}<span class="text-body-tertiary">—</span>{% endif %}
+            </div>
+          </td>
+          <td>
+            {% if c.status == "open" %}
+            <span class="chip chip-success">Açık</span>
+            {% else %}
+            <span class="chip chip-secondary no-dot">Kapalı</span>
+            {% endif %}
+          </td>
+          <td class="tabular small">{{ c.opened_on|date:"d.m.Y"|default:"—" }}</td>
+          <td class="text-end text-nowrap">
+            <button class="btn btn-sm btn-light" title="Arşiv Yerini Güncelle"
+                    hx-get="{% url 'archive:update_location' c.pk %}"
+                    hx-target="#location-modal"
+                    hx-swap="innerHTML"
+                    onclick="bootstrap.Modal.getOrCreateInstance(document.getElementById('location-modal')).show()">
+              <i class="bi bi-geo-alt"></i>
+            </button>
+            <a href="{% url 'cases:update' c.pk %}" class="btn btn-sm btn-light" title="Dosyayı Düzenle">
+              <i class="bi bi-pencil"></i>
+            </a>
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="8">
+            <div class="empty-state py-4 text-center">
+              <i class="bi bi-folder fs-2 text-body-tertiary d-block mb-2"></i>
+              <strong>Bu klasörde dosya bulunmuyor</strong>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="modal fade" id="location-modal" tabindex="-1" aria-hidden="true"></div>
+{% endblock %}

@@ -21,9 +21,8 @@ def test_timeline_note_delete_rights(lawyer_client, client, intern, case_factory
 def test_case_detail_tabs_render(lawyer_client, case_factory):
     case = case_factory()
     html = lawyer_client.get(case.get_absolute_url()).content.decode()
-    for label in ("Taraflar", "Görevler", "Belgeler", "Geçmiş"):
+    for label in ("Taraflar", "Görevler", "Duruşmalar", "Belgeler", "Geçmiş"):
         assert label in html
-    assert "Duruşmalar" not in html and "Sıradaki duruşma" not in html
     assert 'id="t-tebligatlar"' not in html and "Zaman çizelgesi" not in html
     assert 'href="/tebligatlar/"' in html
     assert "Safahat" in html  # varsayılan dosya türü hukuk davasıdır

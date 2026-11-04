@@ -1,19 +1,159 @@
 {% extends "base.html" %}
+{% load ui %}
 {% block title %}Takvim — {{ office.name }}{% endblock %}
+
 {% block content %}
-<div class="page-header">
+<div class="page-header d-flex align-items-center justify-content-between mb-3">
   <div>
-    <h1 class="page-title">Takvim</h1>
+    <div class="eyebrow">Ajanda & Duruşmalar</div>
+    <h1 class="page-title mb-0">Takvim</h1>
+  </div>
+  <div class="d-flex align-items-center gap-2">
+    {% if view == 'list' %}
+    <a href="{% url 'hearings:export' %}?{{ request.GET.urlencode }}" class="btn btn-light">
+      <i class="bi bi-file-earmark-excel me-1"></i>Excel Döküm
+    </a>
+    {% endif %}
+    <a href="{% url 'hearings:create' %}?next={{ request.get_full_path|urlencode }}" class="btn btn-primary">
+      <i class="bi bi-plus-lg me-1"></i>Yeni Duruşma / Etkinlik
+    </a>
   </div>
 </div>
 
-{% if not agenda.configured %}
+<div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+  <div class="segmented">
+    <input type="radio" id="v-month" {% if view == 'month' %}checked{% endif %} onclick="location.href='?view=month&date={{ anchor|date:'Y-m-d' }}'"><label for="v-month"><i class="bi bi-calendar3 me-1"></i>Ay</label>
+    <input type="radio" id="v-week" {% if view == 'week' %}checked{% endif %} onclick="location.href='?view=week&date={{ anchor|date:'Y-m-d' }}'"><label for="v-week"><i class="bi bi-calendar-week me-1"></i>Hafta</label>
+    <input type="radio" id="v-list" {% if view == 'list' %}checked{% endif %} onclick="location.href='?view=list'"><label for="v-list"><i class="bi bi-list-task me-1"></i>Liste (Duruşmalar)</label>
+  </div>
+</div>
+
+{% if not agenda.configured and view != 'list' %}
 <div class="alert alert-warning d-flex gap-2"><i class="bi bi-info-circle-fill"></i>
-  <div>Google Takvim bağlı değil; görevlerin son günleri gösteriliyor. Google etkinliklerini de görmek için takvimi bağlayın.
+  <div>Google Takvim bağlı değil; duruşmalar ve görevler gösteriliyor. Harici Google etkinliklerini de görmek için takvimi bağlayın.
   {% if request.user.is_office_admin %}<a href="{% url 'accounts:settings' %}?bolum=takvim">Ayarlar'dan bağlayın</a>.{% endif %}</div>
 </div>
 {% endif %}
-{% if agenda.error %}<div class="alert alert-warning d-flex gap-2"><i class="bi bi-exclamation-triangle-fill"></i>{{ agenda.error }}</div>{% endif %}
+{% if agenda.error and view != 'list' %}
+<div class="alert alert-warning d-flex gap-2"><i class="bi bi-exclamation-triangle-fill"></i>{{ agenda.error }}</div>
+{% endif %}
+
+{% if view == 'list' %}
+<!-- =================== LİSTE GÖRÜNÜMÜ (DURUŞMALAR & ETKİNLİKLER) =================== -->
+<div class="row g-3 mb-3">
+  <div class="col-6 col-md-3">
+    <a href="?view=list&scope=today" class="card text-decoration-none h-100 p-3 {% if current_scope == 'today' %}border-primary shadow-sm{% endif %}">
+      <div class="text-body-secondary small mb-1">Bugün Yapılacak</div>
+      <div class="fs-4 fw-bold {% if today_count > 0 %}text-primary{% endif %}">{{ today_count }}</div>
+    </a>
+  </div>
+  <div class="col-6 col-md-3">
+    <a href="?view=list&scope=upcoming" class="card text-decoration-none h-100 p-3 {% if current_scope == 'upcoming' %}border-primary shadow-sm{% endif %}">
+      <div class="text-body-secondary small mb-1">Yaklaşan Duruşmalar</div>
+      <div class="fs-4 fw-bold text-success">{{ upcoming_count }}</div>
+    </a>
+  </div>
+  <div class="col-6 col-md-3">
+    <a href="?view=list&scope=pending_result" class="card text-decoration-none h-100 p-3 {% if current_scope == 'pending_result' %}border-warning shadow-sm{% endif %}">
+      <div class="text-body-secondary small mb-1">Sonuç Bekleyenler</div>
+      <div class="fs-4 fw-bold {% if pending_result_count > 0 %}text-warning{% endif %}">{{ pending_result_count }}</div>
+    </a>
+  </div>
+  <div class="col-6 col-md-3">
+    <a href="?view=list&scope=all" class="card text-decoration-none h-100 p-3 {% if current_scope == 'all' %}border-primary shadow-sm{% endif %}">
+      <div class="text-body-secondary small mb-1">Toplam Duruşma / Etkinlik</div>
+      <div class="fs-4 fw-bold">{{ total_count }}</div>
+    </a>
+  </div>
+</div>
+
+<div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+  <ul class="nav nav-pills gap-1">
+    <li class="nav-item">
+      <a class="nav-link py-1 px-3 {% if current_scope == 'upcoming' %}active{% endif %}" href="{% query_with view='list' scope='upcoming' page=None %}">
+        Yaklaşanlar
+      </a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link py-1 px-3 {% if current_scope == 'today' %}active{% endif %}" href="{% query_with view='list' scope='today' page=None %}">
+        Bugün <span class="badge rounded-pill bg-light text-dark ms-1">{{ today_count }}</span>
+      </a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link py-1 px-3 {% if current_scope == 'pending_result' %}active{% endif %}" href="{% query_with view='list' scope='pending_result' page=None %}">
+        Sonuç Bekleyenler {% if pending_result_count > 0 %}<span class="badge rounded-pill bg-warning text-dark ms-1">{{ pending_result_count }}</span>{% endif %}
+      </a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link py-1 px-3 {% if current_scope == 'past' %}active{% endif %}" href="{% query_with view='list' scope='past' page=None %}">
+        Geçmiş
+      </a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link py-1 px-3 {% if current_scope == 'all' %}active{% endif %}" href="{% query_with view='list' scope='all' page=None %}">
+        Tümü
+      </a>
+    </li>
+  </ul>
+</div>
+
+<div class="card p-3 mb-3">
+  <form method="get" class="row g-2 align-items-end" hx-get="{% url 'agenda:calendar' %}" hx-target="#hearings-table" hx-push-url="true">
+    <input type="hidden" name="view" value="list">
+    <input type="hidden" name="scope" value="{{ current_scope }}">
+    <div class="col-md-3">
+      <label class="form-label small text-body-secondary mb-1">Arama</label>
+      <div class="input-group input-group-sm">
+        <span class="input-group-text"><i class="bi bi-search"></i></span>
+        <input type="text" name="q" value="{{ request.GET.q }}" class="form-control" placeholder="Başlık, dosya, mahkeme, müvekkil...">
+      </div>
+    </div>
+    <div class="col-md-2">
+      <label class="form-label small text-body-secondary mb-1">Sorumlu</label>
+      <select name="avukat" class="form-select form-select-sm">
+        <option value="">Tümü</option>
+        {% for l in lawyers %}
+        <option value="{{ l.pk }}" {% if request.GET.avukat == l.pk|stringformat:"s" %}selected{% endif %}>{{ l }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-2">
+      <label class="form-label small text-body-secondary mb-1">Tür</label>
+      <select name="tur" class="form-select form-select-sm">
+        <option value="">Tüm Türler</option>
+        {% for val, label in kinds %}
+        <option value="{{ val }}" {% if request.GET.tur == val %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-2">
+      <label class="form-label small text-body-secondary mb-1">Durum</label>
+      <select name="durum" class="form-select form-select-sm">
+        <option value="">Tüm Durumlar</option>
+        {% for val, label in statuses %}
+        <option value="{{ val }}" {% if request.GET.durum == val %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-3 d-flex gap-1">
+      <button type="submit" class="btn btn-sm btn-primary flex-grow-1">Filtrele</button>
+      <a href="{% url 'agenda:calendar' %}?view=list" class="btn btn-sm btn-light" title="Temizle"><i class="bi bi-x-lg"></i></a>
+    </div>
+  </form>
+</div>
+
+<div id="hearings-table">
+  {% include "cases/_hearings_list_table.html" %}
+</div>
+
+<div class="modal fade" id="hearingResultModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content" id="hearingResultModalContent"></div>
+  </div>
+</div>
+
+{% else %}
+<!-- =================== TAKVİM GÖRÜNÜMÜ (AY / HAFTA) =================== -->
 <div class="card table-card">
   <div class="cal-toolbar">
     <div class="btn-group">
@@ -22,10 +162,6 @@
     </div>
     <a class="btn btn-light" href="?view={{ view }}">Bugün</a>
     <h2>{{ title }}</h2>
-    <div class="segmented ms-auto">
-      <input type="radio" id="v-month" {% if view == 'month' %}checked{% endif %} onclick="location.href='?view=month&date={{ anchor|date:'Y-m-d' }}'"><label for="v-month">Ay</label>
-      <input type="radio" id="v-week" {% if view == 'week' %}checked{% endif %} onclick="location.href='?view=week&date={{ anchor|date:'Y-m-d' }}'"><label for="v-week">Hafta</label>
-    </div>
   </div>
   <div class="cal-grid {% if view == 'week' %}cal-week{% endif %}">
     {% for w in weekdays %}<div class="cal-head">{{ w }}</div>{% endfor %}
@@ -35,7 +171,14 @@
         <div class="cal-events" tabindex="0" role="region" aria-label="{{ cell.date|date:'d.m.Y' }} etkinlikleri">
         {% for ev in cell.events %}
           <{% if ev.url %}a href="{{ ev.url }}"{% else %}span{% endif %} class="cal-ev src-{{ ev.source }}{% if ev.all_day %} all-day{% endif %}" title="{{ ev.time_label }} · {{ ev.title }}{% if ev.location %} · {{ ev.location }}{% endif %}">
-            {% if ev.source == "task" %}<b>{{ ev.time_label }}</b>{% elif not ev.all_day %}<b>{{ ev.start|time:"H:i" }}</b>{% endif %}{{ ev.title }}
+            {% if ev.source == "task" %}
+              <b>{{ ev.time_label }}</b>
+            {% elif ev.source == "hearing" %}
+              <b class="text-primary-emphasis"><i class="bi bi-calendar-check me-1"></i>{{ ev.start|time:"H:i" }}</b>
+            {% elif not ev.all_day %}
+              <b>{{ ev.start|time:"H:i" }}</b>
+            {% endif %}
+            {{ ev.title }}
             {% if view == 'week' and ev.location %}<small class="d-block opacity-75"><i class="bi bi-geo-alt"></i> {{ ev.location }}</small>{% endif %}
           </{% if ev.url %}a{% else %}span{% endif %}>
         {% endfor %}
@@ -47,5 +190,8 @@
 <div class="d-flex gap-3 small text-body-secondary mt-2">
   <span><span class="legend src-google"></span>Google Takvim</span>
   <span><span class="legend src-task"></span>GÖREV</span>
+  <span><span class="legend" style="background:#0d6efd;"></span>DURUŞMA / ETKİNLİK</span>
 </div>
+{% endif %}
+
 {% endblock %}

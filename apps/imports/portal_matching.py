@@ -99,8 +99,12 @@ def find_matching_case(authority, number, dosya_turu=None):
     return None
 
 
-def calculate_notice_due_date(delivered_at, days=14):
-    """Tebligat teslim tarihine gün (varsayılan 14) ekleyerek olası son tarihi hesaplar."""
+def calculate_notice_due_date(delivered_at, days=None):
+    """Tebligat teslim tarihine gün ekleyerek olası son tarihi hesaplar."""
+    if days is None:
+        from apps.office.models import OfficeSettings
+
+        days = OfficeSettings.load().notice_default_due_days
     if not delivered_at:
         return timezone.localdate() + timedelta(days=days)
     base_date = delivered_at.date() if hasattr(delivered_at, "date") else delivered_at

@@ -6,7 +6,7 @@
   <div class="eyebrow"><a href="{% url 'tasks:list' %}"><i class="bi bi-chevron-left"></i> Görevler</a></div>
 </div>
 
-<div class="card mb-3" x-data="{ revise: false, close: false }">
+<div class="card mb-3" x-data="{ revise: false, close: false, hearingOutcome: 'attended', clientInformed: 'yes' }">
   <div class="detail-hero">
     <div class="hero-icon"><i class="bi bi-check2-square"></i></div>
     <div class="min-w-0">
@@ -15,6 +15,9 @@
         <h1 class="page-title">{{ task.title }}</h1>
         {% include "tasks/_chips.html" with t=task part="status" %}
         {% include "tasks/_chips.html" with t=task part="due" %}
+        {% if task.hearing %}
+          <span class="badge bg-primary-subtle text-primary border border-primary-subtle"><i class="bi bi-calendar-event me-1"></i>Duruşma / Etkinlik Görevi</span>
+        {% endif %}
       </div>
       <div class="meta">
         <span><i class="bi bi-folder2"></i><a class="fw-medium" href="{{ task.case.get_absolute_url }}"{% if request.GET.pencere %} target="_top"{% endif %}>{{ task.case.archive_reference }} — {{ task.case.display_name }}</a></span>
@@ -22,6 +25,11 @@
         <span><i class="bi bi-calendar-event"></i>Son gün <strong class="tabular">{{ task.due_date|date:"d.m.Y" }}</strong></span>
         <span>Kayıt: {{ task.created_at|date:"d.m.Y H:i" }} · {{ task.created_by|default:"—" }}</span>
       </div>
+      {% if task.hearing %}
+      <div class="mt-2 pt-2 border-top small text-body-secondary">
+        <i class="bi bi-pin-angle me-1"></i>Bağlı Duruşma / Etkinlik: <strong>{{ task.hearing.title_display }}</strong> ({{ task.hearing.starts_at|date:"d.m.Y H:i" }}{% if task.hearing.authority %} — {{ task.hearing.authority }}{% endif %})
+      </div>
+      {% endif %}
     </div>
     <div class="page-actions">
       {% if can_delete %}
@@ -45,8 +53,75 @@
   {% for a in actions %}{% if a.key == 'close' %}
   <form method="post" action="{% url 'tasks:action' task.pk %}{% if request.GET.pencere %}?pencere=1{% endif %}" class="card-body border-top" x-show="close" x-cloak>{% csrf_token %}
     <input type="hidden" name="action" value="close">
+
+    {% if task.hearing %}
+    <div class="alert alert-primary py-2 px-3 small d-flex align-items-center gap-2 mb-3">
+      <i class="bi bi-calendar-event fs-5"></i>
+      <div>
+        <strong>Duruşma / Etkinlik:</strong> {{ task.hearing.title_display }} — {{ task.hearing.starts_at|date:"d.m.Y H:i" }}
+        {% if task.hearing.authority %}<span class="text-body-secondary">({{ task.hearing.authority }})</span>{% endif %}
+      </div>
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label fw-semibold">Duruşma Katılım Durumu *</label>
+      <div class="d-flex gap-4">
+        <div class="form-check">
+          <input class="form-check-input" type="radio" name="hearing_outcome" id="ho_attended" value="attended" x-model="hearingOutcome">
+          <label class="form-check-label" for="ho_attended"><i class="bi bi-check-circle text-success me-1"></i> Duruşmaya Girildi</label>
+        </div>
+        <div class="form-check">
+          <input class="form-check-input" type="radio" name="hearing_outcome" id="ho_excused" value="excused" x-model="hearingOutcome">
+          <label class="form-check-label" for="ho_excused"><i class="bi bi-clock-history text-warning me-1"></i> Mazeret Gönderildi (Girilmedi)</label>
+        </div>
+      </div>
+    </div>
+
+    <!-- Duruşmaya Girildi Alanları -->
+    <div x-show="hearingOutcome === 'attended'">
+      <div class="mb-3">
+        <label class="form-label fw-semibold" for="hearing-decisions">Duruşmada Verilen Kararlar (Ara Karar Tutanağı) *</label>
+        <textarea class="form-control" id="hearing-decisions" name="hearing_decisions" rows="4" placeholder="Duruşmada zapta geçen ara kararları ve ertelenen yeni tarihi giriniz..." :required="hearingOutcome === 'attended'"></textarea>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label fw-semibold">Müvekkile Bilgi Verildi mi? *</label>
+        <div class="d-flex gap-4 mb-2">
+          <div class="form-check">
+            <input class="form-check-input" type="radio" name="client_informed" id="ci_yes" value="yes" x-model="clientInformed">
+            <label class="form-check-label" for="ci_yes">Evet, bilgi verildi</label>
+          </div>
+          <div class="form-check">
+            <input class="form-check-input" type="radio" name="client_informed" id="ci_no" value="no" x-model="clientInformed">
+            <label class="form-check-label" for="ci_no">Hayır, henüz verilmedi</label>
+          </div>
+        </div>
+
+        <div x-show="clientInformed === 'no'" class="mt-2">
+          <label class="form-label small text-body-secondary" for="client-not-informed-reason">Müvekkile Bilgi Verilmeme Sebebi *</label>
+          <textarea class="form-control" id="client-not-informed-reason" name="client_not_informed_reason" rows="2" placeholder="Neden bilgi verilemediğini açıklayınız..." :required="hearingOutcome === 'attended' && clientInformed === 'no'"></textarea>
+        </div>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label small text-body-secondary" for="close-note-att">Ek Not (İsteğe bağlı)</label>
+        <textarea class="form-control" id="close-note-att" name="comment" rows="2" placeholder="Görevi kapatırken eklemek istediğiniz dahili not..."></textarea>
+      </div>
+    </div>
+
+    <!-- Mazeret Gönderildi Alanları -->
+    <div x-show="hearingOutcome === 'excused'">
+      <div class="mb-3">
+        <label class="form-label fw-semibold" for="close-note-exc">Mazeret Bildirim Notu *</label>
+        <textarea class="form-control" id="close-note-exc" name="comment" rows="3" placeholder="Mesleki mazeret sunuldu / yeni gün bekleniyor..." :required="hearingOutcome === 'excused'"></textarea>
+      </div>
+    </div>
+
+    {% else %}
     <label class="form-label" for="close-note">Sonuç notu *</label>
     <textarea class="form-control mb-3" id="close-note" name="comment" rows="3" required></textarea>
+    {% endif %}
+
     {% if task.requires_accounting %}
     <label class="form-label" for="ledger-entry">Yapılan gelir/gider işlemi *</label>
     <select class="form-select mb-2" id="ledger-entry" name="ledger_id" required>
@@ -55,7 +130,7 @@
     </select>
     <p class="small text-body-secondary">UYAP gelir/giderleri dosyaya otomatik aktarılır.</p>
     {% endif %}
-    <button class="btn btn-primary">Görevi kapat</button>
+    <button class="btn btn-primary"><i class="bi bi-check2"></i> Görevi kapat</button>
   </form>{% endif %}{% endfor %}
 </div>
 
@@ -78,6 +153,26 @@
       </div>
       {% else %}
       <div class="small text-body-secondary mb-3">Kontrolcü yok (doğrudan kapanır)</div>
+      {% endif %}
+      {% if task.hearing_outcome %}
+      <h2 class="section-title mt-4">Duruşma Sonucu</h2>
+      <div class="mb-3 p-2 bg-body-tertiary rounded border">
+        {% if task.hearing_outcome == 'excused' %}
+          <div class="badge bg-warning-subtle text-warning border border-warning-subtle mb-1"><i class="bi bi-clock-history me-1"></i>Mazeret Gönderildi</div>
+        {% else %}
+          <div class="badge bg-success-subtle text-success border border-success-subtle mb-2"><i class="bi bi-check-circle me-1"></i>Duruşmaya Girildi</div>
+          <div class="small fw-semibold mt-1">Verilen Kararlar:</div>
+          <div class="small text-body mb-2">{{ task.hearing_decisions|linebreaksbr }}</div>
+          <div class="small fw-semibold">Müvekkil Bilgilendirmesi:</div>
+          <div class="small text-body">
+            {% if task.client_informed %}
+              <span class="text-success"><i class="bi bi-check-lg me-1"></i>Müvekkile bilgi verildi.</span>
+            {% else %}
+              <span class="text-danger"><i class="bi bi-x-circle me-1"></i>Müvekkile bilgi verilmedi:</span> {{ task.client_not_informed_reason }}
+            {% endif %}
+          </div>
+        {% endif %}
+      </div>
       {% endif %}
       <h2 class="section-title mt-4">Notlar</h2>
       {% for event in events %}{% if event.kind == 'closed' %}<div class="mb-3"><div class="small text-body-secondary">Sonuç · {{ event.actor }} · {{ event.created_at|date:"d.m.Y H:i" }}</div><div>{{ event.comment|linebreaksbr }}</div></div>{% endif %}{% endfor %}

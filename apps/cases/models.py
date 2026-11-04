@@ -481,6 +481,8 @@ class HearingKind(models.TextChoices):
     DISCOVERY = "discovery", "Keşif"
     EXPERT = "expert", "Bilirkişi incelemesi"
     MEDIATION = "mediation", "Arabuluculuk toplantısı"
+    CLIENT_MEETING = "client_meeting", "Müvekkil görüşmesi"
+    OFFICE_MEETING = "office_meeting", "Ofis içi toplantı"
     OTHER = "other", "Diğer"
 
 
@@ -492,11 +494,31 @@ class HearingStatus(models.TextChoices):
 
 
 class Hearing(TimeStampedModel):
-    case = models.ForeignKey(Case, on_delete=models.CASCADE, related_name="hearings")
+    case = models.ForeignKey(
+        Case, on_delete=models.CASCADE, related_name="hearings", null=True, blank=True
+    )
+    client = models.ForeignKey(
+        "clients.Client",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="hearings",
+        verbose_name="müvekkil",
+    )
+    title = models.CharField("etkinlik başlığı", max_length=255, blank=True)
+    assigned_to = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+        verbose_name="görevli / sorumlu",
+    )
     kind = models.CharField(
         "tür", max_length=20, choices=HearingKind.choices, default=HearingKind.HEARING
     )
     starts_at = models.DateTimeField("tarih ve saat")
+    ends_at = models.DateTimeField("bitiş tarihi ve saat", null=True, blank=True)
     authority = models.CharField("mahkeme / yer", max_length=200, blank=True)
     room = models.CharField("salon", max_length=100, blank=True)
     notes = models.TextField("notlar", blank=True)
@@ -504,14 +526,34 @@ class Hearing(TimeStampedModel):
         "durum", max_length=20, choices=HearingStatus.choices, default=HearingStatus.PLANNED
     )
     result = models.TextField("sonuç / ara karar", blank=True)
+    decisions = models.TextField("duruşmada verilen kararlar", blank=True)
+    excuse_submitted = models.BooleanField("mazeret gönderildi", default=False)
+    client_informed = models.BooleanField("müvekkile bilgi verildi", null=True, blank=True)
+    client_not_informed_reason = models.TextField("müvekkile bilgi verilmeme sebebi", blank=True)
+    portal_ref = models.CharField(
+        "UYAP duruşma referansı", max_length=100, blank=True, db_index=True
+    )
+    google_event_id = models.CharField(
+        "Google Takvim etkinlik ID", max_length=255, blank=True, db_index=True
+    )
 
     class Meta:
-        verbose_name = "duruşma"
-        verbose_name_plural = "duruşmalar"
+        verbose_name = "duruşma / etkinlik"
+        verbose_name_plural = "duruşmalar ve etkinlikler"
         ordering = ["starts_at"]
 
     def __str__(self):
-        return f"{self.get_kind_display()} — {self.starts_at:%d.%m.%Y %H:%M}"
+        return f"{self.title_display} — {self.starts_at:%d.%m.%Y %H:%M}"
+
+    @property
+    def title_display(self):
+        if self.title:
+            return self.title
+        if self.case:
+            return self.case.display_name
+        if self.client:
+            return f"{self.get_kind_display()} — {self.client}"
+        return self.get_kind_display()
 
 
 class CaseEvent(models.Model):

@@ -304,6 +304,16 @@ def test_points_for_closed_task_are_recorded_once(task_factory, lawyer, intern, 
         not in login(intern).get(reverse("accounts:settings"), {"bolum": "puanlar"}).context
     )
 
+    # use_task_points=False durumunda puan verilmez
+    from apps.office.models import OfficeSettings
+
+    office = OfficeSettings.load()
+    office.use_task_points = False
+    office.save(update_fields=["use_task_points"])
+    TaskPoint.objects.all().delete()
+    services.award_closed_task_points(task)
+    assert TaskPoint.objects.count() == 0
+
 
 def test_tab_counts_follow_scope_and_filters(task_factory, lawyer, intern):
     task_factory(title="Aranan aktif")

@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+{% load ui %}
+{% block title %}Fiziki Arşiv — {{ office.name }}{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex align-items-center justify-content-between mb-3">
+  <div>
+    <div class="eyebrow">Kayıtlar</div>
+    <h1 class="page-title mb-0">Fiziki Arşiv</h1>
+  </div>
+  <div class="d-flex align-items-center gap-2">
+    <div class="btn-group btn-group-sm" role="group">
+      <a href="{% query_with view='table' page=None %}" class="btn {% if view_mode != 'explorer' %}btn-primary{% else %}btn-light{% endif %}" title="Tablo Görünümü">
+        <i class="bi bi-table me-1"></i>Tablo
+      </a>
+      <a href="{% query_with view='explorer' page=None %}" class="btn {% if view_mode == 'explorer' %}btn-primary{% else %}btn-light{% endif %}" title="Klasör Gezgini">
+        <i class="bi bi-grid me-1"></i>Klasörler
+      </a>
+    </div>
+    <a href="{% url 'archive:export' %}?{{ request.GET.urlencode }}" class="btn btn-light">
+      <i class="bi bi-file-earmark-excel me-1"></i>Excel Döküm
+    </a>
+  </div>
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-6 col-md-2">
+    <a href="?view=explorer" class="card text-decoration-none h-100 p-3">
+      <div class="text-body-secondary small mb-1">Fiziki Klasör</div>
+      <div class="fs-4 fw-bold text-primary">{{ folder_count }}</div>
+    </a>
+  </div>
+  <div class="col-6 col-md-2">
+    <a href="?scope=open" class="card text-decoration-none h-100 p-3 {% if current_scope == 'open' %}border-success shadow-sm{% endif %}">
+      <div class="text-body-secondary small mb-1">Açık Arşiv</div>
+      <div class="fs-4 fw-bold text-success">{{ open_count }}</div>
+    </a>
+  </div>
+  <div class="col-6 col-md-2">
+    <a href="?scope=closed" class="card text-decoration-none h-100 p-3 {% if current_scope == 'closed' %}border-secondary shadow-sm{% endif %}">
+      <div class="text-body-secondary small mb-1">Kapalı Arşiv</div>
+      <div class="fs-4 fw-bold text-secondary">{{ closed_count }}</div>
+    </a>
+  </div>
+  <div class="col-6 col-md-2">
+    <a href="?scope=enforcement" class="card text-decoration-none h-100 p-3 {% if current_scope == 'enforcement' %}border-info shadow-sm{% endif %}">
+      <div class="text-body-secondary small mb-1">İcra Arşivi</div>
+      <div class="fs-4 fw-bold text-info">{{ enforcement_count }}</div>
+    </a>
+  </div>
+  <div class="col-6 col-md-2">
+    <a href="?scope=missing" class="card text-decoration-none h-100 p-3 {% if current_scope == 'missing' %}border-warning shadow-sm{% endif %}">
+      <div class="text-body-secondary small mb-1">Yeri Eksik Olanlar</div>
+      <div class="fs-4 fw-bold {% if missing_count > 0 %}text-warning{% endif %}">{{ missing_count }}</div>
+    </a>
+  </div>
+  <div class="col-6 col-md-2">
+    <a href="?scope=all" class="card text-decoration-none h-100 p-3 {% if current_scope == 'all' %}border-primary shadow-sm{% endif %}">
+      <div class="text-body-secondary small mb-1">Toplam Dosya</div>
+      <div class="fs-4 fw-bold">{{ total_count }}</div>
+    </a>
+  </div>
+</div>
+
+<div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+  <ul class="nav nav-pills gap-1">
+    <li class="nav-item">
+      <a class="nav-link py-1 px-3 {% if current_scope == 'all' %}active{% endif %}" href="{% query_with scope='all' page=None %}">
+        Tümü
+      </a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link py-1 px-3 {% if current_scope == 'open' %}active{% endif %}" href="{% query_with scope='open' page=None %}">
+        Açık Arşiv
+      </a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link py-1 px-3 {% if current_scope == 'closed' %}active{% endif %}" href="{% query_with scope='closed' page=None %}">
+        Kapalı Arşiv
+      </a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link py-1 px-3 {% if current_scope == 'enforcement' %}active{% endif %}" href="{% query_with scope='enforcement' page=None %}">
+        İcra Arşivi
+      </a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link py-1 px-3 {% if current_scope == 'missing' %}active{% endif %}" href="{% query_with scope='missing' page=None %}">
+        Arşiv Yeri Eksikler {% if missing_count > 0 %}<span class="badge rounded-pill bg-warning text-dark ms-1">{{ missing_count }}</span>{% endif %}
+      </a>
+    </li>
+  </ul>
+</div>
+
+<div class="card p-3 mb-3">
+  <form method="get" class="row g-2 align-items-end" hx-get="{% url 'archive:list' %}" hx-target="#archive-table" hx-push-url="true">
+    <input type="hidden" name="scope" value="{{ current_scope }}">
+    <input type="hidden" name="view" value="{{ view_mode }}">
+    <div class="col-md-3">
+      <label class="form-label small text-body-secondary mb-1">Arama</label>
+      <div class="input-group input-group-sm">
+        <span class="input-group-text"><i class="bi bi-search"></i></span>
+        <input type="text" name="q" value="{{ request.GET.q }}" class="form-control" placeholder="Klasör, dosya no, mahkeme, müvekkil...">
+      </div>
+    </div>
+    <div class="col-md-3">
+      <label class="form-label small text-body-secondary mb-1">Klasör Seçimi</label>
+      <select name="klasor" class="form-select form-select-sm">
+        <option value="">Tüm Klasörler</option>
+        {% for f in folder_list %}
+        <option value="{{ f.archive_folder_no }}" {% if request.GET.klasor == f.archive_folder_no %}selected{% endif %}>
+          {{ f.archive_folder_no }} ({{ f.total_files }} dosya)
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-2">
+      <label class="form-label small text-body-secondary mb-1">Dosya Türü</label>
+      <select name="tur" class="form-select form-select-sm">
+        <option value="">Tüm Türler</option>
+        {% for code, label in type_labels.items %}
+        <option value="{{ code }}" {% if request.GET.tur == code %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-2">
+      <label class="form-label small text-body-secondary mb-1">Sorumlu Avukat</label>
+      <select name="avukat" class="form-select form-select-sm">
+        <option value="">Tüm Avukatlar</option>
+        {% for l in lawyers %}
+        <option value="{{ l.pk }}" {% if request.GET.avukat == l.pk|stringformat:"s" %}selected{% endif %}>{{ l }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-2 d-flex gap-2">
+      <button type="submit" class="btn btn-sm btn-primary flex-grow-1"><i class="bi bi-filter me-1"></i>Filtrele</button>
+      <a href="?scope={{ current_scope }}&view={{ view_mode }}" class="btn btn-sm btn-light" title="Filtreleri Temizle"><i class="bi bi-x-lg"></i></a>
+    </div>
+  </form>
+</div>
+
+{% if view_mode == 'explorer' %}
+  {% include "cases/_archive_explorer.html" %}
+{% else %}
+  {% include "cases/_archive_table.html" %}
+{% endif %}
+
+<div class="modal fade" id="location-modal" tabindex="-1" aria-hidden="true"></div>
+{% endblock %}

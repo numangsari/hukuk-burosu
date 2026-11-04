@@ -399,6 +399,16 @@ def test_missed_yesterday_backup_runs_after_morning_start(backup_env):
     assert not services.scheduled_due(morning)
 
 
+def test_backup_uses_dynamic_office_slug(backup_env):
+    office = OfficeSettings.load()
+    office.name = "Demir & Ortakları Hukuk Bürosu"
+    office.save()
+    rec = services.run_backup(BackupRecord.Kind.MANUAL)
+    assert rec.status == "ok"
+    assert rec.file_name.startswith("demir-ortaklari-yedek-")
+    assert (backup_env / "yedekler" / rec.file_name).exists()
+
+
 def test_backup_contains_readable_list_snapshot(backup_env):
     office = OfficeSettings.load()
     office.documents_root = str(backup_env / "Ofis")
