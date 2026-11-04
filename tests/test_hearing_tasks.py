@@ -67,7 +67,7 @@ def test_create_due_hearing_tasks_one_day_before(case_factory):
         room="12",
     )
 
-    created_tasks = create_due_hearing_tasks(reference_date=now.date())
+    created_tasks = create_due_hearing_tasks(reference_date=timezone.localdate(now))
     assert len(created_tasks) == 1
     task = created_tasks[0]
 
@@ -79,7 +79,7 @@ def test_create_due_hearing_tasks_one_day_before(case_factory):
     assert "DURUŞMASI İŞLEMLERİ YAPILACAK VE MÜVEKKİLE BİLGİ VERİLECEK" in task.title
 
     # İkinci kez çağrıldığında mükerrer üretilmemeli
-    again = create_due_hearing_tasks(reference_date=now.date())
+    again = create_due_hearing_tasks(reference_date=timezone.localdate(now))
     assert len(again) == 0
 
 
