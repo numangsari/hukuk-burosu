@@ -283,6 +283,9 @@ def import_notice_document(notice, source_part, content, filename, user):
     )
     if created:
         document.file.save(f"{content_hash}{suffix}", ContentFile(content), save=True)
+        from .notice_folders import schedule_notice_copy
+
+        schedule_notice_copy(notice)
     return document
 
 

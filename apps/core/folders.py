@@ -24,6 +24,7 @@ CLIENTS_DIR = "Müvekkiller"
 POA_DIR = "Vekaletler"
 RETAINER_DIR = "Sözleşmeler"
 TASKS_DIR = "Görevler"
+NOTICES_DIR = "Tebligatlar"
 _INVALID = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
 _RESERVED = {
     "CON",
@@ -183,6 +184,14 @@ def task_dir(case) -> Path:
     base = root()
     if path.is_symlink() or base is None or not path.resolve().is_relative_to(base.resolve()):
         raise FolderError("Görev klasörü belge kökünün dışında veya güvenli değil.")
+    return _ensure(path)
+
+
+def notice_dir(case) -> Path:
+    path = case_dir(case) / NOTICES_DIR
+    base = root()
+    if path.is_symlink() or base is None or not path.resolve().is_relative_to(base.resolve()):
+        raise FolderError("Tebligat klasörü belge kökünün dışında veya güvenli değil.")
     return _ensure(path)
 
 

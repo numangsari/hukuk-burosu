@@ -18,6 +18,7 @@ from apps.tasks.models import TaskDocument
 from apps.tasks.views import TaskCreateView
 
 from .models import PortalCapture, PortalCase, PortalNotice, PortalNoticeDocument
+from .notice_folders import schedule_notice_copy
 from .portal_case_sync import sync_portal_case
 from .portal_finance import import_finance
 from .portal_matching import (
@@ -310,6 +311,7 @@ def notice_no_task(request, pk):
                         "resolved_at",
                     ]
                 )
+                schedule_notice_copy(notice, request)
                 messages.success(request, "Tebligat için görev olmadığı kaydedildi.")
                 if getattr(request, "htmx", False):
                     response = HttpResponse(status=204)
@@ -413,6 +415,7 @@ class NoticeTaskCreateView(TaskCreateView):
                         "resolved_at",
                     ]
                 )
+                schedule_notice_copy(notice, self.request)
                 if getattr(self.request, "htmx", False):
                     messages.success(self.request, "Görev başarıyla oluşturuldu.")
                     resp = HttpResponse(status=204)

@@ -6,7 +6,7 @@ from apps.accounts.models import User
 from apps.cases.models import Case
 from apps.clients.models import Client
 from apps.imports.models import PortalCase, PortalLawyerAccess, PortalNotice, PortalNoticeDocument
-from apps.office.models import TaskType
+from apps.office.models import OfficeSettings, TaskType
 from apps.tasks.models import Task
 
 
@@ -58,6 +58,75 @@ def test_no_task_requires_reason_and_matching_case(sample):
     notice.refresh_from_db()
     assert notice.no_task_reason == "Gerek yok"
     assert "Görev yok" in client.get(reverse("notice_list")).content.decode()
+
+
+@pytest.mark.django_db
+def test_notice_documents_are_copied_to_the_assigned_case(
+    sample, tmp_path, django_capture_on_commit_callbacks
+):
+    client, _, _, owner, _, case, notice = sample
+    office = OfficeSettings.load()
+    office.documents_root = str(tmp_path / "ofis")
+    office.save()
+    with django_capture_on_commit_callbacks(execute=True):
+        response = client.post(
+            reverse("notice_no_task", args=[notice.pk]),
+            {"client": owner.pk, "case": case.pk, "reason": "Gerek yok"},
+        )
+    assert response.status_code == 302
+    from apps.imports.notice_folders import copy_notice_documents
+
+    notice.refresh_from_db()
+    assert copy_notice_documents(notice) == 1
+    files = list((tmp_path / "ofis").rglob("Tebligatlar/*"))
+    assert len(files) == 1
+    assert files[0].read_bytes() == b"%PDF-1.4\ndeneme"
+
+
+@pytest.mark.django_db
+def test_notice_copy_does_not_overwrite_existing_file(sample, tmp_path):
+    from apps.core.folders import FolderError
+    from apps.imports.notice_folders import copy_notice_documents
+
+    _, _, _, owner, _, case, notice = sample
+    office = OfficeSettings.load()
+    office.documents_root = str(tmp_path / "ofis")
+    office.save()
+    notice.resolution_case = case
+    notice.resolution_client = owner
+    notice.save()
+    copy_notice_documents(notice)
+    target = next((tmp_path / "ofis").rglob("Tebligatlar/*"))
+    target.write_bytes(b"korunacak")
+    with pytest.raises(FolderError):
+        copy_notice_documents(notice)
+    assert target.read_bytes() == b"korunacak"
+
+
+@pytest.mark.django_db
+def test_notice_task_places_original_document_in_case_folder(
+    sample, tmp_path, django_capture_on_commit_callbacks
+):
+    client, admin, worker, owner, _, case, notice = sample
+    office = OfficeSettings.load()
+    office.documents_root = str(tmp_path / "ofis")
+    office.save()
+    data = {
+        "client": owner.pk,
+        "case": case.pk,
+        "task_type": TaskType.objects.filter(is_active=True).first().pk,
+        "title": "İncele",
+        "assignee": worker.pk,
+        "reviewer": admin.pk,
+        "due_date": "2026-12-01",
+        "requires_accounting": "no",
+    }
+    with django_capture_on_commit_callbacks(execute=True):
+        response = client.post(reverse("notice_task_create", args=[notice.pk]), data)
+    assert response.status_code == 302
+    files = list((tmp_path / "ofis").rglob("Tebligatlar/*"))
+    assert len(files) == 1
+    assert files[0].read_bytes() == b"%PDF-1.4\ndeneme"
 
 
 @pytest.mark.django_db
