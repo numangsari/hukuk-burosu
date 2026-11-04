@@ -428,6 +428,7 @@ a.stat-card:hover { box-shadow: var(--shadow); border-color: color-mix(in srgb, 
 .table-card { overflow: hidden; }
 .table-card .table-responsive { margin: 0; }
 .searchable-select { position: relative; }
+select[data-searchable-ready="1"] { display: none; }
 .form-section:focus-within { position: relative; z-index: 20; }
 .searchable-select-list { position: absolute; top: calc(100% + 3px); left: 0; right: 0; z-index: 30; max-height: 16rem; overflow-y: auto; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-sm); box-shadow: var(--shadow-lg); padding: .25rem; }
 .searchable-select-list[hidden] { display: none; }
