@@ -223,6 +223,9 @@ class LookupModel(models.Model):
         return self.name
 
 
+HEARING_TASK_TYPE_NAME = tr_capitalize_words("Duruşma ve Müvekkil Bilgilendirme")
+
+
 class TaskType(LookupModel):
     requires_document = models.BooleanField("kontrole göndermek için belge zorunlu", default=False)
     requires_accounting = models.BooleanField(

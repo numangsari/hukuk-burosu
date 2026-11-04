@@ -7,13 +7,12 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps.cases.models import CaseStatus, Hearing, HearingStatus
-from apps.core.text import tr_capitalize_words
-from apps.office.models import TaskType
+from apps.office.models import HEARING_TASK_TYPE_NAME, TaskType
 from apps.tasks.models import Task
 
 log = logging.getLogger(__name__)
 
-TASK_TYPE_NAME = tr_capitalize_words("Duruşma ve Müvekkil Bilgilendirme")
+TASK_TYPE_NAME = HEARING_TASK_TYPE_NAME
 
 
 def get_or_create_hearing_task_type() -> TaskType:
@@ -25,7 +24,7 @@ def get_or_create_hearing_task_type() -> TaskType:
         defaults={
             "requires_document": False,
             "categories": ["civil", "criminal", "administrative", "enforcement", "mediation"],
-            "points": 10,
+            "points": 2,
         },
     )
     return tt

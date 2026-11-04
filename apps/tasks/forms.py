@@ -5,7 +5,7 @@ from apps.cases.models import Case, CaseStatus
 from apps.clients.models import Client
 from apps.core.forms import BootstrapMixin, DateInput
 from apps.core.uploads import validate_upload
-from apps.office.models import OfficeSettings, TaskType
+from apps.office.models import HEARING_TASK_TYPE_NAME, OfficeSettings, TaskType
 
 from .models import Task
 
@@ -70,7 +70,7 @@ class TaskForm(BootstrapMixin, forms.ModelForm):
             self.initial["requires_accounting"] = (
                 "yes" if self.instance.requires_accounting else "no"
             )
-        types = TaskType.objects.filter(is_active=True)
+        types = TaskType.objects.filter(is_active=True).exclude(name__iexact=HEARING_TASK_TYPE_NAME)
         cases = Case.objects.exclude(status=CaseStatus.CLOSED)
         users = User.objects.filter(is_active=True)
         if self.instance.pk:

@@ -98,6 +98,7 @@ uv run ruff format --check .                         # Format denetimi
   - Görev oluşturulduğunda duruşmanın sorumlusu ve mazeret durumu güncellenir, Google Takvim'e otomatik yansıtılır. Bağlantılı görev Duruşma Listesi'nden açılır.
   - Duruşmadan 1 gün önce sabah dosya sorumlusuna otomatik görev açılır: `"{case.display_name} DURUŞMASI İŞLEMLERİ YAPILACAK VE MÜVEKKİLE BİLGİ VERİLECEK"`.
   - Görev duruşmaya bağlıdır (`task.hearing`) ve kontrolcüsüz doğrudan kapatılabilir.
+  - Duruşma görev türü genel görev türü seçimlerinde ve ayarlarında gösterilmez; duruşmaya bağlı görev kapatıldığında 2 puan verilir. Daha önce verilmiş puanlar değiştirilmez.
   - Görev kapatılırken: duruşmaya girilmediyse *"Mazeret Gönderildi"* (mazeret açıklamasıyla), girildiyse *"Duruşmada Verilen Kararlar"* zorunlu doldurulup *"Müvekkile Bilgi Verildi / Verilmedi"* seçenekleri işaretlenir. Bilgiler duruşma kartına ve dosya zaman çizelgesine (`CaseEvent`) otomatik işlenir.
   - Görev tamamlanırken isteğe bağlı yeni duruşma tarihi ve saati girilebilir; aynı dosya ve saatte kayıt varsa tekrar oluşturulmaz. UYAP aktarımı bu kayıtla aynı dosya ve saat üzerinden eşleşir. Duruşma görevlerinde dilekçe zorunluluğu uygulanmaz.
 - **Google Takvim API Tek Yönlü Entegrasyon (`google_sync.py`):**

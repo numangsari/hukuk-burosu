@@ -53,7 +53,10 @@ def award_closed_task_points(task):
         TaskPoint.objects.get_or_create(
             task=task,
             user_id=user_id,
-            defaults={"points": task.task_type.points, "earned_at": task.completed_at},
+            defaults={
+                "points": 2 if task.hearing_id else task.task_type.points,
+                "earned_at": task.completed_at,
+            },
         )
 
 

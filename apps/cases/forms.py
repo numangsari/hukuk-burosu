@@ -636,7 +636,6 @@ class HearingTaskCreateForm(BootstrapMixin, forms.ModelForm):
 
         model = Task
         fields = [
-            "task_type",
             "title",
             "case",
             "assignee",

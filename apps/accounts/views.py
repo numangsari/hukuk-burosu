@@ -22,7 +22,7 @@ from apps.office.forms import (
     PortalLawyerAccessForm,
     TaskTypeFormSet,
 )
-from apps.office.models import OfficeSettings, TaskType
+from apps.office.models import HEARING_TASK_TYPE_NAME, OfficeSettings, TaskType
 
 from .forms import (
     BalanceViewersForm,
@@ -125,7 +125,9 @@ class SettingsView(View):
                 *bound("kullanicilar"), instance=edit or User(), editor=user
             )
             forms["gorev_turleri"] = TaskTypeFormSet(
-                *bound("gorev_turleri"), queryset=TaskType.objects.all(), prefix="tt"
+                *bound("gorev_turleri"),
+                queryset=TaskType.objects.exclude(name__iexact=HEARING_TASK_TYPE_NAME),
+                prefix="tt",
             )
         return forms
 

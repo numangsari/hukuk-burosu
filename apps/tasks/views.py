@@ -18,7 +18,7 @@ from apps.core.pagination import page_size
 from apps.core.permissions import is_admin
 from apps.core.text import fold
 from apps.core.uploads import validate_upload
-from apps.office.models import TaskType
+from apps.office.models import HEARING_TASK_TYPE_NAME, TaskType
 
 from . import services
 from .forms import CommentForm, TaskForm
@@ -164,7 +164,9 @@ class TaskListView(ListView):
             if self.request.GET.get("sort") in dict(SORT_OPTIONS)
             else "due_date",
             statuses=TaskStatus.choices,
-            types=TaskType.objects.filter(is_active=True),
+            types=TaskType.objects.filter(is_active=True).exclude(
+                name__iexact=HEARING_TASK_TYPE_NAME
+            ),
         )
         return ctx
 

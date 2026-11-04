@@ -14,6 +14,46 @@ from apps.tasks.models import Task, TaskStatus
 pytestmark = pytest.mark.django_db
 
 
+def test_hearing_type_is_hidden_from_general_task_form_and_settings(lawyer_client, admin_user):
+    from django.test import Client
+    from django.urls import reverse
+
+    from apps.cases.hearing_tasks import get_or_create_hearing_task_type
+    from apps.tasks.forms import TaskForm
+
+    task_type = get_or_create_hearing_task_type()
+    assert not TaskForm().fields["task_type"].queryset.filter(pk=task_type.pk).exists()
+    response = lawyer_client.get(reverse("tasks:list"))
+    assert task_type not in response.context["types"]
+    client = Client()
+    client.force_login(admin_user)
+    response = client.get(reverse("accounts:settings"), {"bolum": "gorev_turleri"})
+    assert task_type not in response.context["forms"]["gorev_turleri"].queryset
+
+
+def test_hearing_task_awards_two_points_even_if_type_has_other_points(case_factory):
+    from apps.tasks.services import award_closed_task_points
+
+    office = OfficeSettings.load()
+    office.use_task_points = True
+    office.save(update_fields=["use_task_points"])
+    case = case_factory()
+    hearing = Hearing.objects.create(case=case, starts_at=timezone.now())
+    task_type = TaskType.objects.create(name="Örnek görev türü", points=10)
+    task = Task.objects.create(
+        task_type=task_type,
+        title="Örnek",
+        case=case,
+        hearing=hearing,
+        assignee=case.responsible_lawyer,
+        due_date=timezone.localdate(),
+        status=TaskStatus.DONE,
+        completed_at=timezone.now(),
+    )
+    award_closed_task_points(task)
+    assert list(task.points_awarded.values_list("points", flat=True)) == [2]
+
+
 def test_create_due_hearing_tasks_one_day_before(case_factory):
     case = case_factory()
     now = timezone.now()
@@ -423,6 +463,7 @@ def test_hearing_task_create_view_workflow(lawyer_client, case_factory):
     assert "Duruşma notu" in response.content.decode()
     assert "Duruşma Saati:" not in response.content.decode()
     assert "Salon: 3" in response.content.decode()
+    assert "task_type" not in response.context["form"].fields
 
     # 2. POST ile görev oluşturulması
     task_type = get_or_create_hearing_task_type()
@@ -448,6 +489,8 @@ def test_hearing_task_create_view_workflow(lawyer_client, case_factory):
 
     task = hearing.tasks.first()
     assert task.title == "DURUŞMA TAKİP GÖREVİ"
+    assert task.task_type == task_type
+    assert task_type.points == 2
     assert task.client == case.client
     assert task.notes == "Ön inceleme duruşması"
 

@@ -280,8 +280,11 @@ class HearingTaskCreateView(View):
 
         form = HearingTaskCreateForm(request.POST, hearing=hearing)
         if form.is_valid():
+            from .hearing_tasks import get_or_create_hearing_task_type
+
             with transaction.atomic():
                 task = form.save(commit=False)
+                task.task_type = get_or_create_hearing_task_type()
                 task.hearing = hearing
                 client = form.cleaned_data.get("client") or (
                     task.case.client if task.case else None
