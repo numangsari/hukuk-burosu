@@ -1,12 +1,11 @@
 {% extends "base.html" %}
 {% load ui %}
-{% block title %}Takvim — {{ office.name }}{% endblock %}
+{% block title %}{% if view == 'list' %}Duruşma Listesi{% else %}Takvim{% endif %} — {{ office.name }}{% endblock %}
 
 {% block content %}
 <div class="page-header d-flex align-items-center justify-content-between mb-3">
   <div>
-    <div class="eyebrow">Ajanda & Duruşmalar</div>
-    <h1 class="page-title mb-0">Takvim</h1>
+    <h1 class="page-title mb-0">{% if view == 'list' %}Duruşma Listesi{% else %}Takvim{% endif %}</h1>
   </div>
   <div class="d-flex align-items-center gap-2">
     {% if view == 'list' %}
@@ -21,10 +20,9 @@
 </div>
 
 <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
-  <div class="segmented">
-    <input type="radio" id="v-month" {% if view == 'month' %}checked{% endif %} onclick="location.href='?view=month&date={{ anchor|date:'Y-m-d' }}'"><label for="v-month"><i class="bi bi-calendar3 me-1"></i>Ay</label>
-    <input type="radio" id="v-week" {% if view == 'week' %}checked{% endif %} onclick="location.href='?view=week&date={{ anchor|date:'Y-m-d' }}'"><label for="v-week"><i class="bi bi-calendar-week me-1"></i>Hafta</label>
-    <input type="radio" id="v-list" {% if view == 'list' %}checked{% endif %} onclick="location.href='?view=list'"><label for="v-list"><i class="bi bi-list-task me-1"></i>Liste (Duruşmalar)</label>
+  <div class="segmented-control" aria-label="Takvim görünümleri">
+    <a class="segment {% if view != 'list' %}active{% endif %}" href="?view=month&date={{ anchor|date:'Y-m-d' }}" {% if view != 'list' %}aria-current="page"{% endif %}><i class="bi bi-calendar3 me-1"></i>Takvim</a>
+    <a class="segment {% if view == 'list' %}active{% endif %}" href="?view=list" {% if view == 'list' %}aria-current="page"{% endif %}><i class="bi bi-list-task me-1"></i>Duruşma Listesi</a>
   </div>
 </div>
 
@@ -156,6 +154,10 @@
 <!-- =================== TAKVİM GÖRÜNÜMÜ (AY / HAFTA) =================== -->
 <div class="card table-card">
   <div class="cal-toolbar">
+    <div class="segmented-control" aria-label="Takvim aralığı">
+      <a class="segment {% if view == 'month' %}active{% endif %}" href="?view=month&date={{ anchor|date:'Y-m-d' }}" {% if view == 'month' %}aria-current="page"{% endif %}>Ay</a>
+      <a class="segment {% if view == 'week' %}active{% endif %}" href="?view=week&date={{ anchor|date:'Y-m-d' }}" {% if view == 'week' %}aria-current="page"{% endif %}>Hafta</a>
+    </div>
     <div class="btn-group">
       <a class="btn btn-light btn-icon" href="?view={{ view }}&date={{ prev|date:'Y-m-d' }}" title="Önceki"><i class="bi bi-chevron-left"></i></a>
       <a class="btn btn-light btn-icon" href="?view={{ view }}&date={{ next|date:'Y-m-d' }}" title="Sonraki"><i class="bi bi-chevron-right"></i></a>

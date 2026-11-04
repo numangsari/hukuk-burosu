@@ -106,9 +106,14 @@ def test_calendar_page_month_and_week(lawyer_client, monkeypatch):
     r = lawyer_client.get(reverse("agenda:calendar"), {"date": "2026-11-05"})
     html = r.content.decode()
     assert "Kasım 2026" in html and "Duruşma - Örnek" in html
+    assert '<h1 class="page-title mb-0">Takvim</h1>' in html
+    assert "Duruşma Listesi" in html and "Ajanda &amp; Duruşmalar" not in html
     r = lawyer_client.get(reverse("agenda:calendar"), {"view": "week", "date": "2026-11-05"})
     assert "2 Kasım – 8 Kasım 2026" in r.content.decode()
     assert FAKE_URL not in r.content.decode()
+    r = lawyer_client.get(reverse("agenda:calendar"), {"view": "list"})
+    assert '<h1 class="page-title mb-0">Duruşma Listesi</h1>' in r.content.decode()
+    assert 'aria-label="Takvim aralığı"' not in r.content.decode()
 
 
 def test_calendar_shows_hearings_not_tasks_and_avoids_google_duplicates(
