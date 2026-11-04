@@ -455,6 +455,8 @@ def test_hearing_task_create_view_workflow(lawyer_client, case_factory):
     resp_redirect = lawyer_client.get(url)
     assert resp_redirect.status_code == 302
     assert resp_redirect.url == task.get_absolute_url()
+    response = lawyer_client.get(url, HTTP_HX_REQUEST="true")
+    assert response.headers["HX-Redirect"] == task.get_absolute_url()
 
 
 def test_hearing_events_url_based_on_connected_task(case_factory):
@@ -486,7 +488,36 @@ def test_hearing_events_url_based_on_connected_task(case_factory):
 
     events = hearing_events(now.date(), (now + dt.timedelta(days=5)).date())
 
-    # Görevi olmayan duruşma için url boş string olmalı (tıklanamaz span)
-    assert any(ev.url == "" for ev in events if ev.source == "hearing")
+    # Görevi olmayan duruşma görev oluşturma penceresini açar.
+    assert any(ev.task_create_url for ev in events if ev.source == "hearing")
     # Görevi olan duruşma için url doğrudan task.get_absolute_url() olmalı
     assert any(ev.url == task.get_absolute_url() for ev in events if ev.source == "hearing")
+
+
+def test_calendar_hearing_without_task_opens_creation_form(lawyer_client, case_factory):
+    from django.urls import reverse
+
+    case = case_factory()
+    hearing = Hearing.objects.create(case=case, starts_at=timezone.now())
+    url = reverse("hearings:task_create", args=[hearing.pk])
+    for view in ("month", "week"):
+        response = lawyer_client.get(reverse("agenda:calendar"), {"view": view})
+        assert f'hx-get="{url}"' in response.content.decode()
+    response = lawyer_client.get(url, HTTP_HX_REQUEST="true")
+    assert response.status_code == 200
+    assert "Duruşma İçin Görev Oluştur" in response.content.decode()
+
+
+def test_hearing_task_creation_respects_case_visibility(
+    lawyer_client, case_factory, client_factory, admin_user
+):
+    from django.urls import reverse
+
+    office = OfficeSettings.load()
+    office.case_visibility_mode = OfficeSettings.CaseVisibilityMode.RESTRICTED
+    office.save()
+    client = client_factory(responsible_lawyer=admin_user, responsible_intern=None)
+    hearing = Hearing.objects.create(case=case_factory(client=client), starts_at=timezone.now())
+    url = reverse("hearings:task_create", args=[hearing.pk])
+    assert lawyer_client.get(url).status_code == 404
+    assert lawyer_client.post(url, {}).status_code == 404

@@ -216,13 +216,24 @@ class HearingResultModalView(View):
 class HearingTaskCreateView(View):
     """Duruşma için sorumlu, mazeret, dosya/müvekkil içeren bağlantılı görev oluşturur."""
 
-    def get(self, request, pk):
-        hearing = get_object_or_404(
-            Hearing.objects.select_related("case", "case__client", "client", "assigned_to"), pk=pk
+    def get_hearing(self, request, pk):
+        visible_cases = filter_visible_cases(Case.objects.all(), request.user)
+        return get_object_or_404(
+            Hearing.objects.filter(Q(case__in=visible_cases) | Q(case__isnull=True)).select_related(
+                "case", "case__client", "client", "assigned_to"
+            ),
+            pk=pk,
         )
+
+    def get(self, request, pk):
+        hearing = self.get_hearing(request, pk)
         existing_task = hearing.tasks.first()
         if existing_task:
             messages.info(request, "Bu duruşma için zaten bir görev oluşturulmuş.")
+            if request.headers.get("HX-Request"):
+                response = HttpResponse(status=200)
+                response["HX-Redirect"] = existing_task.get_absolute_url()
+                return response
             return redirect(existing_task.get_absolute_url())
 
         from .hearing_tasks import get_or_create_hearing_task_type
@@ -256,9 +267,7 @@ class HearingTaskCreateView(View):
         )
 
     def post(self, request, pk):
-        hearing = get_object_or_404(
-            Hearing.objects.select_related("case", "case__client", "client", "assigned_to"), pk=pk
-        )
+        hearing = self.get_hearing(request, pk)
         existing_task = hearing.tasks.first()
         if existing_task:
             messages.info(request, "Bu duruşma için zaten bir görev oluşturulmuş.")

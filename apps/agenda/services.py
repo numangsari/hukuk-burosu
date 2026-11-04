@@ -40,6 +40,7 @@ class Event:
     source: str = "google"  # Google takvimi, görev veya duruşma
     url: str = ""
     remote_id: str = ""
+    task_create_url: str = ""
 
     @property
     def start_date(self) -> dt.date:
@@ -304,7 +305,8 @@ def hearing_events(start: dt.date, end: dt.date, user=None) -> list[Event]:
         location = h.authority or (h.case.authority if h.case else "")
         if h.room:
             location += f" (Salon: {h.room})" if location else f"Salon: {h.room}"
-        # Duruşma tek başına tıklanmaz; bağlantılı görevi varsa doğrudan göreve gider:
+        from django.urls import reverse
+
         task = h.tasks.first()
         url = task.get_absolute_url() if task else ""
         end_time = (
@@ -321,6 +323,7 @@ def hearing_events(start: dt.date, end: dt.date, user=None) -> list[Event]:
                 days=[local_s.date()],
                 source="hearing",
                 url=url,
+                task_create_url=reverse("hearings:task_create", args=[h.pk]) if not task else "",
             )
         )
     return events
