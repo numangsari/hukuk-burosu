@@ -67,7 +67,7 @@
       search.removeAttribute("aria-activedescendant");
       let lastGroup = null;
       for (const option of select.options) {
-        if (!option.value || option.disabled || option.parentElement?.disabled) continue;
+        if (!option.value || !option.textContent.trim() || option.disabled || option.parentElement?.disabled) continue;
         const group = option.parentElement?.tagName === "OPTGROUP" ? option.parentElement.label : "";
         if (query && !fold(option.textContent).includes(query) && !fold(group).includes(query)) continue;
         if (group && group !== lastGroup) {

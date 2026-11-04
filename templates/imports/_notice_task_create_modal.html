@@ -1,5 +1,5 @@
 {# Tebligattan Görev Oluşturma Modalı (HTMX ile #notice-modal-dialog içine yüklenir) #}
-<form class="modal-content" method="post" action="{% url 'notice_task_create' notice.pk %}"
+<form class="modal-content" data-notice-task data-case-options-url="{% url 'tasks:case_options' %}" method="post" action="{% url 'notice_task_create' notice.pk %}"
       hx-post="{% url 'notice_task_create' notice.pk %}"
       hx-target="#notice-modal-dialog"
       hx-disabled-elt="find button[type=submit]">
@@ -40,7 +40,7 @@
         {% include "partials/field.html" with field=form.due_date %}
       </div>
       <div class="col-12">
-        {% include "partials/field.html" with field=form.requires_accounting wrap_class="mb-0" %}
+        <div class="accounting-choice"><div class="accounting-choice-head"><span class="form-label fw-semibold mb-0">Gelir/gider kaydı</span><div class="segmented-control">{% for radio in form.requires_accounting %}{% if radio.data.value %}<label class="segment-choice">{{ radio.tag }}<span>{{ radio.choice_label }}</span></label>{% endif %}{% endfor %}</div></div><div class="form-text">{{ form.requires_accounting.help_text }}</div>{% for error in form.requires_accounting.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}</div>
       </div>
       <div class="col-12">
         {% include "partials/field.html" with field=form.notes wrap_class="mb-0" %}

@@ -360,6 +360,11 @@ class NoticeTaskCreateView(TaskCreateView):
     def get_form(self, form_class=None):
         form = super().get_form(form_class)
         form.fields["client"].required = True
+        if getattr(self.request, "htmx", False):
+            for field in form.fields.values():
+                for attr in list(field.widget.attrs):
+                    if attr.startswith("@change") or attr == "x-ref":
+                        field.widget.attrs.pop(attr)
         return form
 
     def get_context_data(self, **kwargs):

@@ -61,6 +61,18 @@ def test_no_task_requires_reason_and_matching_case(sample):
 
 
 @pytest.mark.django_db
+def test_notice_task_window_displays_accounting_choices(sample):
+    client, _, _, _, _, _, notice = sample
+    response = client.get(reverse("notice_task_create", args=[notice.pk]), HTTP_HX_REQUEST="true")
+    page = response.content.decode()
+    assert response.status_code == 200
+    assert "data-notice-task" in page
+    assert 'value="yes"' in page and 'value="no"' in page
+    assert 'class="segment-choice"' in page
+    assert "@change=" not in page
+
+
+@pytest.mark.django_db
 def test_notice_task_copies_documents_and_cannot_repeat(sample):
     client, admin, worker, owner, other, case, notice = sample
     kind = TaskType.objects.filter(is_active=True).first()
