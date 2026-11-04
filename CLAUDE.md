@@ -160,6 +160,7 @@ uv run ruff format --check .                         # Format denetimi
 
 ### `apps/backups`
 - **Otomatik Yedekleme:** `manage.py backup` komutu ile PostgreSQL veritabanı dökümü (`db.dump`), yüklenen belgeler (`media/`) ve dilekçe şablonları parolasız `.zip` arşivinde toplanır.
+- **Windows geliştirme ortamı:** `Hukuk Burosu Gelistirme Yedek` zamanlanmış görevi, açık kullanıcı oturumunda `scripts/backup_hidden.vbs` aracılığıyla yarım saatte bir yedek zamanını kontrol eder; komut penceresi açılmaz.
 - **Saklama Politikası:** Son 30 günün günlük yedekleri + son 12 ayın aylık ilk yedekleri korunur (`apply_retention`).
 - **Geri Yükleme:** `manage.py restore <yedek.zip> --yes` komutu ile tek adımda güvenli geri yükleme.
 
