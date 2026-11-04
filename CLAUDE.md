@@ -99,6 +99,7 @@ uv run ruff format --check .                         # Format denetimi
   - Duruşmadan 1 gün önce sabah dosya sorumlusuna otomatik görev açılır: `"{case.display_name} DURUŞMASI İŞLEMLERİ YAPILACAK VE MÜVEKKİLE BİLGİ VERİLECEK"`.
   - Görev duruşmaya bağlıdır (`task.hearing`) ve kontrolcüsüz doğrudan kapatılabilir.
   - Görev kapatılırken: duruşmaya girilmediyse *"Mazeret Gönderildi"* (mazeret açıklamasıyla), girildiyse *"Duruşmada Verilen Kararlar"* zorunlu doldurulup *"Müvekkile Bilgi Verildi / Verilmedi"* seçenekleri işaretlenir. Bilgiler duruşma kartına ve dosya zaman çizelgesine (`CaseEvent`) otomatik işlenir.
+  - Görev tamamlanırken isteğe bağlı yeni duruşma tarihi ve saati girilebilir; aynı dosya ve saatte kayıt varsa tekrar oluşturulmaz. UYAP aktarımı bu kayıtla aynı dosya ve saat üzerinden eşleşir. Duruşma görevlerinde dilekçe zorunluluğu uygulanmaz.
 - **Google Takvim API Tek Yönlü Entegrasyon (`google_sync.py`):**
   - Ayarlar sayfasında iki bağımsız bölüm: 1) Salt okunur iCal okuma adresi (`calendar_ics_url`), 2) Google Calendar API eşitleme ayarları (`google_calendar_api_enabled`, `google_calendar_id`, `google_service_account_json`).
   - Ayarlar arayüzünde canlı API bağlantı testi (`/takvim/google-test/`, `test_google_calendar_connection`) ve tüm duruşmaları toplu eşitleme desteği.

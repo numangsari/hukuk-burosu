@@ -341,6 +341,7 @@ class TaskActionView(View):
                 hearing_decisions=request.POST.get("hearing_decisions", ""),
                 client_informed=client_informed,
                 client_not_informed_reason=request.POST.get("client_not_informed_reason", ""),
+                next_hearing_at=request.POST.get("next_hearing_at", ""),
             )
         except ValidationError as e:
             messages.error(request, " ".join(e.messages))

@@ -83,6 +83,105 @@ def test_close_hearing_task_with_excuse(case_factory):
     assert "Mazeret" in event.title
 
 
+@pytest.mark.parametrize("existing", [False, True])
+def test_close_hearing_task_creates_or_reuses_next_hearing(case_factory, existing):
+    case = case_factory()
+    hearing = Hearing.objects.create(case=case, starts_at=timezone.now(), authority="Mahkeme")
+    task = Task.objects.create(
+        case=case,
+        client=case.client,
+        title="Duruşma",
+        due_date=timezone.localdate(),
+        task_type=TaskType.objects.first(),
+        assignee=case.responsible_lawyer,
+        hearing=hearing,
+    )
+    next_start = (timezone.localtime(timezone.now()) + dt.timedelta(days=30)).replace(
+        second=0, microsecond=0
+    )
+    if existing:
+        Hearing.objects.create(case=case, starts_at=next_start)
+    services.perform(
+        task,
+        "close",
+        case.responsible_lawyer,
+        comment="Mazeret sunuldu.",
+        hearing_outcome="excused",
+        next_hearing_at=next_start.strftime("%Y-%m-%dT%H:%M"),
+    )
+    assert Hearing.objects.filter(case=case, starts_at=next_start).count() == 1
+    if not existing:
+        from apps.imports.portal_case_sync import sync_record_hearings
+
+        record = MagicMock()
+        record.data = {
+            "durusmalar": [{"kayitId": "123", "tarihSaat": next_start.strftime("%Y-%m-%d %H:%M")}]
+        }
+        sync_record_hearings(case, record)
+        assert Hearing.objects.filter(case=case, starts_at=next_start).count() == 1
+        assert Hearing.objects.get(case=case, starts_at=next_start).portal_ref == "123"
+
+
+def test_invalid_next_hearing_does_not_close_task(case_factory):
+    case = case_factory()
+    hearing = Hearing.objects.create(case=case, starts_at=timezone.now())
+    task = Task.objects.create(
+        case=case,
+        title="Duruşma",
+        due_date=timezone.localdate(),
+        task_type=TaskType.objects.first(),
+        assignee=case.responsible_lawyer,
+        hearing=hearing,
+    )
+    with pytest.raises(ValidationError, match="geçerli tarih"):
+        services.perform(
+            task,
+            "close",
+            case.responsible_lawyer,
+            hearing_outcome="excused",
+            next_hearing_at="geçersiz",
+        )
+    task.refresh_from_db()
+    assert task.status == TaskStatus.ACTIVE
+
+
+def test_hearing_task_does_not_require_petition(case_factory):
+    case = case_factory()
+    hearing = Hearing.objects.create(case=case, starts_at=timezone.now())
+    task_type = TaskType.objects.create(name="Duruşma için belge testi", requires_document=True)
+    task = Task.objects.create(
+        case=case,
+        title="Duruşma",
+        due_date=timezone.localdate(),
+        task_type=task_type,
+        assignee=case.responsible_lawyer,
+        hearing=hearing,
+    )
+    services.perform(task, "close", case.responsible_lawyer, hearing_outcome="excused")
+    assert task.status == TaskStatus.DONE
+
+
+def test_hearing_task_detail_highlights_excuse_and_note(lawyer_client, case_factory):
+    case = case_factory()
+    hearing = Hearing.objects.create(case=case, starts_at=timezone.now(), excuse_submitted=True)
+    task = Task.objects.create(
+        case=case,
+        client=case.client,
+        title="Duruşma",
+        due_date=timezone.localdate(),
+        task_type=TaskType.objects.first(),
+        assignee=case.responsible_lawyer,
+        hearing=hearing,
+        notes="Tanık listesi için süre istenecek.",
+    )
+    content = lawyer_client.get(task.get_absolute_url()).content.decode()
+    assert "Bu duruşma için mazeret sunulacak." in content
+    assert "Tanık listesi için süre istenecek." in content
+    assert "Yeni duruşma var mı?" in content
+    assert "Görevi Tamamla" in content
+    assert "Dilekçeler" not in content
+
+
 def test_close_hearing_task_attended_requires_decisions_and_client_info(case_factory):
     case = case_factory()
     hearing = Hearing.objects.create(

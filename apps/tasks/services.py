@@ -10,13 +10,14 @@ Ofis ayarına göre (`OfficeSettings.task_review_mode`):
 
 from dataclasses import dataclass
 
+from django import forms
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import models, transaction
 from django.utils import timezone
 
 from apps.accounting.models import LedgerEntry
 from apps.cases.documents import publish_task_documents
-from apps.cases.models import CaseEvent, HearingStatus
+from apps.cases.models import Case, CaseEvent, Hearing, HearingStatus
 from apps.core.permissions import is_admin
 
 from .models import Task, TaskEvent, TaskPoint, TaskStatus
@@ -152,6 +153,7 @@ def perform(
     hearing_decisions: str = "",
     client_informed: bool | None = None,
     client_not_informed_reason: str = "",
+    next_hearing_at: str = "",
 ) -> Task:
     action = ACTIONS.get(key)
     if action is None:
@@ -164,6 +166,14 @@ def perform(
     comment = (comment or "").strip()
     if key == "close":
         if task.hearing_id:
+            next_start = None
+            if next_hearing_at:
+                try:
+                    next_start = forms.DateTimeField().clean(next_hearing_at)
+                except ValidationError as exc:
+                    raise ValidationError("Yeni duruşma için geçerli tarih ve saat girin.") from exc
+                if not task.case_id:
+                    raise ValidationError("Yeni duruşma eklemek için dosya gerekli.")
             raw_outcome = hearing_outcome or task.hearing_outcome or "attended"
             hearing_outcome = raw_outcome.strip().lower()
             if hearing_outcome == "excused":
@@ -233,6 +243,7 @@ def perform(
     if (
         key in ("submit", "approve", "close")
         and task.task_type.requires_document
+        and not task.hearing_id
         and not task.documents.filter(is_current=True, kind="petition").exists()
     ):
         raise ValidationError(
@@ -273,6 +284,25 @@ def perform(
     )  # fmt: skip
 
     if key == "close":
+        if task.hearing_id and next_start:
+            Case.objects.select_for_update().get(pk=task.case_id)
+            next_hearing = Hearing.objects.filter(
+                case_id=task.case_id, starts_at=next_start
+            ).first()
+            if next_hearing is None:
+                next_hearing = Hearing.objects.create(
+                    case_id=task.case_id,
+                    starts_at=next_start,
+                    client_id=task.client_id,
+                    assigned_to_id=task.hearing.assigned_to_id,
+                    kind=task.hearing.kind,
+                    authority=task.hearing.authority,
+                    room=task.hearing.room,
+                    created_by=user,
+                )
+                from apps.agenda.google_sync import sync_hearing_to_google
+
+                transaction.on_commit(lambda: sync_hearing_to_google(next_hearing))
         if task.requires_accounting or (task.task_type and task.task_type.requires_accounting):
             TaskEvent.objects.create(
                 task=task,
