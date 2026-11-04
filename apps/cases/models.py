@@ -696,6 +696,20 @@ class Hearing(TimeStampedModel):
             return f"{self.get_kind_display()} — {self.client}"
         return self.get_kind_display()
 
+    @property
+    def effective_client(self):
+        return self.client or (self.case.client if self.case else None)
+
+    @property
+    def client_phone(self) -> str:
+        client = self.effective_client
+        return client.primary_phone if client else ""
+
+    @property
+    def client_whatsapp_phone(self) -> str:
+        client = self.effective_client
+        return client.whatsapp_phone if client else ""
+
 
 class CaseEvent(models.Model):
     """Dosya zaman çizelgesi."""

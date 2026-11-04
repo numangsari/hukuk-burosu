@@ -189,6 +189,29 @@
             {% endif %}
           </div>
         {% endif %}
+        {% if task.hearing %}
+        <div class="mt-2 pt-2 border-top">
+          {% hearing_wa_templates task.hearing as th_templates %}
+          <button type="button" class="btn btn-sm btn-outline-success d-inline-flex align-items-center gap-1"
+                  data-bs-toggle="modal" data-bs-target="#whatsappModal"
+                  data-wa-phone="{{ task.hearing.client_phone }}"
+                  data-wa-name="{{ task.hearing.effective_client.name|default:'' }}"
+                  data-wa-templates="{{ th_templates|json_attr }}">
+            <i class="bi bi-whatsapp"></i> Müvekkile WhatsApp ile İlet
+          </button>
+        </div>
+        {% endif %}
+      </div>
+      {% elif task.hearing %}
+      <div class="mb-3 mt-3">
+        {% hearing_wa_templates task.hearing as th_templates %}
+        <button type="button" class="btn btn-sm btn-outline-success d-inline-flex align-items-center gap-1"
+                data-bs-toggle="modal" data-bs-target="#whatsappModal"
+                data-wa-phone="{{ task.hearing.client_phone }}"
+                data-wa-name="{{ task.hearing.effective_client.name|default:'' }}"
+                data-wa-templates="{{ th_templates|json_attr }}">
+          <i class="bi bi-whatsapp"></i> Duruşma Bilgisini WhatsApp ile İlet
+        </button>
       </div>
       {% endif %}
       <h2 class="section-title mt-4">Notlar</h2>

@@ -1,0 +1,160 @@
+{# WhatsApp Masaüstü Uygulaması Önizleme ve Düzenleme Modalı #}
+<div class="modal fade" id="whatsappModal" tabindex="-1" aria-labelledby="whatsappModalTitle" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="modal-title fs-6 d-flex align-items-center gap-2" id="whatsappModalTitle">
+          <i class="bi bi-whatsapp text-success fs-5"></i>
+          <span>WhatsApp ile İlet</span>
+        </h2>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Kapat"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label small fw-semibold text-body-secondary" for="wa-recipient-phone">Alıcı Telefon Numarası</label>
+          <div class="input-group">
+            <span class="input-group-text"><i class="bi bi-telephone"></i></span>
+            <input type="text" class="form-control" id="wa-recipient-phone" placeholder="Örn: 0532 123 45 67">
+          </div>
+          <div class="d-flex justify-content-between align-items-center mt-1">
+            <span class="small text-body-secondary" id="wa-recipient-name-info"></span>
+            <span class="small text-danger" id="wa-phone-error" style="display: none;">Geçerli bir telefon numarası girin.</span>
+          </div>
+        </div>
+
+        <div class="mb-3" id="wa-template-selector-group" style="display: none;">
+          <label class="form-label small fw-semibold text-body-secondary" for="wa-template-select">Mesaj Şablonu</label>
+          <select class="form-select form-select-sm" id="wa-template-select"></select>
+        </div>
+
+        <div class="mb-2">
+          <label class="form-label small fw-semibold text-body-secondary" for="wa-message-text">Mesaj Metni</label>
+          <textarea class="form-control" id="wa-message-text" rows="6" placeholder="İletilecek mesajı yazın veya düzenleyin..."></textarea>
+          <div class="d-flex justify-content-between align-items-center form-text small mt-1">
+            <span class="text-body-secondary"><i class="bi bi-pencil-square me-1"></i>Göndermeden önce serbestçe düzenleyebilirsiniz.</span>
+            <span id="wa-char-count" class="text-body-secondary">0 karakter</span>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer d-flex justify-content-between align-items-center">
+        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Vazgeç</button>
+        <button type="button" class="btn btn-success d-flex align-items-center gap-2" id="wa-send-btn">
+          <i class="bi bi-whatsapp"></i>
+          <span>WhatsApp'ta Aç</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const modalEl = document.getElementById('whatsappModal');
+  if (!modalEl) return;
+
+  const phoneInput = document.getElementById('wa-recipient-phone');
+  const nameInfo = document.getElementById('wa-recipient-name-info');
+  const phoneError = document.getElementById('wa-phone-error');
+  const msgArea = document.getElementById('wa-message-text');
+  const charCount = document.getElementById('wa-char-count');
+  const tplGroup = document.getElementById('wa-template-selector-group');
+  const tplSelect = document.getElementById('wa-template-select');
+  const sendBtn = document.getElementById('wa-send-btn');
+
+  let currentTemplates = {};
+
+  const cleanDigits = (val) => {
+    let digits = (val || '').toString().replace(/[^0-9]/g, '');
+    if (digits.startsWith('00')) digits = digits.slice(2);
+    if (digits.length === 11 && digits.startsWith('0')) {
+      digits = '90' + digits.slice(1);
+    } else if (digits.length === 10 && '23458'.includes(digits[0])) {
+      digits = '90' + digits;
+    }
+    return (digits.length >= 8 && digits.length <= 15) ? digits : '';
+  };
+
+  const updateCharCount = () => {
+    charCount.textContent = `${msgArea.value.length} karakter`;
+  };
+
+  msgArea.addEventListener('input', updateCharCount);
+
+  phoneInput.addEventListener('input', () => {
+    phoneError.style.display = 'none';
+  });
+
+  modalEl.addEventListener('show.bs.modal', (e) => {
+    const trigger = e.relatedTarget;
+    if (!trigger) return;
+
+    phoneError.style.display = 'none';
+    const data = trigger.dataset;
+    const phone = data.waPhone || '';
+    const name = data.waName || '';
+    const defaultMsg = data.waMessage || '';
+    const templatesJson = data.waTemplates || '';
+
+    phoneInput.value = phone;
+    nameInfo.textContent = name ? `Müvekkil: ${name}` : '';
+
+    currentTemplates = {};
+    if (templatesJson) {
+      try {
+        currentTemplates = JSON.parse(templatesJson);
+      } catch (err) {
+        console.error('Geçersiz WhatsApp şablon JSON verisi:', err);
+      }
+    }
+
+    const tplKeys = Object.keys(currentTemplates);
+    if (tplKeys.length > 1) {
+      tplGroup.style.display = 'block';
+      tplSelect.innerHTML = '';
+      tplKeys.forEach((key, index) => {
+        const opt = document.createElement('option');
+        opt.value = key;
+        opt.textContent = key;
+        if (index === 0) opt.selected = true;
+        tplSelect.appendChild(opt);
+      });
+      msgArea.value = currentTemplates[tplKeys[0]] || defaultMsg;
+    } else if (tplKeys.length === 1) {
+      tplGroup.style.display = 'none';
+      msgArea.value = currentTemplates[tplKeys[0]] || defaultMsg;
+    } else {
+      tplGroup.style.display = 'none';
+      msgArea.value = defaultMsg;
+    }
+
+    updateCharCount();
+  });
+
+  tplSelect.addEventListener('change', () => {
+    const selectedKey = tplSelect.value;
+    if (currentTemplates[selectedKey]) {
+      msgArea.value = currentTemplates[selectedKey];
+      updateCharCount();
+    }
+  });
+
+  sendBtn.addEventListener('click', () => {
+    const rawPhone = phoneInput.value.trim();
+    const cleaned = cleanDigits(rawPhone);
+    if (!cleaned) {
+      phoneError.style.display = 'inline';
+      phoneInput.focus();
+      return;
+    }
+    phoneError.style.display = 'none';
+
+    const text = encodeURIComponent(msgArea.value.trim());
+    // Doğrudan Windows WhatsApp masaüstü uygulamasını tetikler (tarayıcıda SEKME AÇMAZ)
+    const appUrl = `whatsapp://send?phone=${cleaned}${text ? '&text=' + text : ''}`;
+    window.location.href = appUrl;
+
+    const bsModal = bootstrap.Modal.getInstance(modalEl);
+    if (bsModal) bsModal.hide();
+  });
+})();
+</script>

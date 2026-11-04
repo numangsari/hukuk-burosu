@@ -47,6 +47,7 @@ uv run ruff format --check .                         # Format denetimi
 - Türkçe metin yardımcıları (`fold`, `tr_lower`, `tr_upper`, `tr_capitalize_words`).
 - Genel arayüz template tag'leri (`tl` para formatı, `sort_link`, `query_with`).
 - Dinamik sayfalama altyapısı (`pagination.py`).
+- WhatsApp Click-to-Chat altyapısı (`whatsapp.py`): Uluslararası numara standardizasyonu (`clean_phone_for_whatsapp`), wa.me bağlantı üretici (`build_whatsapp_url`), duruşma/dosya mesaj şablonları ve evrensel düzenleme modalı (`whatsapp_modal.html`).
 
 ### `apps/accounts`
 - **Özel Kullanıcı Modeli (`User`):** 7 rol desteklenir:

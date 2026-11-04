@@ -117,6 +117,21 @@ class Client(TimeStampedModel):
         last = Client.objects.aggregate(m=models.Max("poa_no"))["m"]
         return (last or 0) + 1
 
+    @property
+    def primary_phone(self) -> str:
+        """Müvekkilin birincil veya ilk telefon numarası."""
+        contact = self.contacts.filter(kind="phone", is_primary=True).first()
+        if not contact:
+            contact = self.contacts.filter(kind="phone").first()
+        return contact.value if contact else ""
+
+    @property
+    def whatsapp_phone(self) -> str:
+        """WhatsApp için temizlenmiş birincil telefon."""
+        from apps.core.whatsapp import clean_phone_for_whatsapp
+
+        return clean_phone_for_whatsapp(self.primary_phone)
+
     def clean(self):
         errors = {}
         if self.kind == PersonKind.PERSON:
@@ -166,6 +181,14 @@ class ClientContact(models.Model):
     def __str__(self):
         return f"{self.get_kind_display()}: {self.value}"
 
+    @property
+    def whatsapp_phone(self) -> str:
+        if self.kind != ContactKind.PHONE:
+            return ""
+        from apps.core.whatsapp import clean_phone_for_whatsapp
+
+        return clean_phone_for_whatsapp(self.value)
+
 
 class ClientIban(models.Model):
     client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name="ibans")
@@ -207,6 +230,12 @@ class ClientRepresentative(models.Model):
 
     def __str__(self):
         return self.name
+
+    @property
+    def whatsapp_phone(self) -> str:
+        from apps.core.whatsapp import clean_phone_for_whatsapp
+
+        return clean_phone_for_whatsapp(self.phone)
 
 
 def poa_upload_to(instance, filename):
@@ -283,6 +312,12 @@ class Party(TimeStampedModel):
 
     def __str__(self):
         return self.name
+
+    @property
+    def whatsapp_phone(self) -> str:
+        from apps.core.whatsapp import clean_phone_for_whatsapp
+
+        return clean_phone_for_whatsapp(self.phone)
 
     def save(self, *args, **kwargs):
         self.search_key = fold(self.name)

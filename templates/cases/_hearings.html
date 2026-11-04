@@ -1,3 +1,4 @@
+{% load ui %}
 <div id="hearings" class="card table-card">
   <div class="card-header"><h2 class="card-title">Duruşmalar</h2></div>
   <div class="table-responsive">
@@ -44,6 +45,14 @@
             </button>
           {% endif %}
           <button class="btn btn-light btn-sm" @click="open = !open"><i class="bi bi-journal-text"></i>Sonuç</button>
+          {% hearing_wa_templates h as h_templates %}
+          <button type="button" class="btn btn-light btn-sm text-success" title="Müvekkile WhatsApp Mesajı Gönder"
+                  data-bs-toggle="modal" data-bs-target="#whatsappModal"
+                  data-wa-phone="{{ h.client_phone }}"
+                  data-wa-name="{{ h.effective_client.name|default:'' }}"
+                  data-wa-templates="{{ h_templates|json_attr }}">
+            <i class="bi bi-whatsapp"></i>
+          </button>
           {% if request.user.is_office_admin %}<button class="btn-ghost-danger" title="Sil" hx-post="{% url 'cases:hearing_delete' case.pk h.pk %}" hx-target="#hearings" hx-swap="outerHTML" hx-confirm="Duruşma kaydı silinsin mi?"><i class="bi bi-trash"></i></button>{% endif %}
         </td>
       </tr>

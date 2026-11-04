@@ -120,6 +120,9 @@
   {% block anonymous %}{% endblock %}
 {% endif %}
 <script src="{% static 'vendor/bootstrap/bootstrap.bundle.min.js' %}"></script>
+{% if request.user.is_authenticated %}
+{% include "partials/whatsapp_modal.html" %}
+{% endif %}
 {% if request.user.is_authenticated and not request.GET.pencere %}
 <div class="modal fade" id="create-window" tabindex="-1" aria-label="Yeni kayıt" aria-hidden="true">
   <div class="modal-dialog modal-xl modal-dialog-scrollable"><div class="modal-content">

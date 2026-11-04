@@ -1,3 +1,4 @@
+{% load ui %}
 <div id="hearings-table" class="card table-card">
   <div class="table-responsive">
     <table class="table mb-0 align-middle">
@@ -135,6 +136,14 @@
                     hx-swap="innerHTML"
                     onclick="bootstrap.Modal.getOrCreateInstance(document.getElementById('result-modal')).show()">
               <i class="bi bi-journal-check"></i>
+            </button>
+            {% hearing_wa_templates h as h_templates %}
+            <button type="button" class="btn btn-sm btn-light text-success" title="Müvekkile WhatsApp Mesajı Gönder"
+                    data-bs-toggle="modal" data-bs-target="#whatsappModal"
+                    data-wa-phone="{{ h.client_phone }}"
+                    data-wa-name="{{ h.effective_client.name|default:'' }}"
+                    data-wa-templates="{{ h_templates|json_attr }}">
+              <i class="bi bi-whatsapp"></i>
             </button>
             <a href="{% url 'hearings:edit' h.pk %}?next={{ request.get_full_path|urlencode }}" class="btn btn-sm btn-light" title="Düzenle">
               <i class="bi bi-pencil"></i>

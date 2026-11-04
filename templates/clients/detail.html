@@ -20,6 +20,9 @@
       </div>
     </div>
     <div class="page-actions">
+      {% if client.whatsapp_phone %}
+      <button type="button" class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#whatsappModal" data-wa-phone="{{ client.primary_phone }}" data-wa-name="{{ client.name }}" data-wa-message="Sayın {{ client.name }},&#10;&#10;"><i class="bi bi-whatsapp"></i>WhatsApp</button>
+      {% endif %}
       <a class="btn btn-light" href="{% url 'clients:update' client.pk %}"><i class="bi bi-pencil"></i>Düzenle</a>
       <a class="btn btn-primary" href="{% url 'cases:create' %}?client={{ client.pk }}"><i class="bi bi-folder-plus"></i>Yeni dosya</a>
     </div>
@@ -109,7 +112,17 @@
           <div class="table-responsive"><table class="table mb-0"><tbody>
             {% for i in client.representatives.all %}
               <tr><td class="cell-main">{{ i.name }}{% if i.position %}<div class="cell-sub fw-normal">{{ i.position }}</div>{% endif %}</td>
-                <td>{{ i.phone|default:"" }}{% if i.email %}<div class="cell-sub">{{ i.email }}</div>{% endif %}</td></tr>
+                <td>
+                  <div class="d-flex align-items-center justify-content-between">
+                    <span>{{ i.phone|default:"" }}</span>
+                    {% if i.whatsapp_phone %}
+                    <button type="button" class="btn btn-sm btn-ghost-success py-0 px-2" title="WhatsApp ile Yaz" data-bs-toggle="modal" data-bs-target="#whatsappModal" data-wa-phone="{{ i.phone }}" data-wa-name="{{ i.name }} ({{ client.name }})" data-wa-message="Sayın {{ i.name }},&#10;&#10;">
+                      <i class="bi bi-whatsapp"></i>
+                    </button>
+                    {% endif %}
+                  </div>
+                  {% if i.email %}<div class="cell-sub">{{ i.email }}</div>{% endif %}
+                </td></tr>
             {% empty %}<tr><td class="text-body-secondary small py-3">Yetkili eklenmemiş.</td></tr>{% endfor %}
           </tbody></table></div>
         </div>
@@ -119,7 +132,16 @@
           <div class="table-responsive"><table class="table mb-0"><tbody>
             {% for i in client.contacts.all %}
               <tr><td style="width: 34%"><i class="bi {% if i.kind == 'phone' %}bi-telephone{% elif i.kind == 'email' %}bi-envelope{% elif i.kind == 'kep' %}bi-envelope-check{% else %}bi-geo-alt{% endif %} text-body-secondary me-2"></i>{{ i.get_kind_display }}{% if i.label %} <span class="text-body-secondary">· {{ i.label }}</span>{% endif %}{% if i.is_primary %} <span class="chip chip-primary no-dot ms-1">Birincil</span>{% endif %}</td>
-                <td>{{ i.value|linebreaksbr }}</td></tr>
+                <td>
+                  <div class="d-flex align-items-center justify-content-between">
+                    <span>{{ i.value|linebreaksbr }}</span>
+                    {% if i.kind == 'phone' and i.whatsapp_phone %}
+                    <button type="button" class="btn btn-sm btn-ghost-success py-0 px-2" title="WhatsApp ile Yaz" data-bs-toggle="modal" data-bs-target="#whatsappModal" data-wa-phone="{{ i.value }}" data-wa-name="{{ client.name }}" data-wa-message="Sayın {{ client.name }},&#10;&#10;">
+                      <i class="bi bi-whatsapp"></i>
+                    </button>
+                    {% endif %}
+                  </div>
+                </td></tr>
             {% empty %}<tr><td class="text-body-secondary small py-3">İletişim bilgisi eklenmemiş.</td></tr>{% endfor %}
           </tbody></table></div>
         </div>

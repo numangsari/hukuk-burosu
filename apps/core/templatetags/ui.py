@@ -1,9 +1,18 @@
+import html
+import json
 from decimal import Decimal
 
 from django import template
 from django.utils.http import urlencode
+from django.utils.safestring import mark_safe
 
 from apps.core.links import OFFICE_LINKS
+from apps.core.whatsapp import (
+    build_whatsapp_url,
+    clean_phone_for_whatsapp,
+    get_case_wa_templates,
+    get_hearing_wa_templates,
+)
 
 register = template.Library()
 
@@ -75,3 +84,42 @@ def page_numbers(page_obj):
     if not page_obj:
         return []
     return page_obj.paginator.get_elided_page_range(page_obj.number, on_each_side=1, on_ends=1)
+
+
+@register.filter
+def clean_wa_phone(value):
+    """WhatsApp için temizlenmiş uluslararası numara döner."""
+    return clean_phone_for_whatsapp(value)
+
+
+@register.simple_tag
+def wa_url(phone, text=""):
+    """WhatsApp wa.me bağlantısı üretir."""
+    return build_whatsapp_url(phone, message=text)
+
+
+@register.filter
+def json_attr(value):
+    """HTML data-* niteliklerinde güvenle kullanmak için JSON verisini escape eder."""
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return mark_safe(html.escape(value, quote=True))
+    dumped = json.dumps(value, ensure_ascii=False)
+    return mark_safe(html.escape(dumped, quote=True))
+
+
+@register.simple_tag
+def hearing_wa_templates(hearing):
+    """Duruşma için hazır şablonlar sözlüğü üretir."""
+    if not hearing:
+        return {}
+    return get_hearing_wa_templates(hearing)
+
+
+@register.simple_tag
+def case_wa_templates(case):
+    """Dosya için hazır şablonlar sözlüğü üretir."""
+    if not case:
+        return {}
+    return get_case_wa_templates(case)

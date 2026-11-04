@@ -26,7 +26,22 @@
       </div>
       <div class="meta">
         <span><i class="bi bi-person"></i>Müvekkil{% if case.co_clients.all %}ler{% endif %}
-          {% if case.client %}<a class="fw-medium" href="{{ case.client.get_absolute_url }}">{{ case.client }}</a>{% else %}<span class="chip chip-warning no-dot">Müvekkil seçilmedi</span>{% endif %}{% for c in case.co_clients.all %}, <a class="fw-medium" href="{{ c.get_absolute_url }}">{{ c }}</a>{% endfor %}
+          {% if case.client %}
+            <a class="fw-medium" href="{{ case.client.get_absolute_url }}">{{ case.client }}</a>
+            {% if case.client.whatsapp_phone %}
+              {% case_wa_templates case as c_templates %}
+              <button type="button" class="btn btn-sm btn-ghost-success py-0 px-1 ms-1" title="Müvekkile WhatsApp Mesajı Gönder"
+                      data-bs-toggle="modal" data-bs-target="#whatsappModal"
+                      data-wa-phone="{{ case.client.primary_phone }}"
+                      data-wa-name="{{ case.client.name }}"
+                      data-wa-templates="{{ c_templates|json_attr }}">
+                <i class="bi bi-whatsapp"></i>
+              </button>
+            {% endif %}
+          {% else %}
+            <span class="chip chip-warning no-dot">Müvekkil seçilmedi</span>
+          {% endif %}
+          {% for c in case.co_clients.all %}, <a class="fw-medium" href="{{ c.get_absolute_url }}">{{ c }}</a>{% endfor %}
         </span>
       </div>
     </div>
