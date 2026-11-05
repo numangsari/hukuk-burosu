@@ -116,3 +116,140 @@ neredeyse aynı; zamanla ayrışma riski var. Veritabanı/kullanıcı adı `ozku
 2. Madde 2 — PIN deneme sınırı
 3. Madde 5 ve 6 — Türkçe hata sayfaları, HTMX bildirimi, haciz kontrolünün istekten ayrılması
 4. Madde 3 — yedek güvenliği
+
+---
+
+# Kullanım ve Özellik Analizi
+
+Sistem `seed_demo` verisiyle (18 müvekkil, 32 dosya, 48 görev) yerelde çalıştırılıp yönetici rolüyle
+masaüstü ve telefon genişliğinde gezilerek değerlendirildi. Deneme verisinde duruşma olmadığından takvim
+ve duruşma listesi dolu hâliyle değerlendirilemedi.
+
+## Güçlü yanlar
+
+- **Ana sayfa:** "Görevlerim", "Kontrolümü bekleyenler" ve "Takvim" yan yana; gecikmeler kırmızı
+  rozetle hemen görülüyor.
+- **Dosya detayı:** Aşama çubuğu (Derdest → Kesinleşti), sekmeler, ekip ve tarihler tek bakışta.
+- **Görev–kontrolcü akışı** büro hiyerarşisine uygun (stajyer yapar, avukat onaylar, puan yazılır).
+- **UYAP/UETS köprüsü, fiziki arşiv, safahat ve haciz yenileme takibi** büroya özgü ve gerçek
+  ihtiyaçtan doğmuş özellikler.
+- **Telefonda kullanılabilir:** menü katlanıyor, kartlar alt alta diziliyor.
+
+## Ekranlarda görülen kullanım sorunları
+
+1. **Ana sayfa kartlarında tekrar:** Görev adı çoğu zaman türle aynı ("HARÇ / MASRAF YATIRMA" ve altında
+   "Harç / Masraf Yatırma"), üstelik başlık kesiliyor. İkinci satırda ayırt edici bilgi (not, karşı taraf)
+   daha yararlı olur.
+2. **Dosya listesinde "sonraki duruşma / son işlem" sütunu yok.** "Dosya bilgisi" sütunu dar olduğundan
+   satırlar 4–5 satıra kırılıyor; 25 dosya için uzun kaydırma gerekiyor.
+3. **Telefonda öncelik sırası:** Takvim kartı en altta. Adliyedeki avukat için bugünkü duruşmalar en
+   üstte olmalı.
+4. **Filtre davranışı tutarsız:** Arşiv ve görevlerde seçim anında süzülüyor; duruşma listesinde ayrıca
+   "Filtrele" butonuna basmak gerekiyor.
+5. **Belge yükleme** tarayıcının standart dosya seçicisiyle; sürükle-bırak zaman kazandırır.
+6. **Hata geri bildirimi yok** (teknik madde 5).
+
+## Eksik özellikler (değere göre)
+
+### Yüksek değer — risk azaltır
+
+1. **Hukuki süre hesaplayıcı:** Adli tatil (20 Temmuz–31 Ağustos), resmi/dini bayramlar ve hafta sonuna
+   denk gelen son günün kaydırılması kodda yok; tebligat görevine sabit 14 gün ekleniyor. Hesaplanan gün
+   `CLAUDE.md` §11 gereği "kontrol edilmeli" uyarısıyla önerilmeli.
+2. **Personele bildirim/hatırlatma:** Uygulama içi bildirim merkezi, e-posta veya masaüstü bildirimi yok;
+   yalnızca ana sayfa ve müvekkile WhatsApp var. Sabah günlük özet ve yeni görev bildirimi önerilir.
+3. **Menfaat çakışması kontrolü:** Yeni müvekkil eklenirken başka dosyada karşı taraf olup olmadığı
+   uyarısı yok (yalnızca vekaletname aktarımında benzer kontrol var).
+4. **Dava açma / hak düşürücü süre takibi:** Dosya açılmadan önceki süreler için dosyaya bağlı son tarih
+   ve uyarı yok.
+
+### Orta değer — zaman kazandırır
+
+5. **Faiz ve icra dosya hesabı** (yasal, ticari, avans faizi).
+6. **AAÜT asgari vekalet ücreti hesabı.**
+7. **Serbest meslek makbuzu takibi** (kesildi mi, numarası); ileride e-SMM.
+8. **Avukatlık sözleşmesine bağlı taksit/vade takibi.**
+9. **Belge içinde arama** (PDF/UDF içeriği).
+
+### Düşük değer / ihtiyaca bağlı
+
+10. Zaman ve emek kaydı (saatlik danışmanlık).
+11. Tekrarlayan görevler.
+12. Müvekkile gönderilecek tek sayfalık dosya durum özeti PDF'i.
+
+## Kullanım tarafında önerilen sıra
+
+1. Süre hesaplayıcı (adli tatil ve bayramlar dahil)
+2. Sabah özeti ve bildirimler
+3. Dosya listesine "sonraki duruşma / son işlem" sütunu ve telefonda "bugün" bölümünün en üste alınması
+
+---
+
+# UI/UX Analizi
+
+Ekranlar 1440×900, 1280×800 ve 390×844 (telefon) boyutlarında, açık ve koyu temada gezildi. Yatay taşma
+ve renk kontrastı tarayıcıda ölçüldü.
+
+## Genel izlenim
+
+Görsel dil tutarlı ve profesyonel: sakin lacivert/altın palet, kart tabanlı düzen, anlaşılır boş durumlar
+("Henüz dilekçe yüklenmedi", "Duruşma kaydı bulunamadı"), renkli süre rozetleri (gecikti / kaldı),
+`Ctrl K` ile genel arama ve gerçek bir koyu tema. Giriş ekranı büroya özgü ve şık.
+
+## Hatalar (ölçülerek doğrulandı)
+
+1. **Yeni görev sayfası yatay taşıyor.** Sayfa 1440 px ekranda 1643 px, telefonda 609 px genişliğe çıkıyor.
+   Neden: `BootstrapMixin` (`apps/core/forms.py`) radyo butonlarına da `form-control` sınıfı ekliyor;
+   "Gelir/gider kaydı Var/Yok" seçimindeki gizli radyolar (`.segment-choice input { position:absolute;
+   opacity:0 }`) %100 genişlik alıp sayfayı sağa itiyor. Çözüm: `RadioSelect` için `form-control`
+   eklememek veya gizli girdiye `width:1px; height:1px` vermek.
+2. **Koyu temada birincil buton kontrastı düşük:** beyaz yazı / `rgb(91,143,214)` zemin = **3.31:1**
+   (normal metin için WCAG AA en az 4.5:1). Koyu temada buton zemini koyulaştırılmalı ya da yazı rengi
+   koyu yapılmalı.
+3. **Yeni dosya formunda dosya numarası alanı sıkışık:** sıra no kutusu birkaç karakter genişliğinde,
+   "Esas" seçimi sütun sınırını aşıp sağdaki "Fiziki arşiv yeri" bölümüne taşıyor.
+4. **Muhasebe tablosunda tutar kırılıyor:** "102.200,00" ve "₺" ayrı satırlara düşüyor; tutar hücresi
+   `white-space: nowrap` olmalı.
+5. **Kenar menüsü 900 px yükseklikte kesiliyor:** "Kısayollar" altındaki üçüncü bağlantı yarım
+   görünüyor; kullanıcı menünün kaydırılabildiğini fark etmeyebilir.
+
+## Tutarlılık
+
+6. **Dört farklı sekme stili var:** Görevler ve dosya detayı alt çizgili; Duruşma Listesi dolu hap +
+   düz metin; Arşiv dolu hap + iki satıra taşan bağlantılar; Görevler'de ayrıca "Bana atanmış / Tümü"
+   segment kontrolü. Tek bir sekme bileşeni seçilmeli.
+7. **Kaydet butonunun yeri değişiyor:** Yeni dosya'da sağ üstte, Yeni görev'de formun altında.
+8. **Filtreleme davranışı farklı:** Arşiv ve görevlerde anında, duruşma listesinde "Filtrele" butonuyla.
+9. **Durum gösterimi:** Görev listesinde "Yeni Görev" durumu mavi bağlantı gibi görünüyor; diğer
+   yerlerde durumlar rozetle gösteriliyor.
+
+## Okunabilirlik ve yoğunluk
+
+10. **Her yerde BÜYÜK HARF:** Müvekkil, konu ve görev adları `tr_upper` ile büyük harfe çevriliyor
+    (`CLAUDE.md` §4 iş kuralı). Saklama böyle kalabilir; ama listelerde uzun büyük harf metinler okumayı
+    yavaşlatıyor ve satırları uzatıyor. Görüntülemede başlık biçimi (ör. "Sakarya 2. Asliye Ceza
+    Mahkemesi") veya en azından ikincil satırlarda normal yazım değerlendirilebilir.
+11. **Dosya ve muhasebe listelerinde satırlar çok yüksek:** Dar sütunlar yüzünden her satır 3–5 satıra
+    kırılıyor; 25 kayıtlık sayfa ekranın 4–5 katı uzunlukta. Mahkeme adı ile esas no'yu iki satıra
+    ayırmak ve sütun genişliklerini ayarlamak yeterli olabilir.
+12. **Ana sayfa kartlarında başlık erken kesiliyor** ve altında aynı bilgi (görev türü) tekrarlanıyor.
+13. **Arşiv kartları bilgiye göre büyük:** "0 / 8, %0 doluluk" bilgisini göstermek için büyük kartlar
+    kullanılıyor; kompakt görünüm düğmesi çok küçük. Varsayılan olarak kompakt liste düşünülebilir.
+14. **Bakiye rengi:** "Bakiye tutar 1.009.350,00 ₺" kırmızı. Pozitif bakiye "müvekkil ofise borçlu"
+    demek; kırmızı genelde ofisin zararı gibi algılanır. Renk yerine "Alacağımız / Borcumuz" etiketi
+    daha açık olur.
+15. **Yedek uyarısı** her sayfanın en üstünde sabit duruyor ve dikey alan kaplıyor; gün boyu
+    kapatılabilir olabilir veya küçük bir rozet olarak menüye taşınabilir.
+
+## Telefon
+
+16. Düzen çalışıyor; ancak ana sayfada takvim en altta. Telefonda sıra "Bugün (duruşmalar + süresi
+    dolan) → Görevlerim → Kontrolümü bekleyenler" olmalı.
+17. Belge yüklemede sürükle-bırak masaüstünde, kameradan çekip yükleme telefonda zaman kazandırır.
+
+## UI/UX tarafında önerilen sıra
+
+1. Yatay taşma (madde 1) ve koyu tema kontrastı (madde 2): küçük ve kesin düzeltmeler
+2. Yeni dosya numara alanı ve muhasebe tutar kırılması (madde 3–4)
+3. Tek sekme bileşeni, tek Kaydet yeri, anında filtre (madde 6–8)
+4. Liste yoğunluğu ve büyük harf kullanımı (madde 10–11)
