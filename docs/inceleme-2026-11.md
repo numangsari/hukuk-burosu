@@ -253,3 +253,53 @@ Görsel dil tutarlı ve profesyonel: sakin lacivert/altın palet, kart tabanlı 
 2. Yeni dosya numara alanı ve muhasebe tutar kırılması (madde 3–4)
 3. Tek sekme bileşeni, tek Kaydet yeri, anında filtre (madde 6–8)
 4. Liste yoğunluğu ve büyük harf kullanımı (madde 10–11)
+
+---
+
+# Tasarım Önerisi — "Sade ve yoğun profesyonel" (beklemede)
+
+Durum: **öneri aşamasında, uygulanmadı.** Önce/sonra görselleri:
+https://claude.ai/artifact/1diSEbuWFnkjoKLD5D5skg (özel bağlantı; yalnızca sahibine açık).
+Görsellerdeki "sonra" ekranlarında yer alan duruşma ve dosya ayrıntıları sentetik örnek veridir.
+
+## Neden
+
+Mevcut tasarım "yumuşak SaaS paneli" tarzında: yuvarlak kartlar, renkli zeminler, bol rozet ve geniş
+boşluklar. Günde saatlerce yüzlerce kayda bakan büro çalışanı için ekrana az bilgi sığıyor
+(25 dosyalık liste ekranın 4–5 katı) ve renk fazlalığı yüzünden "gecikti" gibi kritik uyarılar
+kayboluyor.
+
+## Kurallar
+
+1. **Renk yalnızca anlam taşır:** nötr gri zemin, tek vurgu rengi (lacivert `#1F3A63`); kırmızı
+   `#B42318` = gecikti, kehribar `#9A4D06` = yaklaşıyor. "Yeni görev" için satır boyamak yerine küçük
+   nokta. Muhasebede renk yerine "Alacağımız / Borcumuz" etiketi.
+2. **Tipografi:** Sayfa başlıkları ve dosya adları serif (Source Serif 4), arayüz Inter; tutar ve
+   tarihlerde hizalı rakamlar (`font-variant-numeric: tabular-nums`). Veritabanında büyük harf kalabilir,
+   ekranda normal yazım gösterilir.
+3. **Yoğunluk:** Tablo öncelikli listeler, ~40 px satır, kompakt görünüm varsayılan; gölge yerine ince
+   çizgi; köşe yuvarlaklığı 12 px → 6 px.
+4. **Liste + detay aynı ekranda:** Görev ve dosya listelerinde satıra tıklayınca sağda özet paneli
+   (aşama, sonraki duruşma, taraflar, bakiye, açık görevler).
+5. **Klavye:** `Ctrl K` aramadan komut paletine genişler ("yeni görev", "2026/919'a git").
+
+## Görsellerde gösterilen ekranlar
+
+- **Ana sayfa:** serif tarih başlığı, 4 rakamlık tek özet şeridi (bugün duruşma, süresi geçen, bu hafta
+  biten, kontrol bekleyen), yoğun "Görevlerim" tablosu, saatli "Bugünkü duruşmalar", yedek uyarısı
+  banttan küçük rozete.
+- **Dosyalar:** "Sonraki duruşma" sütunu (bugün vurgulu), tek satırlık filtre çubuğu (durum segmenti,
+  tür/sorumlu/aşama seçimleri), sağda seçili dosya paneli.
+- **Telefon:** "Bugün" en üstte (duruşmalar → süresi geçen/yaklaşan → görevler), 44 px dokunma
+  hedefleri, altta 5 sekmeli menü.
+
+## Uygulama notları
+
+- Bootstrap 5.3 + HTMX/Alpine korunur; değişikliğin çoğu `static/css` içindeki CSS değişkenleri
+  (renk, yazı tipi, boşluk, köşe) ve birkaç ortak şablondadır.
+- İnternetsiz çalışma kuralı gereği Source Serif 4 `static/vendor/` altına yerel eklenmeli (Inter zaten
+  yerel). Görseldeki Google Fonts bağlantısı yalnızca taslak içindir.
+- Koyu tema aynı değişkenlerle yeniden ayarlanmalı; birincil buton kontrastı ≥ 4.5:1 olmalı
+  (UI/UX madde 2).
+- Önerilen sıra: (1) renk/yazı tipi değişkenleri, (2) liste yoğunluğu ve normal yazım gösterimi,
+  (3) liste + detay paneli, (4) komut paleti.
