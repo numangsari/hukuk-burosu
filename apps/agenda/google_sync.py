@@ -170,10 +170,24 @@ def hearing_to_google_payload(hearing: Hearing) -> dict:
     }
 
 
+def _set_sync_pending(hearing: Hearing, pending: bool) -> None:
+    """Eşitleme bekleme işaretini audit kaydı üretmeden günceller."""
+    if hearing.pk and hearing.google_sync_pending != pending:
+        Hearing.objects.filter(pk=hearing.pk).update(google_sync_pending=pending)
+    hearing.google_sync_pending = pending
+
+
 def sync_hearing_to_google(hearing: Hearing) -> str | None:
-    """Tek bir duruşmayı Google Takvim'e tek yönlü yazar veya günceller."""
+    """Tek bir duruşmayı Google Takvim'e tek yönlü yazar veya günceller.
+
+    API açıkken eşitleme başarısız olursa duruşma `google_sync_pending` ile işaretlenir;
+    `retry_google_sync` komutu bu kayıtları sonra yeniden dener. Hata kullanıcıya
+    yansıtılmaz, duruşma kaydı her durumda saklanır.
+    """
     service, cal_id = get_calendar_service()
     if service is None or not cal_id:
+        if OfficeSettings.load().google_calendar_api_enabled:
+            _set_sync_pending(hearing, True)
         return None
 
     from googleapiclient.errors import HttpError
@@ -188,8 +202,14 @@ def sync_hearing_to_google(hearing: Hearing) -> str | None:
                 ).execute()
             except HttpError as e:
                 log.info("Google takvim etkinliği silinirken hata (zaten silinmiş olabilir): %s", e)
+            except Exception as e:
+                # Ağ hatası: etkinlik kimliği korunur, sonra yeniden denenir.
+                log.warning("Google Takvim silme hatası (Hearing #%s): %s", hearing.pk, e)
+                _set_sync_pending(hearing, True)
+                return None
             hearing.google_event_id = ""
             hearing.save(update_fields=["google_event_id"])
+        _set_sync_pending(hearing, False)
         return None
 
     payload = hearing_to_google_payload(hearing)
@@ -202,6 +222,7 @@ def sync_hearing_to_google(hearing: Hearing) -> str | None:
                     .patch(calendarId=cal_id, eventId=hearing.google_event_id, body=payload)
                     .execute()
                 )
+                _set_sync_pending(hearing, False)
                 return updated.get("id")
             except HttpError as e:
                 # 404 ise etkinlik Google tarafında silinmiş demektir, yeniden insert edeceğiz
@@ -219,9 +240,11 @@ def sync_hearing_to_google(hearing: Hearing) -> str | None:
         if event_id:
             hearing.google_event_id = event_id
             hearing.save(update_fields=["google_event_id"])
+        _set_sync_pending(hearing, not event_id)
         return event_id
     except Exception as e:
         log.warning("Google Takvim senkronizasyon hatası (Hearing #%s): %s", hearing.pk, e)
+        _set_sync_pending(hearing, True)
         return None
 
 
@@ -273,6 +296,22 @@ def sync_all_hearings_to_google() -> dict:
         "synced": synced,
         "errors": errors,
     }
+
+
+def retry_pending_google_syncs(limit: int = 200) -> dict:
+    """Eşitlemesi başarısız olmuş duruşmaları yeniden dener (iptaller Google'dan silinir)."""
+    service, cal_id = get_calendar_service()
+    if service is None or not cal_id:
+        return {"success": False, "error": "Google Takvim API ayarları eksik veya kapalı."}
+    pending = list(Hearing.objects.filter(google_sync_pending=True).order_by("starts_at")[:limit])
+    synced = errors = 0
+    for hearing in pending:
+        sync_hearing_to_google(hearing)
+        if hearing.google_sync_pending:
+            errors += 1
+        else:
+            synced += 1
+    return {"success": True, "total": len(pending), "synced": synced, "errors": errors}
 
 
 def test_google_calendar_connection(office: OfficeSettings | None = None) -> tuple[bool, str]:

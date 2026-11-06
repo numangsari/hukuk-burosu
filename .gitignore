@@ -13,6 +13,7 @@ __pycache__/
 # Veri: asla repoya girmez
 media/
 .test-media/
+.test-static/
 /backups/
 /veritabanı entegrasyon/
 *.dump

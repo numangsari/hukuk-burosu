@@ -23,8 +23,8 @@
   </div>
   <div class="bal bal-total">
     <span class="bal-label"><span class="bal-op">=</span> Bakiye tutar</span>
-    <span class="bal-value {% if b.balance > 0 %}neg{% elif b.balance < 0 %}pos{% endif %}">{{ b.balance|tl }}</span>
-    <span class="bal-hint">{% if b.balance > 0 %}Müvekkil ofise borçlu{% elif b.balance < 0 %}Ofis müvekkile borçlu{% else %}Borç / alacak yok{% endif %}</span>
+    <span class="bal-value">{{ b.balance|tl }}</span>
+    <span class="bal-hint">{% if b.balance > 0 %}<span class="bal-tag">Alacağımız</span> Müvekkil ofise borçlu{% elif b.balance < 0 %}<span class="bal-tag owed">Borcumuz</span> Ofis müvekkile borçlu{% else %}Borç / alacak yok{% endif %}</span>
   </div>
 </div>
 <div class="small text-body-secondary px-3 py-2 border-bottom">Bakiye = (borç − müvekkilden tahsilat) − karşı taraftan tahsilat + müvekkile ödeme · iptal edilen hareketler hesaba katılmaz.</div>

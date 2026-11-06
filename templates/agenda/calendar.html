@@ -96,7 +96,8 @@
 </div>
 
 <div class="card p-3 mb-3">
-  <form method="get" class="row g-2 align-items-end" hx-get="{% url 'agenda:calendar' %}" hx-target="#hearings-table" hx-push-url="true">
+  <form method="get" class="row g-2 align-items-end" hx-get="{% url 'agenda:calendar' %}" hx-target="#hearings-table" hx-push-url="true"
+        hx-trigger="input changed delay:300ms from:input[name=q], change, submit">
     <input type="hidden" name="view" value="list">
     <input type="hidden" name="scope" value="{{ current_scope }}">
     <div class="col-md-3">
@@ -134,7 +135,6 @@
       </select>
     </div>
     <div class="col-md-3 d-flex gap-1">
-      <button type="submit" class="btn btn-sm btn-primary flex-grow-1">Filtrele</button>
       <a href="{% url 'agenda:calendar' %}?view=list" class="btn btn-sm btn-light" title="Temizle"><i class="bi bi-x-lg"></i></a>
     </div>
   </form>

@@ -677,6 +677,10 @@ class Hearing(TimeStampedModel):
     google_event_id = models.CharField(
         "Google Takvim etkinlik ID", max_length=255, blank=True, db_index=True
     )
+    # Son Google Takvim eşitlemesi başarısızsa işaretlenir; `retry_google_sync` yeniden dener.
+    google_sync_pending = models.BooleanField(
+        "Google Takvim eşitlemesi bekliyor", default=False, db_index=True
+    )
 
     class Meta:
         verbose_name = "duruşma / etkinlik"

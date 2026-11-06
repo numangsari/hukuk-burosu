@@ -52,27 +52,28 @@
   <div class="form-section">
     <div class="form-section-head"><h2>Kurum ve dosya bilgileri</h2></div>
     <div class="row">
-      <div class="col-md-6" x-show="labels.authority" x-cloak>
+      <div class="col-12" x-show="labels.authority" x-cloak>
         <div class="mb-3">
           <label class="form-label" for="{{ form.authority.id_for_label }}" x-text="labels.authority"></label>
           {{ form.authority }}{% for e in form.authority.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}
         </div>
       </div>
-      <div class="col-md-6" x-show="labels.official_no" x-cloak>
+      <div class="col-12" x-show="labels.official_no" x-cloak>
         <div class="mb-3">
           <label class="form-label d-flex justify-content-between align-items-center" for="{{ form.official_sequence.id_for_label }}">
             <span id="official-number-label" x-text="labels.official_no">Dosya Numarası</span>
             <span class="small text-body-secondary fw-normal" x-show="['civil','criminal','administrative'].includes(caseType)">Tür</span>
           </label>
-          <div class="d-flex align-items-center gap-2">
-            <div x-show="caseType !== 'notice'" style="width: 95px; flex-shrink: 0;">
+          {# Dar sütunda alanlar taşmak yerine alt satıra geçer (inceleme UI madde 3). #}
+          <div class="case-number-row">
+            <div class="case-number-year" x-show="caseType !== 'notice'">
               {{ form.official_year }}
             </div>
             <span class="text-body-secondary fw-bold" x-show="caseType !== 'notice'">/</span>
-            <div class="flex-grow-1">
+            <div class="case-number-seq">
               {{ form.official_sequence }}
             </div>
-            <div x-show="['civil','criminal','administrative'].includes(caseType)" style="width: 125px; flex-shrink: 0;">
+            <div class="case-number-kind" x-show="['civil','criminal','administrative'].includes(caseType)">
               {{ form.official_no_kind }}
             </div>
           </div>

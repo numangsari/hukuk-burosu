@@ -6,7 +6,7 @@ Maddeler giderildikçe bu belgede işaretlenebilir veya belge kaldırılabilir.
 **İnceleme anındaki durum:** `uv run pytest` tamamı geçti, `ruff check` ve `ruff format --check` temiz,
 GitHub Actions CI kurulu. İnceleme sırasında kodda değişiklik yapılmadı.
 
-> **Giderilenler (sonraki çalışma):** Teknik madde 1 (uç bazında görünürlük), 2 (PIN deneme sınırı), 3 (geri yükleme öncesi güvenlik yedeği), 5 (hata sayfaları + HTMX bildirimi), 6 (haciz middleware hatası artık sayfayı bozmaz), 8 (dosya imzası denetimi), 10'daki `media.py` açıklaması; UI/UX madde 1 (yatay taşma), 2 (koyu tema kontrastı), 4 (tutar kırılması). Aşağıdaki başlıklarda ilgili maddeler ✅ ile işaretlidir. Kalanlar için sayfa sonundaki "Açık kalanlar" bölümüne bakın.
+> **Giderilenler (sonraki çalışma):** Teknik madde 1 (uç bazında görünürlük), 2 (PIN deneme sınırı), 3 (geri yükleme öncesi güvenlik yedeği), 5 (hata sayfaları + HTMX bildirimi), 6 (haciz middleware hatası artık sayfayı bozmaz), 8 (dosya imzası denetimi), 10'daki `media.py` açıklaması; UI/UX madde 1 (yatay taşma), 2 (koyu tema kontrastı), 4 (tutar kırılması). İkinci turda: teknik madde 7 (başarısız Google eşitlemesi için yeniden deneme), 9'un kullanılmayan `OzkurtHukuk.iss` kısmı, 10'daki `staticfiles/` uyarısı; UI/UX madde 3, 5, 8, 9, 14, 15 ve kullanım sorunu 4. Aşağıdaki başlıklarda ilgili maddeler ✅ ile işaretlidir. Kalanlar için sayfa sonundaki "Açık kalanlar" bölümüne bakın.
 
 > Öncelik: 🔴 kritik (güvenlik/veri) · 🟠 teknik sağlamlık · 🟡 kullanıcı deneyimi
 
@@ -76,7 +76,7 @@ sınırlanmalı.
 içinde `create_due_tasks()` çalıştırıyor ve hatayı yeniden fırlatıyor; kullanıcı ilgisiz bir sayfada
 500 hatası görür. Yalnızca zamanlanmış görevde çalışmalı ya da hata yakalanıp loglanmalı.
 
-### 7. Google Takvim eşitlemesi eşzamanlı
+### 7. ◐ Google Takvim eşitlemesi eşzamanlı (yeniden deneme eklendi; istek içinde çalışma sürüyor)
 
 `apps/cases/views_hearings.py` içinde `sync_hearing_to_google` istek sırasında çağrılıyor. İnternet
 yavaş/yokken duruşma kaydetmek yavaşlar. Başarısız eşitlemeler için yeniden deneme kuyruğu
@@ -87,7 +87,7 @@ görülmedi; zamanlanmış bir "eşitlenmemişleri tekrar dene" adımı değerle
 `apps/core/uploads.py` yalnızca uzantı ve boyuta bakıyor. `CLAUDE.md` §8 içerik uygunluğunu da
 istiyor; en azından PDF/resim/Office türleri için dosya imzası (magic bytes) kontrolü eklenmeli.
 
-### 9. Tekrarlanan kurulum dosyaları ve eski adlar
+### 9. ◐ Tekrarlanan kurulum dosyaları ve eski adlar (kullanılmayan `OzkurtHukuk.iss` kaldırıldı)
 
 `installer/OzkurtHukuk.iss` ↔ `installer/HukukBurosu.iss`, `OzkurtHukukApp.xml` ↔ `HukukBuroApp.xml`
 neredeyse aynı; zamanla ayrışma riski var. Veritabanı/kullanıcı adı `ozkurt` olarak CI'da ve
@@ -125,11 +125,12 @@ neredeyse aynı; zamanla ayrışma riski var. Veritabanı/kullanıcı adı `ozku
 
 - **Madde 4 (`DJANGO_ALLOWED_HOSTS=*`)** ve **madde 9 (yinelenen kurulum dosyaları, `ozkurt` adları):** Windows kurulum betiğinde (`installer/`) değişiklik gerektirir; burada Windows ortamı olmadığından denenemedi. Sunucu adı/IP'lerinin kurulumda nasıl belirleneceği (IP değişirse erişim kesilir) ayrıca karara bağlanmalı.
 - **Madde 3'ün kalanı:** yedeğin ayrı diske/NAS'a kopyası ve şifreli arşiv; yöneticinin arayüzden geri yükleme başlatması.
-- **Madde 7 (Google Takvim eşzamanlı):** arka plan kuyruğu/yeniden deneme mimari karar gerektirir.
-- **Madde 10:** `OfficeSettings.load()` istek başına önbellek (eski değer riski nedeniyle ayrıca değerlendirilmeli), `staticfiles/` uyarısı.
+- **Madde 7'nin kalanı:** Başarısız eşitleme artık `Hearing.google_sync_pending` ile işaretlenir; `retry_google_sync` komutu `check-reminders.ps1` üzerinden beş dakikada bir yeniden dener. Eşitleme hâlâ istek içinde çalıştığından internet yavaşken kaydetme gecikebilir; arka plan kuyruğu mimari karar gerektirir.
+- **Madde 9'un kalanı:** `OzkurtHukukApp.xml`, `Ozkurt*` servis/görev adları eski kurulumların yükseltilmesi için bilerek tutuldu; CI ve geliştirme veritabanı adı `ozkurt` değiştirilmedi.
+- **Madde 10:** `OfficeSettings.load()` istek başına önbellek (eski değer riski nedeniyle ayrıca değerlendirilmeli). `staticfiles/` uyarısı giderildi (test ayarı `.test-static/` kullanır).
 - **PIN:** sayaçlar önbellekte olduğundan servis yeniden başlayınca sıfırlanır; yönetici hesapları için daha uzun PIN/parola seçeneği yok.
 - **Dosya imzası:** `.xls`, metin tabanlı türler (txt, csv, udf, eml) ve HEIC denetlenmez.
-- **UI/UX madde 3, 5–17**, "Kullanım ve Özellik Analizi" ve "Tasarım Önerisi" bölümleri: tasarım kararı ve görsel doğrulama gerektirir; uygulanmadı.
+- **UI/UX madde 6, 7, 10–13, 16–17**, "Kullanım ve Özellik Analizi" (kullanım sorunu 4 hariç) ve "Tasarım Önerisi" bölümleri: tasarım kararı ve görsel doğrulama gerektirir; uygulanmadı.
 
 ---
 
@@ -158,7 +159,7 @@ ve duruşma listesi dolu hâliyle değerlendirilemedi.
    satırlar 4–5 satıra kırılıyor; 25 dosya için uzun kaydırma gerekiyor.
 3. **Telefonda öncelik sırası:** Takvim kartı en altta. Adliyedeki avukat için bugünkü duruşmalar en
    üstte olmalı.
-4. **Filtre davranışı tutarsız:** Arşiv ve görevlerde seçim anında süzülüyor; duruşma listesinde ayrıca
+4. ✅ **Filtre davranışı tutarsız:** Arşiv ve görevlerde seçim anında süzülüyor; duruşma listesinde ayrıca
    "Filtrele" butonuna basmak gerekiyor.
 5. **Belge yükleme** tarayıcının standart dosya seçicisiyle; sürükle-bırak zaman kazandırır.
 6. **Hata geri bildirimi yok** (teknik madde 5).
@@ -220,11 +221,11 @@ Görsel dil tutarlı ve profesyonel: sakin lacivert/altın palet, kart tabanlı 
 2. ✅ **Koyu temada birincil buton kontrastı düşük:** beyaz yazı / `rgb(91,143,214)` zemin = **3.31:1**
    (normal metin için WCAG AA en az 4.5:1). Koyu temada buton zemini koyulaştırılmalı ya da yazı rengi
    koyu yapılmalı.
-3. **Yeni dosya formunda dosya numarası alanı sıkışık:** sıra no kutusu birkaç karakter genişliğinde,
+3. ✅ **Yeni dosya formunda dosya numarası alanı sıkışık:** sıra no kutusu birkaç karakter genişliğinde,
    "Esas" seçimi sütun sınırını aşıp sağdaki "Fiziki arşiv yeri" bölümüne taşıyor.
 4. ✅ **Muhasebe tablosunda tutar kırılıyor:** "102.200,00" ve "₺" ayrı satırlara düşüyor; tutar hücresi
    `white-space: nowrap` olmalı.
-5. **Kenar menüsü 900 px yükseklikte kesiliyor:** "Kısayollar" altındaki üçüncü bağlantı yarım
+5. ✅ **Kenar menüsü 900 px yükseklikte kesiliyor:** "Kısayollar" altındaki üçüncü bağlantı yarım
    görünüyor; kullanıcı menünün kaydırılabildiğini fark etmeyebilir.
 
 ## Tutarlılık
@@ -233,8 +234,8 @@ Görsel dil tutarlı ve profesyonel: sakin lacivert/altın palet, kart tabanlı 
    düz metin; Arşiv dolu hap + iki satıra taşan bağlantılar; Görevler'de ayrıca "Bana atanmış / Tümü"
    segment kontrolü. Tek bir sekme bileşeni seçilmeli.
 7. **Kaydet butonunun yeri değişiyor:** Yeni dosya'da sağ üstte, Yeni görev'de formun altında.
-8. **Filtreleme davranışı farklı:** Arşiv ve görevlerde anında, duruşma listesinde "Filtrele" butonuyla.
-9. **Durum gösterimi:** Görev listesinde "Yeni Görev" durumu mavi bağlantı gibi görünüyor; diğer
+8. ✅ **Filtreleme davranışı farklı:** Arşiv ve görevlerde anında, duruşma listesinde "Filtrele" butonuyla.
+9. ✅ **Durum gösterimi:** Görev listesinde "Yeni Görev" durumu mavi bağlantı gibi görünüyor; diğer
    yerlerde durumlar rozetle gösteriliyor.
 
 ## Okunabilirlik ve yoğunluk
@@ -249,10 +250,10 @@ Görsel dil tutarlı ve profesyonel: sakin lacivert/altın palet, kart tabanlı 
 12. **Ana sayfa kartlarında başlık erken kesiliyor** ve altında aynı bilgi (görev türü) tekrarlanıyor.
 13. **Arşiv kartları bilgiye göre büyük:** "0 / 8, %0 doluluk" bilgisini göstermek için büyük kartlar
     kullanılıyor; kompakt görünüm düğmesi çok küçük. Varsayılan olarak kompakt liste düşünülebilir.
-14. **Bakiye rengi:** "Bakiye tutar 1.009.350,00 ₺" kırmızı. Pozitif bakiye "müvekkil ofise borçlu"
+14. ✅ **Bakiye rengi:** "Bakiye tutar 1.009.350,00 ₺" kırmızı. Pozitif bakiye "müvekkil ofise borçlu"
     demek; kırmızı genelde ofisin zararı gibi algılanır. Renk yerine "Alacağımız / Borcumuz" etiketi
     daha açık olur.
-15. **Yedek uyarısı** her sayfanın en üstünde sabit duruyor ve dikey alan kaplıyor; gün boyu
+15. ✅ **Yedek uyarısı** her sayfanın en üstünde sabit duruyor ve dikey alan kaplıyor; gün boyu
     kapatılabilir olabilir veya küçük bir rozet olarak menüye taşınabilir.
 
 ## Telefon

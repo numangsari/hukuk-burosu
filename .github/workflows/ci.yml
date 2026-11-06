@@ -24,4 +24,4 @@ jobs:
       - run: uv sync --frozen
       - run: uv run ruff check .
       - run: uv run ruff format --check .
-      - run: mkdir -p staticfiles && uv run pytest --create-db
+      - run: uv run pytest --create-db

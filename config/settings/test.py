@@ -6,3 +6,7 @@ STORAGES = {
     "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
     "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
 }
+
+# WhiteNoise, STATIC_ROOT yoksa her istekte uyarı verir; testler collectstatic gerektirmesin.
+STATIC_ROOT = BASE_DIR / ".test-static"  # noqa: F405
+STATIC_ROOT.mkdir(exist_ok=True)

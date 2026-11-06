@@ -110,6 +110,7 @@ uv run ruff format --check .                         # Format denetimi
   - Sistemdeki duruşma ve toplantılar ofis Google Takvimi'ne tek yönlü aktarılır ve güncellenir. Başlık formatı: `[Keşif] Sorumlu Adı - Mahkeme Esas No (Müvekkil)` (Duruşma ve Ön İncelemede önek yoktur; Keşifte `[Keşif] ` öneki konur. Sorumlu kişinin soyadı yazılmaz yalnızca adı yazılır ve köşeli parantez kullanılmaz; mazeret sunulmuşsa `Mazeret - ...` olarak aktarılır). Konum alanı sadeleştirme amacıyla Google Takvim'e gönderilmez.
   - Renk desteği: Etkinlik türüne göre ayarlanabilir Google Takvim renk seçimi (`google_color_hearing`: Duruşma/Ön İnceleme - varsayılan Mavi 9, `google_color_discovery`: Keşif - varsayılan Yeşil 2, `google_color_meeting`: Müvekkil Görüşmesi/Toplantı - varsayılan Sarı 5, `google_color_mediation`: Arabuluculuk - varsayılan Kırmızı 11, `google_color_other`: Bilirkişi/Diğer - varsayılan Gri 8).
   - Google Takvim'deki mevcut veya harici etkinliklere kesinlikle dokunulmaz; mükerrer kayıt `google_event_id` ile engellenir.
+  - API açıkken başarısız eşitleme (ağ hatası, servis başlatılamaması) duruşma kaydını bozmaz; duruşma `google_sync_pending` ile işaretlenir ve `uv run python manage.py retry_google_sync` (kurulumda `check-reminders.ps1` ile beş dakikada bir) yeniden dener. Başarıda işaret kalkar; iptal edilen duruşmanın silinemeyen etkinlik kimliği yeniden deneme için korunur.
   - Google etkinlikleri varsa iCal adresinden, yoksa etkin API bağlantısından salt okunur alınır. Sistemin gönderdiği etkinlikler kimlikleriyle ayrılarak takvimde ikinci kez gösterilmez; dosya ve müvekkil görünürlük yetkileri uygulanır.
   - Takvimdeki tüm etkinliklere tıklanınca tarih, saat ve mevcut ayrıntılar salt okunur bilgi penceresinde gösterilir; duruşma görevleri Duruşma Listesi'nden yönetilir.
 - **Arayüz & Navigasyon:** Sol menüdeki "Sistem" menü grubu sadeleştirme amacıyla kaldırılmış; Sistem monitörü, UYAP/UETS inceleme, Aktivite kaydı, Veri aktarımı ve Django yönetim paneli bağlantıları Ayarlar > Sistem ve Gözlem bölümüne taşınmıştır. Dava/dosya numara girişi tek satırda kompakt ve estetik olarak hizalanmıştır.
@@ -146,7 +147,7 @@ uv run ruff format --check .                         # Format denetimi
   - *Müvekkilin Ofise Borcu:* Vekalet Ücreti + Masraf
   - *Müvekkilin Ofisten Alacağı:* Karşı Taraftan Tahsilat
   - *Cari Bakiye:* `(Ofise Borç − Müvekkilden Tahsilat) − Karşı Taraftan Tahsilat + Müvekkile Ödeme`
-  - Pozitif bakiye = Müvekkil ofise borçlu; Negatif bakiye = Ofis müvekkile borçlu.
+  - Pozitif bakiye = Müvekkil ofise borçlu ("Alacağımız"); Negatif bakiye = Ofis müvekkile borçlu ("Borcumuz"). Arayüzde yön kırmızı/yeşil renkle değil bu etiketlerle gösterilir.
 - **Kayıt Bütünlüğü:** Muhasebe hareketi silinmez; gerekirse iptal edilir (`cancelled`). Kasa toplamları ve bakiyeler yalnızca bakiye görme yetkisi (`can_view_balances`) olan kullanıcılara gösterilir.
 
 ### `apps/imports` & UYAP/UETS Entegrasyonu
