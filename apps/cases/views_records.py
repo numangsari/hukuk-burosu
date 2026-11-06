@@ -4,7 +4,7 @@ from django.shortcuts import get_object_or_404, render
 from django.utils import timezone
 from django.views import View
 
-from apps.core.permissions import AdminRequiredMixin, is_admin
+from apps.core.permissions import AdminRequiredMixin, filter_visible_cases, is_admin
 
 from .forms import CaseEventForm, HearingForm, HearingResultForm
 from .models import Case, CaseEvent, Hearing, HearingStatus
@@ -37,7 +37,7 @@ def events_partial(request, case, form=None):
 
 class HearingAddView(View):
     def post(self, request, pk):
-        case = get_object_or_404(Case, pk=pk)
+        case = get_object_or_404(filter_visible_cases(Case.objects.all(), request.user), pk=pk)
         form = HearingForm(request.POST)
         if not form.is_valid():
             return hearings_partial(request, case, form)
@@ -51,7 +51,7 @@ class HearingResultView(View):
     """Duruşma sonucunu/durumunu kaydeder; sonuç zaman çizelgesine düşer."""
 
     def post(self, request, pk, item_pk):
-        case = get_object_or_404(Case, pk=pk)
+        case = get_object_or_404(filter_visible_cases(Case.objects.all(), request.user), pk=pk)
         h = get_object_or_404(Hearing, pk=item_pk, case=case)
         form = HearingResultForm(request.POST, instance=h)
         if form.is_valid():
@@ -71,14 +71,14 @@ class HearingResultView(View):
 
 class HearingDeleteView(AdminRequiredMixin, View):
     def post(self, request, pk, item_pk):
-        case = get_object_or_404(Case, pk=pk)
+        case = get_object_or_404(filter_visible_cases(Case.objects.all(), request.user), pk=pk)
         get_object_or_404(Hearing, pk=item_pk, case=case).delete()
         return hearings_partial(request, case)
 
 
 class EventAddView(View):
     def post(self, request, pk):
-        case = get_object_or_404(Case, pk=pk)
+        case = get_object_or_404(filter_visible_cases(Case.objects.all(), request.user), pk=pk)
         form = CaseEventForm(request.POST)
         if not form.is_valid():
             return events_partial(request, case, form)
@@ -92,7 +92,7 @@ class EventDeleteView(View):
     """Elle eklenen notu yalnızca ekleyen veya yönetici silebilir."""
 
     def post(self, request, pk, item_pk):
-        case = get_object_or_404(Case, pk=pk)
+        case = get_object_or_404(filter_visible_cases(Case.objects.all(), request.user), pk=pk)
         e = get_object_or_404(CaseEvent, pk=item_pk, case=case, kind=CaseEvent.Kind.NOTE)
         if e.created_by_id == request.user.pk or is_admin(request.user):
             e.delete()

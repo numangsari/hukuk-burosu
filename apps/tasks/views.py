@@ -15,7 +15,12 @@ from apps.accounts.models import User
 from apps.cases.documents import mirror_task_document
 from apps.cases.models import Case
 from apps.core.pagination import page_size
-from apps.core.permissions import is_admin
+from apps.core.permissions import (
+    filter_visible_cases,
+    filter_visible_clients,
+    filter_visible_tasks,
+    is_admin,
+)
 from apps.core.text import fold
 from apps.core.uploads import validate_upload
 from apps.office.models import HEARING_TASK_TYPE_NAME, TaskType
@@ -59,6 +64,11 @@ def task_queryset():
     return Task.objects.select_related("task_type", "case", "client", "assignee", "reviewer")
 
 
+def visible_task_queryset(user):
+    """Kullanıcının görebildiği görevler (dosya görünürlüğü + sorumlu/kontrolcü)."""
+    return filter_visible_tasks(Task.objects.all(), user)
+
+
 class TaskListView(ListView):
     template_name = "tasks/list.html"
     context_object_name = "tasks"
@@ -68,7 +78,7 @@ class TaskListView(ListView):
 
     def get_queryset(self, tab_override=None):
         g, u = self.request.GET, self.request.user
-        qs = task_queryset()
+        qs = filter_visible_tasks(task_queryset(), u)
         scope = g.get("kapsam", "bana")
         if scope not in SCOPES:
             scope = "bana"
@@ -177,13 +187,15 @@ class TaskCreateView(CreateView):
     form_class = TaskForm
     template_name = "tasks/form.html"
 
+    def get_form_kwargs(self):
+        return {**super().get_form_kwargs(), "user": self.request.user}
+
     def get_initial(self):
         initial = {}
-        case = (
-            Case.objects.select_related("responsible_lawyer")
-            .filter(pk=self.request.GET.get("dosya"))
-            .first()
+        visible = filter_visible_cases(
+            Case.objects.select_related("responsible_lawyer"), self.request.user
         )
+        case = visible.filter(pk=self.request.GET.get("dosya")).first()
         if case:
             assignee_id = case.responsible_intern_id or case.responsible_lawyer_id
             reviewer_id = case.responsible_lawyer_id
@@ -253,12 +265,15 @@ class TaskUpdateView(UpdateView):
     form_class = TaskForm
     template_name = "tasks/form.html"
 
+    def get_form_kwargs(self):
+        return {**super().get_form_kwargs(), "user": self.request.user}
+
     @transaction.atomic
     def post(self, request, *args, **kwargs):
         return super().post(request, *args, **kwargs)
 
     def get_queryset(self):
-        qs = super().get_queryset()
+        qs = filter_visible_tasks(super().get_queryset(), self.request.user)
         return qs.select_for_update(of=("self",)) if self.request.method == "POST" else qs
 
     def get_object(self, queryset=None):
@@ -287,7 +302,7 @@ class TaskDetailView(DetailView):
     context_object_name = "task"
 
     def get_queryset(self):
-        return task_queryset()
+        return filter_visible_tasks(task_queryset(), self.request.user)
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -324,7 +339,7 @@ class TaskDetailView(DetailView):
 
 class TaskActionView(View):
     def post(self, request, pk):
-        task = get_object_or_404(Task, pk=pk)
+        task = get_object_or_404(visible_task_queryset(request.user), pk=pk)
         client_informed_raw = request.POST.get("client_informed")
         client_informed = None
         if client_informed_raw in ("true", "1", "yes"):
@@ -358,7 +373,7 @@ class TaskActionView(View):
 
 class TaskNoteView(View):
     def post(self, request, pk):
-        task = get_object_or_404(Task, pk=pk)
+        task = get_object_or_404(visible_task_queryset(request.user), pk=pk)
         content = request.POST.get("note", "").strip()
         if content:
             TaskEvent.objects.create(
@@ -374,7 +389,7 @@ class TaskDeleteView(View):
     """Yanlış açılan görevi oluşturan veya yönetici siler (aktivite kaydına düşer)."""
 
     def post(self, request, pk):
-        task = get_object_or_404(Task, pk=pk)
+        task = get_object_or_404(visible_task_queryset(request.user), pk=pk)
         if not services.can_delete(task, request.user):
             raise PermissionDenied
         case = task.case
@@ -387,7 +402,7 @@ class TaskDeleteView(View):
 
 class TaskCommentView(View):
     def post(self, request, pk):
-        task = get_object_or_404(Task, pk=pk)
+        task = get_object_or_404(visible_task_queryset(request.user), pk=pk)
         try:
             services.add_comment(task, request.user, request.POST.get("comment", ""))
         except ValidationError as e:
@@ -405,13 +420,19 @@ def case_options(request):
     if client_id := request.GET.get("client_info"):
         from apps.clients.models import Client
 
-        client = Client.objects.filter(pk=client_id if client_id.isdigit() else 0).first()
+        client = (
+            filter_visible_clients(Client.objects.all(), request.user)
+            .filter(pk=client_id if client_id.isdigit() else 0)
+            .first()
+        )
         return JsonResponse(
             {"lawyer": client.responsible_lawyer_id, "intern": client.responsible_intern_id}
             if client
             else {}
         )
-    qs = Case.objects.select_related("client").order_by("-created_at")
+    qs = filter_visible_cases(
+        Case.objects.select_related("client").order_by("-created_at"), request.user
+    )
     if case_id := request.GET.get("id"):
         qs = qs.filter(pk=case_id if case_id.isdigit() else 0)
     elif client := request.GET.get("client"):
@@ -472,7 +493,9 @@ def _docs_partial(request, task, error="", warning=""):
 class TaskDocumentUploadView(View):
     @transaction.atomic
     def post(self, request, pk):
-        task = get_object_or_404(Task.objects.select_for_update(of=("self",)), pk=pk)
+        task = get_object_or_404(
+            visible_task_queryset(request.user).select_for_update(of=("self",)), pk=pk
+        )
         if not services.can_upload(task, request.user):
             raise PermissionDenied
         files = request.FILES.getlist("file")
@@ -523,7 +546,9 @@ class TaskDocumentDeleteView(View):
 
     @transaction.atomic
     def post(self, request, pk, doc_pk):
-        task = get_object_or_404(Task.objects.select_for_update(of=("self",)), pk=pk)
+        task = get_object_or_404(
+            visible_task_queryset(request.user).select_for_update(of=("self",)), pk=pk
+        )
         doc = get_object_or_404(TaskDocument, pk=doc_pk, task=task, is_current=True)
         if (
             doc.kind != TaskDocument.Kind.PETITION
@@ -552,7 +577,10 @@ class PetitionTemplateDownloadView(View):
 
         from .petition_templates import client_name, fill_docx, fill_udf, party_name
 
-        task = get_object_or_404(Task.objects.select_related("case", "client", "task_type"), pk=pk)
+        task = get_object_or_404(
+            visible_task_queryset(request.user).select_related("case", "client", "task_type"),
+            pk=pk,
+        )
         name = task.task_type.petition_template
         root = folders.root()
         if not root or not name or Path(name).name != name:

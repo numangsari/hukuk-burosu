@@ -4,7 +4,7 @@ from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views import View
 
-from apps.core.permissions import is_admin
+from apps.core.permissions import filter_visible_cases, is_admin
 
 from .forms import SeizureForm
 from .models import Case, CaseType, Seizure
@@ -13,7 +13,11 @@ from .seizures import create_due_tasks, save_seizure
 
 class SeizureSaveView(View):
     def dispatch(self, request, pk, item_pk=None, **kwargs):
-        self.case = get_object_or_404(Case, pk=pk, case_type=CaseType.ENFORCEMENT)
+        self.case = get_object_or_404(
+            filter_visible_cases(Case.objects.all(), request.user),
+            pk=pk,
+            case_type=CaseType.ENFORCEMENT,
+        )
         if not self.case.is_open:
             raise PermissionDenied
         self.item = (

@@ -16,6 +16,7 @@ from apps.cases.flows import cluster
 from apps.cases.models import Case, CaseEvent, CaseStatus, CaseType, Seizure
 from apps.clients.models import Client
 from apps.core.forms import BootstrapMixin, DateInput
+from apps.core.permissions import filter_visible_cases, filter_visible_tasks
 from apps.tasks.models import OPEN_STATUSES, Task, TaskStatus
 
 from .base import Column, ReportResult
@@ -164,7 +165,9 @@ class TaskReportForm(PeriodForm):
 
 
 def build_tasks(d, user):
-    qs = Task.objects.select_related("task_type", "case", "client", "assignee", "reviewer")
+    qs = filter_visible_tasks(
+        Task.objects.select_related("task_type", "case", "client", "assignee", "reviewer"), user
+    )
     st = d.get("status") or "open"
     today = timezone.localdate()
     if st == "open":
@@ -257,7 +260,9 @@ def _linked_name(case) -> str:
 
 
 def build_cases(d, user):
-    qs = Case.objects.select_related("client", "responsible_lawyer", "responsible_intern")
+    qs = filter_visible_cases(
+        Case.objects.select_related("client", "responsible_lawyer", "responsible_intern"), user
+    )
     if d.get("case_type"):
         qs = qs.filter(case_type=d["case_type"])
     st = d.get("status") or "open"
@@ -358,7 +363,7 @@ class ClientCasesForm(BootstrapMixin, forms.Form):
 
 
 def build_client_cases(d, user):
-    cases = _seizure_summary(Case.objects.select_related("client"))
+    cases = _seizure_summary(filter_visible_cases(Case.objects.select_related("client"), user))
     if d.get("client"):
         cases = cases.filter(client=d["client"])
     if not d.get("include_closed"):
@@ -418,7 +423,10 @@ class SeizureReportForm(PeriodForm):
 
 def build_seizures(d, user):
     items = (
-        Seizure.objects.filter(case__case_type=CaseType.ENFORCEMENT)
+        Seizure.objects.filter(
+            case__in=filter_visible_cases(Case.objects.all(), user),
+            case__case_type=CaseType.ENFORCEMENT,
+        )
         .select_related(
             "case__client",
             "case__responsible_intern",

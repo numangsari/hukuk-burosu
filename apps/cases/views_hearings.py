@@ -18,7 +18,7 @@ from django.views.generic import ListView
 from apps.accounts.models import User
 from apps.agenda.google_sync import delete_hearing_from_google, sync_hearing_to_google
 from apps.core.pagination import page_size
-from apps.core.permissions import AdminRequiredMixin, filter_visible_cases
+from apps.core.permissions import AdminRequiredMixin, filter_visible_cases, filter_visible_hearings
 
 from .forms import (
     HearingForm,
@@ -181,7 +181,9 @@ class HearingResultModalView(View):
     """Duruşma sonucu / ara karar girme ekranı ve işlemi."""
 
     def get(self, request, pk):
-        hearing = get_object_or_404(Hearing.objects.select_related("case"), pk=pk)
+        hearing = get_object_or_404(
+            filter_visible_hearings(Hearing.objects.select_related("case"), request.user), pk=pk
+        )
         form = HearingResultForm(instance=hearing)
         return render(
             request,
@@ -190,7 +192,9 @@ class HearingResultModalView(View):
         )
 
     def post(self, request, pk):
-        hearing = get_object_or_404(Hearing.objects.select_related("case"), pk=pk)
+        hearing = get_object_or_404(
+            filter_visible_hearings(Hearing.objects.select_related("case"), request.user), pk=pk
+        )
         form = HearingResultForm(request.POST, instance=hearing)
         if form.is_valid():
             h = form.save()
@@ -222,10 +226,10 @@ class HearingTaskCreateView(View):
     """Duruşma için sorumlu, mazeret, dosya/müvekkil içeren bağlantılı görev oluşturur."""
 
     def get_hearing(self, request, pk):
-        visible_cases = filter_visible_cases(Case.objects.all(), request.user)
         return get_object_or_404(
-            Hearing.objects.filter(Q(case__in=visible_cases) | Q(case__isnull=True)).select_related(
-                "case", "case__client", "client", "assigned_to"
+            filter_visible_hearings(
+                Hearing.objects.select_related("case", "case__client", "client", "assigned_to"),
+                request.user,
             ),
             pk=pk,
         )
@@ -331,7 +335,9 @@ class HearingTaskCreateView(View):
 
 class HearingEditView(View):
     def get(self, request, pk):
-        hearing = get_object_or_404(Hearing.objects.select_related("case"), pk=pk)
+        hearing = get_object_or_404(
+            filter_visible_hearings(Hearing.objects.select_related("case"), request.user), pk=pk
+        )
         form = HearingForm(instance=hearing)
         return render(
             request,
@@ -344,7 +350,9 @@ class HearingEditView(View):
         )
 
     def post(self, request, pk):
-        hearing = get_object_or_404(Hearing.objects.select_related("case"), pk=pk)
+        hearing = get_object_or_404(
+            filter_visible_hearings(Hearing.objects.select_related("case"), request.user), pk=pk
+        )
         form = HearingForm(request.POST, instance=hearing)
         if form.is_valid():
             h = form.save()

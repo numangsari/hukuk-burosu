@@ -1,10 +1,13 @@
 """Yüklenen dosyaların yetki kontrolüyle sunulması (/media/...).
 
 Her dosya bağlı olduğu kaydın kuralıyla açılır:
-- cases/, tasks/, clients/, avatars/ : giriş yapmış kullanıcı (herkes tüm kayıtları görür)
-- ledger/                           : muhasebe görme yetkisi
-- office/                           : ofis logosu, giriş ekranında da görünür (girişsiz)
-- diğer her yol (ör. imports/tmp)   : sunulmaz
+- cases/   : bağlı dosya, kullanıcının görebildiği bir dosyaya ait olmalı (görünürlük ayarına uyar)
+- tasks/   : bağlı görev, kullanıcının görebildiği bir göreve ait olmalı
+- clients/ : bağlı müvekkil, kullanıcının görebildiği bir müvekkile ait olmalı
+- avatars/ : giriş yapmış kullanıcı
+- ledger/  : muhasebe görme yetkisi
+- office/  : ofis logosu, giriş ekranında da görünür (girişsiz)
+- diğer her yol (ör. imports/tmp) : sunulmaz
 Dosyanın gerçekten bir kayda ait olması da kontrol edilir; sahipsiz dosya sunulmaz.
 PDF/resim tarayıcıda açılır, diğerleri indirme olarak verilir.
 """
@@ -21,7 +24,8 @@ from django.utils._os import safe_join
 from .uploads import INLINE_TYPES
 
 
-def _record_exists(path: str) -> bool:
+def _owner_record(path: str):
+    """Dosyanın bağlı olduğu kaydı döner; kayıt yoksa None."""
     from apps.accounting.models import LedgerEntry
     from apps.accounts.models import User
     from apps.cases.models import Document
@@ -41,7 +45,30 @@ def _record_exists(path: str) -> bool:
     model, field = owners[prefix]
     if prefix == "clients" and "/sozlesme/" in path:
         model = RetainerAgreement
-    return model.objects.filter(**{field: path}).exists()
+    return model.objects.filter(**{field: path}).first()
+
+
+def _visible_to(user, prefix: str, record) -> bool:
+    """Kaydın bağlı olduğu dosya/görev/müvekkil, kullanıcının görünürlük kuralına uyuyor mu?"""
+    from apps.core.permissions import (
+        filter_visible_cases,
+        filter_visible_clients,
+        filter_visible_tasks,
+    )
+
+    if prefix == "cases":
+        from apps.cases.models import Case
+
+        return filter_visible_cases(Case.objects.filter(pk=record.case_id), user).exists()
+    if prefix == "tasks":
+        from apps.tasks.models import Task
+
+        return filter_visible_tasks(Task.objects.filter(pk=record.task_id), user).exists()
+    if prefix == "clients":
+        from apps.clients.models import Client
+
+        return filter_visible_clients(Client.objects.filter(pk=record.client_id), user).exists()
+    return True
 
 
 def _allowed(request, prefix: str) -> bool:
@@ -72,8 +99,11 @@ def protected_media(request, path):
         full = Path(safe_join(settings.MEDIA_ROOT, path))
     except Exception as e:  # yol dışına çıkma denemesi
         raise Http404 from e
-    if not full.is_file() or not _record_exists(path):
+    record = _owner_record(path)
+    if not full.is_file() or record is None:
         raise Http404
+    if not _visible_to(request.user, prefix, record):
+        raise PermissionDenied
     ext = full.suffix.lower()
     inline_type = INLINE_TYPES.get(ext)
     resp = FileResponse(

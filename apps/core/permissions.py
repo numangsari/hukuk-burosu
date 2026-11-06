@@ -60,6 +60,30 @@ def filter_visible_cases(qs, user):
     )
 
 
+def filter_visible_tasks(qs, user):
+    """Görevleri süzer: sorumlu/kontrolcü olunan veya görünür dosyaya bağlı görevler."""
+    if can_view_all_office_data(user):
+        return qs
+    from apps.cases.models import Case
+
+    return qs.filter(
+        Q(assignee=user)
+        | Q(reviewer=user)
+        | Q(case__in=filter_visible_cases(Case.objects.all(), user))
+    )
+
+
+def filter_visible_hearings(qs, user):
+    """Duruşmaları süzer: görünür dosyaya bağlı olanlar ile dosyasız ofis etkinlikleri."""
+    if can_view_all_office_data(user):
+        return qs
+    from apps.cases.models import Case
+
+    return qs.filter(
+        Q(case__in=filter_visible_cases(Case.objects.all(), user)) | Q(case__isnull=True)
+    )
+
+
 def filter_visible_clients(qs, user):
     """Görünürlük ayarına göre kullanıcının erişebileceği müvekkilleri süzer."""
     if can_view_all_office_data(user):
