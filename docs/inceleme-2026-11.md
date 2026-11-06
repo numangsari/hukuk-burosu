@@ -6,7 +6,33 @@ Maddeler giderildikçe bu belgede işaretlenebilir veya belge kaldırılabilir.
 **İnceleme anındaki durum:** `uv run pytest` tamamı geçti, `ruff check` ve `ruff format --check` temiz,
 GitHub Actions CI kurulu. İnceleme sırasında kodda değişiklik yapılmadı.
 
-> **Giderilenler (sonraki çalışma):** Teknik madde 1 (uç bazında görünürlük), 2 (PIN deneme sınırı), 3 (geri yükleme öncesi güvenlik yedeği), 5 (hata sayfaları + HTMX bildirimi), 6 (haciz middleware hatası artık sayfayı bozmaz), 8 (dosya imzası denetimi), 10'daki `media.py` açıklaması; UI/UX madde 1 (yatay taşma), 2 (koyu tema kontrastı), 4 (tutar kırılması). İkinci turda: teknik madde 7 (başarısız Google eşitlemesi için yeniden deneme), 9'un kullanılmayan `OzkurtHukuk.iss` kısmı, 10'daki `staticfiles/` uyarısı; UI/UX madde 3, 5, 8, 9, 14, 15 ve kullanım sorunu 4. Aşağıdaki başlıklarda ilgili maddeler ✅ ile işaretlidir. Kalanlar için sayfa sonundaki "Açık kalanlar" bölümüne bakın.
+## Güncel durum (6 Kasım 2026)
+
+Bulgular iki çalışmada ele alındı; ikisi de `main` dalındadır. Son durumda `uv run pytest`
+634 geçti / 4 atlandı, `ruff check` ve `ruff format --check` temiz.
+
+İşaretler: ✅ giderildi · ◐ kısmen giderildi · işaretsiz = açık.
+
+| Bölüm | Giderildi | Kısmen | Açık |
+|---|---|---|---|
+| Teknik (1–10) | 1, 2, 5, 6, 8 | 3, 7, 9, 10 | 4 |
+| UI/UX (1–17) | 1, 2, 3, 4, 5, 8, 9, 14, 15 | — | 6, 7, 10–13, 16, 17 |
+| Kullanım sorunları (1–6) | 4, 6 | — | 1, 2, 3, 5 |
+| Eksik özellikler (1–12) | — | — | tümü |
+| Tasarım önerisi | — | — | beklemede |
+
+**1. çalışma** (`f1777ce`, `8b55420`): uç bazında görünürlük ve yetki testleri, PIN deneme sınırı ve
+hatalı PIN kaydı, geri yükleme öncesi güvenlik yedeği, Türkçe hata sayfaları ve HTMX hata bildirimi,
+haciz middleware hatasının sayfayı bozmaması, dosya imzası denetimi, `media.py` açıklaması; yatay
+taşma, koyu tema buton kontrastı, tutar satır kırılması.
+
+**2. çalışma** (`f77062b`): başarısız Google Takvim eşitlemesinin işaretlenip `retry_google_sync` ile
+yeniden denenmesi (iptal edilen duruşmada ağ hatası artık 500 vermez), kullanılmayan
+`installer/OzkurtHukuk.iss` dosyasının kaldırılması, testlerdeki `staticfiles/` uyarısı; bakiye yönü için
+"Alacağımız / Borcumuz" etiketi, duruşma listesinde anında filtre, gün boyu gizlenebilen yedek
+uyarısı, rozet görünümlü görev durumları, yan menüde kaydırma gölgesi, taşmayan dosya numarası alanı.
+
+Açık kalan maddeler ve nedenleri sayfa sonundaki "Açık kalanlar" bölümündedir.
 
 > Öncelik: 🔴 kritik (güvenlik/veri) · 🟠 teknik sağlamlık · 🟡 kullanıcı deneyimi
 
@@ -53,7 +79,7 @@ aktivite kaydına yazılması, yönetici hesapları için daha uzun PIN/parola s
 **Öneri:** Geri yükleme öncesi otomatik güvenlik yedeği, ikinci konuma (harici disk/NAS) kopya,
 şifreli arşiv seçeneği, düzenli geri yükleme denemesi.
 
-### 4. `DJANGO_ALLOWED_HOSTS=*`
+### 4. `DJANGO_ALLOWED_HOSTS=*` (açık)
 
 `installer/scripts/postinstall.ps1` kurulumda `*` yazıyor. Sunucu adı ve IP adresleriyle
 sınırlanmalı.
@@ -82,6 +108,10 @@ içinde `create_due_tasks()` çalıştırıyor ve hatayı yeniden fırlatıyor; 
 yavaş/yokken duruşma kaydetmek yavaşlar. Başarısız eşitlemeler için yeniden deneme kuyruğu
 görülmedi; zamanlanmış bir "eşitlenmemişleri tekrar dene" adımı değerlendirilmeli.
 
+**Yapılan:** Başarısız eşitleme `Hearing.google_sync_pending` ile işaretlenir; `retry_google_sync`
+komutu kurulumda `check-reminders.ps1` üzerinden beş dakikada bir yeniden dener. **Kalan:** eşitleme
+hâlâ istek içinde çalışır.
+
 ### 8. ✅ Yüklemelerde içerik denetimi yok
 
 `apps/core/uploads.py` yalnızca uzantı ve boyuta bakıyor. `CLAUDE.md` §8 içerik uygunluğunu da
@@ -93,20 +123,23 @@ istiyor; en azından PDF/resim/Office türleri için dosya imzası (magic bytes)
 neredeyse aynı; zamanla ayrışma riski var. Veritabanı/kullanıcı adı `ozkurt` olarak CI'da ve
 `restore` geliştirme yolunda sabit yazılı.
 
-### 10. Küçük düzeltmeler
+**Yapılan:** Hiçbir yerde kullanılmayan `OzkurtHukuk.iss` silindi. **Kalan:** `OzkurtHukukApp.xml` ve
+`Ozkurt*` servis/görev adları eski kurulumların yükseltilmesi için gerekli olduğundan tutuldu.
+
+### 10. ◐ Küçük düzeltmeler
 
 - `OfficeSettings.load()` her çağrıda `get_or_create` yapıyor; bir istekte birkaç kez çağrılıyor
   (middleware, context processor, yetki fonksiyonları). İstek başına önbellek yeterli.
-- `apps/core/media.py` açıklaması ("herkes tüm kayıtları görür") restricted modla çelişiyor.
-- Testler `staticfiles/` klasörü yok uyarısı üretiyor (CI'da `mkdir` ile geçiştirilmiş).
+- ✅ `apps/core/media.py` açıklaması ("herkes tüm kayıtları görür") restricted modla çelişiyor.
+- ✅ Testler `staticfiles/` klasörü yok uyarısı üretiyor (CI'da `mkdir` ile geçiştirilmiş).
 
 ---
 
 ## 🟡 Kullanıcı deneyimi (kod okumasına dayalı)
 
-- Hata geri bildirimi (madde 5) en çok hissedilecek eksik.
-- Kısıtlı kullanıcı Raporlar'da tüm dosyaları görüyor (madde 1); "yetkim var" diye algılanır.
-- Başarısız giriş denemeleri yöneticiye aktivite kaydında gösterilebilir.
+- ✅ Hata geri bildirimi (madde 5) en çok hissedilecek eksik.
+- ✅ Kısıtlı kullanıcı Raporlar'da tüm dosyaları görüyor (madde 1); "yetkim var" diye algılanır.
+- ✅ Başarısız giriş denemeleri yöneticiye aktivite kaydında gösterilebilir.
 - Geri yükleme yalnızca komut satırından; yöneticinin arayüzden (önce otomatik güvenlik yedeği
   alarak) başlatabileceği bir akış büro için daha pratik olur.
 
@@ -121,16 +154,37 @@ neredeyse aynı; zamanla ayrışma riski var. Veritabanı/kullanıcı adı `ozku
 
 ---
 
-## Açık kalanlar (bu çalışmada yapılmadı)
+## Açık kalanlar
 
-- **Madde 4 (`DJANGO_ALLOWED_HOSTS=*`)** ve **madde 9 (yinelenen kurulum dosyaları, `ozkurt` adları):** Windows kurulum betiğinde (`installer/`) değişiklik gerektirir; burada Windows ortamı olmadığından denenemedi. Sunucu adı/IP'lerinin kurulumda nasıl belirleneceği (IP değişirse erişim kesilir) ayrıca karara bağlanmalı.
-- **Madde 3'ün kalanı:** yedeğin ayrı diske/NAS'a kopyası ve şifreli arşiv; yöneticinin arayüzden geri yükleme başlatması.
-- **Madde 7'nin kalanı:** Başarısız eşitleme artık `Hearing.google_sync_pending` ile işaretlenir; `retry_google_sync` komutu `check-reminders.ps1` üzerinden beş dakikada bir yeniden dener. Eşitleme hâlâ istek içinde çalıştığından internet yavaşken kaydetme gecikebilir; arka plan kuyruğu mimari karar gerektirir.
-- **Madde 9'un kalanı:** `OzkurtHukukApp.xml`, `Ozkurt*` servis/görev adları eski kurulumların yükseltilmesi için bilerek tutuldu; CI ve geliştirme veritabanı adı `ozkurt` değiştirilmedi.
-- **Madde 10:** `OfficeSettings.load()` istek başına önbellek (eski değer riski nedeniyle ayrıca değerlendirilmeli). `staticfiles/` uyarısı giderildi (test ayarı `.test-static/` kullanır).
-- **PIN:** sayaçlar önbellekte olduğundan servis yeniden başlayınca sıfırlanır; yönetici hesapları için daha uzun PIN/parola seçeneği yok.
+### Karar veya Windows ortamı gerektirenler
+- **Madde 4 (`DJANGO_ALLOWED_HOSTS=*`):** sunucu adı/IP'lerinin kurulumda nasıl belirleneceğine karar
+  verilmeli (IP değişirse ofisten erişim kesilir); `installer/` betikleri Windows'ta denenmeli.
+- **Kurulum betiği:** 2. çalışmada değişen `installer/scripts/check-reminders.ps1` Windows'ta henüz
+  çalıştırılmadı; ilk kurulumda/güncellemede denenmeli.
+- **Madde 7'nin kalanı:** eşitlemeyi istekten tamamen ayırmak (arka plan kuyruğu) mimari karar gerektirir.
+
+### Güvenlik iyileştirmeleri
+- **Madde 3'ün kalanı:** yedeğin ayrı diske/NAS'a kopyası, şifreli arşiv, yöneticinin arayüzden geri
+  yükleme başlatması.
+- **PIN:** sayaçlar önbellekte olduğundan servis yeniden başlayınca sıfırlanır; yönetici hesapları için
+  daha uzun PIN/parola seçeneği yok.
 - **Dosya imzası:** `.xls`, metin tabanlı türler (txt, csv, udf, eml) ve HEIC denetlenmez.
-- **UI/UX madde 6, 7, 10–13, 16–17**, "Kullanım ve Özellik Analizi" (kullanım sorunu 4 hariç) ve "Tasarım Önerisi" bölümleri: tasarım kararı ve görsel doğrulama gerektirir; uygulanmadı.
+
+### Küçük teknik
+- **Madde 10:** `OfficeSettings.load()` istek başına önbellek (eski değer riski nedeniyle ayrıca
+  değerlendirilmeli).
+- **Madde 9:** CI ve geliştirme veritabanı/kullanıcı adı `ozkurt` olarak duruyor.
+
+### Tasarım kararı gerektirenler
+- **UI/UX 6, 7, 10–13, 16, 17:** tek sekme bileşeni, tek Kaydet yeri, büyük harf gösterimi, liste
+  yoğunluğu, ana sayfa kart tekrarı, arşiv kart boyutu, telefonda "Bugün" önceliği, sürükle-bırak yükleme.
+- **Kullanım sorunları 1, 2, 3, 5** (yukarıdaki UI maddeleriyle örtüşür).
+- **"Tasarım Önerisi"** bölümü.
+
+### Yeni özellikler
+- "Eksik özellikler" listesinin tamamı. Öncelik: hukuki süre hesaplayıcı (adli tatil ve bayramlar;
+  `CLAUDE.md` §11 gereği öneri olarak ve hukuki doğrulamayla), sabah özeti/bildirimler, menfaat çakışması
+  kontrolü.
 
 ---
 
@@ -162,7 +216,7 @@ ve duruşma listesi dolu hâliyle değerlendirilemedi.
 4. ✅ **Filtre davranışı tutarsız:** Arşiv ve görevlerde seçim anında süzülüyor; duruşma listesinde ayrıca
    "Filtrele" butonuna basmak gerekiyor.
 5. **Belge yükleme** tarayıcının standart dosya seçicisiyle; sürükle-bırak zaman kazandırır.
-6. **Hata geri bildirimi yok** (teknik madde 5).
+6. ✅ **Hata geri bildirimi yok** (teknik madde 5).
 
 ## Eksik özellikler (değere göre)
 
