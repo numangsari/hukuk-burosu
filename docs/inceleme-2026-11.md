@@ -33,6 +33,30 @@ ayrı iş bekliyor.
 
 ---
 
+## Yapılanlar ve notlar
+
+**Commit'ler** (`claude/affectionate-bell-ok0e9n`):
+
+- `e51a5e8` — görünürlük açıkları (madde 1) ve uç bazlı testler
+- `9fbbfd7` — Türkçe hata sayfaları, HTMX hata bildirimi, haciz middleware'i, yükleme imza denetimi, güvenli geri yükleme (madde 3, 5, 6, 8)
+- `69943b2` — radyo/çoklu seçim taşması, koyu tema düğme kontrastı, tutar kırılması
+- `326c395` — bu durum bölümü ve CLAUDE.md'deki geri yükleme satırı
+
+**Doğrulama:** `pytest` tamamı geçti; `ruff check` ve `ruff format --check` temiz. Tarayıcıda (yerel geliştirme verisiyle) yeni görev sayfası masaüstünde (1440 px) ve telefonda (390 px) yatay taşmıyor (`scrollWidth` = `clientWidth`). Koyu temada birincil düğme, hesaplanmış renklerle 6,02:1 kontrast veriyor.
+
+**Notlar ve riskler:**
+
+1. **Görünürlük.** Kısıtlı modda sorumlusu olunmayan dosyaya görev açılamaz; form bu dosyaları seçenek olarak sunmaz. Raporlar yalnızca görünür dosyaları listeler. Finansal raporlar (hesap ekstresi, borçlu listesi, dönem muhasebe) bu turda değiştirilmedi; bunlar muhasebe yetkisiyle korunuyor, dosya görünürlüğü ayrıca uygulanmadı.
+2. **Yükleme imzası.** `.udf` dosyaları zip (`PK`) başlığıyla kabul ediliyor; bu, UDF'nin zip tabanlı olduğu varsayımına dayanıyor. Gerçek bir UYAP UDF dosyasıyla doğrulanmalı. Metin tabanlı türler (txt, csv, eml, rtf) imza denetimine tabi değil. Testlerdeki sahte içerikli örnekler gerçek başlıklarla güncellendi; üretim kodu gevşetilmedi.
+3. **Geri yükleme.** Komut artık önce tam yedek alıyor; büyük veride geri yükleme süresi uzar. Güvenlik yedeği `BACKUP_DIR` içine, yani aynı diske yazılıyor. İkinci konum ve şifreleme (madde 3) açık. Atlamak için `--skip-safety-backup` kullanılabilir.
+4. **Haciz middleware'i.** Hata kullanıcıya yansımıyor, loglanıyor; kontrol 60 saniyelik önbellekle yeniden denenir. Hata kalıcıysa her dakika log'a yazılır. Görevin tamamen zamanlanmış işe taşınması yapılmadı.
+5. **Hata sayfaları.** 403/404/500 şablonları `DEBUG=False` iken kullanılır. 500 şablonu bağlam işlemcisine ve veritabanına bağlı değildir.
+6. **HTMX bildirimi ve oturum süresi.** Oturum dolmuşsa HTMX isteği giriş sayfasını HTML olarak dönebilir; bu durumda hata bildirimi tetiklenmez ve yönlendirme ayrıca kontrol edilmez. Açık bir konu.
+7. **Koyu tema.** Yalnızca beyaz yazılı birincil düğme ve seçim zeminleri için `--btn-brand` belirteci eklendi. Bağlantı ve metin rengi (`--brand`) değişmedi.
+8. **Bilinçli olarak yapılmayanlar.** PIN kilidi (madde 2): ürün kararı, eşik ve süre büro tarafından belirlenmeli. `DJANGO_ALLOWED_HOSTS` (madde 4): Windows'ta test edilmeden ve sunucu adı/IP'leri bilinmeden daraltılmamalı; mevcut kurulumlarda `.env` güncellemede korunduğu için elle değiştirilmeli. Google eşitleme kuyruğu (7), kurulum dosyalarının tekilleştirilmesi (9), `OfficeSettings` önbelleği ve `staticfiles` uyarısı (10), kalan UX maddeleri ve büyük özellikler.
+9. **Mesajlaşma modülü.** `apps/clients/messaging` URL'lere bağlı olmadığı için görünürlük kontrolü bu turda kapsam dışı bırakıldı.
+10. **Yerel test ortamı.** Testler PostgreSQL gerektirir. Bu turda yerel PostgreSQL 16 (port 5432) ve `DATABASE_URL` ile çalıştırıldı; repodaki geliştirme ayarları (port 5434) değiştirilmedi.
+
 ## 🔴 Kritik — güvenlik ve veri gizliliği
 
 ### 1. "Sorumlu bazlı" görünürlük modunda yetki açıkları (doğrulandı)
