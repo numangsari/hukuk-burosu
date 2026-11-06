@@ -8,7 +8,10 @@ class BootstrapMixin:
         super().__init__(*args, **kwargs)
         for field in self.fields.values():
             w = field.widget
-            if isinstance(w, forms.CheckboxInput):
+            if isinstance(
+                w, forms.CheckboxInput | forms.RadioSelect | forms.CheckboxSelectMultiple
+            ):
+                # Seçim kutuları tam genişlik almamalı (form-control sayfayı taşırıyordu).
                 css = "form-check-input"
             elif isinstance(w, forms.Select | forms.SelectMultiple):
                 css = "form-select"
