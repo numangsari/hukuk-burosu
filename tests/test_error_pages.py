@@ -41,3 +41,23 @@ def test_base_template_loads_htmx_error_notifier(lawyer):
     c = HttpClient()
     c.force_login(lawyer)
     assert "js/htmx-errors.js" in c.get("/").content.decode()
+
+
+def test_radio_and_checkbox_groups_do_not_get_full_width_form_control():
+    from django import forms
+
+    from apps.core.forms import BootstrapMixin
+
+    class SampleForm(BootstrapMixin, forms.Form):
+        choice = forms.ChoiceField(
+            choices=[("var", "Var"), ("yok", "Yok")], widget=forms.RadioSelect
+        )
+        tags = forms.MultipleChoiceField(
+            choices=[("a", "A")], widget=forms.CheckboxSelectMultiple, required=False
+        )
+
+    form = SampleForm()
+    for name in ("choice", "tags"):
+        css = form.fields[name].widget.attrs.get("class", "")
+        assert "form-control" not in css
+        assert "form-check-input" in css
