@@ -8,6 +8,29 @@ GitHub Actions CI kurulu. İnceleme sırasında kodda değişiklik yapılmadı.
 
 > Öncelik: 🔴 kritik (güvenlik/veri) · 🟠 teknik sağlamlık · 🟡 kullanıcı deneyimi
 
+## Uygulama durumu
+
+Bu tur sonunda yapılanlar ve bilinçli olarak bırakılanlar. ✅ tamamlandı · ◐ kısmen · ⏳ karar veya
+ayrı iş bekliyor.
+
+| Madde | Durum | Not |
+|---|---|---|
+| 1. Görünürlük açıkları | ✅ | Dosya, görev, duruşma, belge, rapor ve medya uçları kapatıldı. Uç bazlı testler: `tests/test_visibility.py`. |
+| 2. PIN deneme sınırı | ⏳ | Kilit eşiği ve süresi büro kararı. CLAUDE.md §8 ve `test_no_lockout_after_wrong_pins` mevcut davranışı belgeliyor; değişiklik ikisini de günceller. |
+| 3. Yedek güvenliği | ◐ | Geri yüklemeden önce güvenlik yedeği alınıyor (`--skip-safety-backup` ile atlanır). Şifreleme, ikinci konum ve düzenli geri yükleme testi açık. |
+| 4. `DJANGO_ALLOWED_HOSTS=*` | ⏳ | Kurulum betiği Windows'ta doğrulanmadan ve sunucu adı/IP'leri bilinmeden daraltılmamalı. Mevcut kurulumlarda `.env` güncellemede korunduğu için ayrıca elle değiştirilmeli. |
+| 5. Hata sayfaları ve HTMX bildirimi | ✅ | Türkçe 403/404/500 sayfaları; HTMX hataları toast ile gösterilir. |
+| 6. Haciz görevi kontrolü | ◐ | Hata artık istekteki kullanıcıya yansımıyor, loglanıyor. Tamamen zamanlanmış göreve taşınması açık. |
+| 7. Google Takvim eşitlemesi | ⏳ | Eşzamanlı çağrı ve yeniden deneme kuyruğu yapılmadı. |
+| 8. Yükleme içerik denetimi | ◐ | Uzantıya ek olarak dosya imzası denetleniyor (PDF, resim, Office, ODF, UDF, arşiv). Metin tabanlı türler kapsam dışı. |
+| 9. Kurulum dosyalarının tekilleştirilmesi | ⏳ | Kurulum yolunu değiştirdiği için Windows'ta doğrulama gerektirir. |
+| 10. Küçük düzeltmeler | ◐ | `media.py` açıklaması düzeltildi. `OfficeSettings.load()` önbelleği ve `staticfiles` uyarısı yapılmadı. |
+| UX: yatay taşma | ✅ | Yeni görev sayfasında taşma kalktı (masaüstü ve telefonda ölçüldü). |
+| UX: koyu tema kontrastı | ✅ | Birincil düğme 3,31:1 → 6,02:1. |
+| UX: tutar kırılması | ✅ | `.tabular` hücreleri satır kırmaz. |
+| UX: diğer maddeler | ⏳ | Sekme birliği, dosya numara alanı, liste yoğunluğu, büyük harf görünümü, telefonda öncelik sırası yapılmadı. |
+| Kullanım: süre hesaplayıcı, bildirimler, menfaat çakışması, faiz/AAÜT | ⏳ | Yeni özellik; ayrı iş olarak planlanmalı. |
+
 ---
 
 ## 🔴 Kritik — güvenlik ve veri gizliliği
