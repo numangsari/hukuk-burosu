@@ -4,6 +4,7 @@ from apps.accounts.models import User
 from apps.cases.models import Case, CaseStatus
 from apps.clients.models import Client
 from apps.core.forms import BootstrapMixin, DateInput
+from apps.core.permissions import filter_visible_cases, filter_visible_clients
 from apps.core.uploads import validate_upload
 from apps.office.models import HEARING_TASK_TYPE_NAME, OfficeSettings, TaskType
 
@@ -53,7 +54,7 @@ class TaskForm(BootstrapMixin, forms.ModelForm):
         ]
         widgets = {"due_date": DateInput()}
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, user=None, **kwargs):
         super().__init__(*args, **kwargs)
         office = OfficeSettings.load()
         self.task_review_mode = office.task_review_mode
@@ -104,6 +105,10 @@ class TaskForm(BootstrapMixin, forms.ModelForm):
             ("", "Seçiniz…"),
             *[(name, options) for name, options in groups.items() if options],
         ]
+        if user is not None:
+            # Kısıtlı görünürlükte yalnızca erişilebilen dosya ve müvekkiller seçilebilir.
+            cases = filter_visible_cases(cases, user)
+            self.fields["client"].queryset = filter_visible_clients(Client.objects.all(), user)
         self.fields["case"].queryset = cases.select_related("client").order_by("-created_at")
         reviewers = User.objects.filter(
             is_active=True, role__in=[User.Role.ADMIN, User.Role.SENIOR, User.Role.LAWYER]

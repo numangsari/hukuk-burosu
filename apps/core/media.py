@@ -1,7 +1,9 @@
 """Yüklenen dosyaların yetki kontrolüyle sunulması (/media/...).
 
 Her dosya bağlı olduğu kaydın kuralıyla açılır:
-- cases/, tasks/, clients/, avatars/ : giriş yapmış kullanıcı (herkes tüm kayıtları görür)
+- cases/, tasks/, clients/          : bağlı dosya/görev/müvekkili görebilen kullanıcı
+                                      (sorumlu bazlı modda başkasının kaydı 404 verir)
+- avatars/                          : giriş yapmış kullanıcı
 - ledger/                           : muhasebe görme yetkisi
 - office/                           : ofis logosu, giriş ekranında da görünür (girişsiz)
 - diğer her yol (ör. imports/tmp)   : sunulmaz
@@ -21,7 +23,8 @@ from django.utils._os import safe_join
 from .uploads import INLINE_TYPES
 
 
-def _record_exists(path: str) -> bool:
+def _record_for(path: str):
+    """Yola karşılık gelen kaydı döner (yoksa None)."""
     from apps.accounting.models import LedgerEntry
     from apps.accounts.models import User
     from apps.cases.models import Document
@@ -41,7 +44,30 @@ def _record_exists(path: str) -> bool:
     model, field = owners[prefix]
     if prefix == "clients" and "/sozlesme/" in path:
         model = RetainerAgreement
-    return model.objects.filter(**{field: path}).exists()
+    return model.objects.filter(**{field: path}).first()
+
+
+def _record_visible(user, prefix: str, record) -> bool:
+    """Kaydın bağlı olduğu dosya/görev/müvekkil kullanıcının görünürlük kuralına uyuyor mu."""
+    from apps.cases.models import Case
+    from apps.clients.models import Client
+    from apps.core.permissions import (
+        can_view_all_office_data,
+        filter_visible_cases,
+        filter_visible_clients,
+        filter_visible_tasks,
+    )
+    from apps.tasks.models import Task
+
+    if prefix not in {"cases", "tasks", "clients"} or can_view_all_office_data(user):
+        return True
+    if prefix == "cases":
+        queryset = filter_visible_cases(Case.objects.filter(pk=record.case_id), user)
+    elif prefix == "tasks":
+        queryset = filter_visible_tasks(Task.objects.filter(pk=record.task_id), user)
+    else:
+        queryset = filter_visible_clients(Client.objects.filter(pk=record.client_id), user)
+    return queryset.exists()
 
 
 def _allowed(request, prefix: str) -> bool:
@@ -72,7 +98,8 @@ def protected_media(request, path):
         full = Path(safe_join(settings.MEDIA_ROOT, path))
     except Exception as e:  # yol dışına çıkma denemesi
         raise Http404 from e
-    if not full.is_file() or not _record_exists(path):
+    record = _record_for(path) if full.is_file() else None
+    if record is None or not _record_visible(request.user, prefix, record):
         raise Http404
     ext = full.suffix.lower()
     inline_type = INLINE_TYPES.get(ext)

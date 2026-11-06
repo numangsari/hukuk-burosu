@@ -239,3 +239,13 @@ def test_authenticated_request_creates_due_tasks(case_factory, lawyer_client, la
     cache.delete("seizure-tasks-check")
     assert lawyer_client.get("/").status_code == 200
     assert item.renewals.count() == 1
+
+
+def test_seizure_task_failure_does_not_break_the_page(lawyer_client, monkeypatch, caplog):
+    def broken():
+        raise RuntimeError("veritabanı hatası")
+
+    monkeypatch.setattr("apps.cases.middleware.create_due_tasks", broken)
+    cache.delete("seizure-tasks-check")
+    assert lawyer_client.get("/").status_code == 200
+    assert "Haciz yenileme görevleri üretilemedi" in caplog.text

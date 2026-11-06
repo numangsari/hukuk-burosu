@@ -27,3 +27,12 @@ def on_login(sender, request, user, **kwargs):
 
 def on_logout(sender, request, user, **kwargs):
     _log(user, "çıkış", request)
+
+
+def on_login_failed(sender, credentials, request=None, **kwargs):
+    """Var olan bir kullanıcı için hatalı PIN denemesini kaydeder (PIN değeri yazılmaz)."""
+    from apps.accounts.models import User
+
+    username = (credentials or {}).get("username", "")
+    user = User.objects.filter(username=username).first() if username else None
+    _log(user, "hatalı PIN", request)

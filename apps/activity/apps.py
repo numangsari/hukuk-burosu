@@ -8,7 +8,11 @@ class ActivityConfig(AppConfig):
     def ready(self):
         from auditlog.registry import auditlog
         from django.contrib.auth import get_user_model
-        from django.contrib.auth.signals import user_logged_in, user_logged_out
+        from django.contrib.auth.signals import (
+            user_logged_in,
+            user_logged_out,
+            user_login_failed,
+        )
 
         from . import signals
 
@@ -18,3 +22,4 @@ class ActivityConfig(AppConfig):
         )
         user_logged_in.connect(signals.on_login, dispatch_uid="activity_login")
         user_logged_out.connect(signals.on_logout, dispatch_uid="activity_logout")
+        user_login_failed.connect(signals.on_login_failed, dispatch_uid="activity_login_failed")

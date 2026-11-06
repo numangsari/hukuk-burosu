@@ -1,5 +1,6 @@
 import datetime as dt
 import json
+import time
 import zipfile
 
 import pytest
@@ -457,3 +458,45 @@ def test_backup_contains_readable_list_snapshot(backup_env):
     assert record.status == "ok"
     with zipfile.ZipFile(backup_env / "yedekler" / record.file_name) as archive:
         assert archive.read("office_lists/Örnek.xlsx") == b"uydurma liste"
+
+
+def test_restore_command_takes_safety_backup_first(backup_env, monkeypatch):
+    from django.core.management import call_command
+
+    rec = services.run_backup(BackupRecord.Kind.MANUAL)
+    archive = backup_env / "yedekler" / rec.file_name
+    time.sleep(1.1)  # yedek dosya adı saniye hassasiyetindedir
+    calls = []
+    monkeypatch.setattr(services, "restore", lambda path: calls.append(("restore", path)))
+    monkeypatch.setattr(
+        "apps.backups.management.commands.restore.restore",
+        lambda path: calls.append(("restore", path)),
+    )
+    call_command("restore", str(archive), "--yes")
+    safety = BackupRecord.objects.filter(kind=BackupRecord.Kind.PRE_RESTORE).first()
+    assert safety is not None and safety.status == BackupRecord.Status.OK
+    assert (backup_env / "yedekler" / safety.file_name).exists()
+    assert calls == [("restore", archive)]
+
+
+def test_restore_command_aborts_when_safety_backup_fails(backup_env, monkeypatch):
+    from django.core.management import call_command
+    from django.core.management.base import CommandError
+
+    rec = services.run_backup(BackupRecord.Kind.MANUAL)
+    archive = backup_env / "yedekler" / rec.file_name
+
+    def broken(target):
+        raise services.BackupError("disk dolu")
+
+    monkeypatch.setattr(services, "dump_database", broken)
+    called = []
+    monkeypatch.setattr(
+        "apps.backups.management.commands.restore.restore", lambda path: called.append(path)
+    )
+    with pytest.raises(CommandError, match="güvenlik yedeği alınamadı"):
+        call_command("restore", str(archive), "--yes")
+    assert called == []
+    # Veritabanı bozuksa açıkça istenirse güvenlik yedeği atlanabilir.
+    call_command("restore", str(archive), "--yes", "--guvenlik-yedegi-alma")
+    assert called == [archive]

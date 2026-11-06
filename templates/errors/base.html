@@ -1,0 +1,29 @@
+{% load static %}<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'vendor/bootstrap/bootstrap.min.css' %}">
+  <link rel="stylesheet" href="{% static 'vendor/bootstrap-icons/bootstrap-icons.min.css' %}">
+  <link rel="stylesheet" href="{% static 'css/app.css' %}">
+  <style>
+    .error-page { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 1.5rem; }
+    .error-card { max-width: 30rem; text-align: center; }
+    .error-code { font-size: 3.5rem; font-weight: 700; color: var(--bs-secondary-color); line-height: 1; }
+  </style>
+</head>
+<body>
+  <main class="error-page">
+    <div class="error-card">
+      <div class="error-code">{% block code %}{% endblock %}</div>
+      <h1 class="h4 mt-3">{% block title_text %}{% endblock %}</h1>
+      <p class="text-body-secondary">{% block text %}{% endblock %}</p>
+      <div class="d-flex gap-2 justify-content-center">
+        <a class="btn btn-primary" href="/"><i class="bi bi-house"></i> Ana sayfa</a>
+        <a class="btn btn-outline-secondary" href="javascript:history.back()"><i class="bi bi-arrow-left"></i> Geri dön</a>
+      </div>
+    </div>
+  </main>
+</body>
+</html>

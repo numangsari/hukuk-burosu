@@ -18,7 +18,11 @@ from django.views.generic import ListView
 from apps.accounts.models import User
 from apps.agenda.google_sync import delete_hearing_from_google, sync_hearing_to_google
 from apps.core.pagination import page_size
-from apps.core.permissions import AdminRequiredMixin, filter_visible_cases
+from apps.core.permissions import (
+    AdminRequiredMixin,
+    filter_visible_cases,
+    filter_visible_hearings,
+)
 
 from .forms import (
     HearingForm,
@@ -153,10 +157,10 @@ class HearingCreateStandaloneView(View):
         initial_case_id = request.GET.get("dosya")
         if initial_case_id:
             try:
-                c = Case.objects.get(pk=initial_case_id)
+                c = filter_visible_cases(Case.objects.all(), request.user).get(pk=initial_case_id)
                 form.fields["case"].initial = c
                 form.fields["authority"].initial = c.authority
-            except Case.DoesNotExist:
+            except (Case.DoesNotExist, ValueError):
                 pass
         return render(request, "cases/hearing_form.html", {"form": form, "title": "Yeni Duruşma"})
 
@@ -181,7 +185,9 @@ class HearingResultModalView(View):
     """Duruşma sonucu / ara karar girme ekranı ve işlemi."""
 
     def get(self, request, pk):
-        hearing = get_object_or_404(Hearing.objects.select_related("case"), pk=pk)
+        hearing = get_object_or_404(
+            filter_visible_hearings(Hearing.objects.select_related("case"), request.user), pk=pk
+        )
         form = HearingResultForm(instance=hearing)
         return render(
             request,
@@ -190,7 +196,9 @@ class HearingResultModalView(View):
         )
 
     def post(self, request, pk):
-        hearing = get_object_or_404(Hearing.objects.select_related("case"), pk=pk)
+        hearing = get_object_or_404(
+            filter_visible_hearings(Hearing.objects.select_related("case"), request.user), pk=pk
+        )
         form = HearingResultForm(request.POST, instance=hearing)
         if form.is_valid():
             h = form.save()
@@ -331,7 +339,9 @@ class HearingTaskCreateView(View):
 
 class HearingEditView(View):
     def get(self, request, pk):
-        hearing = get_object_or_404(Hearing.objects.select_related("case"), pk=pk)
+        hearing = get_object_or_404(
+            filter_visible_hearings(Hearing.objects.select_related("case"), request.user), pk=pk
+        )
         form = HearingForm(instance=hearing)
         return render(
             request,
@@ -339,12 +349,14 @@ class HearingEditView(View):
             {
                 "form": form,
                 "hearing": hearing,
-                "title": f"Duruşmayı Düzenle — {hearing.case.display_name}",
+                "title": f"Duruşmayı Düzenle — {hearing.title_display}",
             },
         )
 
     def post(self, request, pk):
-        hearing = get_object_or_404(Hearing.objects.select_related("case"), pk=pk)
+        hearing = get_object_or_404(
+            filter_visible_hearings(Hearing.objects.select_related("case"), request.user), pk=pk
+        )
         form = HearingForm(request.POST, instance=hearing)
         if form.is_valid():
             h = form.save()

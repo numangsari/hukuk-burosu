@@ -44,10 +44,18 @@ def login(user):
     return c
 
 
+SIGNATURES = {".pdf": b"%PDF-1.4\n", ".docx": b"PK\x03\x04"}
+
+
+def signed(name, content):
+    """Yükleme denetimini geçmesi için içeriğin başına uzantıya uygun dosya imzası ekler."""
+    return SIGNATURES.get(Path(name).suffix.lower(), b"") + content
+
+
 def upload(c, task, name="dilekce.docx", content=b"icerik", replaces=""):
     return c.post(
         reverse("tasks:doc_upload", args=[task.pk]),
-        {"file": SimpleUploadedFile(name, content), "replaces": replaces},
+        {"file": SimpleUploadedFile(name, signed(name, content)), "replaces": replaces},
     )
 
 
@@ -93,8 +101,8 @@ def test_approve_publishes_to_case_and_folder(task, intern, lawyer, office_root)
     assert doc.category == "petition" and doc.title == "CEVAP DİLEKÇESİ"
     folder = office_root / "Müvekkiller" / "DENEME KİŞİ" / "ALACAK DAVASI"
     published = folder / f"{timezone.localdate():%Y-%m-%d} CEVAP DİLEKÇESİ.docx"
-    assert published.read_bytes() == b"son hal"
-    assert (folder / "Görevler" / "dilekce.docx").read_bytes() == b"son hal"
+    assert published.read_bytes() == signed("x.docx", b"son hal")
+    assert (folder / "Görevler" / "dilekce.docx").read_bytes() == signed("x.docx", b"son hal")
     assert doc.folder_path == str(published)
 
 
@@ -113,8 +121,8 @@ def test_document_on_task_creation_is_stored_and_copied(
         "due_date": "2026-11-10",
         "requires_accounting": "yes",
         "document": [
-            SimpleUploadedFile("ornek.pdf", b"ornek belge"),
-            SimpleUploadedFile("diger.pdf", b"ikinci belge"),
+            SimpleUploadedFile("ornek.pdf", signed("a.pdf", b"ornek belge")),
+            SimpleUploadedFile("diger.pdf", signed("a.pdf", b"ikinci belge")),
         ],
     }
     with django_capture_on_commit_callbacks(execute=True):
@@ -124,7 +132,10 @@ def test_document_on_task_creation_is_stored_and_copied(
     assert [doc.original_name for doc in docs] == ["diger.pdf", "ornek.pdf"]
     assert all(doc.uploaded_by == lawyer for doc in docs)
     assert all(Path(doc.folder_path).parent.name == "Görevler" for doc in docs)
-    assert [Path(doc.folder_path).read_bytes() for doc in docs] == [b"ikinci belge", b"ornek belge"]
+    assert [Path(doc.folder_path).read_bytes() for doc in docs] == [
+        signed("a.pdf", b"ikinci belge"),
+        signed("a.pdf", b"ornek belge"),
+    ]
 
 
 def test_invalid_document_does_not_create_task(case_factory, lawyer, intern, office_root):
@@ -164,7 +175,7 @@ def test_existing_client_folder_is_reused_and_names_not_overwritten(
             {
                 "title": "İhtarname",
                 "category": "other",
-                "file": SimpleUploadedFile("ihtar.pdf", b"x"),
+                "file": SimpleUploadedFile("ihtar.pdf", signed("a.pdf", b"x")),
             },
         )
     case.client.refresh_from_db()
@@ -178,7 +189,7 @@ def test_poa_pdf_goes_to_vekaletler(client_factory, lawyer_client, office_root):
     from tests.conftest import client_form_data
 
     row = {"notary": "Sakarya 1. Noterliği", "date": "2026-10-01", "journal_no": "12345",
-           "pdf": SimpleUploadedFile("vekalet.pdf", b"%PDF")}  # fmt: skip
+           "pdf": SimpleUploadedFile("vekalet.pdf", b"%PDF-1.4")}  # fmt: skip
     lawyer_client.post(reverse("clients:update", args=[c.pk]), client_form_data(c, vekalet=[row]))
     poa = PowerOfAttorney.objects.get()
     assert Path(poa.folder_path).parent.name == "Vekaletler"

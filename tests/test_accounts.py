@@ -48,12 +48,74 @@ def test_logged_in_pages_are_not_stored_and_logout_ends_session(client, pin_user
     assert r.url.startswith(reverse("accounts:login"))
 
 
-def test_no_lockout_after_wrong_pins(client, pin_user):
+@pytest.fixture(autouse=True)
+def _clear_throttle_cache():
+    from django.core.cache import cache
+
+    cache.clear()
+    yield
+    cache.clear()
+
+
+def test_login_is_throttled_after_repeated_wrong_pins(client, pin_user):
     url = reverse("accounts:login")
-    for _ in range(8):
-        client.post(url, {"username": pin_user.username, "password": "0000"})
+    for _ in range(5):
+        r = client.post(url, {"username": pin_user.username, "password": "0000"})
+        assert r.status_code == 200
+    # Eşik aşıldı: doğru PIN bile beklerken kabul edilmez ve mesaj bekleme süresini söyler.
     r = client.post(url, {"username": pin_user.username, "password": TEST_PIN})
-    assert r.status_code == 302
+    assert r.status_code == 429
+    assert "Çok fazla hatalı deneme" in r.content.decode()
+    assert "_auth_user_id" not in client.session
+
+
+def test_throttle_does_not_block_other_users_on_other_computers(client, pin_user, db):
+    from django.test import Client as HttpClient
+
+    url = reverse("accounts:login")
+    for _ in range(5):
+        client.post(url, {"username": pin_user.username, "password": "0000"})
+    other = User.objects.create_user(username="diger", role=User.Role.LAWYER, password=TEST_PIN)
+    assert client.post(url, {"username": other.username, "password": TEST_PIN}).status_code == 302
+    # Aynı kullanıcı başka bir bilgisayardan (IP) hâlâ girebilir.
+    remote = HttpClient(REMOTE_ADDR="10.0.0.9")
+    assert (
+        remote.post(url, {"username": pin_user.username, "password": TEST_PIN}).status_code == 302
+    )
+
+
+def test_throttle_wait_grows_and_expires(client, pin_user):
+    from apps.accounts import throttle
+
+    ip = "127.0.0.1"
+    for _ in range(throttle.USER_IP_LIMIT):
+        throttle.register_failure(pin_user.username, ip)
+    first = throttle.remaining_wait(pin_user.username, ip)
+    throttle.register_failure(pin_user.username, ip)
+    assert throttle.remaining_wait(pin_user.username, ip) > first
+    assert throttle.remaining_wait(pin_user.username, "10.9.9.9") == 0
+
+
+def test_successful_login_resets_counter(client, pin_user):
+    url = reverse("accounts:login")
+    for _ in range(3):
+        client.post(url, {"username": pin_user.username, "password": "0000"})
+    assert (
+        client.post(url, {"username": pin_user.username, "password": TEST_PIN}).status_code == 302
+    )
+    client.post(reverse("accounts:logout"))
+    for _ in range(4):
+        r = client.post(url, {"username": pin_user.username, "password": "0000"})
+        assert r.status_code == 200
+
+
+def test_failed_pin_is_written_to_activity_log(client, pin_user):
+    from auditlog.models import LogEntry
+
+    client.post(reverse("accounts:login"), {"username": pin_user.username, "password": "0000"})
+    entry = LogEntry.objects.filter(actor=pin_user, action=LogEntry.Action.ACCESS).last()
+    assert entry.changes == {"olay": "hatalı PIN"}
+    assert "0000" not in str(entry.changes)
 
 
 def test_wrong_pin_keeps_user_selected(client, pin_user):

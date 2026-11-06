@@ -10,6 +10,7 @@ class BackupRecord(models.Model):
         SCHEDULED = "scheduled", "Zamanlanmış"
         MANUAL = "manual", "Elle"
         UPDATE = "update", "Güncelleme öncesi"
+        PRE_RESTORE = "pre_restore", "Geri yükleme öncesi"
 
     started_at = models.DateTimeField(auto_now_add=True)
     finished_at = models.DateTimeField(null=True, blank=True)

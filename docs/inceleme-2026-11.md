@@ -6,13 +6,15 @@ Maddeler giderildikçe bu belgede işaretlenebilir veya belge kaldırılabilir.
 **İnceleme anındaki durum:** `uv run pytest` tamamı geçti, `ruff check` ve `ruff format --check` temiz,
 GitHub Actions CI kurulu. İnceleme sırasında kodda değişiklik yapılmadı.
 
+> **Giderilenler (sonraki çalışma):** Teknik madde 1 (uç bazında görünürlük), 2 (PIN deneme sınırı), 3 (geri yükleme öncesi güvenlik yedeği), 5 (hata sayfaları + HTMX bildirimi), 6 (haciz middleware hatası artık sayfayı bozmaz), 8 (dosya imzası denetimi), 10'daki `media.py` açıklaması; UI/UX madde 1 (yatay taşma), 2 (koyu tema kontrastı), 4 (tutar kırılması). Aşağıdaki başlıklarda ilgili maddeler ✅ ile işaretlidir. Kalanlar için sayfa sonundaki "Açık kalanlar" bölümüne bakın.
+
 > Öncelik: 🔴 kritik (güvenlik/veri) · 🟠 teknik sağlamlık · 🟡 kullanıcı deneyimi
 
 ---
 
 ## 🔴 Kritik — güvenlik ve veri gizliliği
 
-### 1. "Sorumlu bazlı" görünürlük modunda yetki açıkları (doğrulandı)
+### 1. ✅ "Sorumlu bazlı" görünürlük modunda yetki açıkları (doğrulandı)
 
 `OfficeSettings.case_visibility_mode = restricted` iken, sorumlusu başka avukat olan bir dosyayla
 geçici test yazılarak doğrulandı (test repoya eklenmedi). Dört senaryonun dördü de sızdırdı:
@@ -31,7 +33,7 @@ uç (URL) bazında yetki testi yok.
 kayıt sahibinin dosyasını görünürlük kuralıyla denetlemeli; restricted modda tüm uçları gezen
 parametrik bir yetki testi eklenmeli.
 
-### 2. PIN deneme yoluyla kolayca bulunabilir
+### 2. ✅ PIN deneme yoluyla kolayca bulunabilir (deneme sınırı eklendi; yönetici için uzun PIN/parola açık)
 
 4 haneli PIN (10.000 olasılık), hatalı girişte bekleme/kilit yok ve giriş ekranı tüm aktif
 kullanıcıları listeliyor. Ofis içinde bile bir kullanıcı yönetici PIN'ini kısa sürede deneyerek
@@ -40,7 +42,7 @@ bulup muhasebe, silme ve yedek indirme yetkisine erişebilir.
 **Öneri:** Kullanıcı + IP bazında artan bekleme (ör. 5 hatalı denemeden sonra), başarısız girişlerin
 aktivite kaydına yazılması, yönetici hesapları için daha uzun PIN/parola seçeneği.
 
-### 3. Yedek güvenliği
+### 3. ◐ Yedek güvenliği (yalnızca geri yükleme öncesi güvenlik yedeği giderildi)
 
 - Arşivler parolasız.
 - `BACKUP_DIR` varsayılanı kurulum klasörü içi (`apps/backups/services.py`); yedek ve canlı veri aynı
@@ -60,7 +62,7 @@ sınırlanmalı.
 
 ## 🟠 Teknik sağlamlık
 
-### 5. Hata sayfaları ve HTMX hataları
+### 5. ✅ Hata sayfaları ve HTMX hataları
 
 - Özel 403/404/500 şablonu yok; üretimde Django'nun İngilizce varsayılan sayfası çıkıyor.
 - `htmx:responseError` / `htmx:sendError` dinlenmiyor; HTMX isteği hata dönerse kullanıcı hiçbir
@@ -68,7 +70,7 @@ sınırlanmalı.
 
 **Öneri:** Türkçe hata şablonları ve `base.html` içinde genel bir HTMX hata bildirimi (toast).
 
-### 6. Haciz görev üretimi kullanıcı isteği içinde çalışıyor
+### 6. ✅ Haciz görev üretimi kullanıcı isteği içinde çalışıyor (hata artık yakalanıp günlüğe yazılıyor)
 
 `apps/cases/middleware.py` → `SeizureTaskMiddleware` dakikada bir, rastgele bir kullanıcının isteği
 içinde `create_due_tasks()` çalıştırıyor ve hatayı yeniden fırlatıyor; kullanıcı ilgisiz bir sayfada
@@ -80,7 +82,7 @@ içinde `create_due_tasks()` çalıştırıyor ve hatayı yeniden fırlatıyor; 
 yavaş/yokken duruşma kaydetmek yavaşlar. Başarısız eşitlemeler için yeniden deneme kuyruğu
 görülmedi; zamanlanmış bir "eşitlenmemişleri tekrar dene" adımı değerlendirilmeli.
 
-### 8. Yüklemelerde içerik denetimi yok
+### 8. ✅ Yüklemelerde içerik denetimi yok
 
 `apps/core/uploads.py` yalnızca uzantı ve boyuta bakıyor. `CLAUDE.md` §8 içerik uygunluğunu da
 istiyor; en azından PDF/resim/Office türleri için dosya imzası (magic bytes) kontrolü eklenmeli.
@@ -116,6 +118,18 @@ neredeyse aynı; zamanla ayrışma riski var. Veritabanı/kullanıcı adı `ozku
 2. Madde 2 — PIN deneme sınırı
 3. Madde 5 ve 6 — Türkçe hata sayfaları, HTMX bildirimi, haciz kontrolünün istekten ayrılması
 4. Madde 3 — yedek güvenliği
+
+---
+
+## Açık kalanlar (bu çalışmada yapılmadı)
+
+- **Madde 4 (`DJANGO_ALLOWED_HOSTS=*`)** ve **madde 9 (yinelenen kurulum dosyaları, `ozkurt` adları):** Windows kurulum betiğinde (`installer/`) değişiklik gerektirir; burada Windows ortamı olmadığından denenemedi. Sunucu adı/IP'lerinin kurulumda nasıl belirleneceği (IP değişirse erişim kesilir) ayrıca karara bağlanmalı.
+- **Madde 3'ün kalanı:** yedeğin ayrı diske/NAS'a kopyası ve şifreli arşiv; yöneticinin arayüzden geri yükleme başlatması.
+- **Madde 7 (Google Takvim eşzamanlı):** arka plan kuyruğu/yeniden deneme mimari karar gerektirir.
+- **Madde 10:** `OfficeSettings.load()` istek başına önbellek (eski değer riski nedeniyle ayrıca değerlendirilmeli), `staticfiles/` uyarısı.
+- **PIN:** sayaçlar önbellekte olduğundan servis yeniden başlayınca sıfırlanır; yönetici hesapları için daha uzun PIN/parola seçeneği yok.
+- **Dosya imzası:** `.xls`, metin tabanlı türler (txt, csv, udf, eml) ve HEIC denetlenmez.
+- **UI/UX madde 3, 5–17**, "Kullanım ve Özellik Analizi" ve "Tasarım Önerisi" bölümleri: tasarım kararı ve görsel doğrulama gerektirir; uygulanmadı.
 
 ---
 
@@ -198,17 +212,17 @@ Görsel dil tutarlı ve profesyonel: sakin lacivert/altın palet, kart tabanlı 
 
 ## Hatalar (ölçülerek doğrulandı)
 
-1. **Yeni görev sayfası yatay taşıyor.** Sayfa 1440 px ekranda 1643 px, telefonda 609 px genişliğe çıkıyor.
+1. ✅ **Yeni görev sayfası yatay taşıyor.** Sayfa 1440 px ekranda 1643 px, telefonda 609 px genişliğe çıkıyor.
    Neden: `BootstrapMixin` (`apps/core/forms.py`) radyo butonlarına da `form-control` sınıfı ekliyor;
    "Gelir/gider kaydı Var/Yok" seçimindeki gizli radyolar (`.segment-choice input { position:absolute;
    opacity:0 }`) %100 genişlik alıp sayfayı sağa itiyor. Çözüm: `RadioSelect` için `form-control`
    eklememek veya gizli girdiye `width:1px; height:1px` vermek.
-2. **Koyu temada birincil buton kontrastı düşük:** beyaz yazı / `rgb(91,143,214)` zemin = **3.31:1**
+2. ✅ **Koyu temada birincil buton kontrastı düşük:** beyaz yazı / `rgb(91,143,214)` zemin = **3.31:1**
    (normal metin için WCAG AA en az 4.5:1). Koyu temada buton zemini koyulaştırılmalı ya da yazı rengi
    koyu yapılmalı.
 3. **Yeni dosya formunda dosya numarası alanı sıkışık:** sıra no kutusu birkaç karakter genişliğinde,
    "Esas" seçimi sütun sınırını aşıp sağdaki "Fiziki arşiv yeri" bölümüne taşıyor.
-4. **Muhasebe tablosunda tutar kırılıyor:** "102.200,00" ve "₺" ayrı satırlara düşüyor; tutar hücresi
+4. ✅ **Muhasebe tablosunda tutar kırılıyor:** "102.200,00" ve "₺" ayrı satırlara düşüyor; tutar hücresi
    `white-space: nowrap` olmalı.
 5. **Kenar menüsü 900 px yükseklikte kesiliyor:** "Kısayollar" altındaki üçüncü bağlantı yarım
    görünüyor; kullanıcı menünün kaydırılabildiğini fark etmeyebilir.

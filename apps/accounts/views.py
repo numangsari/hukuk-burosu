@@ -6,7 +6,9 @@ from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.decorators import login_not_required
 from django.contrib.auth.views import LoginView
 from django.core.cache import cache
+from django.core.exceptions import NON_FIELD_ERRORS
 from django.db.models import ProtectedError, Q, Sum
+from django.forms.utils import ErrorDict
 from django.http import HttpResponse, HttpResponseForbidden
 from django.shortcuts import redirect, render
 from django.urls import reverse
@@ -24,6 +26,7 @@ from apps.office.forms import (
 )
 from apps.office.models import HEARING_TASK_TYPE_NAME, OfficeSettings, TaskType
 
+from . import throttle
 from .forms import (
     BalanceViewersForm,
     InitialSetupForm,
@@ -50,6 +53,29 @@ class PinLoginView(LoginView):
         ctx = super().get_context_data(**kwargs)
         ctx["users"] = User.objects.filter(is_active=True)
         return ctx
+
+    def post(self, request, *args, **kwargs):
+        username, ip = request.POST.get("username", ""), throttle.client_ip(request)
+        wait = throttle.remaining_wait(username, ip)
+        if wait:
+            # PIN doğrulanmaz: beklerken doğru PIN bile denenmiş olmaz, sonuç sızmaz.
+            form = self.get_form()
+            minutes, seconds = divmod(wait, 60)
+            duration = f"{minutes} dk {seconds} sn" if minutes else f"{seconds} sn"
+            form._errors = ErrorDict()
+            form._errors[NON_FIELD_ERRORS] = form.error_class(
+                [f"Çok fazla hatalı deneme. {duration} sonra tekrar deneyin."],
+                error_class="nonfield",
+            )
+            response = self.render_to_response(self.get_context_data(form=form))
+            response.status_code = 429
+            return response
+        response = super().post(request, *args, **kwargs)
+        if response.status_code == 302:  # başarılı giriş
+            throttle.register_success(username, ip)
+        else:
+            throttle.register_failure(username, ip)
+        return response
 
 
 @method_decorator(login_not_required, name="dispatch")

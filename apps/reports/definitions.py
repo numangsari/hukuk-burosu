@@ -4,6 +4,7 @@ from collections import defaultdict
 from decimal import Decimal
 
 from django import forms
+from django.core.exceptions import PermissionDenied
 from django.db.models import Count, IntegerField, OuterRef, Q, Subquery, Sum, Value
 from django.db.models.functions import Coalesce
 from django.utils import timezone
@@ -16,6 +17,12 @@ from apps.cases.flows import cluster
 from apps.cases.models import Case, CaseEvent, CaseStatus, CaseType, Seizure
 from apps.clients.models import Client
 from apps.core.forms import BootstrapMixin, DateInput
+from apps.core.permissions import (
+    can_view_all_office_data,
+    filter_visible_cases,
+    filter_visible_clients,
+    filter_visible_tasks,
+)
 from apps.tasks.models import OPEN_STATUSES, Task, TaskStatus
 
 from .base import Column, ReportResult
@@ -62,6 +69,8 @@ class StatementForm(PeriodForm):
 
 def build_statement(d, user):
     client = d["client"]
+    if not filter_visible_clients(Client.objects.filter(pk=client.pk), user).exists():
+        raise PermissionDenied
     entries = client.ledger_entries.active().select_related("case").order_by("date", "pk")
     balance = ZERO
     if d.get("start"):
@@ -115,7 +124,9 @@ class DebtorsForm(BootstrapMixin, forms.Form):
 def build_debtors(d, user):
     from apps.clients.views import annotate_list_values
 
-    qs = annotate_list_values(Client.objects.select_related("responsible_lawyer"))
+    qs = annotate_list_values(
+        filter_visible_clients(Client.objects.select_related("responsible_lawyer"), user)
+    )
     if d.get("lawyer"):
         qs = qs.filter(responsible_lawyer=d["lawyer"])
     if not d.get("include_zero"):
@@ -164,7 +175,9 @@ class TaskReportForm(PeriodForm):
 
 
 def build_tasks(d, user):
-    qs = Task.objects.select_related("task_type", "case", "client", "assignee", "reviewer")
+    qs = filter_visible_tasks(
+        Task.objects.select_related("task_type", "case", "client", "assignee", "reviewer"), user
+    )
     st = d.get("status") or "open"
     today = timezone.localdate()
     if st == "open":
@@ -257,7 +270,9 @@ def _linked_name(case) -> str:
 
 
 def build_cases(d, user):
-    qs = Case.objects.select_related("client", "responsible_lawyer", "responsible_intern")
+    qs = filter_visible_cases(
+        Case.objects.select_related("client", "responsible_lawyer", "responsible_intern"), user
+    )
     if d.get("case_type"):
         qs = qs.filter(case_type=d["case_type"])
     st = d.get("status") or "open"
@@ -315,7 +330,10 @@ class PeriodAccountingForm(PeriodForm):
 
 
 def build_period_accounting(d, user):
-    qs = _date_filter(LedgerEntry.objects.active(), d)
+    qs = LedgerEntry.objects.active()
+    if not can_view_all_office_data(user):
+        qs = qs.filter(client__in=filter_visible_clients(Client.objects.all(), user))
+    qs = _date_filter(qs, d)
     by_month = defaultdict(lambda: defaultdict(lambda: ZERO))
     for e in qs.only("date", "kind", "amount"):
         by_month[(e.date.year, e.date.month)][e.kind] += e.amount
@@ -358,7 +376,7 @@ class ClientCasesForm(BootstrapMixin, forms.Form):
 
 
 def build_client_cases(d, user):
-    cases = _seizure_summary(Case.objects.select_related("client"))
+    cases = _seizure_summary(filter_visible_cases(Case.objects.select_related("client"), user))
     if d.get("client"):
         cases = cases.filter(client=d["client"])
     if not d.get("include_closed"):
@@ -418,7 +436,10 @@ class SeizureReportForm(PeriodForm):
 
 def build_seizures(d, user):
     items = (
-        Seizure.objects.filter(case__case_type=CaseType.ENFORCEMENT)
+        Seizure.objects.filter(
+            case__case_type=CaseType.ENFORCEMENT,
+            case__in=filter_visible_cases(Case.objects.all(), user),
+        )
         .select_related(
             "case__client",
             "case__responsible_intern",

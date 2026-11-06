@@ -47,6 +47,7 @@ uv run ruff format --check .                         # Format denetimi
 - Türkçe metin yardımcıları (`fold`, `tr_lower`, `tr_upper`, `tr_capitalize_words`).
 - Genel arayüz template tag'leri (`tl` para formatı, `sort_link`, `query_with`).
 - Dinamik sayfalama altyapısı (`pagination.py`).
+- Türkçe hata sayfaları (`templates/400|403|403_csrf|404|500.html`) ve HTMX hata bildirimi (`static/js/htmx-errors.js`, başarısız HTMX isteğinde toast gösterir).
 - WhatsApp Click-to-Chat altyapısı (`whatsapp.py`): Uluslararası numara standardizasyonu (`clean_phone_for_whatsapp`), wa.me bağlantı üretici (`build_whatsapp_url`), duruşma/dosya mesaj şablonları ve evrensel düzenleme modalı (`whatsapp_modal.html`).
 
 ### `apps/accounts`
@@ -58,7 +59,7 @@ uv run ruff format --check .                         # Format denetimi
   - `paralegal`: İcra Katibi / Takip Memuru
   - `secretary`: Sekreter / Büro Yönetimi
   - `accountant`: Muhasebe / Finans
-- **Oturum Açma:** Kullanıcı adı/şifre yerine kullanıcı kartı seçilerek 4 haneli PIN ile hızlı giriş. Hatalı PIN'de kilit konmaz; 4. rakam girildiğinde form otomatik gönderilir.
+- **Oturum Açma:** Kullanıcı adı/şifre yerine kullanıcı kartı seçilerek 4 haneli PIN ile hızlı giriş; 4. rakam girildiğinde form otomatik gönderilir. Hatalı denemeler `apps/accounts/throttle.py` ile yavaşlatılır (kullanıcı+IP için 5, IP için 20, kullanıcı için 40 hatalı denemeden sonra 30 sn'den başlayıp ikiye katlanan, en çok 15 dk bekleme; beklerken doğru PIN bile denenmez, HTTP 429). Sayaçlar önbellekte tutulur, servis yeniden başlayınca sıfırlanır. Hatalı PIN denemeleri aktivite kaydına "hatalı PIN" olarak yazılır.
 - **İlk Kurulum Sihirbazı (`InitialSetupView`, `/hesap/ilk-kurulum/`):** Temiz kurulumda hiç kullanıcı yoksa ilk açılışta büro adı, çalışma modeli ve ilk yönetici hesabını tek adımda oluşturan ekran.
 - **Oturum Güvenliği:** `OfficeSettings.idle_minutes` süresince işlem yapılmazsa oturum otomatik kapanır (`?zaman_asimi=1`). `NoStoreMiddleware` ile tarayıcı bellekten geri gitmelerinde veri sızıntısı engellenir.
 
@@ -216,8 +217,10 @@ Ajan her görevde şu sırayı izler; kullanıcı açıkça daha dar kapsam iste
 
 - **Sunucu tarafı yetki:** Her dosya, görev, belge, rapor ve finans kaydı için görüntüleme/değiştirme iznini istek bazında doğrula. Arayüzde düğmeyi gizlemek tek başına güvenlik değildir. `case_visibility_mode`, rol ve özel finans izinlerini birlikte değerlendir.
 - **Dosya erişimi:** Yüklemelerde dosya türü, boyut ve uzantı/içerik uygunluğunu denetle; kullanıcıdan gelen dosya yoluna güvenme. `documents_root` ve `media/` dışına path traversal ile erişimi önle. Dosya indirmelerinde de izin denetimi yap.
-- **Kimlik doğrulama:** Mevcut 4 haneli PIN ve başarısız denemede kilit bulunmaması **mevcut risk** olarak kayıtlıdır; bunları güvenli kabul etme. Üretimde hız sınırlaması/deneme engeli, güvenli oturum ayarları ve daha güçlü kimlik doğrulama için ayrı iyileştirme planı oluştur. Bu dosya, önlemlerin kodlandığını iddia etmez.
-- **Yedekler:** Şu an yedek ZIP'leri parolasızdır. Şifreli yedek, ayrı konumda koruma, erişim kısıtları ve düzenli geri yükleme testi **hedef iyileştirmelerdir**; uygulanmadan mevcut özellik diye sunma.
+- **Kimlik doğrulama:** 4 haneli PIN zayıf bir sırdır; deneme yavaşlatma (bkz. `apps/accounts/throttle.py`) kaba kuvveti zorlaştırır ama PIN'i güçlü kimlik doğrulama yapmaz. Yönetici hesapları için daha uzun PIN/parola, güvenli oturum ayarları ve kalıcı (veritabanı tabanlı) deneme kaydı hâlâ **iyileştirme hedefidir**.
+- **Dosya/görev/belge görünürlüğü:** `case_visibility_mode=restricted` iken dosya, görev, duruşma, haciz, rapor ve `/media/` uçlarının tümü `filter_visible_cases` / `filter_visible_tasks` / `filter_visible_hearings` / `filter_visible_clients` (`apps/core/permissions.py`) ile nesne alır; görünmeyen kayıt 404 verir. Yeni uç yazarken `get_object_or_404(Case, ...)` yerine görünür kayıt kümesini kullan; `tests/test_visibility_endpoints.py` bu davranışı sınar.
+- **Yüklemeler:** `validate_upload` uzantı ve boyutun yanı sıra imzası bilinen türlerde (PDF, resim, OOXML/ODF, ZIP, eski Office, RTF) dosya imzasını (magic bytes) denetler. `.xls` bilerek denetlenmez (bankalar HTML/CSV içeriği `.xls` adıyla verebilir); metin tabanlı türler yalnızca uzantıyla sınırlıdır ve tarayıcıda açılmaz.
+- **Yedekler:** Yedek ZIP'leri parolasızdır; `manage.py restore` geri yüklemeden önce mevcut verinin tam yedeğini (`Geri yükleme öncesi`) otomatik alır, alınamazsa geri yüklemeyi başlatmaz (`--guvenlik-yedegi-alma` ile atlanabilir). Şifreli yedek, ayrı fiziksel konuma (harici disk/NAS) kopya, erişim kısıtları ve düzenli geri yükleme testi **hedef iyileştirmelerdir**; uygulanmadan mevcut özellik diye sunma.
 - **Gizli bilgiler:** API anahtarı, bağlantı bilgisi, kimlik/vergi numarası, IBAN, müvekkil belgesi ve gerçek dosya içeriğini log, test fikstürü, ekran görüntüsü, kod yorumu veya dokümantasyona taşıma. Testlerde sentetik veri kullan.
 - **Dış servisler:** LAN/çevrimdışı çalışma temel varsayımdır. Müvekkil verilerini veya belgelerini yeni bir dış servise aktaran entegrasyon kullanıcı onayı, veri minimizasyonu, güvenlik ve ilgili mevzuat değerlendirmesi olmadan eklenmez.
 - **İşlem izi:** Önemli değişikliklerin mevcut `django-auditlog` mekanizmasını atlamadığını kontrol et. Loglarda gizli içerik tutulmasını engelle.

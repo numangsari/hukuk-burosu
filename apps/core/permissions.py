@@ -83,3 +83,27 @@ def filter_visible_clients(qs, user):
         | Exists(co_case_match)
         | Exists(task_match)
     )
+
+
+def filter_visible_tasks(qs, user):
+    """Kullanıcının görebileceği görevler: kendi görevleri veya görünür dosyaların görevleri."""
+    if can_view_all_office_data(user):
+        return qs
+    from apps.cases.models import Case
+
+    return qs.filter(
+        Q(assignee=user)
+        | Q(reviewer=user)
+        | Q(case__in=filter_visible_cases(Case.objects.all(), user))
+    )
+
+
+def filter_visible_hearings(qs, user):
+    """Görünür dosyaların duruşmaları ile dosyasız (müvekkil randevusu/toplantı) kayıtlar."""
+    if can_view_all_office_data(user):
+        return qs
+    from apps.cases.models import Case
+
+    return qs.filter(
+        Q(case__in=filter_visible_cases(Case.objects.all(), user)) | Q(case__isnull=True)
+    )

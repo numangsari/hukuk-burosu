@@ -109,3 +109,41 @@ def test_dangerous_uploads_rejected(case_factory, client_factory, lawyer_client,
         {"file": SimpleUploadedFile("dilekce.udf", b"x")},
     )
     assert TaskDocument.objects.count() == 1  # UYAP belgesi kabul edilir
+
+
+def test_upload_content_must_match_extension():
+    from django.core.exceptions import ValidationError
+
+    from apps.core.uploads import validate_upload
+
+    ok = [
+        ("a.pdf", b"%PDF-1.7 ..."),
+        ("a.pdf", b"\xef\xbb\xbf%PDF-1.4"),  # başta çöp bayt
+        ("a.png", b"\x89PNG\r\n\x1a\n...."),
+        ("a.jpg", b"\xff\xd8\xff\xe0...."),
+        ("a.webp", b"RIFF\x00\x00\x00\x00WEBPVP8 "),
+        ("a.docx", b"PK\x03\x04...."),
+        ("a.doc", b"{\\rtf1...."),
+        ("a.xls", b"<html>banka dokumu</html>"),  # denetlenmez
+        ("a.udf", b"herhangi"),
+    ]
+    for name, content in ok:
+        validate_upload(SimpleUploadedFile(name, content))
+    bad = [
+        ("a.pdf", b"MZ\x90\x00 gizli program"),
+        ("a.png", b"<html><script>alert(1)</script>"),
+        ("a.docx", b"%PDF-1.4"),
+        ("a.webp", b"RIFF\x00\x00\x00\x00WAVEfmt "),
+        ("a.zip", b"not a zip"),
+    ]
+    for name, content in bad:
+        with pytest.raises(ValidationError, match="uyuşmuyor"):
+            validate_upload(SimpleUploadedFile(name, content))
+
+
+def test_validate_upload_keeps_file_position():
+    from apps.core.uploads import validate_upload
+
+    f = SimpleUploadedFile("a.pdf", b"%PDF-1.4 icerik")
+    validate_upload(f)
+    assert f.read() == b"%PDF-1.4 icerik"
