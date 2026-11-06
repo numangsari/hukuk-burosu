@@ -106,6 +106,6 @@ def test_dangerous_uploads_rejected(case_factory, client_factory, lawyer_client,
     assert not TaskDocument.objects.exists()
     login(intern).post(
         reverse("tasks:doc_upload", args=[task.pk]),
-        {"file": SimpleUploadedFile("dilekce.udf", b"x")},
+        {"file": SimpleUploadedFile("dilekce.udf", b"PK\x03\x04x")},
     )
     assert TaskDocument.objects.count() == 1  # UYAP belgesi kabul edilir

@@ -119,6 +119,42 @@
 {% else %}
   {% block anonymous %}{% endblock %}
 {% endif %}
+<script>
+  // HTMX istekleri başarısız olursa kullanıcıya bildirim göster (sessiz hata olmasın).
+  (() => {
+    const texts = {
+      403: 'Bu işlem için yetkiniz yok.',
+      404: 'Kayıt bulunamadı ya da erişim izniniz yok.',
+      413: 'Yüklenen dosya çok büyük.',
+      429: 'Çok fazla istek gönderildi; biraz bekleyip tekrar deneyin.',
+    };
+    const notify = (text) => {
+      let stack = document.querySelector('.toast-stack');
+      if (!stack) {
+        stack = document.createElement('div');
+        stack.className = 'toast-stack';
+        document.body.appendChild(stack);
+      }
+      const el = document.createElement('div');
+      el.className = 'alert alert-danger d-flex align-items-center gap-2';
+      el.setAttribute('role', 'alert');
+      el.innerHTML = '<i class="bi bi-exclamation-octagon"></i><span></span>'
+        + '<button type="button" class="btn-close btn-sm ms-auto" aria-label="Bildirimi kapat"></button>';
+      el.querySelector('span').textContent = text;
+      el.querySelector('button').addEventListener('click', () => el.remove());
+      stack.appendChild(el);
+      setTimeout(() => el.remove(), 12000);
+    };
+    document.body.addEventListener('htmx:responseError', (event) => {
+      const status = event.detail.xhr.status;
+      notify(texts[status] || (status >= 500
+        ? 'Sunucuda bir hata oluştu. Tekrar deneyin; sürerse yöneticinize bildirin.'
+        : `İşlem tamamlanamadı (${status}).`));
+    });
+    document.body.addEventListener('htmx:sendError', () =>
+      notify('Sunucuya bağlanılamadı. Ağ bağlantınızı kontrol edin.'));
+  })();
+</script>
 <script src="{% static 'vendor/bootstrap/bootstrap.bundle.min.js' %}"></script>
 {% if request.user.is_authenticated %}
 {% include "partials/whatsapp_modal.html" %}

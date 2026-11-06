@@ -44,7 +44,13 @@ def login(user):
     return c
 
 
-def upload(c, task, name="dilekce.docx", content=b"icerik", replaces=""):
+DOCX = b"PK\x03\x04"  # gerçek bir docx/zip dosyası başlığı
+PDF = b"%PDF-1.4 "
+
+
+def upload(c, task, name="dilekce.docx", content=None, replaces=""):
+    if content is None:  # uzantıya uygun gerçek dosya başlığı
+        content = (PDF if name.endswith(".pdf") else DOCX) + b"icerik"
     return c.post(
         reverse("tasks:doc_upload", args=[task.pk]),
         {"file": SimpleUploadedFile(name, content), "replaces": replaces},
@@ -67,9 +73,9 @@ def test_requires_document_before_submit(task, intern, office_root):
 
 def test_versions_and_permissions(task, intern, lawyer, client_factory, office_root):
     c = login(intern)
-    upload(c, task, "dilekce.docx", b"v1")
+    upload(c, task, "dilekce.docx", DOCX + b"v1")
     first = TaskDocument.objects.get()
-    upload(c, task, "dilekce-duzeltilmis.docx", b"v2", replaces=first.pk)
+    upload(c, task, "dilekce-duzeltilmis.docx", DOCX + b"v2", replaces=first.pk)
     first.refresh_from_db()
     current = TaskDocument.objects.get(is_current=True)
     assert not first.is_current and current.version == 2 and current.previous == first
@@ -85,7 +91,7 @@ def test_versions_and_permissions(task, intern, lawyer, client_factory, office_r
 
 
 def test_approve_publishes_to_case_and_folder(task, intern, lawyer, office_root):
-    upload(login(intern), task, "dilekce.docx", b"son hal")
+    upload(login(intern), task, "dilekce.docx", DOCX + b"son hal")
     services.perform(task, "submit", intern)
     services.perform(task, "approve", lawyer)
     assert task.warnings == []
@@ -93,8 +99,8 @@ def test_approve_publishes_to_case_and_folder(task, intern, lawyer, office_root)
     assert doc.category == "petition" and doc.title == "CEVAP DİLEKÇESİ"
     folder = office_root / "Müvekkiller" / "DENEME KİŞİ" / "ALACAK DAVASI"
     published = folder / f"{timezone.localdate():%Y-%m-%d} CEVAP DİLEKÇESİ.docx"
-    assert published.read_bytes() == b"son hal"
-    assert (folder / "Görevler" / "dilekce.docx").read_bytes() == b"son hal"
+    assert published.read_bytes() == DOCX + b"son hal"
+    assert (folder / "Görevler" / "dilekce.docx").read_bytes() == DOCX + b"son hal"
     assert doc.folder_path == str(published)
 
 
@@ -113,8 +119,8 @@ def test_document_on_task_creation_is_stored_and_copied(
         "due_date": "2026-11-10",
         "requires_accounting": "yes",
         "document": [
-            SimpleUploadedFile("ornek.pdf", b"ornek belge"),
-            SimpleUploadedFile("diger.pdf", b"ikinci belge"),
+            SimpleUploadedFile("ornek.pdf", PDF + b"ornek belge"),
+            SimpleUploadedFile("diger.pdf", PDF + b"ikinci belge"),
         ],
     }
     with django_capture_on_commit_callbacks(execute=True):
@@ -124,7 +130,10 @@ def test_document_on_task_creation_is_stored_and_copied(
     assert [doc.original_name for doc in docs] == ["diger.pdf", "ornek.pdf"]
     assert all(doc.uploaded_by == lawyer for doc in docs)
     assert all(Path(doc.folder_path).parent.name == "Görevler" for doc in docs)
-    assert [Path(doc.folder_path).read_bytes() for doc in docs] == [b"ikinci belge", b"ornek belge"]
+    assert [Path(doc.folder_path).read_bytes() for doc in docs] == [
+        PDF + b"ikinci belge",
+        PDF + b"ornek belge",
+    ]
 
 
 def test_invalid_document_does_not_create_task(case_factory, lawyer, intern, office_root):
@@ -164,7 +173,7 @@ def test_existing_client_folder_is_reused_and_names_not_overwritten(
             {
                 "title": "İhtarname",
                 "category": "other",
-                "file": SimpleUploadedFile("ihtar.pdf", b"x"),
+                "file": SimpleUploadedFile("ihtar.pdf", PDF + b"x"),
             },
         )
     case.client.refresh_from_db()
@@ -241,7 +250,7 @@ def test_source_document_is_protected_and_does_not_satisfy_petition_requirement(
     document = TaskDocument.objects.create(
         task=task,
         kind=TaskDocument.Kind.SOURCE,
-        file=SimpleUploadedFile("kaynak.pdf", b"kaynak"),
+        file=SimpleUploadedFile("kaynak.pdf", PDF + b"kaynak"),
         original_name="kaynak.pdf",
         uploaded_by=lawyer,
     )
@@ -261,7 +270,7 @@ def test_task_documents_and_petitions_are_in_separate_sections(task, intern, law
     TaskDocument.objects.create(
         task=task,
         kind=TaskDocument.Kind.SOURCE,
-        file=SimpleUploadedFile("kaynak.pdf", b"kaynak"),
+        file=SimpleUploadedFile("kaynak.pdf", PDF + b"kaynak"),
         original_name="kaynak.pdf",
         uploaded_by=lawyer,
     )
