@@ -3,7 +3,7 @@
   {% if folder_warning %}<div class="alert alert-warning small m-3 mb-0 py-2"><i class="bi bi-folder-x me-1"></i>{{ folder_warning }}</div>{% endif %}
   <div class="table-responsive">
   <table class="table">
-    <thead><tr><th>Belge</th><th>Kategori</th><th>Yükleyen</th><th>Tarih</th><th></th></tr></thead>
+    <thead><tr><th>Belge</th><th>Kategori</th><th class="hide-lg">Yükleyen</th><th>Tarih</th><th></th></tr></thead>
     <tbody>
     {% for d in office_documents %}
       <tr>
@@ -19,7 +19,7 @@
           </div>
         </td>
         <td><span class="chip no-dot">{{ d.get_category_display }}</span></td>
-        <td>{{ d.created_by|default:"—" }}</td><td class="tabular text-body-secondary">{% if d.document_date %}{{ d.document_date|date:"d.m.Y" }}{% else %}{{ d.created_at|date:"d.m.Y H:i" }}{% endif %}</td>
+        <td class="hide-lg">{{ d.created_by|default:"—" }}</td><td class="tabular text-body-secondary">{% if d.document_date %}{{ d.document_date|date:"d.m.Y" }}{% else %}{{ d.created_at|date:"d.m.Y H:i" }}{% endif %}</td>
         <td class="text-end text-nowrap">
           <a class="btn-ghost-danger text-body-secondary" href="{{ d.file.url }}" download title="İndir"><i class="bi bi-download"></i></a>
           {% if d.created_by_id == request.user.pk or request.user.is_office_admin %}<button class="btn-ghost-danger" title="Sil" hx-post="{% url 'cases:document_delete' case.pk d.pk %}" hx-target="#documents" hx-swap="outerHTML" hx-confirm="Belge silinsin mi?"><i class="bi bi-trash"></i></button>{% endif %}
@@ -40,10 +40,10 @@
   </div>
   {% endif %}
   <form class="inline-form row g-2 align-items-start" hx-post="{% url 'cases:document_upload' case.pk %}" hx-target="#documents" hx-swap="outerHTML" hx-encoding="multipart/form-data">
-    <div class="col-md-3">{% include "partials/field.html" with field=document_form.title wrap_class="" %}</div>
-    <div class="col-md-2">{% include "partials/field.html" with field=document_form.category wrap_class="" %}</div>
-    <div class="col-md-3">{% include "partials/field.html" with field=document_form.file wrap_class="" %}</div>
-    <div class="col-md-2">{% include "partials/field.html" with field=document_form.notes wrap_class="" %}</div>
-    <div class="col-md-2"><label class="form-label d-block" aria-hidden="true">&nbsp;</label><button class="btn btn-primary w-100"><i class="bi bi-upload"></i>Yükle</button></div>
+    <div class="col-sm-6">{% include "partials/field.html" with field=document_form.title wrap_class="" %}</div>
+    <div class="col-sm-6">{% include "partials/field.html" with field=document_form.category wrap_class="" %}</div>
+    <div class="col-12">{% include "partials/field.html" with field=document_form.file wrap_class="" %}</div>
+    <div class="col-sm-8">{% include "partials/field.html" with field=document_form.notes wrap_class="" %}</div>
+    <div class="col-sm-4"><label class="form-label d-block" aria-hidden="true">&nbsp;</label><button class="btn btn-primary w-100"><i class="bi bi-upload"></i>Yükle</button></div>
   </form>
 </div>
