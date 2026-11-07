@@ -349,7 +349,12 @@ def test_case_names_in_lists_and_selectors(lawyer_client, case_factory, case_typ
         case_type=case_type, authority="Örnek Kurum", official_no="2026/42", subject="Örnek konu"
     )
     response = lawyer_client.get(reverse("cases:list"))
-    assert tr_title(case.display_name) in response.content.decode()  # listede normal yazım
+    # Listede mahkeme adı ile numara ayrı satırlarda, normal yazımla gösterilir.
+    if case_type in {"consultancy", "other"}:
+        assert tr_title(case.display_name) in response.content.decode()
+    else:
+        assert tr_title(case.authority) in response.content.decode()
+        assert case.official_no_display in response.content.decode()
     response = lawyer_client.get(case.get_absolute_url())
     assert case.display_name in response.content.decode()
     assert "ÖRNEK KONU" in response.content.decode()

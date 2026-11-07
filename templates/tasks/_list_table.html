@@ -8,9 +8,9 @@
   <tbody>
   {% for t in tasks %}
     <tr data-href="{{ t.get_absolute_url }}" onclick="if (!event.target.closest('a, button')) this.querySelector('a.cell-main').click()">
-      <td><a class="cell-main text-reset" href="{{ t.get_absolute_url }}">{{ t.title|tr_title }}</a></td>
+      <td><a class="cell-main text-reset clip" style="--clip-w: 24rem" href="{{ t.get_absolute_url }}" title="{{ t.title|tr_title }}">{{ t.title|tr_title }}</a></td>
       <td><span class="chip no-dot">{{ t.task_type }}</span></td>
-      <td><span class="tabular">{{ t.case.archive_reference }}</span> · {{ t.case.display_name|tr_title }}</td>
+      <td><span class="tabular">{{ t.case.archive_reference }}</span> · <span class="clip-inline" style="--clip-w: 22rem" title="{{ t.case.display_name|tr_title }}">{{ t.case.display_name|tr_title }}</span></td>
       <td>{{ t.client|tr_title }}</td>
       <td class="text-nowrap">{{ t.assignee|tr_title }}</td><td class="text-nowrap">{{ t.reviewer|default:"—"|tr_title }}</td>
       <td>{% include "tasks/_chips.html" with part="status" %}</td>

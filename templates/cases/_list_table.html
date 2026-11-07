@@ -30,8 +30,10 @@
       </td>
       <td>{% if k.is_open %}{{ k.stage_label|default:"—" }}{% else %}—{% endif %}</td>
       <td>
-        <div class="cell-main">{% if k.chain_prev %}<i class="bi bi-link-45deg chain-icon" title="Bağlı dosya"></i>{% endif %}{% include "cases/_source_badge.html" with case=k %} {{ k.display_name|tr_title }}{% if k.linked_others %} <span class="chip chip-accent no-dot">+{{ k.linked_others }} dosya bağlı</span>{% endif %}</div>
-        <div class="cell-sub">{% if k.authority and k.subject %} {{ k.subject|tr_title }}{% elif k.uyap_subject %}{{ k.uyap_subject|tr_title }}{% endif %}</div>
+        {% with name=k.authority|default:k.display_name %}
+        <div class="cell-main clip" title="{{ name|tr_title }}">{% if k.chain_prev %}<i class="bi bi-link-45deg chain-icon" title="Bağlı dosya"></i>{% endif %}{% include "cases/_source_badge.html" with case=k %} {% if k.case_type == "consultancy" or k.case_type == "other" %}{{ k.display_name|tr_title }}{% else %}{{ name|tr_title }}{% endif %}</div>
+        {% endwith %}
+        <div class="cell-sub clip">{% if k.authority and k.official_no_display %}<span class="tabular">{{ k.official_no_display }}</span>{% endif %}{% if k.authority and k.subject %} · {{ k.subject|tr_title }}{% elif k.uyap_subject %} · {{ k.uyap_subject|tr_title }}{% endif %}{% if k.linked_others %} <span class="chip chip-accent no-dot">+{{ k.linked_others }} dosya bağlı</span>{% endif %}</div>
       </td>
       <td>
         {% if k.client %}{{ k.client|tr_title }}{% else %}<span class="chip chip-warning no-dot">Müvekkil eksik</span>{% endif %}

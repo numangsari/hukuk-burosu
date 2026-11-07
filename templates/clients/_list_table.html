@@ -21,7 +21,7 @@
             <i class="bi {% if c.kind == 'company' %}bi-building{% else %}bi-person{% endif %}"></i>
           </span>
           <div class="min-w-0">
-            <a href="{{ c.get_absolute_url }}" class="cell-main text-reset">{{ c.name|tr_title }}</a>
+            <a href="{{ c.get_absolute_url }}" class="cell-main text-reset clip" title="{{ c.name|tr_title }}">{{ c.name|tr_title }}</a>
             <div class="cell-sub tabular">{{ c.identity_no|default:"Kimlik no girilmemiş" }}</div>
           </div>
         </div>

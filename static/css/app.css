@@ -458,6 +458,9 @@ a.stat-card:hover { box-shadow: var(--shadow); border-color: color-mix(in srgb, 
 .table-hover tbody tr[data-href] { cursor: pointer; }
 .table .cell-main { font-weight: 600; color: var(--ink); }
 .table .cell-sub { font-size: .78rem; color: var(--muted); }
+/* Uzun içerik tek satırda "…" ile kısalır; tam metin başlıkta (title) görünür. */
+.clip { display: block; max-width: var(--clip-w, 26rem); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.clip-inline { display: inline-block; vertical-align: bottom; max-width: var(--clip-w, 26rem); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .table-card { overflow: hidden; }
 .table-card .table-responsive { margin: 0; }
 .searchable-select { position: relative; }

@@ -8,8 +8,8 @@
     <tr class="{% if e.is_cancelled %}row-cancelled{% endif %}">
       <td class="tabular text-nowrap">{{ e.date|date:"d.m.Y" }}</td>
       <td>{% include "accounting/_kind_chip.html" %}{% if e.is_cancelled %} <span class="chip chip-danger no-dot">İptal</span>{% endif %}</td>
-      <td><a href="{{ e.client.get_absolute_url }}#muhasebe">{{ e.client|tr_title }}</a></td><td>{% if e.case %}<div class="cell-main"><a href="{{ e.case.get_absolute_url }}">{{ e.case.archive_reference }} · {{ e.case.display_name|tr_title }}</a></div>{% else %}<span class="text-body-secondary">Dosyasız</span>{% endif %}</td>
-      <td class="small">{{ e.description|default:"—" }}{% if e.receipt %} <a href="{{ e.receipt.url }}" target="_blank"><i class="bi bi-paperclip"></i></a>{% endif %}
+      <td><a href="{{ e.client.get_absolute_url }}#muhasebe">{{ e.client|tr_title }}</a></td><td>{% if e.case %}<div class="cell-main clip" style="--clip-w: 24rem" title="{{ e.case.display_name|tr_title }}"><a href="{{ e.case.get_absolute_url }}">{{ e.case.archive_reference }} · {{ e.case.display_name|tr_title }}</a></div>{% else %}<span class="text-body-secondary">Dosyasız</span>{% endif %}</td>
+      <td class="small"><span class="clip-inline" style="--clip-w: 26rem" title="{{ e.description }}">{{ e.description|default:"—" }}</span>{% if e.receipt %} <a href="{{ e.receipt.url }}" target="_blank"><i class="bi bi-paperclip"></i></a>{% endif %}
         {% if e.is_cancelled %}<div class="cell-sub">İptal: {{ e.cancel_reason }}{% if e.cancelled_by %} · {{ e.cancelled_by }}{% endif %} · {{ e.cancelled_at|date:"d.m.Y H:i" }}</div>{% endif %}</td>
       <td class="text-end tabular fw-semibold amount-{{ e.kind }}">{{ e.amount|tl }}</td>
       <td class="small text-body-secondary">{{ e.created_by|default:"—" }}</td>
