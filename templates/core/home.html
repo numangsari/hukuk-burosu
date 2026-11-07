@@ -16,6 +16,35 @@
 </div>
 
 <div class="row g-4 home-panels">
+  <div class="{% if show_review %}col-xl-4{% else %}col-xl-5{% endif %} order-xl-3">
+    <div class="card">
+      <div class="card-header">
+        <i class="bi bi-calendar3 text-body-secondary"></i>
+        <h2 class="card-title">Takvim</h2>
+        <span class="small text-body-secondary">Önümüzdeki 7 gün</span>
+        <a class="ms-auto small" href="{% url 'agenda:calendar' %}">Takvimi aç <i class="bi bi-arrow-right"></i></a>
+      </div>
+      <div class="panel-scroll">
+      {% if agenda.error %}<div class="alert alert-warning small m-3 mb-0 py-2"><i class="bi bi-exclamation-triangle me-1"></i>{{ agenda.error }}</div>{% endif %}
+      {% for day in agenda_days %}
+        <div class="agenda-day">{% if day.date == today %}Bugün{% elif day.date == tomorrow %}Yarın{% else %}{{ day.date|date:"j F, l" }}{% endif %}</div>
+        {% for ev in day.events %}
+          {% if ev.url %}<a class="agenda-item src-{{ ev.source }}" href="{{ ev.url }}">{% else %}<div class="agenda-item src-{{ ev.source }}">{% endif %}
+            <span class="t">{{ ev.time_label }}</span>
+            <span class="x">{{ ev.title }}{% if ev.location %}<small><i class="bi bi-geo-alt"></i> {{ ev.location }}</small>{% endif %}</span>
+          {% if ev.url %}</a>{% else %}</div>{% endif %}
+        {% endfor %}
+      {% empty %}
+        <div class="empty-state"><i class="bi bi-calendar-check"></i><strong>Önümüzdeki 7 günde kayıt yok</strong></div>
+      {% endfor %}
+      {% if not agenda.configured %}
+        <div class="small text-body-secondary px-3 pb-3 pt-2"><i class="bi bi-info-circle"></i> Google Takvim bağlı değil{% if request.user.is_office_admin %} — <a href="{% url 'accounts:settings' %}?bolum=takvim">bağla</a>{% endif %}.</div>
+      {% endif %}
+      <div class="pb-2"></div>
+      </div>
+    </div>
+  </div>
+
   <div class="{% if show_review %}col-xl-4{% else %}col-xl-7{% endif %}">
     <div class="card task-panel">
       <div class="card-header">
@@ -61,33 +90,6 @@
   </div>
   {% endif %}
 
-  <div class="{% if show_review %}col-xl-4{% else %}col-xl-5{% endif %}">
-    <div class="card">
-      <div class="card-header">
-        <i class="bi bi-calendar3 text-body-secondary"></i>
-        <h2 class="card-title">Takvim</h2>
-        <span class="small text-body-secondary">Önümüzdeki 7 gün</span>
-        <a class="ms-auto small" href="{% url 'agenda:calendar' %}">Takvimi aç <i class="bi bi-arrow-right"></i></a>
-      </div>
-      <div class="panel-scroll">
-      {% if agenda.error %}<div class="alert alert-warning small m-3 mb-0 py-2"><i class="bi bi-exclamation-triangle me-1"></i>{{ agenda.error }}</div>{% endif %}
-      {% for day in agenda_days %}
-        <div class="agenda-day">{% if day.date == today %}Bugün{% elif day.date == tomorrow %}Yarın{% else %}{{ day.date|date:"j F, l" }}{% endif %}</div>
-        {% for ev in day.events %}
-          {% if ev.url %}<a class="agenda-item src-{{ ev.source }}" href="{{ ev.url }}">{% else %}<div class="agenda-item src-{{ ev.source }}">{% endif %}
-            <span class="t">{{ ev.time_label }}</span>
-            <span class="x">{{ ev.title }}{% if ev.location %}<small><i class="bi bi-geo-alt"></i> {{ ev.location }}</small>{% endif %}</span>
-          {% if ev.url %}</a>{% else %}</div>{% endif %}
-        {% endfor %}
-      {% empty %}
-        <div class="empty-state"><i class="bi bi-calendar-check"></i><strong>Önümüzdeki 7 günde kayıt yok</strong></div>
-      {% endfor %}
-      {% if not agenda.configured %}
-        <div class="small text-body-secondary px-3 pb-3 pt-2"><i class="bi bi-info-circle"></i> Google Takvim bağlı değil{% if request.user.is_office_admin %} — <a href="{% url 'accounts:settings' %}?bolum=takvim">bağla</a>{% endif %}.</div>
-      {% endif %}
-      <div class="pb-2"></div>
-      </div>
-    </div>
-  </div>
+
 </div>
 {% endblock %}
