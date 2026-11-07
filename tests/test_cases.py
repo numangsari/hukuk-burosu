@@ -5,6 +5,7 @@ from django.utils import timezone
 
 from apps.cases.models import ArchiveFolder, Case, CaseParty, Document
 from apps.clients.models import Party
+from apps.core.text import tr_title
 
 pytestmark = pytest.mark.django_db
 
@@ -348,7 +349,7 @@ def test_case_names_in_lists_and_selectors(lawyer_client, case_factory, case_typ
         case_type=case_type, authority="Örnek Kurum", official_no="2026/42", subject="Örnek konu"
     )
     response = lawyer_client.get(reverse("cases:list"))
-    assert case.display_name in response.content.decode()
+    assert tr_title(case.display_name) in response.content.decode()  # listede normal yazım
     response = lawyer_client.get(case.get_absolute_url())
     assert case.display_name in response.content.decode()
     assert "ÖRNEK KONU" in response.content.decode()

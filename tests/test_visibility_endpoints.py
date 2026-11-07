@@ -15,6 +15,7 @@ from django.utils import timezone
 
 from apps.accounts.models import User
 from apps.cases.models import CaseEvent, Document, Hearing, Seizure
+from apps.core.text import tr_upper
 from apps.office.models import OfficeSettings, TaskType
 from apps.tasks.models import Task, TaskDocument
 from tests.conftest import make_user
@@ -134,8 +135,8 @@ def test_task_endpoints_hide_invisible_task(restricted, task, stranger, intern):
 
 def test_task_list_all_scope_does_not_leak(restricted, task, stranger, lawyer):
     url = reverse("tasks:list") + "?kapsam=tumu"
-    assert task.title.upper() not in login(stranger).get(url).content.decode().upper()
-    assert task.title.upper() in login(lawyer).get(url).content.decode().upper()
+    assert tr_upper(task.title) not in tr_upper(login(stranger).get(url).content.decode())
+    assert tr_upper(task.title) in tr_upper(login(lawyer).get(url).content.decode())
 
 
 def test_task_form_offers_only_visible_cases(restricted, task, case_factory, stranger):

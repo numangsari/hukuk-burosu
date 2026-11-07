@@ -449,11 +449,11 @@ a.stat-card:hover { box-shadow: var(--shadow); border-color: color-mix(in srgb, 
 .table > thead th {
   font-size: .72rem; font-weight: 600; text-transform: uppercase; letter-spacing: .05em;
   color: var(--muted); background: var(--surface-2); border-bottom: 1px solid var(--line);
-  padding: .7rem 1rem; white-space: nowrap;
+  padding: .45rem .85rem; white-space: nowrap;
 }
 .table > thead th a { color: inherit; }
 .table > thead th a:hover { color: var(--ink); text-decoration: none; }
-.table > tbody td { padding: .8rem 1rem; vertical-align: middle; border-color: var(--line); }
+.table > tbody td { padding: .45rem .85rem; vertical-align: middle; border-color: var(--line); }
 .table > tbody tr:last-child td { border-bottom: 0; }
 .table-hover tbody tr[data-href] { cursor: pointer; }
 .table .cell-main { font-weight: 600; color: var(--ink); }

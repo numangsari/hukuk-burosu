@@ -20,6 +20,32 @@ def tr_capitalize_words(value: str) -> str:
     )
 
 
+_TITLE_SMALL_WORDS = {"ve", "ile", "veya"}
+
+
+def tr_title(value) -> str:
+    """Tamamı büyük harfli metni ekranda okunaklı yazıma çevirir (Sakarya 2. Asliye Ceza Mahkemesi).
+
+    Saklanan değeri değiştirmez; yalnızca gösterim içindir. Zaten karışık harfli metne (ör. UYAP'tan
+    gelen) dokunmaz. Nokta, tire ve eğik çizgiden sonra yeni kelime başlar (A.Ş., D.İş); kesme
+    işaretinden sonraki ek küçük kalır (Kaya'nın).
+    """
+    text = "" if value is None else str(value)
+    if not text or text != tr_upper(text):
+        return text
+    out = []
+    for i, char in enumerate(text):
+        if not char.isalpha() or i == 0 or not (text[i - 1].isalpha() or text[i - 1] in "'’"):
+            out.append(char)
+        else:
+            out.append(tr_lower(char))
+    result = "".join(out)
+    words = result.split(" ")
+    return " ".join(
+        w.lower() if i > 0 and w.lower() in _TITLE_SMALL_WORDS else w for i, w in enumerate(words)
+    )
+
+
 _FOLD = str.maketrans("çğıöşüâîû", "cgiosuaiu")
 
 

@@ -7,6 +7,7 @@ from django.utils.http import urlencode
 from django.utils.safestring import mark_safe
 
 from apps.core.links import OFFICE_LINKS
+from apps.core.text import fold, tr_title
 from apps.core.whatsapp import (
     build_whatsapp_url,
     clean_phone_for_whatsapp,
@@ -33,6 +34,18 @@ def tl(value):
     whole, frac = f"{abs(q):.2f}".split(".")
     whole = f"{int(whole):,}".replace(",", ".")
     return f"{sign}{whole},{frac} ₺"
+
+
+@register.filter(name="tr_title")
+def tr_title_filter(value):
+    """Büyük harfle saklanan adı ekranda normal yazımla gösterir."""
+    return tr_title(value)
+
+
+@register.filter
+def same_text(a, b):
+    """İki metin büyük/küçük harf ve Türkçe aksan farkı gözetilmeden aynı mı?"""
+    return fold(str(a or "")) == fold(str(b or ""))
 
 
 @register.filter

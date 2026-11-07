@@ -34,7 +34,7 @@
             </span>
           </td>
           <td>
-            <div class="cell-main fw-medium">{{ h.authority|default:h.case.authority|default:"—" }}</div>
+            <div class="cell-main fw-medium">{{ h.authority|default:h.case.authority|default:"—"|tr_title }}</div>
             {% if h.room %}
             <div class="cell-sub text-body-secondary small"><i class="bi bi-geo-alt me-1"></i>Salon: {{ h.room }}</div>
             {% endif %}
@@ -46,7 +46,7 @@
             <div class="cell-main">
               {% if h.case %}
                 <a href="{{ h.case.get_absolute_url }}#t-durusmalar" class="fw-semibold">
-                  {{ h.case.display_name }}
+                  {{ h.case.display_name|tr_title }}
                 </a>
                 {% if h.case.archive_reference %}
                 <span class="chip chip-accent no-dot ms-1 py-0 px-1" style="font-size: 0.7rem;">{{ h.case.archive_reference }}</span>
@@ -58,9 +58,9 @@
             </div>
             <div class="cell-sub text-body-secondary small">
               {% if h.case and h.case.client %}
-                <i class="bi bi-person me-1"></i><a href="{{ h.case.client.get_absolute_url }}" class="text-body-secondary">{{ h.case.client }}</a>
+                <i class="bi bi-person me-1"></i><a href="{{ h.case.client.get_absolute_url }}" class="text-body-secondary">{{ h.case.client|tr_title }}</a>
               {% elif h.client %}
-                <i class="bi bi-person me-1"></i><a href="{{ h.client.get_absolute_url }}" class="text-body-secondary">{{ h.client }}</a>
+                <i class="bi bi-person me-1"></i><a href="{{ h.client.get_absolute_url }}" class="text-body-secondary">{{ h.client|tr_title }}</a>
               {% else %}
                 <span class="text-body-tertiary">Müvekkilsiz</span>
               {% endif %}
