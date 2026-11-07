@@ -5,7 +5,7 @@
       <thead>
         <tr>
           <th style="width: 140px;">Tarih / Saat</th>
-          <th style="width: 130px;">Tür</th>
+          <th style="width: 130px;" class="hide-lg">Tür</th>
           <th>Mahkeme / Yer</th>
           <th>Dosya / Müvekkil</th>
           <th>Sorumlu</th>
@@ -28,7 +28,7 @@
               {% endif %}
             </div>
           </td>
-          <td>
+          <td class="hide-lg">
             <span class="badge bg-body-secondary text-body border" style="font-size: 0.8rem;">
               {{ h.get_kind_display }}
             </span>

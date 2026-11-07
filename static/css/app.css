@@ -1139,7 +1139,7 @@ form.is-dragover { outline: 2px dashed var(--brand); outline-offset: -2px; backg
 @media (max-width: 767.98px) { .portal-ind { display: none; } }
 
 /* Dar ekranlar: tablolarda az önemli sütunlar gizlenir, uzun hücreler ekrana göre kısalır, yan menü simge şeridine iner. */
-.clip, .clip-inline { max-width: min(var(--clip-w, 26rem), 20vw); }
+.clip, .clip-inline { max-width: min(var(--clip-w, 26rem), 18vw); }
 @media (max-width: 2099.98px) { .hide-xl { display: none !important; } }
 @media (max-width: 1799.98px) { .hide-lg { display: none !important; } }
 @media (max-width: 1399.98px) { .hide-md { display: none !important; } }
