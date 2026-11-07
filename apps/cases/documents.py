@@ -37,6 +37,8 @@ def mirror_document(doc: Document, filename: str | None = None) -> str:
 
 def mirror_task_document(doc) -> str:
     """Görev belgesini dosyanın Görevler klasörüne kopyalar."""
+    if not doc.task.case_id:
+        return ""  # ofis içi görevin dosyası yoktur; belge yalnızca görevde saklanır
     if folders.root() is None:
         return NOT_CONFIGURED
     try:
@@ -101,6 +103,8 @@ def mirror_retainer(agreement) -> str:
 
 def publish_task_documents(task, user) -> tuple[list[Document], list[str]]:
     """Onaylanan görevin güncel belgelerini dosyanın Belgeler'ine ekler ve klasöre kopyalar."""
+    if not task.case_id:
+        return [], []  # ofis içi görevin dosyası yoktur
     current = list(
         task.documents.filter(is_current=True, kind__in=["petition", "attachment"]).order_by(
             "kind", "created_at"

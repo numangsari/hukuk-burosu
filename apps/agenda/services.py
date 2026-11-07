@@ -270,13 +270,14 @@ def task_events(start: dt.date, end: dt.date) -> list[Event]:
     events = []
     for task in tasks:
         responsible = task.reviewer if task.status == TaskStatus.REVIEW else task.assignee
+        where = task.case.archive_reference if task.case_id else "Ofis içi"
         events.append(
             Event(
                 title=task.title,
                 start=task.due_date,
                 end=None,
                 all_day=True,
-                location=f"{task.case.archive_reference} · {responsible}",
+                location=f"{where} · {responsible}",
                 days=[task.due_date],
                 source="task",
                 url=task.get_absolute_url(),

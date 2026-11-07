@@ -190,7 +190,7 @@ def build_tasks(d, user):
         qs = qs.filter(Q(assignee=d["user"]) | Q(reviewer=d["user"]))
     qs = _date_filter(qs, d, "due_date").order_by("due_date", "pk")
     rows = [
-        [t.due_date, t.title, t.task_type.name, f"{t.case.archive_reference} · {t.client}", t.assignee, t.reviewer,
+        [t.due_date, t.title, t.task_type.name, (f"{t.case.archive_reference} · {t.client}" if t.case_id else "Ofis içi"), t.assignee, t.reviewer,
          t.get_status_display() + (" (revizyon)" if t.revision_requested else ""),
          t.due_label if t.is_open else (f"{timezone.localtime(t.completed_at):%d.%m.%Y}" if t.completed_at else "")]
         for t in qs

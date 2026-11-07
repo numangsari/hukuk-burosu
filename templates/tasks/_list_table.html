@@ -10,8 +10,8 @@
     <tr data-href="{{ t.get_absolute_url }}" onclick="if (!event.target.closest('a, button')) this.querySelector('a.cell-main').click()">
       <td><a class="cell-main text-reset clip" style="--clip-w: 20rem" href="{{ t.get_absolute_url }}" title="{{ t.title|tr_title }}">{{ t.title|tr_title }}</a></td>
       <td class="hide-xl"><span class="chip no-dot clip" style="--clip-w: 14rem" title="{{ t.task_type }}">{{ t.task_type }}</span></td>
-      <td><span class="tabular">{{ t.case.archive_reference }}</span> · <span class="clip-inline" style="--clip-w: 14rem" title="{{ t.case.display_name|tr_title }}">{{ t.case.display_name|tr_title }}</span></td>
-      <td><span class="clip" style="--clip-w: 12rem" title="{{ t.client|tr_title }}">{{ t.client|tr_title }}</span></td>
+      {% if not t.case_id %}<td colspan="2"><span class="chip no-dot">Ofis içi</span></td>{% else %}<td><span class="tabular">{{ t.case.archive_reference }}</span> · <span class="clip-inline" style="--clip-w: 14rem" title="{{ t.case.display_name|tr_title }}">{{ t.case.display_name|tr_title }}</span></td>
+      <td><span class="clip" style="--clip-w: 12rem" title="{{ t.client|tr_title }}">{{ t.client|tr_title }}</span></td>{% endif %}
       <td class="text-nowrap">{{ t.assignee|tr_title }}</td><td class="text-nowrap hide-lg">{{ t.reviewer|default:"—"|tr_title }}</td>
       <td>{% include "tasks/_chips.html" with part="status" %}</td>
       <td>{% include "tasks/_chips.html" with part="due" %}<div class="cell-sub tabular">{{ t.due_date|date:"d.m.Y" }}</div></td>

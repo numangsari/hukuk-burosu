@@ -8,7 +8,7 @@
   {% if more.cases %}<a class="sr-more" href="{{ more.cases.1 }}">{{ more.cases.0 }} dosyanın tümünü gör <i class="bi bi-arrow-right"></i></a>{% endif %}
 {% endif %}
 {% if r.tasks %}<div class="sr-group">Görevler</div>
-  {% for t in r.tasks %}<a class="sr-item" href="{{ t.get_absolute_url }}"><i class="bi bi-check2-square"></i><span><strong>{{ t.title }}</strong><small>{{ t.case.archive_reference }} · {{ t.assignee }} · {{ t.get_status_display }}</small></span></a>{% endfor %}
+  {% for t in r.tasks %}<a class="sr-item" href="{{ t.get_absolute_url }}"><i class="bi bi-check2-square"></i><span><strong>{{ t.title }}</strong><small>{{ t.case.archive_reference|default:'Ofis içi' }} · {{ t.assignee }} · {{ t.get_status_display }}</small></span></a>{% endfor %}
   {% if more.tasks %}<a class="sr-more" href="{{ more.tasks.1 }}">{{ more.tasks.0 }} görevin tümünü gör <i class="bi bi-arrow-right"></i></a>{% endif %}
 {% endif %}
 {% if r.parties %}<div class="sr-group">Karşı taraflar</div>

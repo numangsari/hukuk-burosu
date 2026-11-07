@@ -25,13 +25,19 @@ class Task(TimeStampedModel):
         TaskType, verbose_name="görev türü", on_delete=models.PROTECT, related_name="tasks"
     )
     title = models.CharField("görev adı", max_length=300)
+    # Dosyası olmayan görev "ofis içi görev"dir: yalnızca sorumlu, kontrolcü ve yönetici görür.
     case = models.ForeignKey(
-        Case, verbose_name="dosya", on_delete=models.PROTECT, related_name="tasks"
+        Case,
+        verbose_name="dosya",
+        on_delete=models.PROTECT,
+        related_name="tasks",
+        null=True,
+        blank=True,
     )
     # Müvekkil her zaman dosyanın müvekkilidir; save() içinde doldurulur.
     client = models.ForeignKey(
         Client, verbose_name="müvekkil", on_delete=models.PROTECT, related_name="tasks",
-        editable=False,
+        editable=False, null=True,
     )  # fmt: skip
     assignee = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -93,10 +99,16 @@ class Task(TimeStampedModel):
         self.title = tr_upper(self.title).strip()  # görev adları büyük harf
         if self.case_id:
             self.client_id = Case.objects.values_list("client_id", flat=True).get(pk=self.case_id)
+        else:
+            self.client_id = None
         super().save(*args, **kwargs)
 
     def get_absolute_url(self):
         return reverse("tasks:detail", args=[self.pk])
+
+    @property
+    def is_office_task(self) -> bool:
+        return self.case_id is None
 
     @property
     def is_open(self) -> bool:

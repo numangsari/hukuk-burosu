@@ -5,8 +5,8 @@
       <div class="task-title">{{ t.title|tr_title }}</div>
       <div class="task-meta task-meta-dotted">
         {% if not t.task_type|same_text:t.title %}<span>{{ t.task_type }}</span>{% endif %}
-        <span>{% if t.case.authority %}{{ t.case.authority }} {% endif %}<span class="tabular">{{ t.case.official_no_display|default:t.case.archive_no }}</span></span>
-        <span>{{ t.client|tr_title }}</span>
+        {% if not t.case_id %}<span>Ofis içi</span>{% else %}<span>{% if t.case.authority %}{{ t.case.authority }} {% endif %}<span class="tabular">{{ t.case.official_no_display|default:t.case.archive_no }}</span></span>
+        <span>{{ t.client|tr_title }}</span>{% endif %}
       </div>
       {% if t.revision_requested and t.revision_note and not review and not approved %}
         <div class="revision-note"><i class="bi bi-chat-left-text"></i>{{ t.revision_note|truncatechars:140 }}</div>

@@ -229,7 +229,9 @@ def perform(
             if not comment:
                 raise ValidationError("Görevi kapatmak için sonuç notu yazmalısınız.")
 
-        if task.requires_accounting or (task.task_type and task.task_type.requires_accounting):
+        if task.case_id and (
+            task.requires_accounting or (task.task_type and task.task_type.requires_accounting)
+        ):
             entry = (
                 LedgerEntry.objects.filter(
                     pk=ledger_id if str(ledger_id).isdigit() else 0,
@@ -306,7 +308,9 @@ def perform(
                 from apps.agenda.google_sync import queue_hearing_google_sync
 
                 transaction.on_commit(lambda: queue_hearing_google_sync(next_hearing))
-        if task.requires_accounting or (task.task_type and task.task_type.requires_accounting):
+        if task.case_id and (
+            task.requires_accounting or (task.task_type and task.task_type.requires_accounting)
+        ):
             TaskEvent.objects.create(
                 task=task,
                 actor=user,
@@ -316,14 +320,15 @@ def perform(
         if was_unapproved:
             docs, task.warnings = publish_task_documents(task, user)
             names = ", ".join(d.title for d in docs)
-            CaseEvent.objects.create(
-                case=task.case,
-                date=timezone.localdate(),
-                kind=CaseEvent.Kind.TASK,
-                title=f"Görev tamamlandı: {task.title}",
-                description=f"{task.assignee}" + (f" · belgeler: {names}" if names else ""),
-                created_by=user,
-            )
+            if task.case_id:
+                CaseEvent.objects.create(
+                    case=task.case,
+                    date=timezone.localdate(),
+                    kind=CaseEvent.Kind.TASK,
+                    title=f"Görev tamamlandı: {task.title}",
+                    description=f"{task.assignee}" + (f" · belgeler: {names}" if names else ""),
+                    created_by=user,
+                )
         if task.hearing_id and task.case_id:
             if task.hearing_outcome == "excused":
                 CaseEvent.objects.create(
@@ -355,15 +360,16 @@ def perform(
     if key == "approve":
         docs, task.warnings = publish_task_documents(task, user)
         names = ", ".join(d.title for d in docs)
-        CaseEvent.objects.create(
-            case=task.case,
-            date=timezone.localdate(),
-            kind=CaseEvent.Kind.TASK,
-            title=f"Görev onaylandı: {task.title}",
-            description=f"{task.assignee} · onaylayan {user}"
-            + (f" · belgeler: {names}" if names else ""),
-            created_by=user,
-        )
+        if task.case_id:
+            CaseEvent.objects.create(
+                case=task.case,
+                date=timezone.localdate(),
+                kind=CaseEvent.Kind.TASK,
+                title=f"Görev onaylandı: {task.title}",
+                description=f"{task.assignee} · onaylayan {user}"
+                + (f" · belgeler: {names}" if names else ""),
+                created_by=user,
+            )
     return task
 
 

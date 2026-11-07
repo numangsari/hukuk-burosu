@@ -29,7 +29,14 @@ class MultipleFileField(forms.FileField):
 class TaskForm(BootstrapMixin, forms.ModelForm):
     # Yalnızca dosya listesini süzmek için; kaydedilen müvekkil her zaman dosyanın müvekkilidir.
     client = forms.ModelChoiceField(label="müvekkil", queryset=Client.objects.all(), required=False)
-    case = CaseChoiceField(label="dosya", queryset=Case.objects.none())
+    case = CaseChoiceField(
+        label="dosya",
+        queryset=Case.objects.none(),
+        required=False,
+        help_text=(
+            "Boş bırakılırsa ofis içi görev olur; yalnızca sorumlu, kontrolcü ve yönetici görür."
+        ),
+    )
     document = MultipleFileField(label="Belge", required=False, widget=MultipleFileInput)
     requires_accounting = forms.TypedChoiceField(
         label="Gelir/gider kaydı",
@@ -169,6 +176,8 @@ class TaskForm(BootstrapMixin, forms.ModelForm):
             )
         if data.get("task_type") and data["task_type"].requires_accounting:
             data["requires_accounting"] = True
+        if not case:
+            data["requires_accounting"] = False  # ofis içi görevde müvekkil gelir/gideri olmaz
         # İş emri numarası yalnızca dilekçe (belge zorunlu) görev türlerinde tutulur.
         if not (data.get("task_type") and data["task_type"].requires_document):
             data["work_order_no"] = ""

@@ -227,9 +227,10 @@ class TaskCreateView(VisibleFormMixin, CreateView):
     def form_valid(self, form):
         form.instance.created_by = self.request.user
         with transaction.atomic():
-            form.instance.case = Case.objects.select_for_update(of=("self",)).get(
-                pk=form.instance.case_id
-            )
+            if form.instance.case_id:
+                form.instance.case = Case.objects.select_for_update(of=("self",)).get(
+                    pk=form.instance.case_id
+                )
             response = super().form_valid(form)
             services.on_created(self.object, self.request.user)
             if self.object.notes.strip():
@@ -290,9 +291,10 @@ class TaskUpdateView(VisibleFormMixin, UpdateView):
         return task
 
     def form_valid(self, form):
-        form.instance.case = Case.objects.select_for_update(of=("self",)).get(
-            pk=form.instance.case_id
-        )
+        if form.instance.case_id:
+            form.instance.case = Case.objects.select_for_update(of=("self",)).get(
+                pk=form.instance.case_id
+            )
         old_assignee = Task.objects.values_list("assignee_id", flat=True).get(pk=self.object.pk)
         changed = [form.fields[f].label for f in form.changed_data if f != "client"]
         response = super().form_valid(form)
@@ -316,8 +318,8 @@ class TaskDetailView(DetailView):
         t, u = self.object, self.request.user
         from apps.accounting.models import LedgerEntry
 
-        requires_accounting = t.requires_accounting or bool(
-            t.task_type and t.task_type.requires_accounting
+        requires_accounting = bool(t.case_id) and (
+            t.requires_accounting or bool(t.task_type and t.task_type.requires_accounting)
         )
         ledger_entries = (
             LedgerEntry.objects.active()
@@ -404,7 +406,7 @@ class TaskDeleteView(View):
         messages.success(request, "Görev silindi.")
         if request.GET.get("pencere"):
             return HttpResponse("<script>window.parent.location.reload()</script>")
-        return redirect(case)
+        return redirect(case) if case else redirect("tasks:list")
 
 
 class TaskCommentView(View):
@@ -595,6 +597,8 @@ class PetitionTemplateDownloadView(View):
             request, pk, Task.objects.select_related("case", "client", "task_type")
         )
         name = task.task_type.petition_template
+        if not task.case_id:
+            return HttpResponseNotFound("Ofis içi görevde dilekçe şablonu kullanılamaz.")
         root = folders.root()
         if not root or not name or Path(name).name != name:
             return HttpResponseNotFound("Bu görev türü için şablon bulunmuyor.")

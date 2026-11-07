@@ -86,9 +86,14 @@ def filter_visible_clients(qs, user):
 
 
 def filter_visible_tasks(qs, user):
-    """Kullanıcının görebileceği görevler: kendi görevleri veya görünür dosyaların görevleri."""
-    if can_view_all_office_data(user):
+    """Kullanıcının görebileceği görevler: kendi görevleri veya görünür dosyaların görevleri.
+
+    Dosyasız (ofis içi) görevi yalnızca sorumlusu, kontrolcüsü ve yönetici görür.
+    """
+    if is_admin(user):
         return qs
+    if can_view_all_office_data(user):
+        return qs.filter(Q(case__isnull=False) | Q(assignee=user) | Q(reviewer=user))
     from apps.cases.models import Case
 
     return qs.filter(
