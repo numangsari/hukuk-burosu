@@ -60,7 +60,7 @@ uv run ruff format --check .                         # Format denetimi
   - `secretary`: Sekreter / Büro Yönetimi
   - `accountant`: Muhasebe / Finans
 - **Oturum Açma:** Kullanıcı adı/şifre yerine kullanıcı kartı seçilerek 4 haneli PIN ile hızlı giriş; 4. rakam girildiğinde form otomatik gönderilir. Hatalı denemeler `apps/accounts/throttle.py` ile yavaşlatılır (kullanıcı+IP için 5, IP için 20, kullanıcı için 40 hatalı denemeden sonra 30 sn'den başlayıp ikiye katlanan, en çok 15 dk bekleme; beklerken doğru PIN bile denenmez, HTTP 429). Sayaçlar önbellekte tutulur, servis yeniden başlayınca sıfırlanır. Hatalı PIN denemeleri aktivite kaydına "hatalı PIN" olarak yazılır.
-- **İlk Kurulum Sihirbazı (`InitialSetupView`, `/hesap/ilk-kurulum/`):** Temiz kurulumda hiç kullanıcı yoksa ilk açılışta büro adı, çalışma modeli ve ilk yönetici hesabını tek adımda oluşturan ekran.
+- **İlk Kurulum Sihirbazı (`InitialSetupView`, `/hesap/ilk-kurulum/`):** Temiz kurulumda hiç kullanıcı yoksa ilk açılışta büro adı, çalışma modeli ve ilk yönetici hesabını tek adımda oluşturan ekran. Pasif kullanıcılar da kurulu sistem sayılır; bütün hesapların pasifleşmesi anonim yönetici oluşturma yolunu yeniden açmaz. Hesap kurtarma sunucu yöneticisi tarafından yapılır.
 - **Oturum Güvenliği:** `OfficeSettings.idle_minutes` süresince işlem yapılmazsa oturum otomatik kapanır (`?zaman_asimi=1`). `NoStoreMiddleware` ile tarayıcı bellekten geri gitmelerinde veri sızıntısı engellenir.
 
 ### `apps/office`

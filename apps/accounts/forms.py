@@ -239,7 +239,7 @@ class BalanceViewersForm(forms.Form):
 
 
 class InitialSetupForm(BootstrapMixin, forms.Form):
-    """Hiç aktif kullanıcı yokken açılan Hukuk Bürosu İlk Kurulum sihirbazı formu."""
+    """Hiç kullanıcı yokken açılan Hukuk Bürosu İlk Kurulum sihirbazı formu."""
 
     office_name = forms.CharField(
         label="Ofis / Büro adı",

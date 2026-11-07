@@ -45,7 +45,7 @@ class PinLoginView(LoginView):
     redirect_authenticated_user = True
 
     def dispatch(self, request, *args, **kwargs):
-        if not User.objects.filter(is_active=True).exists():
+        if not User.objects.exists():
             return redirect("accounts:initial_setup")
         return super().dispatch(request, *args, **kwargs)
 
@@ -80,12 +80,12 @@ class PinLoginView(LoginView):
 
 @method_decorator(login_not_required, name="dispatch")
 class InitialSetupView(View):
-    """Hiç aktif kullanıcı olmadığında açılan ilk kurulum (onboarding) sihirbazı."""
+    """Hiç kullanıcı olmadığında açılan ilk kurulum (onboarding) sihirbazı."""
 
     template_name = "accounts/initial_setup.html"
 
     def dispatch(self, request, *args, **kwargs):
-        if User.objects.filter(is_active=True).exists():
+        if User.objects.exists():
             return redirect("accounts:login")
         return super().dispatch(request, *args, **kwargs)
 
