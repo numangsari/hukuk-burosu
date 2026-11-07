@@ -22,6 +22,26 @@
     U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 
+@font-face {
+  font-family: "Source Serif 4";
+  font-style: normal;
+  font-weight: 200 900;
+  font-display: swap;
+  src: url("../vendor/source-serif/source-serif-4-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308,
+    U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113,
+    U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "Source Serif 4";
+  font-style: normal;
+  font-weight: 200 900;
+  font-display: swap;
+  src: url("../vendor/source-serif/source-serif-4-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304,
+    U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
 /* ---------- Tokenlar ---------- */
 :root,
 [data-bs-theme="light"] {
@@ -30,35 +50,36 @@
   --navy-800: #152a4a;
   --navy-700: #1d3a63;
   --due-today-bg: #b42318; --due-today-ink: #fff; --due-today-line: #8d1c13;
-  --due-soon-bg: #fff0da; --due-soon-ink: #943b00; --due-soon-line: #c56816;
+  --due-soon-bg: #fff0da; --due-soon-ink: #9a4d06; --due-soon-line: #c56816;
   --due-late-bg: #7f1d1d; --due-late-ink: #fff;
-  --brand: #1f4f8f;
-  --brand-hover: #193f73;
+  --brand: #1f3a63;
+  --brand-hover: #162d4e;
   /* Beyaz yazılı dolgu (buton, seçili segment) için zemin; koyu temada AA kontrastı sağlar. */
-  --brand-solid: #1f4f8f;
-  --brand-solid-hover: #193f73;
-  --brand-soft: #e8eff9;
+  --brand-solid: #1f3a63;
+  --brand-solid-hover: #162d4e;
+  --brand-soft: #e9edf3;
   --accent: #b8925a;
   --accent-soft: #f6efe4;
 
-  --app-bg: #f4f6f9;
+  --app-bg: #f4f4f2;
   --surface: #ffffff;
-  --surface-2: #f8f9fb;
-  --line: #e4e8ee;
-  --ink: #1a2232;
-  --ink-2: #4a5568;
-  --muted: #7a8599;
+  --surface-2: #f8f8f6;
+  --line: #e2e2de;
+  --ink: #1c1c1a;
+  --ink-2: #3d3d3a;
+  --muted: #6b6b64;
 
   --success-soft: #e7f6ee; --success-ink: #18794e;
   --warning-soft: #fdf3e1; --warning-ink: #a15c07;
   --danger-soft: #fdecec;  --danger-ink: #b42318;
   --info-soft: #e8f3fb;    --info-ink: #175c8a;
-  --neutral-soft: #eef0f4; --neutral-ink: #4a5568;
+  --neutral-soft: #eeeeea; --neutral-ink: #3d3d3a;
 
-  --radius: 12px;
-  --radius-sm: 8px;
-  --shadow-sm: 0 1px 2px rgba(16, 24, 40, .05);
-  --shadow: 0 1px 3px rgba(16, 24, 40, .06), 0 1px 2px rgba(16, 24, 40, .04);
+  --radius: 6px;
+  --radius-sm: 4px;
+  --font-serif: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --shadow-sm: none;  /* gölge yerine ince çizgi */
+  --shadow: 0 0 0 1px var(--line);
   --shadow-lg: 0 12px 32px -8px rgba(16, 24, 40, .18);
 
   --sidebar-w: 256px;
@@ -66,17 +87,17 @@
   --foot-h: 42px;
 
   /* Yan menü (açık tema): içerikten bir ton koyu, açık gri-mavi */
-  --sb-bg: linear-gradient(180deg, #eef2f8 0%, #e6ebf3 100%);
-  --sb-ink: #3d4a5e;
-  --sb-ink-strong: #14213a;
-  --sb-muted: #7d889b;
-  --sb-faint: #9aa4b5;
+  --sb-bg: #ecece8;
+  --sb-ink: #3d3d3a;
+  --sb-ink-strong: #1c1c1a;
+  --sb-muted: #6b6b64;
+  --sb-faint: #6b6b64;
   --sb-line: rgba(15, 31, 56, .09);
   --sb-hover: rgba(15, 31, 56, .05);
-  --sb-active: rgba(31, 79, 143, .1);
+  --sb-active: rgba(31, 58, 99, .1);
   --sb-office: #94703c;
   --sb-office-line: rgba(148, 112, 60, .35);
-  --sb-border: 1px solid #dde3ec;
+  --sb-border: 1px solid #deded9;
 
   --bs-body-font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --bs-body-font-size: .9375rem;
@@ -85,12 +106,12 @@
   --bs-border-color: var(--line);
   --bs-secondary-color: var(--muted);
   --bs-primary: var(--brand);
-  --bs-primary-rgb: 31, 79, 143;
+  --bs-primary-rgb: 31, 58, 99;
   --bs-link-color: var(--brand);
-  --bs-link-color-rgb: 31, 79, 143;
+  --bs-link-color-rgb: 31, 58, 99;
   --bs-link-hover-color: var(--brand-hover);
   --bs-border-radius: var(--radius-sm);
-  --bs-focus-ring-color: rgba(31, 79, 143, .2);
+  --bs-focus-ring-color: rgba(31, 58, 99, .2);
 }
 
 [data-bs-theme="dark"] {
@@ -152,6 +173,8 @@ a:hover { text-decoration: underline; }
 .text-muted, .text-body-secondary { color: var(--muted) !important; }
 .fw-medium { font-weight: 500; }
 .tabular { font-variant-numeric: tabular-nums; }
+/* Tablolarda tutar ve tarihler hizalı okunsun. */
+.table td, .table th { font-variant-numeric: tabular-nums; }
 /* Sağa hizalı tutar hücresinde "102.200,00" ile "₺" ayrı satıra düşmesin. */
 td.tabular.text-end, th.tabular.text-end, .bal-value { white-space: nowrap; }
 
@@ -308,7 +331,7 @@ a.head-row:hover { color: var(--sb-ink-strong); text-decoration: none; }
 .page-header { display: flex; align-items: flex-end; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
 .page-header .eyebrow { font-size: .78rem; font-weight: 600; color: var(--muted); letter-spacing: .02em; margin-bottom: .25rem; }
 .page-header .eyebrow a { color: var(--muted); }
-.page-title { font-size: 1.5rem; font-weight: 700; letter-spacing: -.02em; margin: 0; color: var(--ink); }
+.page-title { font-family: var(--font-serif); font-size: 1.6rem; font-weight: 600; letter-spacing: -.01em; margin: 0; color: var(--ink); }
 .page-subtitle { color: var(--muted); margin: .3rem 0 0; font-size: .9rem; }
 .page-actions { margin-left: auto; display: flex; gap: .5rem; flex-wrap: wrap; }
 
