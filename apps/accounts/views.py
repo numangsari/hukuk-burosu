@@ -18,6 +18,7 @@ from django.views import View
 
 from apps.core.permissions import is_admin
 from apps.office.forms import (
+    AllowedHostsForm,
     CalendarForm,
     DocumentsRootForm,
     OfficeForm,
@@ -119,6 +120,7 @@ class SettingsView(View):
         "monitor",
         "kullanici_analizi",
         "veri_aktarim",
+        "erisim",
     }
 
     def _forms(self, request, section=None, data=None, files=None):
@@ -144,6 +146,7 @@ class SettingsView(View):
             forms["takvim"] = CalendarForm(*bound("takvim"), instance=office)
             forms["yetkiler"] = BalanceViewersForm(*bound("yetkiler"))
             forms["klasor"] = DocumentsRootForm(*bound("klasor"), instance=office)
+            forms["erisim"] = AllowedHostsForm(*bound("erisim"), instance=office)
             edit = User.objects.filter(
                 pk=request.GET.get("id") or request.POST.get("user_id") or 0
             ).first()
@@ -182,6 +185,13 @@ class SettingsView(View):
                 office.google_service_account_json and office.google_calendar_id
             ),
         }
+        if active == "erisim" and is_admin(request.user):
+            from django.conf import settings
+
+            hosts = settings.ALLOWED_HOSTS
+            ctx["fixed_hosts"] = getattr(hosts, "base", list(hosts))
+            ctx["allows_everything"] = getattr(hosts, "allows_everything", "*" in hosts)
+            ctx["current_host"] = request.get_host()
         if active == "eklenti" and is_admin(request.user):
             from datetime import timedelta
 

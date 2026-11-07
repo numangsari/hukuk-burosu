@@ -79,10 +79,10 @@ aktivite kaydına yazılması, yönetici hesapları için daha uzun PIN/parola s
 **Öneri:** Geri yükleme öncesi otomatik güvenlik yedeği, ikinci konuma (harici disk/NAS) kopya,
 şifreli arşiv seçeneği, düzenli geri yükleme denemesi.
 
-### 4. `DJANGO_ALLOWED_HOSTS=*` (açık)
+### 4. ◐ `DJANGO_ALLOWED_HOSTS=*` (yeni kurulumda daraltıldı; eski kurulumlarda `*` sürüyor)
 
-`installer/scripts/postinstall.ps1` kurulumda `*` yazıyor. Sunucu adı ve IP adresleriyle
-sınırlanmalı.
+Yeni kurulum bilgisayar adı ve IPv4 adreslerini yazar; sonradan adres eklemek için Ayarlar >
+Erişim adresleri ekranı vardır. Mevcut kurulumlarda `.env` içindeki `*` elle daraltılmalıdır.
 
 ---
 

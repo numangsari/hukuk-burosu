@@ -48,10 +48,18 @@ if ($firstInstall) {
     $dbPass = New-Secret 32
     $dbUser = "hukuk"
     $dbName = "hukuk"
+    # Sunucuya girilebilecek adresler: yerel adlar, bilgisayar adı (Türkçe karakter punycode'a
+    # çevrilir) ve özel ağdaki IPv4 adresleri. Sonradan Ayarlar > Erişim adreslerinden eklenir.
+    $hostNames = @("localhost", "127.0.0.1")
+    try { $hostNames += [System.Globalization.IdnMapping]::new().GetAscii($env:COMPUTERNAME).ToLower() } catch {}
+    $hostNames += @(Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue |
+        Where-Object { $_.IPAddress -notlike "127.*" -and $_.IPAddress -notlike "169.254.*" } |
+        ForEach-Object { $_.IPAddress })
+    $allowedHosts = ($hostNames | Select-Object -Unique) -join ","
     @(
         "DJANGO_SETTINGS_MODULE=config.settings.prod"
         "DJANGO_SECRET_KEY=$(New-Secret 60)"
-        "DJANGO_ALLOWED_HOSTS=*"
+        "DJANGO_ALLOWED_HOSTS=$allowedHosts"
         "DATABASE_URL=postgres://$($dbUser):$dbPass@127.0.0.1:$Port/$dbName"
         "MEDIA_ROOT=$Data\media"
         "STATIC_ROOT=$App\staticfiles"

@@ -26,6 +26,7 @@
         {% if calendar_connected %}<span class="chip chip-success ms-auto">Bağlı</span>{% endif %}</a>
       <div class="nav-group">Sistem ve Gözlem</div>
       <a class="{% if active == 'monitor' %}active{% endif %}" href="?bolum=monitor"><i class="bi bi-activity"></i>Sistem monitörü</a>
+      <a class="{% if active == 'erisim' %}active{% endif %}" href="?bolum=erisim"><i class="bi bi-hdd-network"></i>Erişim adresleri</a>
       <a href="{% url 'portal_review' %}"><i class="bi bi-cloud-arrow-down"></i>UYAP ve UETS inceleme</a>
       <a href="{% url 'activity:list' %}"><i class="bi bi-clock-history"></i>Aktivite kaydı</a>
       <a class="{% if active == 'kullanici_analizi' %}active{% endif %}" href="?bolum=kullanici_analizi"><i class="bi bi-person-lines-fill"></i>Kullanıcı analizi</a>
@@ -378,6 +379,26 @@
         <div class="balance-viewers">
           {% for cb in form.viewers %}<label class="form-check">{{ cb.tag }}<span class="form-check-label">{{ cb.choice_label }}</span></label>{% endfor %}
         </div>
+      </div>
+      <div class="form-footer"><button class="btn btn-primary"><i class="bi bi-check2"></i>Kaydet</button></div>
+    </form>
+    {% endwith %}
+
+  {% elif active == "erisim" %}
+    {% with form=forms.erisim %}
+    <form method="post" class="card" style="max-width: 760px">{% csrf_token %}<input type="hidden" name="section" value="erisim">
+      <div class="form-section">
+        <div class="form-section-head"><h2>Erişim adresleri</h2><p>Personelin tarayıcıda sunucuya girerken kullanabileceği bilgisayar adı ve IP adresleri. Sunucunun adı veya IP'si değişirse yeni adresi buraya ekleyin.</p></div>
+        {% if allows_everything %}
+        <div class="alert alert-warning">Sunucu şu an <b>her adresi</b> kabul ediyor (kurulum ayarı <code>*</code>). Aşağıdaki liste, kurulum ayarı daraltılana kadar etkisizdir.</div>
+        {% endif %}
+        <p class="small mb-2">Bu sayfaya şu adresle girdiniz: <b>{{ current_host }}</b></p>
+        <p class="small mb-2">Kurulumdan gelen sabit adresler: {% for h in fixed_hosts %}<code>{{ h }}</code>{% if not forloop.last %}, {% endif %}{% empty %}—{% endfor %}. <code>localhost</code> ve <code>127.0.0.1</code> her zaman izinlidir; yanlış girişte sunucu bilgisayarından düzeltebilirsiniz.</p>
+        {{ form.allowed_hosts.label_tag }}
+        {{ form.allowed_hosts }}
+        {% if form.allowed_hosts.help_text %}<div class="form-text">{{ form.allowed_hosts.help_text }}</div>{% endif %}
+        {% for error in form.allowed_hosts.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+        <div class="form-text">Örnekler: <code>BURO-SUNUCU</code>, <code>192.168.1.105</code>. Değişiklik en geç 15 saniyede geçerli olur.</div>
       </div>
       <div class="form-footer"><button class="btn btn-primary"><i class="bi bi-check2"></i>Kaydet</button></div>
     </form>

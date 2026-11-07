@@ -4,6 +4,8 @@ from pathlib import Path
 
 import environ
 
+from config.hosts import DynamicAllowedHosts
+
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 env = environ.Env()
@@ -11,7 +13,8 @@ environ.Env.read_env(BASE_DIR / ".env", overwrite=False)
 
 SECRET_KEY = env("DJANGO_SECRET_KEY", default="")
 DEBUG = env.bool("DJANGO_DEBUG", default=False)
-ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=["*"])
+# Sabit adresler ortam değişkeninden gelir; yönetici ekranındaki ek adresler dinamik eklenir.
+ALLOWED_HOSTS = DynamicAllowedHosts(env.list("DJANGO_ALLOWED_HOSTS", default=["*"]))
 
 INSTALLED_APPS = [
     "django.contrib.admin",

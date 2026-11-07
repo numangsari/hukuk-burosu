@@ -286,3 +286,48 @@ class PortalLawyerAccessForm(BootstrapMixin, forms.ModelForm):
         value = self.cleaned_data["identity_number"].strip()
         validate_tckn(value)
         return value
+
+
+class AllowedHostsForm(BootstrapMixin, forms.ModelForm):
+    """Sunucuya girilebilecek ek bilgisayar adı ve IP adreslerini düzenler."""
+
+    MAX_HOSTS = 50
+
+    class Meta:
+        model = OfficeSettings
+        fields = ["allowed_hosts"]
+        widgets = {"allowed_hosts": forms.Textarea(attrs={"rows": 6, "spellcheck": "false"})}
+        labels = {"allowed_hosts": "Ek erişim adresleri"}
+
+    @staticmethod
+    def _normalize(entry: str) -> str:
+        import ipaddress
+        import re
+
+        if any(ch in entry for ch in r":/\@*?#") or entry.startswith(".") or entry.endswith("."):
+            raise forms.ValidationError(
+                f"'{entry}' geçersiz. Yalnızca bilgisayar adı veya IP yazın "
+                "(http://, port numarası ve * kullanılmaz)."
+            )
+        if re.fullmatch(r"[0-9.]+", entry):
+            try:
+                return str(ipaddress.IPv4Address(entry))
+            except ValueError:
+                raise forms.ValidationError(f"'{entry}' geçerli bir IP adresi değil.") from None
+        try:
+            ascii_name = entry.encode("idna").decode("ascii")  # Türkçe karakterli ad -> punycode
+        except UnicodeError:
+            raise forms.ValidationError(f"'{entry}' geçerli bir bilgisayar adı değil.") from None
+        label = r"[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?"
+        if not re.fullmatch(rf"{label}(\.{label})*", ascii_name):
+            raise forms.ValidationError(f"'{entry}' geçerli bir bilgisayar adı değil.")
+        return ascii_name
+
+    def clean_allowed_hosts(self):
+        from config.hosts import parse_hosts
+
+        entries = parse_hosts(self.cleaned_data.get("allowed_hosts", ""))
+        normalized = list(dict.fromkeys(self._normalize(e) for e in entries))
+        if len(normalized) > self.MAX_HOSTS:
+            raise forms.ValidationError(f"En fazla {self.MAX_HOSTS} adres girilebilir.")
+        return "\n".join(normalized)

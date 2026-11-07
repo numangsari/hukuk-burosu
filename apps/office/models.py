@@ -181,6 +181,15 @@ class OfficeSettings(models.Model):
         ),
     )
 
+    allowed_hosts = models.TextField(
+        "ek erişim adresleri",
+        blank=True,
+        help_text=(
+            "Sunucuya tarayıcıdan girilebilecek ek bilgisayar adları ve IP adresleri "
+            "(her satıra bir adres). localhost ve 127.0.0.1 her zaman izinlidir."
+        ),
+    )
+
     class Meta:
         verbose_name = "ofis ayarları"
         verbose_name_plural = "ofis ayarları"
@@ -189,8 +198,13 @@ class OfficeSettings(models.Model):
         return self.name
 
     def save(self, *args, **kwargs):
+        from django.conf import settings
+
         self.pk = 1
         super().save(*args, **kwargs)
+        hosts = getattr(settings, "ALLOWED_HOSTS", None)
+        if hasattr(hosts, "reset"):
+            hosts.reset()
 
     @classmethod
     def load(cls) -> "OfficeSettings":
