@@ -5,6 +5,7 @@ from pathlib import Path
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.db.models.functions import Coalesce, TruncDate
 from django.urls import reverse
 from django.utils import timezone
 
@@ -587,6 +588,16 @@ def document_upload_to(instance, filename):
     return f"cases/{instance.case_id}/{uuid.uuid4().hex[:8]}_{name.stem[:80]}{name.suffix.lower()}"
 
 
+class DocumentQuerySet(models.QuerySet):
+    def chronological(self):
+        """Belge tarihine (UYAP evrakında UYAP tarihi, yoksa yüklenme günü) göre yeniden eskiye."""
+        return self.annotate(
+            sort_date=Coalesce(
+                "document_date", TruncDate("created_at"), output_field=models.DateField()
+            )
+        ).order_by("-sort_date", "-created_at")
+
+
 class Document(TimeStampedModel):
     case = models.ForeignKey(Case, on_delete=models.CASCADE, related_name="documents")
     title = models.CharField("başlık", max_length=300)
@@ -598,6 +609,9 @@ class Document(TimeStampedModel):
     size = models.PositiveBigIntegerField(default=0, editable=False)
     notes = models.TextField("notlar", blank=True)
     folder_path = models.CharField("klasördeki kopya", max_length=500, blank=True, editable=False)
+    document_date = models.DateField("belge tarihi", null=True, blank=True)
+
+    objects = DocumentQuerySet.as_manager()
 
     class Meta:
         verbose_name = "belge"

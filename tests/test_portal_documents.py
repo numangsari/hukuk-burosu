@@ -1,12 +1,15 @@
 import base64
+import datetime as dt
 import json
 
 import pytest
+from django.core.files.base import ContentFile
 from django.test import Client
 
 from apps.accounts.models import User
 from apps.cases.models import Document, DocumentCategory
 from apps.imports.models import PortalCase, PortalDocument, PortalLawyerAccess
+from apps.imports.portal_ingest import parse_uyap_date
 
 pytestmark = pytest.mark.django_db
 
@@ -239,3 +242,57 @@ def test_note_without_unit_number_is_plain(setup):
     client, auth, _, case, _ = setup
     post(client, auth, body(meta={"tur": "Karar"}))
     assert Document.objects.get(case=case).notes == "UYAP evrakı"
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ("14/10/2026", dt.date(2026, 10, 14)),
+        ("05.11.2026", dt.date(2026, 11, 5)),
+        ("2026-11-05", dt.date(2026, 11, 5)),
+        ("14/10/2026 10:20", dt.date(2026, 10, 14)),
+        ("", None),
+        (None, None),
+        ("dün", None),
+        ("31/02/2026", None),
+    ],
+)
+def test_uyap_date_parsing(raw, expected):
+    assert parse_uyap_date(raw) == expected
+
+
+def test_document_date_is_saved_from_uyap_date(setup):
+    client, auth, _, case, _ = setup
+    post(client, auth, body(meta={"tur": "Karar", "onaylandigiTarih": "14/10/2026"}))
+    assert Document.objects.get(case=case).document_date == dt.date(2026, 10, 14)
+
+
+def test_document_date_is_empty_when_uyap_date_is_unreadable(setup):
+    client, auth, _, case, _ = setup
+    post(client, auth, body(meta={"tur": "Karar", "onaylandigiTarih": "bilinmiyor"}))
+    assert Document.objects.get(case=case).document_date is None
+
+
+def test_documents_tab_sorts_and_shows_uyap_date(setup):
+    from apps.accounts.models import User as UserModel
+
+    _, _, _, case, _ = setup
+
+    def make(title, name, **values):
+        document = Document(case=case, title=title, original_name=name, **values)
+        document.file.save(name, ContentFile(PDF), save=False)
+        document.save()
+        return document
+
+    old_upload_new_date = make("Yeni tarihli", "a.pdf", document_date=dt.date(2026, 10, 20))
+    new_upload_old_date = make("Eski tarihli", "b.pdf", document_date=dt.date(2025, 1, 5))
+    manual = make("Elle yüklenen", "c.pdf")
+    assert old_upload_new_date.pk < new_upload_old_date.pk < manual.pk
+    admin = UserModel.objects.create_user(username="belge-yonetici", role=UserModel.Role.ADMIN)
+    viewer = Client()
+    viewer.force_login(admin)
+    response = viewer.get(case.get_absolute_url())
+    html = response.content.decode()
+    # Elle yüklenen bugünün tarihiyle en üstte; sonra UYAP tarihine göre yeniden eskiye.
+    assert html.index("Elle yüklenen") < html.index("Yeni tarihli") < html.index("Eski tarihli")
+    assert "20.10.2026" in html and "05.01.2025" in html

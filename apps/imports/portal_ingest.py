@@ -340,6 +340,17 @@ def _evrak_name(filename, content):
     return (stem or "UYAP_evraki") + suffix
 
 
+def parse_uyap_date(value):
+    """UYAP evrak tarihi (14/10/2026, 14.10.2026, 2026-10-14; saat varsa yok sayılır) ya da None."""
+    text = str(value or "").strip()[:10]
+    for fmt in ("%d/%m/%Y", "%d.%m.%Y", "%Y-%m-%d"):
+        try:
+            return datetime.strptime(text, fmt).date()
+        except ValueError:
+            continue
+    return None
+
+
 def import_uyap_document(body, source_user):
     """Eklentiden gelen tek UYAP evrakını dosyanın Belgeler bölümüne ekler (yinelenmez)."""
     from apps.cases.documents import mirror_uyap_document
@@ -384,6 +395,7 @@ def import_uyap_document(body, source_user):
         category=document_category(kind),
         notes="UYAP evrakı" + (f" · Birim evrak no: {unit_no}" if unit_no else ""),
         original_name=filename,
+        document_date=parse_uyap_date(stamp),
     )
     document.file.save(filename, ContentFile(content), save=False)
     document.save()

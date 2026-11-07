@@ -19,7 +19,7 @@
           </div>
         </td>
         <td><span class="chip no-dot">{{ d.get_category_display }}</span></td>
-        <td>{{ d.created_by|default:"—" }}</td><td class="tabular text-body-secondary">{{ d.created_at|date:"d.m.Y H:i" }}</td>
+        <td>{{ d.created_by|default:"—" }}</td><td class="tabular text-body-secondary">{% if d.document_date %}{{ d.document_date|date:"d.m.Y" }}{% else %}{{ d.created_at|date:"d.m.Y H:i" }}{% endif %}</td>
         <td class="text-end text-nowrap">
           <a class="btn-ghost-danger text-body-secondary" href="{{ d.file.url }}" download title="İndir"><i class="bi bi-download"></i></a>
           {% if d.created_by_id == request.user.pk or request.user.is_office_admin %}<button class="btn-ghost-danger" title="Sil" hx-post="{% url 'cases:document_delete' case.pk d.pk %}" hx-target="#documents" hx-swap="outerHTML" hx-confirm="Belge silinsin mi?"><i class="bi bi-trash"></i></button>{% endif %}

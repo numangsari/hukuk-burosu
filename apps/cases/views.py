@@ -476,7 +476,7 @@ class CaseDetailView(DetailView):
                 )
         ctx["document_form"] = DocumentForm()
         ctx["party_links"] = self.object.party_links.select_related("party", "case")
-        ctx["documents"] = self.object.documents.select_related("created_by")
+        ctx["documents"] = self.object.documents.select_related("created_by").chronological()
         ctx.update(_related_documents(self.object))
         case = self.object
         ctx.update(
@@ -609,7 +609,7 @@ def _documents_partial(request, case, form=None, warning=""):
         {
             "case": case,
             "document_form": form or DocumentForm(),
-            "documents": case.documents.select_related("created_by"),
+            "documents": case.documents.select_related("created_by").chronological(),
             "folder_warning": warning,
             **_related_documents(case),
         },
