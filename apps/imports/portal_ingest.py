@@ -377,11 +377,12 @@ def import_uyap_document(body, source_user):
     stamp = str(meta.get("onaylandigiTarih") or "")[:40]
     title = (kind or "UYAP evrakı") + (f" ({stamp})" if stamp else "")
     filename = _evrak_name(name, content)
+    unit_no = str(meta.get("birimEvrakNo") or "")[:40]
     document = Document(
         case=portal.case,
         title=title[:300],
         category=document_category(kind),
-        notes=f"UYAP evrakı. Evrak no: {evrak_id}",
+        notes="UYAP evrakı" + (f" · Birim evrak no: {unit_no}" if unit_no else ""),
         original_name=filename,
     )
     document.file.save(filename, ContentFile(content), save=False)

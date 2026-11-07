@@ -225,3 +225,17 @@ def test_real_world_66_character_ids_are_accepted(setup):
     stored = PortalDocument.objects.get()
     assert stored.evrak_id == "B" * 66
     assert Document.objects.filter(case=case).count() == 1
+
+
+def test_note_shows_unit_number_but_not_the_long_internal_id(setup):
+    client, auth, _, case, _ = setup
+    post(client, auth, body(evrakId="Q" * 66, meta={"tur": "Karar", "birimEvrakNo": "11"}))
+    document = Document.objects.get(case=case)
+    assert document.notes == "UYAP evrakı · Birim evrak no: 11"
+    assert "Q" * 66 not in document.notes
+
+
+def test_note_without_unit_number_is_plain(setup):
+    client, auth, _, case, _ = setup
+    post(client, auth, body(meta={"tur": "Karar"}))
+    assert Document.objects.get(case=case).notes == "UYAP evrakı"
