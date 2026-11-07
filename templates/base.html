@@ -155,6 +155,8 @@
   let active = false;
   let clientSaved = false;
   let openedPath = '';
+  let frameLoads = 0;
+  let trigger = null;
   document.addEventListener('click', event => {
     const link = event.target.closest('a[href]');
     if (!link || event.ctrlKey || event.metaKey || event.shiftKey || event.button !== 0) return;
@@ -166,17 +168,37 @@
     document.getElementById('create-window-title').textContent = isTask ? 'Görev' : paths[url.pathname];
     active = true;
     clientSaved = false;
+    frameLoads = 0;
+    trigger = link;
     openedPath = url.pathname;
     frame.src = url.href;
     bootstrap.Modal.getOrCreateInstance(modal).show();
   });
   frame.addEventListener('load', () => {
     if (!active) return;
+    frameLoads += 1;
     const url = new URL(frame.contentWindow.location.href);
     if (openedPath === '{% url "clients:create" %}' && url.pathname === '{% url "accounting:create" %}') clientSaved = true;
     if (!url.searchParams.has('pencere')) { active = false; location.reload(); }
   });
-  modal.addEventListener('hidden.bs.modal', () => { const wasTask = active && /\/gorevler\/\d+\//.test(frame.getAttribute('src') || ''); active = false; frame.removeAttribute('src'); if (wasTask || clientSaved) location.reload(); });
+  // Pop-up içinde yazılmış ama kaydedilmemiş metin varsa kapatmadan önce sor.
+  const isDirty = () => {
+    try {
+      return [...frame.contentDocument.querySelectorAll('textarea, input[type=text]')].some(el => el.value !== el.defaultValue);
+    } catch (e) { return false; }
+  };
+  modal.addEventListener('hide.bs.modal', event => {
+    if (active && isDirty() && !confirm('Kaydedilmemiş değişiklikler var. Pencere kapatılsın mı?')) event.preventDefault();
+  });
+  modal.addEventListener('hidden.bs.modal', () => {
+    // Pop-up içinde işlem yapıldıysa (sayfa yeniden yüklendi) liste yenilenir; yapılmadıysa kaydırma ve filtre konumu olduğu gibi kalır.
+    const changed = active && /\/gorevler\/\d+\//.test(frame.getAttribute('src') || '') && frameLoads > 1;
+    const back = trigger;
+    active = false;
+    frame.removeAttribute('src');
+    if (changed || clientSaved) { location.reload(); return; }
+    if (back && document.contains(back)) back.focus({ preventScroll: true });
+  });
 })();
 </script>
 {% elif request.GET.pencere %}
