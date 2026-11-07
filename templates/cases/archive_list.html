@@ -63,12 +63,12 @@
 
 {# Üst Sekmeler: Tümü - Klasör Tipleri Sırayla - Müvekkile Özel - Arşiv Yeri Eksikler #}
 <div class="mb-3">
-  <ul class="nav nav-pills gap-1 flex-wrap">
+  <ul class="nav nav-underline-tabs nav-underline-tabs-flat flex-wrap">
     {% for tab in archive_tabs %}
     <li class="nav-item">
-      <a class="nav-link py-1 px-3 {% if current_scope == tab.scope or current_scope == tab.id %}active{% endif %}" href="{% query_with scope=tab.scope page=None %}">
+      <a class="nav-link {% if current_scope == tab.scope or current_scope == tab.id %}active{% endif %}" href="{% query_with scope=tab.scope page=None %}">
         {{ tab.label }}
-        {% if tab.badge %}<span class="badge rounded-pill bg-warning text-dark ms-1">{{ tab.badge }}</span>{% endif %}
+        {% if tab.badge %}<span class="count count-warning">{{ tab.badge }}</span>{% endif %}
       </a>
     </li>
     {% endfor %}

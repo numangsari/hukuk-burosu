@@ -1086,3 +1086,6 @@ tr.chain-prev > td:first-child { position: relative; }
 .balance-strip-compact .bal-label { font-size: .75rem; text-transform: none; letter-spacing: 0; }
 .balance-strip-compact .bal-value { font-size: 1.05rem; }
 .balance-strip-compact .bal-hint { font-size: .72rem; }
+.nav-underline-tabs-flat { padding: 0; border-top: 0; border-bottom: 1px solid var(--line); gap: 1.25rem; }
+.nav-underline-tabs-flat .nav-link { padding: .5rem 0; margin-bottom: -1px; }
+.nav-underline-tabs .count-warning { background: var(--warning-soft, #fdf0d9); color: var(--warning-ink, #9a4d06); }
