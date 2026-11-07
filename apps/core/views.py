@@ -1,6 +1,6 @@
 import datetime as dt
 
-from django.db.models import OuterRef, Subquery
+from django.db.models import OuterRef, Q, Subquery
 from django.utils import timezone
 from django.views.generic import TemplateView
 
@@ -50,7 +50,9 @@ def approved_unseen_for(user):
 
 def review_tasks_for(user):
     """Kontrolünü bekleyen görevler. En acil üstte."""
-    return _home_tasks(reviewer=user, status=TaskStatus.REVIEW)
+    return _home_tasks(status=TaskStatus.REVIEW).filter(
+        Q(reviewer=user, review_step=1) | Q(second_reviewer=user, review_step=2)
+    )
 
 
 class HomeView(TemplateView):

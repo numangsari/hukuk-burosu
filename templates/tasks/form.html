@@ -39,9 +39,10 @@
   <div class="form-section card">
     <div class="form-section-head"><h2>Sorumlu ve kontrolcü</h2><p>Sorumlu işi yapar ve kontrole gönderir; kontrolcü onaylar ya da revizyon ister.</p></div>
     <div class="row">
-      <div class="col-md-4">{% include "partials/field.html" with field=form.assignee %}</div>
-      <div class="col-md-4">{% include "partials/field.html" with field=form.reviewer %}</div>
-      <div class="col-md-4">{% include "partials/field.html" with field=form.due_date %}</div>
+      <div class="col-md-3">{% include "partials/field.html" with field=form.assignee %}</div>
+      <div class="col-md-3">{% include "partials/field.html" with field=form.reviewer %}</div>
+      <div class="col-md-3">{% include "partials/field.html" with field=form.second_reviewer %}</div>
+      <div class="col-md-3">{% include "partials/field.html" with field=form.due_date %}</div>
     </div>
     <div class="mb-3 accounting-choice"><div class="accounting-choice-head"><label class="form-label fw-semibold mb-0">Gelir/gider kaydı</label><div class="segmented-control">{% for radio in form.requires_accounting %}{% if radio.data.value %}<label class="segment-choice">{{ radio.tag }}<span>{{ radio.choice_label }}</span></label>{% endif %}{% endfor %}</div></div><div class="form-text">{{ form.requires_accounting.help_text }}</div>{% for error in form.requires_accounting.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}</div>
     {% if form.notes %}{% include "partials/field.html" with field=form.notes wrap_class="" %}{% endif %}

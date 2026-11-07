@@ -119,6 +119,17 @@ class Task(TimeStampedModel):
         related_name="review_tasks",
         limit_choices_to={"is_active": True},
     )
+    # İkinci kontrolcü varsa onay sıralıdır: önce `reviewer`, sonra `second_reviewer`.
+    second_reviewer = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name="2. kontrolcü",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="second_review_tasks",
+        limit_choices_to={"is_active": True},
+    )
+    review_step = models.PositiveSmallIntegerField("kontrol sırası", default=1)
     due_date = models.DateField("son gün")
     work_order_no = models.CharField("iş emri no", max_length=60, blank=True)
     notes = models.TextField("notlar", blank=True)
@@ -170,6 +181,13 @@ class Task(TimeStampedModel):
     def clean(self):
         if self.assignee_id and self.reviewer_id and self.assignee_id == self.reviewer_id:
             raise ValidationError({"reviewer": "Kontrolcü, sorumludan farklı biri olmalı."})
+        if self.second_reviewer_id:
+            if not self.reviewer_id:
+                raise ValidationError({"second_reviewer": "Önce 1. kontrolcüyü seçin."})
+            if self.second_reviewer_id in (self.assignee_id, self.reviewer_id):
+                raise ValidationError(
+                    {"second_reviewer": "2. kontrolcü, sorumlu ve 1. kontrolcüden farklı olmalı."}
+                )
 
     def save(self, *args, **kwargs):
         self.title = tr_upper(self.title).strip()  # görev adları büyük harf
@@ -181,6 +199,13 @@ class Task(TimeStampedModel):
 
     def get_absolute_url(self):
         return reverse("tasks:detail", args=[self.pk])
+
+    @property
+    def active_reviewer_id(self):
+        """Şu an onay sırası kimdeyse onun kimliği (tek kontrolcülü görevde `reviewer`)."""
+        if self.second_reviewer_id and self.review_step == 2:
+            return self.second_reviewer_id
+        return self.reviewer_id
 
     @property
     def is_office_task(self) -> bool:
@@ -195,6 +220,8 @@ class Task(TimeStampedModel):
         if self.status == TaskStatus.DONE:
             return ""
         if self.status == TaskStatus.REVIEW:
+            if self.second_reviewer_id and self.review_step == 2:
+                return "2. Kontrolde"
             return "Revize Edildi" if self.revision_requested else "Kontrolde"
         if not self.assignee_seen:
             return "Yeni Görev"

@@ -49,7 +49,7 @@ def award_closed_task_points(task):
     task = Task.objects.select_for_update(of=("self",)).select_related("task_type").get(pk=task.pk)
     if task.status != S.DONE or not task.completed_at:
         raise ValidationError("Puan yalnızca kapatılmış görev için kaydedilebilir.")
-    for user_id in {task.assignee_id, task.reviewer_id} - {None}:
+    for user_id in {task.assignee_id, task.reviewer_id, task.second_reviewer_id} - {None}:
         TaskPoint.objects.get_or_create(
             task=task,
             user_id=user_id,
@@ -110,7 +110,7 @@ def can_do(action: Action, task: Task, user) -> bool:
         # Kontrole sorumlu (ve yönetici) gönderir; kontrolcü gönderemez.
         return user.pk == task.assignee_id
     if action.who == "reviewer":
-        return bool(task.reviewer_id and user.pk == task.reviewer_id)
+        return bool(task.active_reviewer_id and user.pk == task.active_reviewer_id)
     # manager (reopen)
     if task.reviewer_id:
         return user.pk == task.reviewer_id
@@ -126,7 +126,10 @@ def can_upload(task: Task, user) -> bool:
     return (
         task.status == S.ACTIVE
         and task.approval_seen
-        and (is_admin(user) or user.pk in (task.assignee_id, task.reviewer_id))
+        and (
+            is_admin(user)
+            or user.pk in (task.assignee_id, task.reviewer_id, task.second_reviewer_id)
+        )
     )
 
 
@@ -258,8 +261,19 @@ def perform(
     task.warnings = []
 
     old = task.status
+    if key == "approve" and task.second_reviewer_id and task.review_step == 1:
+        # 1. kontrolcü onayı: görev 2. kontrolcüye geçer, henüz sorumluya dönmez.
+        task.review_step = 2
+        task.save(update_fields=["review_step", "updated_at"])
+        TaskEvent.objects.create(
+            task=task, actor=user, kind=action.event, from_status=old, to_status=old,
+            comment=comment or "1. kontrol onaylandı; 2. kontrolcüye geçti.",
+        )  # fmt: skip
+        return task
     was_unapproved = task.approval_seen
     task.status = action.target
+    if key in ("submit", "revise", "reopen"):
+        task.review_step = 1
     task.completed_at = timezone.now() if action.target == S.DONE else None
     if key == "revise":
         task.revision_requested = True
@@ -276,6 +290,7 @@ def perform(
             "revision_requested",
             "approval_seen",
             "assignee_seen",
+            "review_step",
             "hearing_outcome",
             "hearing_decisions",
             "client_informed",

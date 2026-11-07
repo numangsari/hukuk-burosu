@@ -85,11 +85,11 @@ class TaskListView(ListView):
             tab = "aktif"
         if scope == "bana":
             if tab == "bekleyen":
-                qs = qs.filter(reviewer=u)
+                qs = qs.filter(Q(reviewer=u, review_step=1) | Q(second_reviewer=u, review_step=2))
             elif tab in ("aktif", "kontrolde"):
                 qs = qs.filter(assignee=u)
             else:
-                qs = qs.filter(Q(assignee=u) | Q(reviewer=u))
+                qs = qs.filter(Q(assignee=u) | Q(reviewer=u) | Q(second_reviewer=u))
         qs = qs.filter(
             status={
                 "aktif": TaskStatus.ACTIVE,
@@ -100,9 +100,10 @@ class TaskListView(ListView):
         )
         if (t := g.get("tur", "")).isdecimal() and len(t) <= 18:
             qs = qs.filter(task_type_id=t)
-        for parameter, field in (("sorumlu", "assignee_id"), ("kontrolcu", "reviewer_id")):
-            if (value := g.get(parameter, "")).isdecimal() and len(value) <= 18:
-                qs = qs.filter(**{field: value})
+        if (value := g.get("sorumlu", "")).isdecimal() and len(value) <= 18:
+            qs = qs.filter(assignee_id=value)
+        if (value := g.get("kontrolcu", "")).isdecimal() and len(value) <= 18:
+            qs = qs.filter(Q(reviewer_id=value) | Q(second_reviewer_id=value))
         today = timezone.localdate()
         deadline = g.get("son_gun")
         if tab != "kapali" and deadline in dict(DEADLINE_OPTIONS):

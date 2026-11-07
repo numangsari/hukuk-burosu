@@ -48,7 +48,7 @@ def filter_visible_cases(qs, user):
         Q(client__responsible_lawyer=user) | Q(client__responsible_intern=user)
     )
     task_match = Task.objects.filter(case=OuterRef("pk")).filter(
-        Q(assignee=user) | Q(reviewer=user)
+        Q(assignee=user) | Q(reviewer=user) | Q(second_reviewer=user)
     )
     return qs.filter(
         Q(responsible_lawyer=user)
@@ -74,7 +74,7 @@ def filter_visible_clients(qs, user):
         Q(case__responsible_lawyer=user) | Q(case__responsible_intern=user)
     )
     task_match = Task.objects.filter(client=OuterRef("pk")).filter(
-        Q(assignee=user) | Q(reviewer=user)
+        Q(assignee=user) | Q(reviewer=user) | Q(second_reviewer=user)
     )
     return qs.filter(
         Q(responsible_lawyer=user)
@@ -93,12 +93,15 @@ def filter_visible_tasks(qs, user):
     if is_admin(user):
         return qs
     if can_view_all_office_data(user):
-        return qs.filter(Q(case__isnull=False) | Q(assignee=user) | Q(reviewer=user))
+        return qs.filter(
+            Q(case__isnull=False) | Q(assignee=user) | Q(reviewer=user) | Q(second_reviewer=user)
+        )
     from apps.cases.models import Case
 
     return qs.filter(
         Q(assignee=user)
         | Q(reviewer=user)
+        | Q(second_reviewer=user)
         | Q(case__in=filter_visible_cases(Case.objects.all(), user))
     )
 

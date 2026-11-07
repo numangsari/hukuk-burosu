@@ -167,8 +167,14 @@
       {% if task.reviewer %}
       <div class="d-flex align-items-center gap-2 mb-3">
         <span class="avatar avatar-sm" style="--h: {{ task.reviewer.avatar_hue }}">{{ task.reviewer.initials }}</span>
-        <div><div class="fw-medium">{{ task.reviewer }}</div><div class="small text-body-secondary">Kontrolcü</div></div>
+        <div><div class="fw-medium">{{ task.reviewer }}</div><div class="small text-body-secondary">{% if task.second_reviewer %}1. Kontrolcü{% else %}Kontrolcü{% endif %}</div></div>
       </div>
+      {% if task.second_reviewer %}
+      <div class="d-flex align-items-center gap-2 mb-3">
+        <span class="avatar avatar-sm" style="--h: {{ task.second_reviewer.avatar_hue }}">{{ task.second_reviewer.initials }}</span>
+        <div><div class="fw-medium">{{ task.second_reviewer }}</div><div class="small text-body-secondary">2. Kontrolcü</div></div>
+      </div>
+      {% endif %}
       {% else %}
       <div class="small text-body-secondary mb-3">Kontrolcü yok (doğrudan kapanır)</div>
       {% endif %}

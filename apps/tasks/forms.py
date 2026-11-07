@@ -55,6 +55,7 @@ class TaskForm(BootstrapMixin, forms.ModelForm):
             "case",
             "assignee",
             "reviewer",
+            "second_reviewer",
             "due_date",
             "work_order_no",
             "notes",
@@ -126,6 +127,12 @@ class TaskForm(BootstrapMixin, forms.ModelForm):
             reviewers = reviewers | User.objects.filter(pk=self.instance.reviewer_id)
         self.fields["assignee"].queryset = users.distinct()
         self.fields["reviewer"].queryset = reviewers.distinct()
+        second = reviewers
+        if self.instance.pk and self.instance.second_reviewer_id:
+            second = second | User.objects.filter(pk=self.instance.second_reviewer_id)
+        self.fields["second_reviewer"].queryset = second.distinct()
+        self.fields["second_reviewer"].required = False
+        self.fields["second_reviewer"].empty_label = "2. kontrolcü yok"
         self.fields["client"].widget.attrs["x-ref"] = "client"
         self.fields["case"].widget.attrs["x-ref"] = "case"
         self.fields["client"].widget.attrs["data-searchable"] = "Müvekkil ara"
@@ -163,6 +170,14 @@ class TaskForm(BootstrapMixin, forms.ModelForm):
         elif client and case and case.client_id != client.pk:
             self.add_error("case", "Seçilen dosya bu müvekkile ait değil.")
         a, r = data.get("assignee"), data.get("reviewer")
+        r2 = data.get("second_reviewer")
+        if r2:
+            if not r:
+                self.add_error("second_reviewer", "Önce 1. kontrolcüyü seçin.")
+            elif r2 in (a, r):
+                self.add_error(
+                    "second_reviewer", "2. kontrolcü, sorumlu ve 1. kontrolcüden farklı olmalı."
+                )
         if a and r and a == r:
             self.add_error("reviewer", "Kontrolcü, sorumludan farklı biri olmalı.")
         elif (
