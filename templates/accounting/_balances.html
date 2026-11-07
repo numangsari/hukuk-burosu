@@ -1,25 +1,21 @@
 {% load ui %}
 {# Kullanım: include with b=balances. Bakiyenin tüm kalemleri soldan sağa görünür. #}
-<div class="balance-strip balance-strip-5">
-  <div class="bal">
+<div class="balance-strip balance-strip-5 balance-strip-compact">
+  <div class="bal" title="Vekalet ücreti + masraf">
     <span class="bal-label">Müvekkilin ofise borcu</span>
     <span class="bal-value">{{ b.debt|tl }}</span>
-    <span class="bal-hint">Vekalet ücreti + masraf</span>
   </div>
-  <div class="bal">
+  <div class="bal" title="Müvekkilin ofise ödediği">
     <span class="bal-label"><span class="bal-op">−</span> Müvekkilden tahsilat</span>
     <span class="bal-value">{{ b.collection|tl }}</span>
-    <span class="bal-hint">Müvekkilin ofise ödediği</span>
   </div>
-  <div class="bal">
+  <div class="bal" title="Karşı taraftan tahsilat">
     <span class="bal-label"><span class="bal-op">−</span> Müvekkilin ofisten alacağı</span>
     <span class="bal-value">{{ b.credit|tl }}</span>
-    <span class="bal-hint">Karşı taraftan tahsilat</span>
   </div>
-  <div class="bal">
+  <div class="bal" title="Ofisin müvekkile ödediği">
     <span class="bal-label"><span class="bal-op">+</span> Müvekkile ödeme</span>
     <span class="bal-value">{{ b.payout|tl }}</span>
-    <span class="bal-hint">Ofisin müvekkile ödediği</span>
   </div>
   <div class="bal bal-total">
     <span class="bal-label"><span class="bal-op">=</span> Bakiye tutar</span>

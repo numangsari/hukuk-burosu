@@ -9,8 +9,8 @@ Tarih: 7 Kasım 2026. Üç belgenin birleşimidir; çakışan maddeler tek satı
 ## Kaldığımız yer (7 Kasım 2026)
 
 - Karar verilenler: tasarım yönü = eski öneri (Y24), inceleme/oluşturma pop-up ile, yan panel yok (Y29), listelerde normal yazım (Y27), `ALLOWED_HOSTS` için ad + IP listesi ve yönetici ekranı (Y11).
-- Tasarım uygulamasında bitenler: renk/yazı tipi değişkenleri ve Source Serif 4, sıkı satır, `tr_title` normal yazım, dosya listesinde mahkeme/numara ayrımı, `…` ile kısaltma, tablo başlıklarında normal yazım, dosya listesinde "sonraki duruşma" sütunu.
-- Sıradaki: muhasebe tek satırlık kompakt özet, sabit tablo başlığı (kaydırma kabı nedeniyle ayrı çözüm gerekir). Ardından Y26, Y29 (görev listesinde pop-up pilot), Y30–Y32.
+- Tasarım uygulamasında bitenler: renk/yazı tipi değişkenleri ve Source Serif 4, sıkı satır, `tr_title` normal yazım, dosya listesinde mahkeme/numara ayrımı, `…` ile kısaltma, tablo başlıklarında normal yazım, dosya listesinde "sonraki duruşma" sütunu, bakiye şeridi kompakt.
+- Sıradaki: sabit tablo başlığı (kaydırma kabı nedeniyle ayrı çözüm gerekir). Ardından Y26, Y29 (görev listesinde pop-up pilot), Y30–Y32.
 - Karar bekleyen en önemli güvenlik maddesi: Y01 (HTTPS). Seçenekler: ofis içi sertifika, ters vekil + yerel CA, şimdilik atla.
 - Açık not: geliştirme veritabanında gerçek büro verisi görünüyor; `CLAUDE.md` kuralı gereği sentetik veriyle değiştirilmesi değerlendirilmeli.
 - Yerelde çalıştırma: `uv run python -m pytest` (Windows'ta `uv run pytest` trampoline hatası verir), `PYTHONUTF8=1` gerekir.
@@ -63,7 +63,7 @@ Kullanım ~%99 masaüstünde olduğundan telefon maddeleri en sona alındı.
 | No | İş | Kaynak | Durum | Not |
 |---|---|---|---|---|
 | Y24 | **Karar verildi (7 Kasım 2026): eski öneri ("Sade ve yoğun profesyonel").** Nötr gri zemin, tek vurgu `#1F3A63`, kırmızı `#B42318` = gecikti, kehribar `#9A4D06` = yaklaşıyor; serif başlık/dosya adı (Source Serif 4), arayüz Inter, tabular rakamlar; 6 px köşe, gölge yerine ince çizgi, ~40 px satır; renk yerine nokta + metin. Referans: `docs/prototip/tasarim-karsilastirma.html` (2. sekme). | U-öneri | [x] | Source Serif 4 `static/vendor/` altına yerel eklenmeli (CDN yok). Koyu tema aynı değişkenlerle yeniden ayarlanır, buton kontrastı ≥ 4.5:1. |
-| Y25 | **Kısmen yapıldı:** sıkı satır, dosya listesinde mahkeme/numara ayrımı ve `…` kısaltma bitti; sabit başlık ve muhasebe kompakt özeti kaldı. (Eski öneri kuralları ile) Liste yoğunluğu: satır yüksekliği, sabit başlık, hizalı tutar/tarih; dosya listesine "sonraki duruşma" sütunu; muhasebede tek satırlık kompakt özet; ana sayfa kartında tekrarlanan görev türünü kaldır | U11, U12, K1–K2, M1, M4 | [ ] | Mahkeme adı ile esas no'yu iki satıra ayırmak çoğu kırılmayı giderir. |
+| Y25 | **Kısmen yapıldı:** sıkı satır, dosya listesinde mahkeme/numara ayrımı ve `…` kısaltma bitti; sabit başlık ve ana sayfa kartındaki tekrar kaldı. (Eski öneri kuralları ile) Liste yoğunluğu: satır yüksekliği, sabit başlık, hizalı tutar/tarih; ana sayfa kartında tekrarlanan görev türünü kaldır | U11, U12, K1–K2, M1, M4 | [ ] | Mahkeme adı ile esas no'yu iki satıra ayırmak çoğu kırılmayı giderir. |
 | Y26 | Tek sekme bileşeni, tek "Kaydet" yeri | U6, U7 | [ ] | |
 | Y27 | Listelerde BÜYÜK HARF yerine normal yazım göster (saklama `tr_upper` ile büyük kalır) | U10 | [~] | Listeler ve ana sayfa yapıldı (`tr_title`, `CLAUDE.md` §4'e işlendi); detay sayfası başlıkları kaldı; tablo başlıkları normal yazıma çevrildi. |
 | Y28 | Arşiv kartlarını varsayılan kompakt yap | U13 | [ ] | |

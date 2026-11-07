@@ -1082,3 +1082,7 @@ tr.chain-prev > td:first-child { position: relative; }
 .case-number-year { flex: 0 0 6rem; }
 .case-number-seq { flex: 1 1 7rem; min-width: 7rem; }
 .case-number-kind { flex: 0 1 9rem; min-width: 8rem; }
+.balance-strip-compact .bal { padding: .5rem .9rem; gap: 0; }
+.balance-strip-compact .bal-label { font-size: .75rem; text-transform: none; letter-spacing: 0; }
+.balance-strip-compact .bal-value { font-size: 1.05rem; }
+.balance-strip-compact .bal-hint { font-size: .72rem; }
