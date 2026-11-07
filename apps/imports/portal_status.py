@@ -9,6 +9,10 @@ from .portal_ingest import check_import_access
 
 # Eklenti dakikada bir durum bildirir; bu süredir sessiz kalan bağlantı pasif sayılır.
 CONNECTED_WINDOW = timedelta(minutes=3)
+# Oturum yoklaması bu süreden eskiyse güvenilmez; tarama sonucuna dönülür.
+SESSION_FRESH = timedelta(minutes=10)
+# Oturum açık olsa bile verinin akmasını engelleyen tarama durumları.
+BLOCKED_STATES = {"izin_yok", "sunucu_yok"}
 # Tarama sonucu "oturum açık" anlamına gelenler. `eksik`: oturum açık, bazı kayıtlar alınamadı.
 ACTIVE_STATES = {"basladi", "tamamlandi", "eksik"}
 SOURCES = (("uyap", "UYAP"), ("uets", "UETS"))
@@ -24,7 +28,12 @@ def connection_state(connection, source, now):
     seen = connection.last_seen
     if not seen or now - seen > CONNECTED_WINDOW:
         return "pasif"
-    return "aktif" if getattr(connection, f"{source}_status") in ACTIVE_STATES else "pasif"
+    status = getattr(connection, f"{source}_status")
+    session_at = getattr(connection, f"{source}_session_at")
+    session_ok = getattr(connection, f"{source}_session_ok")
+    if session_at and session_ok is not None and now - session_at <= SESSION_FRESH:
+        return "aktif" if session_ok and status not in BLOCKED_STATES else "pasif"
+    return "aktif" if status in ACTIVE_STATES else "pasif"
 
 
 def _summary(states):

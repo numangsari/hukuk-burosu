@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Hukuk Bürosu — UYAP ve UETS Eklentisi",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Hukuk bürosu UYAP ve UETS bağlantısı ve veri senkronizasyonu.",
   "permissions": [
     "storage",
@@ -53,6 +53,17 @@
         "bridge.js"
       ],
       "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "https://avukat.uyap.gov.tr/*",
+        "https://avukatbeta.uyap.gov.tr/*",
+        "https://ptt.etebligat.gov.tr/*"
+      ],
+      "js": [
+        "session.js"
+      ],
+      "run_at": "document_idle"
     },
     {
       "matches": [

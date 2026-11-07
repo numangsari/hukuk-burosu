@@ -9,11 +9,12 @@ Tarih: 7 Kasım 2026. Eklenti (`uyap-uets-eklentisi/`) ile sunucu (`apps/imports
 - **Veri kaynağı:** Gelen veri, UYAP/UETS sayfasındaki avukat adının sunucudaki izinli kişiyle (`PortalLawyerAccess`) eşleşmesine göre o kişiye bağlanır. Bağlantı sahibi ile veri sahibi aynı olmak zorunda değildir.
 - **Ortam:** Aktarım `DEBUG` ayarından bağımsızdır; üretimde de çalışır.
 
-## Durum göstergesi (üst çubuk)
+## Oturum yoklaması ve durum göstergesi (üst çubuk)
 
-- Her bağlantı için UYAP ve UETS ayrı değerlendirilir. **Aktif:** eklenti son 3 dakikada haber verdi ve son tarama sonucu oturumun açık olduğunu gösteriyor (`basladi`, `tamamlandi`, `eksik`). **Pasif:** eklenti sessiz ya da durum `oturum_yok`, `sekme_yok`, `sunucu_yok`, `izin_yok`, `sekme_hazir_degil`, `bekliyor`.
-- Genel ışık: hepsi aktif yeşil, hiçbiri aktif değil kırmızı, karışık sarı, eşleşmiş eklenti yoksa gri. Üzerine gelince avukat listesi ve son başarılı aktarım saati görünür (yalnızca yönetici ve avukatlara; diğerleri yalnızca ışığı görür).
-- **Sınır:** Oturum bilgisi son taramanın sonucudur. Eklenti oturumu ayrıca yoklamadığı için oturum iki taramanın arasında düşerse gösterge geç fark eder. Gerçek oturum denetimi için UYAP'ta hafif bir yoklama isteği keşfedilmelidir.
+- **Yoklama (`session.js`):** UYAP/UETS sayfası açıkken dört dakikada bir oturumun geçerli olup olmadığı sorulur (UYAP: `POST /get_avukat_id.ajx`, UETS: `GET /v1/messages?count=1`). `401` veya geçersiz yanıt "oturum kapalı", `200` "oturum açık", ağ ve sunucu hatası "belirsiz" (bildirilmez). Veri toplanmaz, yanıt gövdesi okunmaz. Sonuç eklenti durum bildirimiyle (`session: {ok, at}`) sunucuya gider ve `PortalConnection.*_session_ok/_at` alanlarında saklanır.
+- **Gösterge kuralı (bağlantı bazında):** Eklenti son 3 dakikada haber vermediyse pasif. Oturum bilgisi 10 dakikadan tazeyse: oturum açık ve tarama durumu `izin_yok`/`sunucu_yok` değilse **aktif**, aksi halde **pasif**; tarama sonucu eski olsa bile oturum bilgisi önceliklidir. Oturum bilgisi yoksa ya da eskiyse son tarama sonucuna bakılır (`basladi`, `tamamlandi`, `eksik` aktif sayılır).
+- **Genel ışık:** hepsi aktif yeşil, hiçbiri aktif değil kırmızı, karışık sarı, eşleşmiş eklenti yoksa gri. Üzerine gelince avukat listesi ve son başarılı aktarım saati görünür (yalnızca yönetici ve avukatlara; diğerleri yalnızca ışığı görür).
+- **Oturumu canlı tutma:** Yoklamanın UYAP sunucusundaki boşta kalma süresini uzattığı doğrulanmadı. Etkisi uzun süreli gözlemle ölçülmeli; uzatmıyorsa ayrı bir yenileme isteği araştırılmalıdır.
 
 ## Eklenti tarama davranışı
 

@@ -73,12 +73,35 @@ test('Eşleştirme olmadan tarama başlatılmaz', async () => {
   assert.equal(storage.scan_uyap, undefined);
 });
 
-test('Portal sayfalarına ad kontrolü, doğrulama köprüsü ve tarayıcı betiği yüklenir', () => {
+test('Portal sayfalarına ad kontrolü, doğrulama köprüsü, oturum yoklaması ve tarayıcı betiği yüklenir', () => {
   const manifest = JSON.parse(fs.readFileSync('uyap-uets-eklentisi/manifest.json', 'utf8'));
   assert.ok(manifest.content_scripts.some(entry => entry.js.includes('pair.js')));
   const portal = manifest.content_scripts.filter(entry => entry.matches.some(match => match.includes('uyap.gov.tr') || match.includes('etebligat.gov.tr')));
-  assert.deepEqual(portal.flatMap(entry => entry.js), ['account-name.js', 'bridge.js', 'auto.js']);
+  assert.deepEqual(portal.flatMap(entry => entry.js), ['account-name.js', 'bridge.js', 'session.js', 'auto.js']);
   // Tarama betiği sayfanın kendi bağlamında, köprü ise yalıtılmış bağlamda çalışır.
   assert.equal(portal.find(entry => entry.js.includes('auto.js')).world, 'MAIN');
   assert.equal(portal.find(entry => entry.js.includes('bridge.js')).world, undefined);
+});
+
+test('Oturum yoklaması sonucu saklanır ve duruma eklenerek sunucuya bildirilir', async () => {
+  const {call, storage, healthRequests} = setup();
+  storage.sync_key = 'a'.repeat(43);
+  await call({type:'session', ok:true});
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(storage.session_uyap.ok, true);
+  assert.ok(Number.isInteger(storage.session_uyap.at));
+  const report = healthRequests.at(-1).body;
+  assert.equal(report.uyap.session.ok, true);
+  assert.equal(report.uets.session, undefined);
+  await call({type:'session', ok:false}, {url:'https://ptt.etebligat.gov.tr/',frameId:0});
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(storage.session_uets.ok, false);
+});
+
+test('Geçersiz veya alt çerçeveden gelen oturum bildirimi yok sayılır', async () => {
+  const {call, storage} = setup();
+  assert.equal(await call({type:'session', ok:'evet'}), undefined);
+  assert.equal(await call({type:'session', ok:true}, {url:'https://avukat.uyap.gov.tr/',frameId:3}), undefined);
+  assert.equal(await call({type:'session', ok:true}, {url:'https://baska.example/',frameId:0}), undefined);
+  assert.equal(storage.session_uyap, undefined);
 });

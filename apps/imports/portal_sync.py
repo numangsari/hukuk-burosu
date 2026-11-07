@@ -191,6 +191,13 @@ def health(request):
                     if not current or stamp > current:
                         setattr(connection, field, stamp)
                         fields.append(field)
+            session = state.get("session")
+            if isinstance(session, dict) and isinstance(session.get("ok"), bool):
+                stamp = health_time(session.get("at"), now)
+                if stamp:
+                    setattr(connection, f"{source}_session_ok", session["ok"])
+                    setattr(connection, f"{source}_session_at", stamp)
+                    fields += [f"{source}_session_ok", f"{source}_session_at"]
         # Sık durum bildirimleri kullanıcı işlem geçmişini gereksiz doldurmaz.
         updated = PortalConnection.objects.filter(pk=connection.pk, active=True).update(
             **{field: getattr(connection, field) for field in fields}

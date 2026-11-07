@@ -228,6 +228,11 @@ class PortalConnection(models.Model):
     uets_attempt_at = models.DateTimeField(null=True, blank=True)
     uyap_success_at = models.DateTimeField(null=True, blank=True)
     uets_success_at = models.DateTimeField(null=True, blank=True)
+    # Eklentinin oturum yoklaması: oturum açık mı (None: bilgi yok) ve ne zaman yoklandı.
+    uyap_session_ok = models.BooleanField(null=True, blank=True)
+    uyap_session_at = models.DateTimeField(null=True, blank=True)
+    uets_session_ok = models.BooleanField(null=True, blank=True)
+    uets_session_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         verbose_name = "portal bağlantısı"
