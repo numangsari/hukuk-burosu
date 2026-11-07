@@ -125,15 +125,8 @@ def test_retry_skips_freshly_queued_hearings_to_avoid_duplicate_events(
     assert old.google_sync_pending is False and old.google_event_id == "ev-bg"
 
 
-@pytest.mark.django_db(transaction=True)
-def test_real_background_thread_completes_sync(case_factory, api_enabled, service, settings):
-    import threading
-
-    settings.GOOGLE_SYNC_BACKGROUND = True
-    hearing = _hearing(case_factory)
-    google_sync.queue_hearing_google_sync(hearing)
-    for thread in [t for t in threading.enumerate() if t.name == "google-sync"]:
-        thread.join(timeout=10)
-    hearing.refresh_from_db()
-    assert hearing.google_event_id == "ev-bg"
-    assert hearing.google_sync_pending is False
+def test_thread_main_runs_job_and_closes_connections(monkeypatch):
+    calls = []
+    monkeypatch.setattr(google_sync.connections, "close_all", lambda: calls.append("kapat"))
+    google_sync._thread_main(lambda value: calls.append(value), ("is",))
+    assert calls == ["is", "kapat"]

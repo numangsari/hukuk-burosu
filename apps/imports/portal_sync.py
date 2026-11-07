@@ -91,16 +91,23 @@ def local_request(request):
         return False
 
 
+def can_pair(user):
+    """Yönetici her zaman, avukat yalnızca yönetici ona UYAP veya UETS izni verdiyse eşleştirebilir."""
+    try:
+        check_import_access(user)
+    except RuntimeError:
+        return False
+    if user.is_office_admin:
+        return True
+    access = PortalLawyerAccess.objects.filter(user=user).first()
+    return bool(access and (access.uyap_enabled or access.uets_enabled))
+
+
 @login_required
-@user_passes_test(lambda user: user.is_office_admin)
 @never_cache
 def pair(request):
-    if not local_request(request):
+    if not local_request(request) or not can_pair(request.user):
         raise Http404
-    try:
-        check_import_access(request.user)
-    except RuntimeError:
-        raise Http404 from None
     key = None
     if request.method == "POST":
         key = secrets.token_urlsafe(32)
@@ -149,7 +156,7 @@ def health(request):
         .filter(key_hash=key_hash, active=True)
         .first()
     )
-    if not connection or not connection.owner.is_active or not connection.owner.is_office_admin:
+    if not connection or not connection.owner.is_active:
         return JsonResponse({"error": "Bağlantı yetkisi yok."}, status=403)
     try:
         check_import_access(connection.owner)
@@ -201,7 +208,7 @@ def check_name(request):
         .filter(key_hash=key_hash, active=True, owner__is_active=True)
         .first()
     )
-    if not connection or not connection.owner.is_office_admin:
+    if not connection:
         return JsonResponse({"ok": False}, status=403)
     try:
         check_import_access(connection.owner)

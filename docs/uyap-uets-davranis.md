@@ -2,16 +2,12 @@
 
 Tarih: 7 Kasım 2026. Eklenti (`uyap-uets-eklentisi/`) ile sunucu (`apps/imports/portal_*.py`) arasındaki sözleşmenin özeti. Davranış değişirse bu tablo ve `tests/test_portal_*.js` birlikte güncellenir.
 
-## Ortam matrisi
+## Kim, nerede çalıştırır
 
-| Durum | Geliştirme (`DEBUG=True`) | Üretim (`DEBUG=False`) |
-|---|---|---|
-| Eşleştirme sayfası (`/portal-inceleme/baglanti/`) | Açık | **404**: `check_import_access` `RuntimeError` verir |
-| Eklentiden veri alma (`/portal-inceleme/eklentiden-al/`) | Çalışır | Kapalı: bağlantı sahibi için erişim denetimi başarısız, veri alınmaz |
-| Durum bildirimi, isim kontrolü | Çalışır | Kapalı |
-| Eklenti davranışı | Taramayı başlatır, sunucu reddedince `sunucu_yok` der ve 5 dakika sonra yeniden dener | Aynı; sunucu hep reddeder |
-
-Yani canlı UYAP/UETS aktarımı şu an yalnızca geliştirme modunda çalışır. Üretimde açmak ayrı bir karardır (güvenlik ve izin değerlendirmesi gerekir).
+- **Model:** Her avukat kendi bilgisayarında eklentiyi kurar, UYAP/UETS'e kendi hesabıyla girer ve eklentiyi sunucuyla eşleştirir; veri otomatik akar. Tek avukatlı ofiste yalnızca o avukatın bilgisayarı yeterlidir. İstenirse ofiste sürekli açık tek bir bilgisayar da (Chrome, eklenti ve UYAP açık) toplayıcı olarak kullanılabilir.
+- **Eşleştirme (`/portal-inceleme/baglanti/`):** Yalnızca ofis ağından (RFC 1918 veya yerel) açılır. Yönetici her zaman eşleştirebilir. Avukat (kıdemli avukat, avukat) yalnızca yönetici ona UYAP veya UETS izni verdiyse eşleştirebilir. Stajyer, katip ve sekreter eşleştiremez (404).
+- **Veri kaynağı:** Gelen veri, UYAP/UETS sayfasındaki avukat adının sunucudaki izinli kişiyle (`PortalLawyerAccess`) eşleşmesine göre o kişiye bağlanır. Bağlantı sahibi ile veri sahibi aynı olmak zorunda değildir.
+- **Ortam:** Aktarım `DEBUG` ayarından bağımsızdır; üretimde de çalışır.
 
 ## Eklenti tarama davranışı
 

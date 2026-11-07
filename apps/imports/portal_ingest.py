@@ -1,4 +1,4 @@
-"""Yalnızca ayrılmış deneme ortamındaki indirilmiş portal verilerini işler."""
+"""Eklentiden gelen UYAP/UETS verilerini işler."""
 
 import hashlib
 import json
@@ -8,7 +8,6 @@ from datetime import UTC, date, datetime
 from decimal import Decimal, InvalidOperation
 from pathlib import PurePath
 
-from django.conf import settings
 from django.core.exceptions import SuspiciousFileOperation
 from django.core.files.base import ContentFile
 from django.db import transaction
@@ -225,10 +224,9 @@ def import_files(paths, user):
 
 
 def check_import_access(user):
-    if not settings.DEBUG:
-        raise RuntimeError("Bu işlem yalnızca geliştirme modunda çalışır.")
-    if not user.is_active or not user.is_office_admin:
-        raise RuntimeError("Sorumlu kullanıcı etkin bir yönetici olmalı.")
+    """Bağlantı sahibi etkin bir yönetici veya avukat olmalı; kaynak izni ayrıca kişi bazında denetlenir."""
+    if not user.is_active or not user.is_lawyer_or_above:
+        raise RuntimeError("Sorumlu kullanıcı etkin bir yönetici veya avukat olmalı.")
 
 
 @transaction.atomic
