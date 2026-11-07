@@ -20,6 +20,70 @@ class TaskStatus(models.TextChoices):
 OPEN_STATUSES = [TaskStatus.ACTIVE, TaskStatus.REVIEW]
 
 
+class RoutineTask(TimeStampedModel):
+    """Haftanın belli günü veya ayın belli günü kendiliğinden ofis içi görev açan kural."""
+
+    class Frequency(models.TextChoices):
+        WEEKLY = "weekly", "Her hafta"
+        MONTHLY = "monthly", "Her ay"
+
+    WEEKDAYS = [
+        (0, "Pazartesi"),
+        (1, "Salı"),
+        (2, "Çarşamba"),
+        (3, "Perşembe"),
+        (4, "Cuma"),
+        (5, "Cumartesi"),
+        (6, "Pazar"),
+    ]
+
+    title = models.CharField("görev adı", max_length=300)
+    assignee = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name="sorumlu",
+        on_delete=models.PROTECT,
+        related_name="+",
+        limit_choices_to={"is_active": True},
+    )
+    reviewer = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name="kontrolcü",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="+",
+        limit_choices_to={"is_active": True},
+    )
+    frequency = models.CharField(
+        "sıklık", max_length=10, choices=Frequency.choices, default=Frequency.WEEKLY
+    )
+    weekday = models.PositiveSmallIntegerField("haftanın günü", null=True, blank=True)
+    month_day = models.PositiveSmallIntegerField("ayın günü", null=True, blank=True)
+    due_days = models.PositiveSmallIntegerField(
+        "süre (gün)",
+        default=0,
+        help_text="Görev açıldığı günden kaç gün sonra bitmeli (0 = aynı gün).",
+    )
+    is_active = models.BooleanField("etkin", default=True)
+    last_created_for = models.DateField(
+        "son oluşturulan gün", null=True, blank=True, editable=False
+    )
+
+    class Meta:
+        verbose_name = "rutin görev"
+        verbose_name_plural = "rutin görevler"
+        ordering = ["title", "pk"]
+
+    def __str__(self):
+        return self.title
+
+    @property
+    def schedule_label(self) -> str:
+        if self.frequency == self.Frequency.WEEKLY:
+            return f"Her hafta {dict(self.WEEKDAYS).get(self.weekday, '?')}"
+        return f"Her ayın {self.month_day}. günü"
+
+
 class Task(TimeStampedModel):
     task_type = models.ForeignKey(
         TaskType, verbose_name="görev türü", on_delete=models.PROTECT, related_name="tasks"
@@ -81,12 +145,24 @@ class Task(TimeStampedModel):
     # Yeni görev, sorumlu açana kadar "Yeni Görev" aşamasında görünür.
     assignee_seen = models.BooleanField("sorumlu gördü", default=True)
     completed_at = models.DateTimeField("tamamlanma", null=True, blank=True)
+    # Rutin görev kuralından üretildiyse kural ve ait olduğu gün (aynı gün iki kez açılmaz).
+    routine = models.ForeignKey(
+        RoutineTask, on_delete=models.SET_NULL, null=True, blank=True, related_name="tasks"
+    )
+    routine_date = models.DateField(null=True, blank=True)
 
     class Meta:
         verbose_name = "görev"
         verbose_name_plural = "görevler"
         ordering = ["due_date", "pk"]
         indexes = [models.Index(fields=["status", "due_date"])]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["routine", "routine_date"],
+                condition=models.Q(routine__isnull=False),
+                name="unique_routine_occurrence",
+            )
+        ]
 
     def __str__(self):
         return self.title

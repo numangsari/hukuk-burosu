@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Rutin görevler — {{ office.name }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="eyebrow"><a href="{% url 'tasks:list' %}"><i class="bi bi-chevron-left"></i> Görevler</a></div>
+    <h1 class="page-title">Rutin görevler</h1>
+    <div class="small text-body-secondary mt-1">Günü gelince sorumluya kendiliğinden ofis içi görev açılır.</div>
+  </div>
+  <div class="page-actions">
+    <a class="btn btn-primary" href="{% url 'tasks:routine_create' %}"><i class="bi bi-plus-lg"></i>Yeni rutin görev</a>
+  </div>
+</div>
+<div class="card table-card">
+  <div class="table-responsive">
+  <table class="table table-hover">
+    <thead><tr><th>Görev</th><th>Ne zaman</th><th>Sorumlu</th><th class="hide-lg">Kontrolcü</th><th class="hide-md">Süre</th><th>Durum</th><th></th></tr></thead>
+    <tbody>
+    {% for r in routines %}
+      <tr>
+        <td><a class="cell-main text-reset clip" style="--clip-w: 22rem" href="{% url 'tasks:routine_update' r.pk %}">{{ r.title|capfirst }}</a></td>
+        <td class="text-nowrap">{{ r.schedule_label }}</td>
+        <td class="text-nowrap">{{ r.assignee }}</td>
+        <td class="text-nowrap hide-lg">{{ r.reviewer|default:"—" }}</td>
+        <td class="text-nowrap hide-md">{% if r.due_days %}{{ r.due_days }} gün{% else %}Aynı gün{% endif %}</td>
+        <td>{% if r.is_active %}<span class="chip">Etkin</span>{% else %}<span class="chip no-dot">Durduruldu</span>{% endif %}</td>
+        <td class="text-end text-nowrap">
+          <a class="btn btn-light btn-sm" href="{% url 'tasks:routine_update' r.pk %}"><i class="bi bi-pencil"></i>Düzenle</a>
+          <form class="d-inline" method="post" action="{% url 'tasks:routine_delete' r.pk %}" onsubmit="return confirm('Bu rutin görev silinsin mi? Açılmış görevler korunur.')">{% csrf_token %}<button class="btn btn-light btn-sm" title="Sil"><i class="bi bi-trash"></i></button></form>
+        </td>
+      </tr>
+    {% empty %}
+      <tr><td colspan="7"><div class="empty-state"><i class="bi bi-arrow-repeat"></i><strong>Rutin görev yok</strong>Yeni rutin görev ekleyerek başlayın.</div></td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+{% endblock %}

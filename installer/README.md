@@ -24,7 +24,7 @@ indirir, `installer\cache\` altında saklar ve SHA256 değerlerini `build\indiri
 - Güvenlik duvarı: port 80 yalnızca Özel/Etki alanı ağ profili için açılır. Ofis ağının Windows'ta "Özel ağ" olarak işaretli olması gerekir.
 - Görev Zamanlayıcı: "Ozkurt Hukuk Yedek" 30 dakikada bir çalışır, Ayarlar'daki saatte günde bir yedek alır.
 - "Ozkurt Hukuk Listeler" görevi, uygulama açıkken ofis klasöründeki görüntüleme tablolarını düzenli yeniler; dosyalar üzerinde yapılan değişiklikler sisteme aktarılmaz.
-- WhatsApp bağlantısı ve duruşma takibi kullanım dışıdır. Kurulum/güncelleme eski hatırlatma görevini kaldırır; gönderim komutu mesaj göndermez. `Hukuk Buro Haciz Takibi` (eski kurulumlarda `Ozkurt Hukuk Haciz Takibi`) başlangıçta ve beş dakikada bir `check-reminders.ps1` çalıştırır: `create_seizure_tasks` ile haciz yenileme görevlerini oluşturur, ardından `retry_google_sync` ile başarısız Google Takvim eşitlemelerini yeniden dener (API kapalıysa bir şey yapmaz).
+- WhatsApp bağlantısı ve duruşma takibi kullanım dışıdır. Kurulum/güncelleme eski hatırlatma görevini kaldırır; gönderim komutu mesaj göndermez. `Hukuk Buro Haciz Takibi` (eski kurulumlarda `Ozkurt Hukuk Haciz Takibi`) başlangıçta ve beş dakikada bir `check-reminders.ps1` çalıştırır: `create_seizure_tasks` ile haciz yenileme görevlerini, `create_routine_tasks` ile günü gelen rutin görevleri oluşturur, ardından `retry_google_sync` ile başarısız Google Takvim eşitlemelerini yeniden dener (API kapalıysa bir şey yapmaz).
 - Yeni yedekler parolasızdır; ofis klasörüne erişimi yalnızca yetkili kişilerle sınırlayın. Eski parolalı yedeklerin parolası korunmalıdır.
 
 ## Güncelleme

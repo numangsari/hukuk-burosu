@@ -34,4 +34,8 @@ def test_seizure_runner_checks_service_and_command_result(tmp_path, status, resu
     marker = tmp_path / "called.txt"
     assert marker.exists() == (status == "Running")
     if marker.exists():
-        assert marker.read_text().splitlines() == ["create_seizure_tasks", "retry_google_sync"]
+        assert marker.read_text().splitlines() == [
+            "create_seizure_tasks",
+            "create_routine_tasks",
+            "retry_google_sync",
+        ]

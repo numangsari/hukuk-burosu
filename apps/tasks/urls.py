@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import views, views_pool
+from . import views, views_pool, views_routine
 
 app_name = "tasks"
 urlpatterns = [
@@ -14,6 +14,10 @@ urlpatterns = [
         views_pool.PetitionSampleDeleteView.as_view(),
         name="pool_delete",
     ),
+    path("rutin/", views_routine.RoutineListView.as_view(), name="routines"),
+    path("rutin/yeni/", views_routine.RoutineCreateView.as_view(), name="routine_create"),
+    path("rutin/<int:pk>/", views_routine.RoutineUpdateView.as_view(), name="routine_update"),
+    path("rutin/<int:pk>/sil/", views_routine.RoutineDeleteView.as_view(), name="routine_delete"),
     path("<int:pk>/", views.TaskDetailView.as_view(), name="detail"),
     path("<int:pk>/duzenle/", views.TaskUpdateView.as_view(), name="update"),
     path("<int:pk>/islem/", views.TaskActionView.as_view(), name="action"),

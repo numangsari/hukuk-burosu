@@ -10,6 +10,7 @@ from django.utils.decorators import method_decorator
 from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.views.generic import CreateView, ListView, View
 
+from apps.core.forms import BootstrapMixin
 from apps.core.pagination import page_size
 from apps.core.permissions import is_admin
 from apps.core.text import fold
@@ -18,7 +19,7 @@ from apps.core.uploads import validate_upload
 from .models import PetitionSample
 
 
-class PetitionSampleForm(forms.ModelForm):
+class PetitionSampleForm(BootstrapMixin, forms.ModelForm):
     class Meta:
         model = PetitionSample
         fields = ["title", "petition_type", "description", "file"]
