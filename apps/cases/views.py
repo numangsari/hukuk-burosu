@@ -1,7 +1,7 @@
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
-from django.db.models import Count, IntegerField, OuterRef, ProtectedError, Q, Subquery, Value
+from django.db.models import Count, IntegerField, Min, OuterRef, ProtectedError, Q, Subquery, Value
 from django.db.models.functions import Coalesce
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -44,6 +44,7 @@ from .models import (
     CaseStatus,
     CaseType,
     Document,
+    HearingStatus,
 )
 from .party_roles import PARTY_ROLES, party_lanes
 
@@ -57,6 +58,7 @@ SORT_FIELDS = {
     "created_at",
     "opened_on",
     "open_task_count",
+    "next_hearing",
 }
 
 
@@ -86,7 +88,14 @@ class CaseListView(ListView):
             self.request.user,
         )
         qs = base_qs.annotate(
-            open_task_count=Coalesce(Subquery(open_tasks, output_field=IntegerField()), Value(0))
+            open_task_count=Coalesce(Subquery(open_tasks, output_field=IntegerField()), Value(0)),
+            next_hearing=Min(
+                "hearings__starts_at",
+                filter=Q(
+                    hearings__status=HearingStatus.PLANNED,
+                    hearings__starts_at__gte=timezone.now(),
+                ),
+            ),
         )
         if q := g.get("q", "").strip():
             qs = qs.filter(

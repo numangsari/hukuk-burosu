@@ -1,9 +1,11 @@
+from datetime import timedelta
+
 import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 from django.utils import timezone
 
-from apps.cases.models import ArchiveFolder, Case, CaseParty, Document
+from apps.cases.models import ArchiveFolder, Case, CaseParty, Document, Hearing, HearingStatus
 from apps.clients.models import Party
 from apps.core.text import tr_title
 
@@ -132,6 +134,23 @@ def test_case_list_default_hides_closed(lawyer_client, case_factory):
     assert [k.subject for k in r.context["cases"]] == ["AÇIK"]
     r = lawyer_client.get(reverse("cases:list"), {"status": "all"})
     assert len(r.context["cases"]) == 2
+
+
+def test_case_list_shows_earliest_upcoming_planned_hearing(lawyer_client, case_factory):
+    now = timezone.now()
+    k = case_factory(subject="Duruşmalı")
+    far = Hearing.objects.create(case=k, starts_at=now + timedelta(days=20))
+    near = Hearing.objects.create(case=k, starts_at=now + timedelta(days=5))
+    Hearing.objects.create(case=k, starts_at=now - timedelta(days=3))
+    Hearing.objects.create(
+        case=k, starts_at=now + timedelta(days=1), status=HearingStatus.CANCELLED
+    )
+    case_factory(subject="Duruşmasız")
+    r = lawyer_client.get(reverse("cases:list"), {"sort": "next_hearing"})
+    by_subject = {c.subject: c for c in r.context["cases"]}
+    assert by_subject["DURUŞMALI"].next_hearing == near.starts_at
+    assert by_subject["DURUŞMASIZ"].next_hearing is None
+    assert far.starts_at > near.starts_at
 
 
 def test_party_add_reuses_identity_and_warns_on_client(lawyer_client, case_factory):

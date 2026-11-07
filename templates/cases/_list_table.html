@@ -6,9 +6,10 @@
       <th>{% sort_link "archive_no" "Fiziki arşiv no" %}</th>
       <th>{% sort_link "case_type" "Dosya türü" %}</th>
       <th>{% sort_link "status" "Durum" %}</th>
-      <th>{% sort_link "stage" "AŞAMA" %}</th>
+      <th>{% sort_link "stage" "Aşama" %}</th>
       <th>{% sort_link "subject" "Dosya bilgisi" %}</th>
       <th>{% sort_link "client__name" "Müvekkil" %}</th>
+      <th>{% sort_link "next_hearing" "Sonraki duruşma" %}</th>
       <th>{% sort_link "open_task_count" "Açık görev" %}</th>
       <th>Sorumlular</th>
       <th>{% sort_link "opened_on" "Dosya açılış tarihi" %}</th>
@@ -39,12 +40,13 @@
         {% if k.client %}{{ k.client|tr_title }}{% else %}<span class="chip chip-warning no-dot">Müvekkil eksik</span>{% endif %}
         {% if k.co_clients.all %} <span class="chip chip-info no-dot">+{{ k.co_clients.all|length }} müvekkil</span>{% endif %}
       </td>
+      <td class="tabular text-nowrap">{% if k.next_hearing %}{{ k.next_hearing|date:"d.m.Y H:i" }}{% else %}<span class="text-body-secondary">—</span>{% endif %}</td>
       <td class="tabular">{% if k.open_task_count %}{{ k.open_task_count }}{% else %}<span class="text-body-secondary">—</span>{% endif %}</td>
       <td class="text-nowrap"><div>{{ k.responsible_lawyer|tr_title }}</div>{% if office.use_assistant_assignee and k.responsible_intern %}<div class="cell-sub">{{ k.responsible_intern|tr_title }}</div>{% endif %}</td>
       <td class="tabular">{{ k.opened_on|date:"d.m.Y" }}</td>
     </tr>
   {% empty %}
-    <tr><td colspan="9"><div class="empty-state"><i class="bi bi-folder2"></i><strong>Dosya bulunamadı</strong>Filtreleri değiştirin veya yeni dosya açın.</div></td></tr>
+    <tr><td colspan="10"><div class="empty-state"><i class="bi bi-folder2"></i><strong>Dosya bulunamadı</strong>Filtreleri değiştirin veya yeni dosya açın.</div></td></tr>
   {% endfor %}
   </tbody>
 </table>
