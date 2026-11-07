@@ -32,6 +32,17 @@ indirir, `installer\cache\` altında saklar ve SHA256 değerlerini `build\indiri
 Yeni sürümün kurulum dosyası aynı sunucuda çalıştırılır. Kurulum önce yedek alır, servisi durdurur,
 dosyaları değiştirir, veritabanını günceller (`migrate`) ve servisi başlatır. Veriler ve `.env` korunur.
 
+## Gerçek kurulum denemesi (elle, ayrı Windows makinede)
+
+Betikler sözdizimi ve sahte servisle sınanır; gerçek servis, zamanlanmış görev ve port 80 ile aşağıdaki liste elle denenmelidir (üretim sunucusunda değil, temiz bir deneme makinesinde):
+
+1. `Setup.exe` ile temiz kurulum: `HukukBuroApp` ve `HukukBuroDB` servisleri çalışıyor mu, `http://BILGISAYAR-ADI/` açılıyor mu?
+2. `.env` içindeki `DJANGO_ALLOWED_HOSTS` bilgisayar adı ve IPv4'leri içeriyor mu (`*` yok mu)?
+3. Başka bir bilgisayardan adresle giriş yapılabiliyor mu; Ayarlar > Erişim adresleri uyarısı doğru mu?
+4. `Hukuk Buro Haciz Takibi` görevi var ve `check-reminders.ps1` çalıştırınca `create_seizure_tasks` ile `retry_google_sync` çağrılıyor mu (uygulama servisi kapalıyken bir şey yapmamalı)?
+5. Eski sürümden güncelleme: `Ozkurt*` servis ve görev adları korunuyor, veri ve `.env` aynı mı?
+6. Kaldırma (`uninstall.ps1`): servisler, görevler ve kısayollar siliniyor, veri klasörü duruyor mu?
+
 ## Notlar
 
 - Sunucuya sabit IP veya DHCP rezervasyonu verilmesi önerilir; kısayol bilgisayar adını kullanır (`http://SUNUCU-ADI/`).
