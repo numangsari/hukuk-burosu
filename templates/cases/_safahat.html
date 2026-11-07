@@ -1,3 +1,4 @@
+{% load ui %}
 {# Dosya detayı > Safahat: bağlı dosyaların tek akışı. Her satır bir dosyadır. #}
 <div class="card">
   <div class="card-header">
@@ -67,7 +68,7 @@
                 <span class="chip chip-warning no-dot">{{ rel.relation }}</span>
                 <span class="flow-detail">UYAP kaydında geçen ilgili dosya</span>
               </div>
-              <div class="safahat-title">{{ rel.authority }} {{ rel.number }}</div>
+              <div class="safahat-title">{{ rel.authority|tr_title }} {{ rel.number }}</div>
               <div class="small text-body-secondary">Bu dosya UYAP ayrıntılarında yer alıyor ancak henüz safahata dahil edilmemiş.</div>
             </div>
             <div class="safahat-actions d-flex gap-2">

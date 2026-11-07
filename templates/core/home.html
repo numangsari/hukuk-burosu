@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load ui %}
 {% block content %}
 <div class="page-header">
   <h1 class="page-title">{{ greeting }}, {{ request.user.first_name|default:request.user.username }}</h1>
@@ -20,7 +21,7 @@
         {% for ev in day.events %}
           {% if ev.url %}<a class="agenda-item src-{{ ev.source }}" href="{{ ev.url }}">{% else %}<div class="agenda-item src-{{ ev.source }}">{% endif %}
             <span class="t">{{ ev.time_label }}</span>
-            <span class="x">{{ ev.title }}{% if ev.location %}<small><i class="bi bi-geo-alt"></i> {{ ev.location }}</small>{% endif %}</span>
+            <span class="x">{{ ev.title|tr_title }}{% if ev.location %}<small><i class="bi bi-geo-alt"></i> {{ ev.location|tr_title }}</small>{% endif %}</span>
           {% if ev.url %}</a>{% else %}</div>{% endif %}
         {% endfor %}
       {% empty %}

@@ -172,7 +172,7 @@
         <span class="cal-day">{{ cell.date.day }}</span>
         <div class="cal-events" tabindex="0" role="region" aria-label="{{ cell.date|date:'d.m.Y' }} etkinlikleri">
         {% for ev in cell.events %}
-          <button type="button" data-bs-toggle="modal" data-bs-target="#calendarEventModal" data-event-title="{{ ev.title }}" data-event-source="{% if ev.source == 'google' %}Google Takvim{% elif ev.source == 'appointment' %}Randevu{% else %}Duruşma / Etkinlik{% endif %}" data-event-start="{{ ev.start|date:'d.m.Y' }}{% if not ev.all_day %} {{ ev.start|date:'H:i' }}{% endif %}" data-event-end="{% if ev.display_end %}{{ ev.display_end|date:'d.m.Y' }}{% if not ev.all_day %} {{ ev.display_end|date:'H:i' }}{% endif %}{% endif %}" data-event-all-day="{% if ev.all_day %}1{% endif %}" data-event-location="{{ ev.location }}" data-event-description="{{ ev.description }}" data-event-client="{{ ev.client_name }}" data-event-responsible="{{ ev.responsible }}" data-event-status="{{ ev.status }}" class="cal-ev src-{{ ev.source }}{% if ev.all_day %} all-day{% endif %}" title="{{ ev.time_label }} · {{ ev.title }}{% if ev.location %} · {{ ev.location }}{% endif %}">
+          <button type="button" data-bs-toggle="modal" data-bs-target="#calendarEventModal" data-event-title="{{ ev.title|tr_title }}" data-event-source="{% if ev.source == 'google' %}Google Takvim{% elif ev.source == 'appointment' %}Randevu{% else %}Duruşma / Etkinlik{% endif %}" data-event-start="{{ ev.start|date:'d.m.Y' }}{% if not ev.all_day %} {{ ev.start|date:'H:i' }}{% endif %}" data-event-end="{% if ev.display_end %}{{ ev.display_end|date:'d.m.Y' }}{% if not ev.all_day %} {{ ev.display_end|date:'H:i' }}{% endif %}{% endif %}" data-event-all-day="{% if ev.all_day %}1{% endif %}" data-event-location="{{ ev.location|tr_title }}" data-event-description="{{ ev.description }}" data-event-client="{{ ev.client_name }}" data-event-responsible="{{ ev.responsible }}" data-event-status="{{ ev.status }}" class="cal-ev src-{{ ev.source }}{% if ev.all_day %} all-day{% endif %}" title="{{ ev.time_label }} · {{ ev.title }}{% if ev.location %} · {{ ev.location|tr_title }}{% endif %}">
             {% if ev.source == "task" %}
               <b>{{ ev.time_label }}</b>
             {% elif ev.source == "hearing" %}
@@ -180,8 +180,8 @@
             {% elif not ev.all_day %}
               <b>{{ ev.start|time:"H:i" }}</b>
             {% endif %}
-            {{ ev.title }}
-            {% if view == 'week' and ev.location %}<small class="d-block opacity-75"><i class="bi bi-geo-alt"></i> {{ ev.location }}</small>{% endif %}
+            {{ ev.title|tr_title }}
+            {% if view == 'week' and ev.location %}<small class="d-block opacity-75"><i class="bi bi-geo-alt"></i> {{ ev.location|tr_title }}</small>{% endif %}
           </button>
         {% endfor %}
         </div>

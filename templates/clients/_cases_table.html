@@ -1,3 +1,4 @@
+{% load ui %}
 {# Müvekkil detayı > Dosyalar tablosu (süzgeçle HTMX ile yenilenir) #}
 <div class="table-responsive">
 <table class="table table-hover">
@@ -10,7 +11,7 @@
         {% if k.missing_fields %}<div class="mt-1"><span class="chip chip-warning no-dot" title="Eksik bilgi: {{ k.missing_fields|join:', ' }}">Eksik bilgi</span></div>{% endif %}
       </td>
       <td><div class="cell-main">{% if k.chain_prev %}<i class="bi bi-link-45deg chain-icon" title="Bağlı dosya"></i>{% endif %}{% include "cases/_source_badge.html" with case=k %} {{ k.display_name }}{% if k.linked_others %} <span class="chip chip-accent no-dot">+{{ k.linked_others }} dosya bağlı</span>{% endif %}</div></td>
-      <td>{{ k.authority|default:"—" }}<div class="cell-sub">{{ k.official_no_display }}</div></td>
+      <td>{{ k.authority|default:"—"|tr_title }}<div class="cell-sub">{{ k.official_no_display }}</div></td>
       <td><span class="type-chip type-{{ k.case_type }}">{{ k.get_case_type_display }}</span></td>
       <td>
         {% if k.portalcase %}

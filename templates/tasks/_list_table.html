@@ -3,16 +3,16 @@
 <div class="table-responsive">
 <table class="table table-hover">
   <thead>
-    <tr><th>Görev</th><th>Tür</th><th>Dosya</th><th>Müvekkil</th><th>Sorumlu</th><th>Kontrolcü</th><th>Durum</th><th>Son gün</th></tr>
+    <tr><th>Görev</th><th class="hide-xl">Tür</th><th>Dosya</th><th>Müvekkil</th><th>Sorumlu</th><th class="hide-lg">Kontrolcü</th><th>Durum</th><th>Son gün</th></tr>
   </thead>
   <tbody>
   {% for t in tasks %}
     <tr data-href="{{ t.get_absolute_url }}" onclick="if (!event.target.closest('a, button')) this.querySelector('a.cell-main').click()">
-      <td><a class="cell-main text-reset clip" style="--clip-w: 24rem" href="{{ t.get_absolute_url }}" title="{{ t.title|tr_title }}">{{ t.title|tr_title }}</a></td>
-      <td><span class="chip no-dot">{{ t.task_type }}</span></td>
-      <td><span class="tabular">{{ t.case.archive_reference }}</span> · <span class="clip-inline" style="--clip-w: 22rem" title="{{ t.case.display_name|tr_title }}">{{ t.case.display_name|tr_title }}</span></td>
-      <td>{{ t.client|tr_title }}</td>
-      <td class="text-nowrap">{{ t.assignee|tr_title }}</td><td class="text-nowrap">{{ t.reviewer|default:"—"|tr_title }}</td>
+      <td><a class="cell-main text-reset clip" style="--clip-w: 20rem" href="{{ t.get_absolute_url }}" title="{{ t.title|tr_title }}">{{ t.title|tr_title }}</a></td>
+      <td class="hide-xl"><span class="chip no-dot clip" style="--clip-w: 14rem" title="{{ t.task_type }}">{{ t.task_type }}</span></td>
+      <td><span class="tabular">{{ t.case.archive_reference }}</span> · <span class="clip-inline" style="--clip-w: 14rem" title="{{ t.case.display_name|tr_title }}">{{ t.case.display_name|tr_title }}</span></td>
+      <td><span class="clip" style="--clip-w: 12rem" title="{{ t.client|tr_title }}">{{ t.client|tr_title }}</span></td>
+      <td class="text-nowrap">{{ t.assignee|tr_title }}</td><td class="text-nowrap hide-lg">{{ t.reviewer|default:"—"|tr_title }}</td>
       <td>{% include "tasks/_chips.html" with part="status" %}</td>
       <td>{% include "tasks/_chips.html" with part="due" %}<div class="cell-sub tabular">{{ t.due_date|date:"d.m.Y" }}</div></td>
     </tr>

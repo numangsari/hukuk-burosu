@@ -1137,3 +1137,19 @@ form.is-dragover { outline: 2px dashed var(--brand); outline-offset: -2px; backg
 .portal-hint { color: var(--muted); }
 .portal-link { display: inline-block; margin-top: .4rem; font-weight: 600; }
 @media (max-width: 767.98px) { .portal-ind { display: none; } }
+
+/* Dar ekranlar: tablolarda az önemli sütunlar gizlenir, uzun hücreler ekrana göre kısalır, yan menü simge şeridine iner. */
+.clip, .clip-inline { max-width: min(var(--clip-w, 26rem), 20vw); }
+@media (max-width: 2099.98px) { .hide-xl { display: none !important; } }
+@media (max-width: 1799.98px) { .hide-lg { display: none !important; } }
+@media (max-width: 1399.98px) { .hide-md { display: none !important; } }
+@media (min-width: 992px) and (max-width: 1599.98px) {
+  :root { --sidebar-w: 64px; }
+  .sidebar-head, .sidebar .nav-section, .sidebar .side-link .soon { display: none; }
+  .sidebar-nav, .sidebar-account { padding-left: .5rem; padding-right: .5rem; }
+  .sidebar .side-link { font-size: 0; justify-content: center; gap: 0; padding: .65rem 0; }
+  .sidebar .side-link i { font-size: 1.2rem; width: auto; }
+  .sidebar .side-link.active::before { left: -.5rem; }
+  .sidebar-nav { padding-top: .75rem; }
+  .table > thead th, .table > tbody td { padding-left: .55rem; padding-right: .55rem; }
+}

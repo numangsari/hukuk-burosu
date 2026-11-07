@@ -1,3 +1,4 @@
+{% load ui %}
 <div id="archive-table" class="card table-card">
   <div class="table-responsive">
     <table class="table mb-0 align-middle">
@@ -42,7 +43,7 @@
           <td>
             <div class="cell-main">
               <a href="{{ c.get_absolute_url }}" class="fw-semibold">
-                {{ c.display_name }}
+                {{ c.display_name|tr_title }}
               </a>
             </div>
             {% if c.subject and c.case_type != "consultancy" and c.case_type != "other" %}
@@ -50,13 +51,13 @@
             {% endif %}
           </td>
           <td class="small">
-            {{ c.authority|default:"—" }}
+            {{ c.authority|default:"—"|tr_title }}
           </td>
           <td>
             <div class="cell-main">
               {% if c.client %}
               <a href="{{ c.client.get_absolute_url }}" class="fw-medium text-body">
-                <i class="bi bi-person me-1"></i>{{ c.client }}
+                <i class="bi bi-person me-1"></i>{{ c.client|tr_title }}
               </a>
               {% else %}
               <span class="chip chip-warning no-dot py-0">Müvekkilsiz</span>

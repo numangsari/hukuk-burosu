@@ -69,9 +69,9 @@
           <td>
             <div class="small text-nowrap">
               {% if h.assigned_to %}
-                <i class="bi bi-person-badge me-1"></i>{{ h.assigned_to }}
+                <i class="bi bi-person-badge me-1"></i>{{ h.assigned_to|tr_title }}
               {% elif h.case and h.case.responsible_lawyer %}
-                <i class="bi bi-person-badge me-1"></i>{{ h.case.responsible_lawyer }}
+                <i class="bi bi-person-badge me-1"></i>{{ h.case.responsible_lawyer|tr_title }}
               {% else %}
                 <span class="text-body-tertiary">—</span>
               {% endif %}

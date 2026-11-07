@@ -376,7 +376,7 @@ def test_case_names_in_lists_and_selectors(lawyer_client, case_factory, case_typ
         assert case.official_no_display in response.content.decode()
     response = lawyer_client.get(case.get_absolute_url())
     assert case.display_name in response.content.decode()
-    assert "ÖRNEK KONU" in response.content.decode()
+    assert tr_title("ÖRNEK KONU") in response.content.decode()  # ekranda normal yazım
 
 
 @pytest.mark.parametrize(

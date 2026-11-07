@@ -266,6 +266,12 @@
 {% endif %}
 {% if request.user.is_authenticated %}
 <script>
+  // Daralmış yan menüde (simge şeridi) bağlantı adı üzerine gelince görünsün.
+  document.querySelectorAll('.sidebar .side-link').forEach(link => { if (!link.title) link.title = link.textContent.trim(); });
+</script>
+{% endif %}
+{% if request.user.is_authenticated %}
+<script>
   // Yan menü kaydırılabiliyorsa altta gölge gösterilir; kullanıcı aşağıda bağlantı olduğunu fark eder.
   (() => {
     const nav = document.querySelector('.sidebar-nav');

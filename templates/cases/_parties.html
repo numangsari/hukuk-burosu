@@ -1,3 +1,4 @@
+{% load ui %}
 <div id="parties" class="card">
   <div class="card-header"><h2 class="card-title">Taraflar</h2></div>
   {% with groups=party_tab_groups|default:party_groups %}
@@ -13,11 +14,11 @@
             <div class="min-w-0 flex-grow-1">
               <div class="fw-medium">
                 {% if item.from_uyap %}<span class="badge-source badge-source-uyap me-1" role="img" aria-label="UYAP kaydı" title="UYAP kaydı (salt okunur)"><i class="bi bi-bank2" aria-hidden="true"></i></span>{% endif %}
-                {% if item.url %}<a href="{{ item.url }}">{{ item.name }}</a>{% else %}{{ item.name }}{% endif %}{% if item.is_client %} <span class="text-body-secondary fw-normal">(müvekkil)</span>{% endif %} <span class="chip no-dot ms-1">{{ item.role }}</span>
+                {% if item.url %}<a href="{{ item.url }}">{{ item.name|tr_title }}</a>{% else %}{{ item.name|tr_title }}{% endif %}{% if item.is_client %} <span class="text-body-secondary fw-normal">(müvekkil)</span>{% endif %} <span class="chip no-dot ms-1">{{ item.role }}</span>
               </div>
               <div class="small text-body-secondary">
                 {% if item.identity %}<span class="me-3">TCKN / VKN <span class="tabular">{{ item.identity }}</span></span>{% endif %}
-                {% if item.lawyer %}<span class="me-3">Vekili {{ item.lawyer }}</span>{% endif %}
+                {% if item.lawyer %}<span class="me-3">Vekili {{ item.lawyer|tr_title }}</span>{% endif %}
                 {% if item.address %}<span>{{ item.address }}</span>{% endif %}
               </div>
             </div>

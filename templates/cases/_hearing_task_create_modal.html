@@ -1,3 +1,4 @@
+{% load ui %}
 {# Duruşmadan Görev Oluşturma Modalı (HTMX ile #hearing-task-modal-dialog içine yüklenir) #}
 <form class="modal-content" method="post" action="{% url 'hearings:task_create' hearing.pk %}"
       hx-post="{% url 'hearings:task_create' hearing.pk %}"
@@ -20,7 +21,7 @@
       </div>
       <div class="hearing-task-place">
         <span class="hearing-task-label">Mahkeme / yer</span>
-        <strong>{{ hearing.authority|default:hearing.case.authority|default:"—" }}</strong>
+        <strong>{{ hearing.authority|default:hearing.case.authority|default:"—"|tr_title }}</strong>
         {% if hearing.room %}<span class="text-body-secondary small">Salon: {{ hearing.room }}</span>{% endif %}
       </div>
     </div>

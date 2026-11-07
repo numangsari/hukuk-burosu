@@ -1,9 +1,10 @@
 {% extends "base.html" %}
+{% load ui %}
 {% block title %}Dosyayı kapat — {{ case.archive_reference }}{% endblock %}
 {% block content %}
 <div class="page-header page-header-sticky">
   <div>
-    <div class="eyebrow"><a href="{{ case.get_absolute_url }}"><i class="bi bi-chevron-left"></i> {{ case.display_name }}</a></div>
+    <div class="eyebrow"><a href="{{ case.get_absolute_url }}"><i class="bi bi-chevron-left"></i> {{ case.display_name|tr_title }}</a></div>
     <h1 class="page-title">Dosyayı kapat</h1>
   </div>
   <div class="page-actions">
@@ -16,7 +17,7 @@
   {% csrf_token %}
   {% if form.non_field_errors %}<div class="alert alert-danger m-3 mb-0">{{ form.non_field_errors }}</div>{% endif %}
   <div class="form-section">
-    <div class="small text-body-secondary mb-3">{{ case.display_name }} · {{ case.get_case_type_display }} · {{ case.client }}</div>
+    <div class="small text-body-secondary mb-3">{{ case.display_name|tr_title }} · {{ case.get_case_type_display }} · {{ case.client|tr_title }}</div>
     <div class="row">
       <div class="col-md-8">{% include "partials/field.html" with field=form.closing_reason %}</div>
       <div class="col-md-4">{% include "partials/field.html" with field=form.closed_on %}</div>

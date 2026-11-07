@@ -20,8 +20,8 @@
         {% endif %}
       </div>
       <div class="meta">
-        <span><i class="bi bi-folder2"></i><a class="fw-medium" href="{{ task.case.get_absolute_url }}"{% if request.GET.pencere %} target="_top"{% endif %}>{{ task.case.archive_reference }} — {{ task.case.display_name }}</a></span>
-        <span><i class="bi bi-person"></i><a href="{{ task.client.get_absolute_url }}"{% if request.GET.pencere %} target="_top"{% endif %}>{{ task.client }}</a></span>
+        <span><i class="bi bi-folder2"></i><a class="fw-medium" href="{{ task.case.get_absolute_url }}"{% if request.GET.pencere %} target="_top"{% endif %}>{{ task.case.archive_reference }} — {{ task.case.display_name|tr_title }}</a></span>
+        <span><i class="bi bi-person"></i><a href="{{ task.client.get_absolute_url }}"{% if request.GET.pencere %} target="_top"{% endif %}>{{ task.client|tr_title }}</a></span>
         <span><i class="bi bi-calendar-event"></i>Son gün <strong class="tabular">{{ task.due_date|date:"d.m.Y" }}</strong></span>
         <span>Kayıt: {{ task.created_at|date:"d.m.Y H:i" }} · {{ task.created_by|default:"—" }}</span>
       </div>

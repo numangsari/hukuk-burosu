@@ -24,7 +24,7 @@
               <div class="info-label">Müvekkil</div>
               <div class="info-value">
                 {% if case.client %}
-                  <a href="{{ case.client.get_absolute_url }}">{{ case.client }}</a>{% for c in case.co_clients.all %}, <a href="{{ c.get_absolute_url }}">{{ c }}</a>{% endfor %}
+                  <a href="{{ case.client.get_absolute_url }}">{{ case.client|tr_title }}</a>{% for c in case.co_clients.all %}, <a href="{{ c.get_absolute_url }}">{{ c }}</a>{% endfor %}
                   {% if case.client_role %} <span class="text-body-secondary fw-normal">· {{ case.get_client_role_display }}</span>{% else %} <span class="chip chip-warning no-dot ms-1">Sıfat eksik</span>{% endif %}
                 {% else %}
                   <span class="chip chip-warning no-dot">Müvekkil girilmeli</span>
@@ -48,7 +48,7 @@
             {% if case.case_type == 'criminal' or case.case_type == 'investigation' %}
             <div class="info-item">
               <div class="info-label">Suç</div>
-              <div class="info-value">{{ case.crime|default:"—" }}</div>
+              <div class="info-value">{{ case.crime|default:"—"|tr_title }}</div>
             </div>
             {% endif %}
             {% if case.is_open and case.stage_label %}
@@ -85,7 +85,7 @@
             {% if case.authority or case.portalcase.authority %}
             <div class="info-item">
               <div class="info-label"><span class="badge-source badge-source-uyap me-1"><i class="bi bi-bank2"></i></span>{{ case.labels.authority|default:"Birim" }}</div>
-              <div class="info-value">{{ case.authority|default:case.portalcase.authority }}</div>
+              <div class="info-value">{{ case.authority|default:case.portalcase.authority|tr_title }}</div>
             </div>
             {% endif %}
             {% if case.official_no_display or case.portalcase.number %}
@@ -97,7 +97,7 @@
             {% if case.uyap_subject %}
             <div class="info-item">
               <div class="info-label"><span class="badge-source badge-source-uyap me-1"><i class="bi bi-bank2"></i></span>UYAP Dava Konusu</div>
-              <div class="info-value">{{ case.uyap_subject }}</div>
+              <div class="info-value">{{ case.uyap_subject|tr_title }}</div>
             </div>
             {% endif %}
             <div class="info-item">
@@ -131,7 +131,7 @@
             {% if case.mediator %}
             <div class="info-item">
               <div class="info-label"><span class="badge-source badge-source-uyap me-1"><i class="bi bi-bank2"></i></span>Arabulucu</div>
-              <div class="info-value">{{ case.mediator }}</div>
+              <div class="info-value">{{ case.mediator|tr_title }}</div>
             </div>
             {% endif %}
             {% if portal_information.fields %}
@@ -141,7 +141,7 @@
                   {% else %}
                   <div class="info-item">
                     <div class="info-label"><span class="badge-source badge-source-uyap me-1"><i class="bi bi-bank2"></i></span>{{ label }}</div>
-                    <div class="info-value">{{ value|linebreaksbr }}</div>
+                    <div class="info-value">{{ value|tr_title|linebreaksbr }}</div>
                   </div>
                   {% endif %}
                 {% endif %}
@@ -164,9 +164,9 @@
     <div class="card mb-3"><div class="card-body">
       <h2 class="section-title">Dosya bilgileri</h2>
       <div class="info-grid">
-        <div class="info-item info-wide"><div class="info-label">Müvekkil</div><div class="info-value">{% if case.client %}<a href="{{ case.client.get_absolute_url }}">{{ case.client }}</a>{% else %}<span class="chip chip-warning no-dot">Müvekkil seçilmedi</span>{% endif %}{% for c in case.co_clients.all %}, <a href="{{ c.get_absolute_url }}">{{ c }}</a>{% endfor %}{% if case.client_role %} <span class="text-body-secondary fw-normal">· {{ case.get_client_role_display }}</span>{% endif %}</div></div>
-        <div class="info-item"><div class="info-label">Konu</div><div class="info-value">{{ case.subject|default:"—" }}</div></div>
-        {% if case.labels.authority %}<div class="info-item"><div class="info-label">{{ case.labels.authority }}</div><div class="info-value">{{ case.authority|default:"—" }}</div></div>{% endif %}
+        <div class="info-item info-wide"><div class="info-label">Müvekkil</div><div class="info-value">{% if case.client %}<a href="{{ case.client.get_absolute_url }}">{{ case.client|tr_title }}</a>{% else %}<span class="chip chip-warning no-dot">Müvekkil seçilmedi</span>{% endif %}{% for c in case.co_clients.all %}, <a href="{{ c.get_absolute_url }}">{{ c }}</a>{% endfor %}{% if case.client_role %} <span class="text-body-secondary fw-normal">· {{ case.get_client_role_display }}</span>{% endif %}</div></div>
+        <div class="info-item"><div class="info-label">Konu</div><div class="info-value">{{ case.subject|default:"—"|tr_title }}</div></div>
+        {% if case.labels.authority %}<div class="info-item"><div class="info-label">{{ case.labels.authority }}</div><div class="info-value">{{ case.authority|default:"—"|tr_title }}</div></div>{% endif %}
         {% if case.labels.official_no %}<div class="info-item"><div class="info-label">{{ case.labels.official_no }}</div><div class="info-value tabular">{{ case.official_no_display|default:"—" }}</div></div>{% endif %}
         {% if case.case_type == 'notice' %}<div class="info-item"><div class="info-label">Tebligat</div><div class="info-value">{% if case.notice_service_no %}No: {{ case.notice_service_no }} · {% endif %}{% if case.notice_served %}Tebliğ edildi{% if case.notice_served_on %} ({{ case.notice_served_on|date:"d.m.Y" }}){% endif %}{% else %}Tebliğ edilmedi{% endif %}</div></div>{% endif %}
         <div class="info-item"><div class="info-label">Dosya türü</div><div class="info-value">{{ case.get_case_type_display }}</div></div>
@@ -176,8 +176,8 @@
         <div class="info-item"><div class="info-label">Takipte kesinleşen miktar</div><div class="info-value tabular">{% if case.enforcement_amount != None %}{{ case.enforcement_amount|tl }}{% else %}—{% endif %}</div></div>
         <div class="info-item"><div class="info-label">Takibin dayanağı</div><div class="info-value">{{ case.enforcement_basis|default:"—"|linebreaksbr }}</div></div>
         {% endif %}
-        {% if case.crime %}<div class="info-item"><div class="info-label">Suç</div><div class="info-value">{{ case.crime }}</div></div>{% endif %}
-        {% if case.mediator %}<div class="info-item"><div class="info-label">Arabulucu</div><div class="info-value">{{ case.mediator }}</div></div>{% endif %}
+        {% if case.crime %}<div class="info-item"><div class="info-label">Suç</div><div class="info-value">{{ case.crime|tr_title }}</div></div>{% endif %}
+        {% if case.mediator %}<div class="info-item"><div class="info-label">Arabulucu</div><div class="info-value">{{ case.mediator|tr_title }}</div></div>{% endif %}
         {% if case.labels.value and case.value %}<div class="info-item"><div class="info-label">{{ case.labels.value }}</div><div class="info-value tabular">{{ case.value|tl }}</div></div>{% endif %}
       </div>
     </div></div>
@@ -216,7 +216,7 @@
             <div class="min-w-0">
               <div class="fw-medium text-truncate">
                 {% if item.from_uyap %}<span class="badge-source badge-source-uyap me-1" role="img" aria-label="UYAP kaydı" title="UYAP kaydı"><i class="bi bi-bank2" aria-hidden="true"></i></span>{% endif %}
-                {% if item.url %}<a href="{{ item.url }}">{{ item.name }}</a>{% else %}{{ item.name }}{% endif %}{% if item.is_client %} <span class="text-body-secondary fw-normal">(müvekkil)</span>{% endif %}
+                {% if item.url %}<a href="{{ item.url }}">{{ item.name|tr_title }}</a>{% else %}{{ item.name|tr_title }}{% endif %}{% if item.is_client %} <span class="text-body-secondary fw-normal">(müvekkil)</span>{% endif %}
               </div>
               <div class="small text-body-secondary">{{ item.role }}{% if item.identity %} · <span class="tabular">{{ item.identity }}</span>{% endif %}{% if item.lawyer %} · Vekili: {{ item.lawyer }}{% endif %}</div>
             </div>
@@ -263,8 +263,8 @@
           <a href="#" onclick="goCaseTab('{{ item.tab }}'); return false">
             <span class="upcoming-icon"><i class="bi {{ item.icon }}"></i></span>
             <span class="min-w-0 flex-grow-1">
-              <span class="d-block fw-medium text-truncate">{{ item.title }}</span>
-              <span class="d-block small text-body-secondary">{{ item.kind }}{% if item.sub %} · {{ item.sub }}{% endif %}</span>
+              <span class="d-block fw-medium text-truncate">{{ item.title|tr_title }}</span>
+              <span class="d-block small text-body-secondary">{{ item.kind }}{% if item.sub %} · {{ item.sub|tr_title }}{% endif %}</span>
             </span>
             <span class="upcoming-when {% if item.days < 0 %}is-late{% elif item.days <= 3 %}is-soon{% endif %}">
               <span class="tabular">{{ item.date|date:"d.m.Y" }}</span>

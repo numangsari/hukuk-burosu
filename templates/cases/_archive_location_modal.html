@@ -1,3 +1,4 @@
+{% load ui %}
 <div class="modal-dialog modal-dialog-centered">
   <form method="post" action="{% url 'archive:update_location' case.pk %}" class="modal-content" hx-post="{% url 'archive:update_location' case.pk %}" hx-target="#location-modal" hx-swap="innerHTML">
     {% csrf_token %}
@@ -5,7 +6,7 @@
     <div class="modal-header">
       <div>
         <h2 class="modal-title fs-6 mb-1">Fiziki Arşiv Yerini Düzenle</h2>
-        <div class="text-body-secondary small">{{ case.display_name }} · {{ case.client|default:"Müvekkilsiz" }}</div>
+        <div class="text-body-secondary small">{{ case.display_name|tr_title }} · {{ case.client|default:"Müvekkilsiz"|tr_title }}</div>
       </div>
       <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Kapat"></button>
     </div>
