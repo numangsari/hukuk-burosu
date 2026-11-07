@@ -447,7 +447,7 @@ a.stat-card:hover { box-shadow: var(--shadow); border-color: color-mix(in srgb, 
   font-size: .875rem;
 }
 .table > thead th {
-  font-size: .72rem; font-weight: 600; text-transform: uppercase; letter-spacing: .05em;
+  font-size: .78rem; font-weight: 600;
   color: var(--muted); background: var(--surface-2); border-bottom: 1px solid var(--line);
   padding: .45rem .85rem; white-space: nowrap;
 }
