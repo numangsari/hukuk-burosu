@@ -73,19 +73,16 @@ def test_document_is_stored_on_case_with_category_and_title(setup):
 
 
 @pytest.mark.parametrize(
-    ("tur", "category"),
-    [
-        ("Tebliğ Mazbatası", DocumentCategory.SERVICE),
-        ("Karar", DocumentCategory.DECISION),
-        ("Dilekçe", DocumentCategory.PETITION),
-        ("Bilirkişi Raporu", DocumentCategory.EXPERT),
-        ("Reddiyat Makbuzu", DocumentCategory.OTHER),
-    ],
+    "tur",
+    ["Kapalı Tebligat", "Genel Müzekkere", "Tensip Zaptı", "Ek- Hazırlık Dosyası Gelen Evrak"],
 )
-def test_category_follows_document_type(setup, tur, category):
+def test_uyap_type_is_kept_as_is_and_no_category_is_guessed(setup, tur):
     client, auth, _, case, _ = setup
     post(client, auth, body(meta={"tur": tur}))
-    assert Document.objects.get(case=case).category == category
+    document = Document.objects.get(case=case)
+    assert document.uyap_type == tur
+    assert document.title == tur
+    assert document.category == DocumentCategory.OTHER
 
 
 def test_same_evrak_is_not_stored_twice(setup):

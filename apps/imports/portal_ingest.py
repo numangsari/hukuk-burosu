@@ -311,33 +311,27 @@ _DOCUMENT_SUFFIXES = {
 MAX_DOCUMENT_BYTES = 20_000_000
 
 
-def document_category(kind):
-    from apps.cases.models import DocumentCategory
-
-    text = fold(str(kind or ""))
-    for words, category in (
-        (("tebli", "mazbata"), DocumentCategory.SERVICE),
-        (("karar", "hukum", "ilam"), DocumentCategory.DECISION),
-        (("dilekce", "cevap", "talep", "itiraz", "beyan"), DocumentCategory.PETITION),
-        (("bilirkisi", "kesif raporu"), DocumentCategory.EXPERT),
-    ):
-        if any(word in text for word in words):
-            return category
-    return DocumentCategory.OTHER
-
-
-def _evrak_name(filename, content):
-    path = PurePath(str(filename or "").replace("\\", "/"))
-    suffix = path.suffix.lower()
+def _evrak_suffix(filename, content):
+    suffix = PurePath(str(filename or "").replace("\\", "/")).suffix.lower()
     if content.startswith(b"%PDF-"):
-        suffix = ".pdf"
-    elif suffix not in _DOCUMENT_SUFFIXES or suffix == ".pdf":
-        suffix = ".bin"
-    try:
-        stem = get_valid_filename(path.stem)[:200]
-    except SuspiciousFileOperation:
-        stem = ""
-    return (stem or "UYAP_evraki") + suffix
+        return ".pdf"
+    return ".bin" if suffix not in _DOCUMENT_SUFFIXES or suffix == ".pdf" else suffix
+
+
+_UNSAFE_NAME = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
+
+
+def uyap_document_names(kind, date_value, suffix):
+    """(başlık, dosya adı): "Kapalı Tebligat · 14.10.2026" ve "2026-10-14 Kapalı Tebligat.pdf"."""
+    kind = _UNSAFE_NAME.sub("-", kind or "").strip()
+    title = kind or "UYAP evrakı"
+    if date_value:
+        title = (
+            f"{kind} · {date_value:%d.%m.%Y}" if kind else f"UYAP evrakı · {date_value:%d.%m.%Y}"
+        )
+    stem = f"{date_value:%Y-%m-%d} {kind}".strip() if date_value else (kind or "UYAP evrakı")
+    stem = re.sub(r"\s+", " ", stem).strip(" .")[:150] or "UYAP evrakı"
+    return title, stem + suffix
 
 
 def parse_uyap_date(value):
@@ -386,16 +380,17 @@ def import_uyap_document(body, source_user):
         return None
     kind = str(meta.get("tur") or "")[:120]
     stamp = str(meta.get("onaylandigiTarih") or "")[:40]
-    title = (kind or "UYAP evrakı") + (f" ({stamp})" if stamp else "")
-    filename = _evrak_name(name, content)
+    document_date = parse_uyap_date(stamp)
+    title, filename = uyap_document_names(kind, document_date, _evrak_suffix(name, content))
     unit_no = str(meta.get("birimEvrakNo") or "")[:40]
     document = Document(
         case=portal.case,
         title=title[:300],
-        category=document_category(kind),
         notes="UYAP evrakı" + (f" · Birim evrak no: {unit_no}" if unit_no else ""),
         original_name=filename,
-        document_date=parse_uyap_date(stamp),
+        document_date=document_date,
+        source="uyap",
+        uyap_type=kind,
     )
     document.file.save(filename, ContentFile(content), save=False)
     document.save()

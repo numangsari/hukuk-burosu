@@ -1,11 +1,11 @@
 <div id="documents" class="card table-card">
-  <div class="card-header"><h2 class="card-title">Belgeler</h2></div>
+  <div class="card-header"><h2 class="card-title">Büro belgeleri</h2></div>
   {% if folder_warning %}<div class="alert alert-warning small m-3 mb-0 py-2"><i class="bi bi-folder-x me-1"></i>{{ folder_warning }}</div>{% endif %}
   <div class="table-responsive">
   <table class="table">
     <thead><tr><th>Belge</th><th>Kategori</th><th>Yükleyen</th><th>Tarih</th><th></th></tr></thead>
     <tbody>
-    {% for d in documents %}
+    {% for d in office_documents %}
       <tr>
         <td>
           <div class="d-flex align-items-center gap-3">

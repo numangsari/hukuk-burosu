@@ -1,7 +1,20 @@
+import datetime
+
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied, ValidationError
+from django.core.paginator import Paginator
 from django.db import transaction
-from django.db.models import Count, IntegerField, Min, OuterRef, ProtectedError, Q, Subquery, Value
+from django.db.models import (
+    Count,
+    IntegerField,
+    Max,
+    Min,
+    OuterRef,
+    ProtectedError,
+    Q,
+    Subquery,
+    Value,
+)
 from django.db.models.functions import Coalesce
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -44,6 +57,7 @@ from .models import (
     CaseStatus,
     CaseType,
     Document,
+    DocumentSource,
     HearingStatus,
 )
 from .party_roles import PARTY_ROLES, party_lanes
@@ -477,6 +491,8 @@ class CaseDetailView(DetailView):
         ctx["document_form"] = DocumentForm()
         ctx["party_links"] = self.object.party_links.select_related("party", "case")
         ctx["documents"] = self.object.documents.select_related("created_by").chronological()
+        ctx["office_documents"] = [d for d in ctx["documents"] if d.source == DocumentSource.OFFICE]
+        ctx.update(_uyap_documents_context(self.object, {}))
         ctx.update(_related_documents(self.object))
         case = self.object
         ctx.update(
@@ -602,6 +618,80 @@ def _related_documents(case):
     }
 
 
+UYAP_PAGE_SIZE = 50
+
+
+def _iso_date(value):
+    try:
+        return datetime.date.fromisoformat(str(value or "").strip())
+    except ValueError:
+        return None
+
+
+UYAP_SORTS = {
+    "-tarih": ("-sort_date", "-created_at", "-pk"),
+    "tarih": ("sort_date", "created_at", "pk"),
+    "ad": ("uyap_type", "-sort_date", "-pk"),
+    "-ad": ("-uyap_type", "-sort_date", "-pk"),
+}
+
+
+def _uyap_documents_context(case, params):
+    """UYAP evrakları bölümü: UYAP'taki evrak adına, arama metnine ve UYAP tarihi aralığına göre
+    süzülmüş, ada veya tarihe göre sıralanmış sayfa. Evrak adı UYAP'tan geldiği gibi kullanılır."""
+    everything = case.documents.uyap()
+    sort = params.get("sirala", "")
+    if sort not in UYAP_SORTS:
+        sort = "-tarih"
+    name = (params.get("tur") or "").strip()[:120]
+    text = (params.get("q") or "").strip()[:100]
+    start, end = _iso_date(params.get("bas")), _iso_date(params.get("bit"))
+    documents = everything.chronological().order_by(*UYAP_SORTS[sort])
+    if name:
+        documents = documents.filter(uyap_type=name)
+    if text:
+        documents = documents.filter(
+            Q(title__icontains=text)
+            | Q(uyap_type__icontains=text)
+            | Q(original_name__icontains=text)
+        )
+    if start:
+        documents = documents.filter(sort_date__gte=start)
+    if end:
+        documents = documents.filter(sort_date__lte=end)
+    names = (
+        everything.exclude(uyap_type="")
+        .values("uyap_type")
+        .annotate(count=Count("pk"))
+        .order_by("uyap_type")
+    )
+    return {
+        "case": case,
+        "page": Paginator(documents, UYAP_PAGE_SIZE).get_page(params.get("sayfa")),
+        "uyap_total": everything.count(),
+        "uyap_latest": everything.aggregate(last=Max("created_at"))["last"],
+        "uyap_names": [{"name": row["uyap_type"], "count": row["count"]} for row in names],
+        "uyap_sort": sort,
+        "uyap_filters": {
+            "tur": name,
+            "q": text,
+            "bas": start.isoformat() if start else "",
+            "bit": end.isoformat() if end else "",
+        },
+        "uyap_filtered": bool(name or text or start or end),
+    }
+
+
+class UyapDocumentsView(View):
+    """UYAP evrakları bölümü (salt okunur); HTMX ile süzülür ve sayfalanır."""
+
+    def get(self, request, pk):
+        case = get_object_or_404(filter_visible_cases(Case.objects.all(), request.user), pk=pk)
+        return render(
+            request, "cases/_uyap_documents.html", _uyap_documents_context(case, request.GET)
+        )
+
+
 def _documents_partial(request, case, form=None, warning=""):
     return render(
         request,
@@ -609,7 +699,9 @@ def _documents_partial(request, case, form=None, warning=""):
         {
             "case": case,
             "document_form": form or DocumentForm(),
-            "documents": case.documents.select_related("created_by").chronological(),
+            "office_documents": case.documents.office()
+            .select_related("created_by")
+            .chronological(),
             "folder_warning": warning,
             **_related_documents(case),
         },
@@ -636,6 +728,8 @@ class DocumentDeleteView(View):
     def post(self, request, pk, doc_pk):
         case = get_object_or_404(filter_visible_cases(Case.objects.all(), request.user), pk=pk)
         doc = get_object_or_404(Document, pk=doc_pk, case=case)
+        if doc.source == DocumentSource.UYAP:
+            raise PermissionDenied("UYAP evrakları silinemez.")
         if doc.created_by_id == request.user.pk or is_admin(request.user):
             doc.file.delete(save=False)
             doc.delete()

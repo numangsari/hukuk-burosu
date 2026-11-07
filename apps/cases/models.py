@@ -583,12 +583,23 @@ class DocumentCategory(models.TextChoices):
     OTHER = "other", "Diğer"
 
 
+class DocumentSource(models.TextChoices):
+    OFFICE = "office", "Büro belgesi"
+    UYAP = "uyap", "UYAP evrakı"
+
+
 def document_upload_to(instance, filename):
     name = Path(filename)
     return f"cases/{instance.case_id}/{uuid.uuid4().hex[:8]}_{name.stem[:80]}{name.suffix.lower()}"
 
 
 class DocumentQuerySet(models.QuerySet):
+    def office(self):
+        return self.filter(source="office")
+
+    def uyap(self):
+        return self.filter(source="uyap")
+
     def chronological(self):
         """Belge tarihine (UYAP evrakında UYAP tarihi, yoksa yüklenme günü) göre yeniden eskiye."""
         return self.annotate(
@@ -610,6 +621,10 @@ class Document(TimeStampedModel):
     notes = models.TextField("notlar", blank=True)
     folder_path = models.CharField("klasördeki kopya", max_length=500, blank=True, editable=False)
     document_date = models.DateField("belge tarihi", null=True, blank=True)
+    source = models.CharField(
+        "kaynak", max_length=10, choices=DocumentSource.choices, default=DocumentSource.OFFICE
+    )
+    uyap_type = models.CharField("UYAP evrak türü", max_length=120, blank=True, editable=False)
 
     objects = DocumentQuerySet.as_manager()
 

@@ -26,6 +26,7 @@ urlpatterns = [
     ),
     path("<int:pk>/ilgili/<int:member_pk>/tasi/", views.LinkMoveView.as_view(), name="link_move"),
     path("<int:pk>/belge/", views.DocumentUploadView.as_view(), name="document_upload"),
+    path("<int:pk>/uyap-evraklari/", views.UyapDocumentsView.as_view(), name="uyap_documents"),
     path(
         "<int:pk>/belge/<int:doc_pk>/sil/",
         views.DocumentDeleteView.as_view(),

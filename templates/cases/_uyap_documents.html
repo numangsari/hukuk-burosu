@@ -1,0 +1,56 @@
+{% load ui %}
+<div id="uyap-documents" class="card table-card mt-3">
+  <div class="card-header">
+    <h2 class="card-title">UYAP evrakları</h2>
+    <span class="chip no-dot" title="UYAP'tan otomatik alınır; silinemez ve düzenlenemez">Salt okunur</span>
+    <span class="small text-body-secondary ms-auto">{{ uyap_total }} evrak{% if uyap_latest %} · son alınan {{ uyap_latest|date:"d.m.Y H:i" }}{% endif %}</span>
+  </div>
+  {% if uyap_total %}
+  <form class="inline-form row g-2 align-items-end" hx-get="{% url 'cases:uyap_documents' case.pk %}" hx-target="#uyap-documents" hx-swap="outerHTML" hx-trigger="change, keyup changed delay:300ms from:input[name=q]">
+    <div class="col-md-3"><label class="form-label small mb-1">Ara</label><input class="form-control" type="search" name="q" value="{{ uyap_filters.q }}" placeholder="Evrak türü veya ad"></div>
+    <div class="col-md-3"><label class="form-label small mb-1">Evrak adı</label>
+      <select class="form-select" name="tur"><option value="">Tümü</option>{% for item in uyap_names %}<option value="{{ item.name }}"{% if uyap_filters.tur == item.name %} selected{% endif %}>{{ item.name }} ({{ item.count }})</option>{% endfor %}</select></div>
+    <div class="col-md-2"><label class="form-label small mb-1">Başlangıç</label><input class="form-control" type="date" name="bas" value="{{ uyap_filters.bas }}"></div>
+    <div class="col-md-2"><label class="form-label small mb-1">Bitiş</label><input class="form-control" type="date" name="bit" value="{{ uyap_filters.bit }}"></div>
+    <div class="col-md-2">{% if uyap_filtered %}<a class="btn btn-light w-100" href="#" hx-get="{% url 'cases:uyap_documents' case.pk %}" hx-target="#uyap-documents" hx-swap="outerHTML">Filtreyi temizle</a>{% endif %}</div>
+  </form>
+  <div class="table-responsive">
+  <table class="table">
+    <thead><tr>
+      <th><a href="#" class="text-reset" hx-get="{% url 'cases:uyap_documents' case.pk %}{% if uyap_sort == 'ad' %}{% query_with sirala='-ad' sayfa=None %}{% else %}{% query_with sirala='ad' sayfa=None %}{% endif %}" hx-target="#uyap-documents" hx-swap="outerHTML">Evrak adı{% if uyap_sort == 'ad' %} ↑{% elif uyap_sort == '-ad' %} ↓{% endif %}</a></th>
+      <th><a href="#" class="text-reset" hx-get="{% url 'cases:uyap_documents' case.pk %}{% if uyap_sort == '-tarih' %}{% query_with sirala='tarih' sayfa=None %}{% else %}{% query_with sirala='-tarih' sayfa=None %}{% endif %}" hx-target="#uyap-documents" hx-swap="outerHTML">UYAP tarihi{% if uyap_sort == '-tarih' %} ↓{% elif uyap_sort == 'tarih' %} ↑{% endif %}</a></th>
+      <th></th></tr></thead>
+    <tbody>
+    {% for d in page.object_list %}
+      <tr>
+        <td>
+          <div class="d-flex align-items-center gap-3">
+            <span class="hero-icon" style="width: 36px; height: 36px; font-size: 1rem; border-radius: 10px; background: var(--danger-soft); color: var(--danger-ink)"><i class="bi bi-file-earmark-text"></i></span>
+            <div class="min-w-0">
+              <a class="cell-main text-reset clip" style="--clip-w: 36rem" href="{{ d.file.url }}" target="_blank" title="{{ d.title }}">{{ d.title }}</a>
+              <div class="cell-sub text-truncate">{{ d.original_name }} · {{ d.size|filesizeformat }}{% if d.folder_path %} · <i class="bi bi-folder-check" style="color: var(--success-ink)"></i> Ofis klasöründe{% endif %}</div>
+            </div>
+          </div>
+        </td>
+        <td class="tabular text-body-secondary">{% if d.document_date %}{{ d.document_date|date:"d.m.Y" }}{% else %}{{ d.created_at|date:"d.m.Y" }}{% endif %}</td>
+        <td class="text-end text-nowrap"><a class="text-body-secondary" href="{{ d.file.url }}" download title="İndir"><i class="bi bi-download"></i></a></td>
+      </tr>
+    {% empty %}
+      <tr><td colspan="3"><div class="empty-state py-3"><i class="bi bi-search"></i><strong>Filtreye uyan evrak yok</strong>Filtreyi değiştirin veya temizleyin.</div></td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% if page.paginator.num_pages > 1 %}
+  <div class="card-body border-top d-flex align-items-center justify-content-between small">
+    <span class="text-body-secondary">Sayfa {{ page.number }} / {{ page.paginator.num_pages }}</span>
+    <span class="d-flex gap-2">
+      {% if page.has_previous %}<a class="btn btn-light btn-sm" href="#" hx-get="{% url 'cases:uyap_documents' case.pk %}{% query_with sayfa=page.previous_page_number %}" hx-target="#uyap-documents" hx-swap="outerHTML">Önceki</a>{% endif %}
+      {% if page.has_next %}<a class="btn btn-light btn-sm" href="#" hx-get="{% url 'cases:uyap_documents' case.pk %}{% query_with sayfa=page.next_page_number %}" hx-target="#uyap-documents" hx-swap="outerHTML">Sonraki</a>{% endif %}
+    </span>
+  </div>
+  {% endif %}
+  {% else %}
+  <div class="empty-state py-3"><i class="bi bi-cloud-arrow-down"></i><strong>UYAP evrakı yok</strong>Eklenti UYAP'tan evrak aldıkça burada listelenir.</div>
+  {% endif %}
+</div>
