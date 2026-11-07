@@ -7,6 +7,7 @@ from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.utils import timezone
 from django.utils.decorators import method_decorator
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.views.generic import CreateView, ListView, View
 
@@ -159,7 +160,7 @@ class EntryCreateView(EditRequiredMixin, CreateView):
         nxt = self.request.POST.get("next", "")
         return (
             nxt
-            if nxt.startswith("/") and not nxt.startswith("//")
+            if nxt.startswith("/") and url_has_allowed_host_and_scheme(nxt, allowed_hosts=set())
             else self.object.client.get_absolute_url() + "#muhasebe"
         )
 
@@ -176,5 +177,7 @@ class EntryCancelView(EditRequiredMixin, View):
             messages.success(request, "Hareket iptal edildi.")
         nxt = request.POST.get("next", "")
         return redirect(
-            nxt if nxt.startswith("/") and not nxt.startswith("//") else "accounting:list"
+            nxt
+            if nxt.startswith("/") and url_has_allowed_host_and_scheme(nxt, allowed_hosts=set())
+            else "accounting:list"
         )
