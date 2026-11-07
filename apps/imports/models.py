@@ -153,7 +153,7 @@ class PortalDocument(models.Model):
     dosyadan silse bile yeniden indirilmez."""
 
     portal_case = models.ForeignKey(PortalCase, on_delete=models.CASCADE, related_name="documents")
-    evrak_id = models.CharField(max_length=64)
+    evrak_id = models.CharField(max_length=256)
     content_hash = models.CharField(max_length=64)
     document = models.OneToOneField(
         "cases.Document", on_delete=models.SET_NULL, null=True, blank=True, related_name="+"

@@ -134,7 +134,8 @@ def test_other_lawyers_case_cannot_receive_documents(setup):
     "values",
     [
         {"evrakId": ""},
-        {"evrakId": "x" * 65},
+        {"evrakId": "x" * 257},
+        {"dosyaId": "x" * 257},
         {"content": ""},
         {"content": "%%%geçersiz%%%"},
         {"name": 5},
@@ -211,3 +212,16 @@ def test_enforcement_account_capture_is_accepted(setup):
         }
     )
     assert post(client, auth, payload).status_code == 200
+
+
+def test_real_world_66_character_ids_are_accepted(setup):
+    # UYAP kimlikleri 66 karakter uzunluğundadır.
+    client, auth, _, case, portal = setup
+    long_dosya = "A" * 66
+    portal.data = {"liste": {"dosyaId": long_dosya}}
+    portal.save()
+    response = post(client, auth, body(dosyaId=long_dosya, evrakId="B" * 66))
+    assert response.status_code == 200
+    stored = PortalDocument.objects.get()
+    assert stored.evrak_id == "B" * 66
+    assert Document.objects.filter(case=case).count() == 1

@@ -349,9 +349,9 @@ def import_uyap_document(body, source_user):
     meta, name, encoded = body.get("meta") or {}, body.get("name"), body.get("content")
     if (
         not isinstance(dosya_id, str)
-        or not 1 <= len(dosya_id) <= 64
+        or not 1 <= len(dosya_id) <= 256
         or not isinstance(evrak_id, str)
-        or not 1 <= len(evrak_id) <= 64
+        or not 1 <= len(evrak_id) <= 256
         or not isinstance(meta, dict)
         or not isinstance(encoded, str)
         or not encoded
