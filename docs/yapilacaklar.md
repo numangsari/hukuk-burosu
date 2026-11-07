@@ -53,10 +53,10 @@ Kullanım ~%99 masaüstünde olduğundan telefon maddeleri en sona alındı.
 
 | No | İş | Kaynak | Durum | Not |
 |---|---|---|---|---|
-| Y24 | Tasarım yönünü seç. Eski öneri (serif başlık, 6 px köşe, renksiz zemin, `#1F3A63`) ile yeni öneri (mevcut lacivert/Inter korunur, yalnızca yoğunluk ve bilgi artar) farklı. | U-öneri, M | [ ] | **Karar**. Öneri: yenisini (M) esas al; serif yazı tipi ve renk değişikliği isteğe bağlı sonraya kalsın. |
-| Y25 | Liste yoğunluğu: satır yüksekliği, sabit başlık, hizalı tutar/tarih; dosya listesine "sonraki duruşma" sütunu; muhasebede tek satırlık kompakt özet; ana sayfa kartında tekrarlanan görev türünü kaldır | U11, U12, K1–K2, M1, M4 | [ ] | Mahkeme adı ile esas no'yu iki satıra ayırmak çoğu kırılmayı giderir. |
+| Y24 | **Karar verildi (7 Kasım 2026): eski öneri ("Sade ve yoğun profesyonel").** Nötr gri zemin, tek vurgu `#1F3A63`, kırmızı `#B42318` = gecikti, kehribar `#9A4D06` = yaklaşıyor; serif başlık/dosya adı (Source Serif 4), arayüz Inter, tabular rakamlar; 6 px köşe, gölge yerine ince çizgi, ~40 px satır; renk yerine nokta + metin. Referans: `docs/prototip/tasarim-karsilastirma.html` (2. sekme). | U-öneri | [x] | Source Serif 4 `static/vendor/` altına yerel eklenmeli (CDN yok). Koyu tema aynı değişkenlerle yeniden ayarlanır, buton kontrastı ≥ 4.5:1. |
+| Y25 | (Eski öneri kuralları ile) Liste yoğunluğu: satır yüksekliği, sabit başlık, hizalı tutar/tarih; dosya listesine "sonraki duruşma" sütunu; muhasebede tek satırlık kompakt özet; ana sayfa kartında tekrarlanan görev türünü kaldır | U11, U12, K1–K2, M1, M4 | [ ] | Mahkeme adı ile esas no'yu iki satıra ayırmak çoğu kırılmayı giderir. |
 | Y26 | Tek sekme bileşeni, tek "Kaydet" yeri | U6, U7 | [ ] | |
-| Y27 | Listelerde BÜYÜK HARF yerine başlık biçimi göster (saklama büyük kalır) | U10 | [ ] | **Karar** (`CLAUDE.md` §4 ile ilişkili). |
+| Y27 | Listelerde BÜYÜK HARF yerine normal yazım göster (saklama `tr_upper` ile büyük kalır) | U10 | [ ] | Karar verildi: eski öneri normal yazım gösteriyor. Uygulamada `CLAUDE.md` §4 görüntüleme notu eklenmeli. |
 | Y28 | Arşiv kartlarını varsayılan kompakt yap | U13 | [ ] | |
 | Y29 | Liste yanında sağ inceleme paneli; önce görev listesinde pilot | M3 | [ ] | Panel izinleri tam sayfa ile aynı olmalı; kaydedilmemiş değişiklik uyarısı. |
 | Y30 | Filtre, sıralama ve sütun tercihlerini kaydet; detaydan dönüşte konumu koru | M2 | [ ] | Tercih erişim hakkı kazandırmamalı. |

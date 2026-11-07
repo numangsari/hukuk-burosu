@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tasarım karşılaştırma (geçici prototip)</title>
+<style>
+@font-face{font-family:"Inter";font-weight:100 900;src:url("../vendor/inter/inter-latin.woff2") format("woff2");unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+2000-206F,U+20AC}
+@font-face{font-family:"Inter";font-weight:100 900;src:url("../vendor/inter/inter-latin-ext.woff2") format("woff2");unicode-range:U+0100-02BA,U+1E00-1EFF,U+20A0-20C0}
+*{box-sizing:border-box}
+body{margin:0;font-family:"Inter",system-ui,sans-serif;font-size:14px;color:var(--ink);background:var(--bg)}
+button{font:inherit;cursor:pointer}
+.tabs-bar{position:sticky;top:0;z-index:10;background:#111;color:#fff;display:flex;gap:8px;align-items:center;padding:8px 16px}
+.tabs-bar b{margin-right:8px}
+.tabs-bar button{background:#2a2a2a;color:#fff;border:1px solid #444;border-radius:6px;padding:6px 14px}
+.tabs-bar button.on{background:#fff;color:#111}
+.tabs-bar small{opacity:.7;margin-left:auto}
+.app{display:grid;grid-template-columns:var(--side-w) 1fr;min-height:calc(100vh - 44px)}
+.side{background:var(--side-bg);border-right:1px solid var(--line);padding:14px 10px}
+.side .brand{font-weight:700;padding:4px 10px 14px;color:var(--ink)}
+.side a{display:block;padding:var(--nav-pad);border-radius:var(--r-sm);color:var(--ink-2);text-decoration:none;margin-bottom:2px}
+.side a.on{background:var(--brand-soft);color:var(--brand);font-weight:600}
+.main{padding:var(--pad);min-width:0}
+.head{display:flex;align-items:baseline;gap:16px;margin-bottom:var(--gap)}
+.head h1{margin:0;font-size:var(--h1);font-weight:var(--h1-w);font-family:var(--h1-font)}
+.head .date{color:var(--muted)}
+.btn{background:var(--brand);color:#fff;border:0;border-radius:var(--r-sm);padding:7px 14px;margin-left:auto}
+.strip{display:var(--strip);gap:0;background:var(--card);border:1px solid var(--line);border-radius:var(--r);margin-bottom:var(--gap)}
+.strip div{flex:1;padding:8px 16px;border-right:1px solid var(--line)}
+.strip div:last-child{border:0}
+.strip b{display:block;font-size:20px;font-variant-numeric:tabular-nums}
+.strip span{color:var(--muted);font-size:12px}
+.filters{display:flex;gap:8px;margin-bottom:var(--gap);flex-wrap:wrap}
+.filters .seg{display:flex;border:1px solid var(--line);border-radius:var(--r-sm);overflow:hidden;background:var(--card)}
+.filters .seg span{padding:5px 12px;color:var(--ink-2)}
+.filters .seg span.on{background:var(--brand);color:#fff}
+.filters .sel{border:1px solid var(--line);background:var(--card);border-radius:var(--r-sm);padding:5px 12px;color:var(--ink-2)}
+.work{display:grid;grid-template-columns:1fr var(--panel-w);gap:var(--gap);align-items:start}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden}
+table{width:100%;border-collapse:collapse}
+th{position:sticky;top:44px;text-align:left;font-weight:600;font-size:12px;color:var(--muted);padding:var(--th-pad);background:var(--th-bg);border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:var(--td-pad);border-bottom:1px solid var(--line);vertical-align:var(--va)}
+tr.row{cursor:pointer}
+tr.row:hover td{background:var(--hover)}
+tr.row.sel td{background:var(--sel)}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+.t-title{font-weight:600;font-family:var(--title-font)}
+.t-sub{color:var(--muted);font-size:12px;margin-top:2px;display:var(--sub)}
+.caps{text-transform:var(--caps)}
+.chip{display:inline-block;border-radius:999px;padding:2px 10px;font-size:12px;font-weight:600}
+.chip.late{background:#fdecec;color:#b42318}.chip.soon{background:#fdf3e1;color:#a15c07}.chip.ok{background:#eef0f4;color:#4a5568}
+.chip.new{background:#e8f3fb;color:#175c8a}.chip.rev{background:#f1eafc;color:#5b2fa0}
+.st{font-size:13px;color:var(--ink-2)}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;background:#9aa;vertical-align:baseline}
+.dot.new{background:#1F3A63}.dot.rev{background:#9A4D06}
+.due.late{color:#B42318;font-weight:600}.due.soon{color:#9A4D06;font-weight:600}
+.panel{display:var(--panel);position:sticky;top:60px}
+.panel h2{margin:0;padding:14px 16px 4px;font-size:16px;font-family:var(--title-font)}
+.panel .meta{padding:0 16px 12px;color:var(--muted);font-size:12px}
+.panel dl{margin:0;padding:8px 16px;display:grid;grid-template-columns:110px 1fr;gap:6px 8px;border-top:1px solid var(--line)}
+.panel dt{color:var(--muted)}.panel dd{margin:0}
+.panel .acts{padding:12px 16px;border-top:1px solid var(--line);display:flex;gap:8px}
+.panel .acts button{border:1px solid var(--line);background:var(--card);border-radius:var(--r-sm);padding:6px 12px}
+.panel .acts button.p{background:var(--brand);color:#fff;border-color:var(--brand)}
+.note{margin:10px 0 0;color:var(--muted);font-size:12px}
+
+/* ---------- 1) MEVCUT ---------- */
+.m-cur{--bg:#f4f6f9;--card:#fff;--line:#e4e8ee;--ink:#1a2232;--ink-2:#4a5568;--muted:#7a8599;--brand:#1f4f8f;--brand-soft:#e8eff9;
+ --side-bg:linear-gradient(180deg,#eef2f8,#e6ebf3);--side-w:256px;--nav-pad:10px 12px;--r:12px;--r-sm:8px;--shadow:0 1px 3px rgba(16,24,40,.06);
+ --pad:28px;--gap:20px;--h1:24px;--h1-w:700;--h1-font:"Inter",sans-serif;--strip:none;--panel:none;--panel-w:0px;--th-pad:12px 16px;--th-bg:#f8f9fb;
+ --td-pad:16px;--va:top;--hover:#f8f9fb;--sel:#e8eff9;--title-font:"Inter",sans-serif;--sub:block;--caps:uppercase}
+/* ---------- 2) ESKİ ÖNERİ: sade ve yoğun profesyonel ---------- */
+.m-a{--bg:#f4f4f2;--card:#fff;--line:#e2e2de;--ink:#1c1c1a;--ink-2:#3d3d3a;--muted:#77776f;--brand:#1F3A63;--brand-soft:#e9edf3;
+ --side-bg:#ecece8;--side-w:208px;--nav-pad:7px 10px;--r:6px;--r-sm:4px;--shadow:none;
+ --pad:20px 24px;--gap:12px;--h1:26px;--h1-w:600;--h1-font:"Source Serif 4",Georgia,"Times New Roman",serif;--strip:flex;--panel:block;--panel-w:340px;
+ --th-pad:7px 12px;--th-bg:#f4f4f2;--td-pad:8px 12px;--va:middle;--hover:#f8f8f6;--sel:#eaeff6;--title-font:"Source Serif 4",Georgia,serif;--sub:none;--caps:none}
+/* ---------- 3) YENİ ÖNERİ: masaüstü odaklı yoğunluk (mevcut renk/Inter korunur) ---------- */
+.m-b{--bg:#f4f6f9;--card:#fff;--line:#e4e8ee;--ink:#1a2232;--ink-2:#4a5568;--muted:#7a8599;--brand:#1f4f8f;--brand-soft:#e8eff9;
+ --side-bg:linear-gradient(180deg,#eef2f8,#e6ebf3);--side-w:216px;--nav-pad:7px 10px;--r:8px;--r-sm:6px;--shadow:0 1px 2px rgba(16,24,40,.05);
+ --pad:18px 22px;--gap:12px;--h1:20px;--h1-w:700;--h1-font:"Inter",sans-serif;--strip:flex;--panel:block;--panel-w:340px;
+ --th-pad:7px 12px;--th-bg:#f8f9fb;--td-pad:7px 12px;--va:middle;--hover:#f8f9fb;--sel:#e8eff9;--title-font:"Inter",sans-serif;--sub:none;--caps:uppercase}
+/* A'da durum noktası+metin, çipler gizli; B'de çip korunur */
+.m-a .chip{background:none!important;color:inherit!important;padding:0;font-weight:500}
+.m-a .chip::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;background:#9aa}
+.m-a .chip.late::before{background:#B42318}.m-a .chip.soon::before{background:#9A4D06}.m-a .chip.new::before{background:#1F3A63}.m-a .chip.rev::before{background:#9A4D06}
+.m-a .btn,.m-a .panel .acts button.p{background:#1F3A63}
+</style>
+</head>
+<body class="m-cur">
+<div class="tabs-bar">
+  <b>Tasarım karşılaştırma</b>
+  <button data-m="m-cur" class="on">1 · Mevcut</button>
+  <button data-m="m-a">2 · Eski öneri (sade, serif)</button>
+  <button data-m="m-b">3 · Yeni öneri (masaüstü yoğunluk)</button>
+  <small>Sentetik veri · geçici prototip</small>
+</div>
+<div class="app">
+  <nav class="side">
+    <div class="brand">Hukuk Bürosu</div>
+    <a>Ana sayfa</a><a>Müvekkiller</a><a>Dosyalar</a><a class="on">Görevler</a><a>Takvim</a><a>Duruşmalar</a><a>Muhasebe</a><a>Arşiv</a><a>Raporlar</a><a>Ayarlar</a>
+  </nav>
+  <main class="main">
+    <div class="head"><h1>Görevler</h1><span class="date">7 Kasım 2026, Cumartesi</span><button class="btn">+ Yeni görev</button></div>
+    <div class="strip"><div><b>3</b><span>Bugün duruşma</span></div><div><b>5</b><span>Süresi geçen</span></div><div><b>9</b><span>Bu hafta biten</span></div><div><b>4</b><span>Kontrol bekleyen</span></div></div>
+    <div class="filters">
+      <div class="seg"><span class="on">Bana atanmış</span><span>Tümü</span></div>
+      <span class="sel">Tür ▾</span><span class="sel">Sorumlu ▾</span><span class="sel">Durum ▾</span><span class="sel">Aşama ▾</span>
+    </div>
+    <div class="work">
+      <div class="card"><table id="tbl">
+        <thead><tr><th>Görev</th><th>Dosya / müvekkil</th><th>Sorumlu</th><th class="num">Son gün</th><th>Durum</th></tr></thead>
+        <tbody></tbody>
+      </table></div>
+      <aside class="card panel" id="panel"></aside>
+    </div>
+    <p class="note" id="note"></p>
+  </main>
+</div>
+<script>
+const rows=[
+ ["Harç / masraf yatırma","2026/151 Esas · Asliye Hukuk","Ayşe K.","06.11.2026","late","Süresi geçti","Beyaz Ltd. Şti.","Dilekçe ile birlikte harç yatırılacak."],
+ ["Cevap dilekçesi hazırlama","2026/919 Esas · İş Mahkemesi","Mehmet T.","09.11.2026","soon","3 gün kaldı","Örnek A.Ş.","Cevap süresi tebliğden itibaren 2 hafta; avukat teyidi gerekli."],
+ ["Duruşma işlemleri ve müvekkile bilgi","2026/44 Esas · Asliye Ceza","Zeynep A.","10.11.2026","soon","4 gün kaldı","Kaya, Ali","Duruşma 11.11.2026 10:30; mazeret yok."],
+ ["Haciz yenileme","2025/3302 İcra · İcra Dairesi","Can Y.","12.11.2026","ok","Aktif","Demo Gıda San.","Maaş haczi süresi dolmak üzere."],
+ ["İstinaf dilekçesi","2025/871 Esas · Bölge Adliye","Ayşe K.","14.11.2026","rev","Kontrolde","Yıldız, Elif","Kontrolcü: Mehmet T."],
+ ["Bilirkişi raporuna itiraz","2026/212 Esas · Tüketici","Zeynep A.","16.11.2026","ok","Aktif","Örnek A.Ş.","Rapor tebliği 02.11.2026."],
+ ["Vekaletname fotokopisi alma","— · Müvekkil işlemi","Can Y.","17.11.2026","new","Yeni görev","Demir, Selin","Arşiv klasörü V-121."],
+ ["Tebligat takibi (UETS)","2026/77 Esas · İdare Mahkemesi","Mehmet T.","18.11.2026","new","Yeni görev","Beyaz Ltd. Şti.","Tebliğ tarihine 14 gün eklendi; teyit edilmeli."],
+ ["Ödeme emri itirazı","2026/5120 İcra · İcra Dairesi","Ayşe K.","20.11.2026","ok","Aktif","Kaya, Ali","İtiraz süresi 7 gün."],
+ ["Sulh görüşmesi hazırlığı","2026/130 Esas · Asliye Hukuk","Zeynep A.","23.11.2026","ok","Aktif","Örnek A.Ş.","Teklif taslağı müvekkille paylaşılacak."],
+ ["Keşif için harç yatırma","2025/611 Esas · Asliye Hukuk","Can Y.","24.11.2026","ok","Aktif","Yıldız, Elif","Keşif 02.12.2026."],
+ ["Dosya kapatma işlemleri","2024/918 Esas · Asliye Hukuk","Mehmet T.","27.11.2026","ok","Aktif","Demo Gıda San.","Tahsilat satırı girilecek."]
+];
+const tb=document.querySelector("#tbl tbody");
+rows.forEach((r,i)=>{
+  const dueCls=r[4]==="late"?"late":r[4]==="soon"?"soon":"";
+  tb.insertAdjacentHTML("beforeend",`<tr class="row" data-i="${i}"><td><div class="t-title caps">${r[0]}</div><div class="t-sub">${r[1]}</div></td>
+  <td><div class="caps">${r[6]}</div><div style="color:var(--muted);font-size:12px">${r[1]}</div></td><td>${r[2]}</td>
+  <td class="num"><span class="due ${dueCls}">${r[3]}</span></td><td><span class="chip ${r[4]}">${r[5]}</span></td></tr>`);
+});
+const panel=document.getElementById("panel");
+function show(i){
+  const r=rows[i];
+  document.querySelectorAll("tr.row").forEach(t=>t.classList.toggle("sel",+t.dataset.i===i));
+  panel.innerHTML=`<h2>${r[0]}</h2><div class="meta">${r[1]}</div>
+  <dl><dt>Müvekkil</dt><dd>${r[6]}</dd><dt>Sorumlu</dt><dd>${r[2]}</dd><dt>Son gün</dt><dd>${r[3]}</dd><dt>Durum</dt><dd>${r[5]}</dd><dt>Not</dt><dd>${r[7]}</dd><dt>Belgeler</dt><dd>0 dilekçe yüklendi</dd></dl>
+  <div class="acts"><button class="p">Kontrole gönder</button><button>Tam sayfa</button></div>`;
+}
+document.querySelectorAll("tr.row").forEach(t=>t.addEventListener("click",()=>show(+t.dataset.i)));
+show(1);
+const notes={
+ "m-cur":"Mevcut: yuvarlak kartlar (12 px), geniş satır boşluğu, ikinci satır, her yerde BÜYÜK HARF, inceleme paneli yok.",
+ "m-a":"Eski öneri: nötr gri zemin, serif başlık/görev adı, 6 px köşe, renk yalnız anlam taşır (nokta + metin), normal yazım, özet şeridi, sağ panel. Serif için Georgia kullanıldı; gerçek uygulamada Source Serif 4 yerel eklenir.",
+ "m-b":"Yeni öneri: mevcut renk ve Inter korunur, satır ~40 px, ikinci satır kalkar, özet şeridi, sağ inceleme paneli, rozetler ve BÜYÜK HARF aynen kalır (karar Y27'de ayrı)."
+};
+const note=document.getElementById("note");note.textContent=notes["m-cur"];
+document.querySelectorAll(".tabs-bar button").forEach(b=>b.addEventListener("click",()=>{
+  document.body.className=b.dataset.m;
+  document.querySelectorAll(".tabs-bar button").forEach(x=>x.classList.toggle("on",x===b));
+  note.textContent=notes[b.dataset.m];
+}));
+</script>
+</body>
+</html>
