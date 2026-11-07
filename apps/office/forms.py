@@ -15,6 +15,7 @@ class OfficeForm(BootstrapMixin, forms.ModelForm):
             "email",
             "tax_office",
             "tax_number",
+            "bank_details",
             "logo",
             "idle_minutes",
             "notice_default_due_days",
@@ -22,7 +23,10 @@ class OfficeForm(BootstrapMixin, forms.ModelForm):
             "use_assistant_assignee",
             "use_task_points",
         ]
-        widgets = {"address": forms.Textarea(attrs={"rows": 2})}
+        widgets = {
+            "address": forms.Textarea(attrs={"rows": 2}),
+            "bank_details": forms.Textarea(attrs={"rows": 3}),
+        }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

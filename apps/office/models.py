@@ -196,6 +196,15 @@ class OfficeSettings(models.Model):
         ),
     )
 
+    bank_details = models.TextField(
+        "ofis banka bilgileri",
+        blank=True,
+        help_text=(
+            "Banka, hesap sahibi ve IBAN; her hesap ayrı satıra. "
+            "Doluysa WhatsApp mesaj şablonlarına eklenir."
+        ),
+    )
+
     class Meta:
         verbose_name = "ofis ayarları"
         verbose_name_plural = "ofis ayarları"

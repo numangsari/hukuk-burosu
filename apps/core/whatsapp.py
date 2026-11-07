@@ -190,24 +190,46 @@ def get_hearing_wa_templates(hearing: "Hearing", office_name: str | None = None)
     return templates
 
 
+def _bank_details() -> str:
+    from apps.office.models import OfficeSettings
+
+    return (OfficeSettings.load().bank_details or "").strip()
+
+
 def get_case_wa_templates(case: "Case", office_name: str | None = None) -> dict[str, str]:
     """Bir dosya için kullanılabilecek hazır WhatsApp şablonları sözlüğü döner."""
     from apps.office.models import OfficeSettings
 
     office = office_name or OfficeSettings.load().name
     client_name = case.client.name if case.client else "Müvekkilimiz"
+    bank = _bank_details()
+    if bank:
+        account_text = (
+            f"Hesap bilgilerimiz aşağıdadır:\n\n{bank}\n\n"
+            f"Açıklama kısmına dosya numarasını ({case.display_name}) yazmanızı rica ederiz.\n\n"
+        )
+    else:
+        account_text = "Hesap bilgileri için büromuzla iletişime geçmenizi rica ederiz.\n\n"
 
     adv_text = (
         f"Sayın {client_name},\n\n"
         f"{case.display_name} sayılı dosyanızın dava ve takip masrafları için "
-        f"masraf avansı yatırılması gerekmektedir. Hesap bilgileri için büromuzla "
-        f"iletişime geçmenizi rica ederiz.\n\n"
+        f"masraf avansı yatırılması gerekmektedir. {account_text}"
         f"İyi çalışmalar dileriz.\n{office}"
     )
-    return {
+    templates = {
         "Dosya Bilgilendirmesi": format_case_info_message(case, office_name=office),
         "Masraf / Avans Talebi": adv_text,
     }
+    if bank:
+        templates["Banka Bilgileri"] = (
+            f"Sayın {client_name},\n\n"
+            f"{case.display_name} sayılı dosyanız için ödeme yapacağınız hesap bilgileri:\n\n"
+            f"{bank}\n\n"
+            f"Açıklama kısmına dosya numarasını yazmanızı rica ederiz.\n\n"
+            f"İyi çalışmalar dileriz.\n{office}"
+        )
+    return templates
 
 
 def get_client_wa_templates(client: "Client", office_name: str | None = None) -> dict[str, str]:
@@ -217,12 +239,30 @@ def get_client_wa_templates(client: "Client", office_name: str | None = None) ->
     office = office_name or OfficeSettings.load().name
     client_name = client.name if client else "Müvekkilimiz"
 
-    return {
-        "Genel İletişim": (f"Sayın {client_name},\n\n\n\nBilgilerinize sunarız.\n{office}"),
-        "Masraf / Avans Bilgisi": (
+    bank = _bank_details()
+    if bank:
+        advance = (
+            f"Sayın {client_name},\n\n"
+            f"Dosya ve takip masrafları avansı ödemesi için hesap bilgilerimiz aşağıdadır:\n\n"
+            f"{bank}\n\n"
+            f"İyi çalışmalar dileriz.\n{office}"
+        )
+    else:
+        advance = (
             f"Sayın {client_name},\n\n"
             f"Dosya ve takip masrafları avansı ödemesi için "
             f"büromuzla iletişime geçmenizi rica ederiz.\n\n"
             f"İyi çalışmalar dileriz.\n{office}"
-        ),
+        )
+    templates = {
+        "Genel İletişim": (f"Sayın {client_name},\n\n\n\nBilgilerinize sunarız.\n{office}"),
+        "Masraf / Avans Bilgisi": advance,
     }
+    if bank:
+        templates["Banka Bilgileri"] = (
+            f"Sayın {client_name},\n\n"
+            f"Ödeme yapacağınız büro hesap bilgileri:\n\n"
+            f"{bank}\n\n"
+            f"İyi çalışmalar dileriz.\n{office}"
+        )
+    return templates
