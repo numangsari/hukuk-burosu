@@ -37,8 +37,27 @@ def _date(value):
         return None
 
 
+def _linkable_objects(entries):
+    """Kayda bağlantı için nesneleri tür başına tek sorguyla getirir: {(model, pk): nesne}."""
+    wanted = {}
+    for e in entries:
+        model = e.content_type.model_class()
+        if e.action != LogEntry.Action.DELETE and model and hasattr(model, "get_absolute_url"):
+            wanted.setdefault(model, set()).add(e.object_pk)
+    found = {}
+    for model, pks in wanted.items():
+        try:
+            objects = model.objects.in_bulk(pks)
+        except (ValueError, TypeError):  # anahtar türü eski kayıtla uyuşmuyor
+            continue
+        found.update({(model, str(pk)): obj for pk, obj in objects.items()})
+    return found
+
+
 def decorate(entries):
     """Şablon için: işlem etiketi, kayıt türü adı, kayda bağlantı ve okunur değişiklikler."""
+    entries = list(entries)
+    objects = _linkable_objects(entries)
     for e in entries:
         e.label, e.tone = ACTION_LABELS.get(e.action, ("", ""))
         raw = e.changes
@@ -50,10 +69,8 @@ def decorate(entries):
         e.event = raw.get("olay", "") if isinstance(raw, dict) else ""
         model = e.content_type.model_class()
         e.type_name = model._meta.verbose_name if model else e.content_type.model
-        e.link = ""
-        if e.action != LogEntry.Action.DELETE and model and hasattr(model, "get_absolute_url"):
-            obj = model.objects.filter(pk=e.object_pk).first()
-            e.link = obj.get_absolute_url() if obj else ""
+        obj = objects.get((model, str(e.object_pk)))
+        e.link = obj.get_absolute_url() if obj else ""
         try:
             e.display_changes = e.changes_display_dict if e.action == LogEntry.Action.UPDATE else {}
         except Exception:  # bozuk/eski kayıt alanları ekranı kırmasın
