@@ -68,7 +68,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
   if (message.type === 'sync_item') {
-    if (sender.frameId !== 0 || !message.data || (uyap && message.data.type !== 'uyap') || (uets && message.data.type !== 'notice')) return;
+    if (sender.frameId !== 0 || !message.data || (uyap && !['uyap', 'uyap_document'].includes(message.data.type)) || (uets && message.data.type !== 'notice')) return;
     (async () => {
       const {sync_key: key} = await chrome.storage.local.get('sync_key');
       if (!key) return {ok: false};

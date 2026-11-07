@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 
-function setup({tabs = []} = {}) {
+function setup({tabs = [], serverStatus = 200} = {}) {
   const storage = {};
   let listener;
   const healthRequests = [];
@@ -20,7 +20,7 @@ function setup({tabs = []} = {}) {
   };
   vm.runInNewContext(fs.readFileSync('uyap-uets-eklentisi/background.js','utf8'), {
     chrome, URL, AbortSignal, setTimeout() {}, Date, Math, JSON, Promise,
-    fetch: async (url, options) => { healthRequests.push({url, body: JSON.parse(options.body)}); return {ok:true}; }
+    fetch: async (url, options) => { healthRequests.push({url, body: JSON.parse(options.body)}); return {ok: serverStatus < 300, status: serverStatus}; }
   });
   const uyap = {url:'https://avukat.uyap.gov.tr/',frameId:0};
   const call = (message, sender = uyap) => new Promise((resolve, reject) => {
@@ -185,4 +185,35 @@ test('Tarama tamamlanmışsa oturum yoklaması yeni tarama başlatmaz', async ()
   await call({type:'session', ok:true, name:'ÖRNEK AVUKAT'});
   await new Promise(resolve => setTimeout(resolve, 20));
   assert.deepEqual(tabMessages, []);
+});
+
+test('UYAP evrakı (uyap_document) sunucuya iletilir ve sunucu durum kodu döner', async () => {
+  const {call, storage, healthRequests} = setup();
+  storage.sync_key = 'a'.repeat(43);
+  const result = await call({type:'sync_item', data:{type:'uyap_document', dosyaId:'d1', evrakId:'e1', meta:{}, name:'a.pdf', content:'QUJD', lawyer_name:'ÖRNEK AVUKAT'}});
+  assert.equal(result.ok, true);
+  assert.equal(result.status, 200);
+  const sent = healthRequests.at(-1);
+  assert.match(sent.url, /\/portal-inceleme\/eklentiden-al\/$/);
+  assert.equal(sent.body.type, 'uyap_document');
+  assert.equal(sent.body.evrakId, 'e1');
+});
+
+test('Sunucunun reddettiği evrakın durum kodu eklentiye iletilir', async () => {
+  const {call, storage} = setup({serverStatus: 409});
+  storage.sync_key = 'a'.repeat(43);
+  const result = await call({type:'sync_item', data:{type:'uyap_document', dosyaId:'d1', evrakId:'e1', content:'QUJD'}});
+  assert.equal(result.ok, false);
+  assert.equal(result.status, 409);
+});
+
+test('UYAP sayfası tebligat, UETS sayfası evrak gönderemez', async () => {
+  const uyap = setup();
+  uyap.storage.sync_key = 'a'.repeat(43);
+  assert.equal(await uyap.call({type:'sync_item', data:{type:'notice'}}), undefined);
+  const uets = setup();
+  uets.storage.sync_key = 'a'.repeat(43);
+  assert.equal(await uets.call({type:'sync_item', data:{type:'uyap_document', dosyaId:'d1', evrakId:'e1', content:'QUJD'}}, {url:'https://ptt.etebligat.gov.tr/', frameId:0}), undefined);
+  assert.equal(uyap.healthRequests.length, 0);
+  assert.equal(uets.healthRequests.length, 0);
 });
