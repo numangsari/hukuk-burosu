@@ -252,7 +252,7 @@ test('Belgeleri tamamlanan dosya sonraki taramada yeniden indirilmez', async () 
   // Tarama bitince izler silinir; ara verilen taramayı taklit etmek için izleri geri koyarız.
   const fingerprints = async () => {
     const digest = async value => Buffer.from(await webcrypto.subtle.digest('SHA-256', new TextEncoder().encode(value))).toString('hex');
-    return [await digest('a1'), await digest('finans1:a1'), await digest('belge1:a1')];
+    return [await digest('a1'), await digest('finans1:a1'), await digest('belge2:a1')];
   };
   for (const item of await fingerprints()) saved.add(item);
   const second = [];
@@ -285,17 +285,25 @@ test('Sunucu dosyayı henüz bağlamadıysa belge atlanır, tarama sürer ve eks
   assert.equal(result.statuses.at(-1), 'eksik');
   // Belge izi eklenmediği için bir sonraki taramada yeniden denenir.
   const digest = async value => Buffer.from(await webcrypto.subtle.digest('SHA-256', new TextEncoder().encode(value))).toString('hex');
-  assert.equal(saved.has(await digest('belge1:a1')), false);
+  assert.equal(saved.has(await digest('belge2:a1')), false);
 });
 
-test('Sunucu belgeyi kalıcı reddederse (400) tekrar denenmez', async () => {
+test('Sunucu belgeyi reddederse (400) iz eklenmez, sonraki taramada yeniden denenir', async () => {
   const saved = new Set();
   const digest = async value => Buffer.from(await webcrypto.subtle.digest('SHA-256', new TextEncoder().encode(value))).toString('hex');
-  const result = await run('avukat.uyap.gov.tr', documentFetch({items: EVRAKS}), data => data.type === 'uyap_document' ? 400 : true, saved);
+  // İlk tarama: sunucu 400 verir. Tarama bitmeden izleri görmek için belge izi eklenip eklenmediğini
+  // ikinci taramanın indirme isteklerinden anlarız.
+  const first = [];
+  const result = await run('avukat.uyap.gov.tr', documentFetch({items: EVRAKS, downloads: first}), data => data.type === 'uyap_document' ? 400 : true, saved);
   assert.equal(result.statuses.at(-1), 'eksik');
-  // Tarama bitince izler temizlenir; o ana kadar belge izinin eklendiği saved'in temizlenmesinden anlaşılır.
-  assert.equal(saved.size, 0);
-  assert.equal(await digest('x') !== '', true);
+  assert.equal(first.length, 2);
+  // Tarama bitince izler temizlenir; asıl denetim: belge izi eklenmediği için dosya tamamlanmış sayılmaz.
+  // Kesilen tarama taklidi: ana ve finans izi var, belge izi yok -> belgeler yeniden istenir.
+  const resume = new Set([await digest('a1'), await digest('finans1:a1')]);
+  const again = [];
+  const second = await run('avukat.uyap.gov.tr', documentFetch({items: EVRAKS, downloads: again}), true, resume);
+  assert.deepEqual(again.map(item => item.evrakId), ['e1', 'e2']);
+  assert.equal(second.statuses.at(-1), 'tamamlandi');
 });
 
 test('Sunucu başka bir hata verirse tarama durur', async () => {

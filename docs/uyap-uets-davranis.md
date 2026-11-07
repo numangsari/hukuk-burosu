@@ -46,9 +46,9 @@ Veri içermez; yalnızca yol ve yanıt biçimi. UYAP arayüzü değişirse yenid
 ## Evrak içeriği indirme
 
 - **Kapsam:** Taranan her dosyanın (açık ve kapalı) tüm evrakları ve varsa ek evrakları indirilir. Evraklar arasında en az 2,5 sn, diğer istekler arasında 5 sn beklenir; bu yüzden ilk tam tarama uzun sürer (binlerce evrak için saatler). Tarama kesilirse kaldığı dosyadan sürer.
-- **İzleme:** Dosyanın belgeleri tamamlanınca dosya başına tek bir iz (`belge1:<dosyaId>`) tarayıcıda saklanır. Dosya yarım kalırsa o dosyanın evrakları yeniden istenir; sunucu aynı evrakı ikinci kez almaz.
+- **İzleme:** Dosyanın belgeleri tamamlanınca dosya başına tek bir iz (`belge2:<dosyaId>`) tarayıcıda saklanır. Dosya yarım kalırsa o dosyanın evrakları yeniden istenir; sunucu aynı evrakı ikinci kez almaz.
 - **Sunucu (`type: uyap_document`):** `dosyaId`, `evrakId`, `meta` (tür, tip, onay tarihi), dosya adı ve içerik (base64) gelir. Evrak, dosyanın **Belgeler** sekmesine kategoriyle (tebligat, karar, dilekçe, bilirkişi, diğer) eklenir ve ofis klasörü ayarlıysa dosya klasörünün `UYAP Evrakları` alt klasörüne kopyalanır. Aynı `(UYAP dosyası, evrakId)` yeniden alınmaz; kullanıcı belgeyi dosyadan silse bile tekrar indirilmez (`PortalDocument`).
-- **Reddedilenler:** 404 dosya yok, 403 evrak başka avukatın dosyasına ait, 409 UYAP dosyası henüz büro dosyasına bağlanmadı (sonraki taramada yeniden denenir), 400 geçersiz ya da 20 MB üstü (tekrar denenmez). Bunlar taramayı durdurmaz, durum `eksik` olur. 5xx veya ağ hatası taramayı `sunucu_yok` ile durdurur.
+- **Reddedilenler:** 404 dosya yok, 403 evrak başka avukatın dosyasına ait, 409 UYAP dosyası henüz büro dosyasına bağlanmadı (sonraki taramada yeniden denenir), 400 geçersiz (sonraki taramada yeniden denenir); 20 MB üstü evrak istemcide atlanır ve bir daha denenmez. Bunlar taramayı durdurmaz, durum `eksik` olur. 5xx veya ağ hatası taramayı `sunucu_yok` ile durdurur.
 - **Güvenlik:** PDF imzası denetlenir, tanınmayan uzantılar `.bin` olur, dosya adı temizlenir, her evrak yalnızca UYAP oturumundaki avukatın kendi dosyasına eklenebilir.
 
 ## Eklentiyi güncelleme

@@ -226,7 +226,7 @@
               const financeFingerprint = await fingerprint('finans1:' + caseId);
               const mainDone = completedCases.has(caseFingerprint);
               const financeDone = completedCases.has(financeFingerprint);
-              const docsFingerprint = await fingerprint('belge1:' + caseId);
+              const docsFingerprint = await fingerprint('belge2:' + caseId);
               const docsDone = completedCases.has(docsFingerprint);
               if (mainDone && financeDone && docsDone) continue;
               let evrakItems = null;
@@ -299,8 +299,9 @@
                       if (['oturum', 'izin'].includes(error.message)) throw error;
                       if (error.message === 'sunucu' && ![400, 403, 404, 409].includes(error.status)) throw error;
                       partial = true;
-                      // Sunucu belgeyi kalıcı reddetti (geçersiz/çok büyük): tekrar denemek yararsız.
-                      if (!(error.message === 'boyut' || (error.message === 'sunucu' && error.status === 400))) docsComplete = false;
+                      // Yalnızca istemci tarafında 20 MB üstü bulunan evrak kalıcı atlanır; sunucu reddi (400 dahil)
+                      // sonraki taramada yeniden denenir, çünkü sunucu hatası evrakı sonsuza dek kaybettirmemelidir.
+                      if (error.message !== 'boyut') docsComplete = false;
                     }
                     await wait(150);
                   }
