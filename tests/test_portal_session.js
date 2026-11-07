@@ -19,14 +19,15 @@ async function run(hostname, fetch, {top = true, storage = {}, account = 'ÖRNEK
     location: {hostname},
     document: {querySelectorAll: () => account === null ? [] : [{textContent: hostname === 'ptt.etebligat.gov.tr' ? 'Seçili Hesap: ' + account : ' ' + account + ' '}]},
     localStorage: {getItem: key => storage[key] ?? null},
-    chrome: {runtime: {sendMessage: async message => { sent.push(message); }}},
+    chrome: {runtime: {id: 'var', sendMessage: async message => { sent.push(message); }}},
+    clearInterval: () => { context.cleared = (context.cleared || 0) + 1; },
     setTimeout: (fn, ms) => { timers.push({fn, ms, repeat: false}); return timers.length; },
     setInterval: (fn, ms) => { timers.push({fn, ms, repeat: true}); return timers.length; }
   };
   vm.runInNewContext(source, context);
   const first = timers.find(timer => !timer.repeat);
   if (first) await first.fn();
-  return {sent, timers, tick: async () => { for (const timer of timers.filter(item => item.repeat)) await timer.fn(); }};
+  return {sent, timers, context, tick: async () => { for (const timer of timers.filter(item => item.repeat)) await timer.fn(); }};
 }
 
 test('UYAP oturumu açıksa ve JSON dönerse açık bildirilir', async () => {
@@ -100,9 +101,25 @@ test('Birden fazla hesap adı düğümü belirsizse ad gönderilmez', async () =
   vm.runInNewContext(source, {
     window, fetch: async () => response(200), AbortSignal, location: {hostname: 'avukat.uyap.gov.tr'},
     document: {querySelectorAll: () => nodes}, localStorage: {getItem: () => null},
-    chrome: {runtime: {sendMessage: async message => { sent.push(message); }}},
-    setTimeout: (fn, ms) => { timers.push(fn); return 1; }, setInterval: () => 1
+    chrome: {runtime: {id: 'var', sendMessage: async message => { sent.push(message); }}},
+    clearInterval() {}, setTimeout: (fn, ms) => { timers.push(fn); return 1; }, setInterval: () => 1
   });
   await timers[0]();
   assert.equal(plain(sent)[0].name, '');
+});
+
+test('Eklenti yeniden yüklenince yoklama hata fırlatmadan durur', async () => {
+  const result = await run('avukat.uyap.gov.tr', async () => response(200));
+  assert.equal(result.sent.length, 1);
+  result.context.chrome.runtime.id = undefined;
+  await result.tick();
+  assert.equal(result.sent.length, 1);
+  assert.ok(result.context.cleared >= 1);
+});
+
+test('Mesaj gönderimi bağlam hatası verirse yoklama durur', async () => {
+  const result = await run('avukat.uyap.gov.tr', async () => response(200));
+  result.context.chrome.runtime.sendMessage = async () => { throw new Error('Extension context invalidated.'); };
+  await result.tick();
+  assert.ok(result.context.cleared >= 1);
 });

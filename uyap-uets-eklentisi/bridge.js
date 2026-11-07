@@ -16,7 +16,10 @@ async function verifiedName(start = false) {
   if (start) expectedName = name;
   return name;
 }
+// Eklenti yeniden yüklenince sayfada kalan eski betiğin bağlamı geçersiz olur; sessizce yok sayılır.
+const extensionAlive = () => { try { return Boolean(chrome.runtime?.id); } catch (_) { return false; } };
 window.addEventListener('message', event => {
+  if (!extensionAlive()) return;
   if (event.source === window && event.origin === location.origin && event.data?.source === 'ozkurt-checkpoint') {
     if (window.top !== window || typeof event.data.id !== 'string') return;
     chrome.runtime.sendMessage({type:'checkpoint', action:event.data.action, fingerprint:event.data.fingerprint}).then(result => {

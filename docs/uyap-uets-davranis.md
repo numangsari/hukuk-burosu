@@ -51,6 +51,10 @@ Veri içermez; yalnızca yol ve yanıt biçimi. UYAP arayüzü değişirse yenid
 - **Reddedilenler:** 404 dosya yok, 403 evrak başka avukatın dosyasına ait, 409 UYAP dosyası henüz büro dosyasına bağlanmadı (sonraki taramada yeniden denenir), 400 geçersiz ya da 20 MB üstü (tekrar denenmez). Bunlar taramayı durdurmaz, durum `eksik` olur. 5xx veya ağ hatası taramayı `sunucu_yok` ile durdurur.
 - **Güvenlik:** PDF imzası denetlenir, tanınmayan uzantılar `.bin` olur, dosya adı temizlenir, her evrak yalnızca UYAP oturumundaki avukatın kendi dosyasına eklenebilir.
 
+## Eklentiyi güncelleme
+
+Eklenti yeniden yüklenince (Chrome > Uzantılar > yenile) açık UYAP/UETS sekmelerinde eski betikler çalışmaya devam eder ve "Extension context invalidated" hatası verebilir. Betikler bunu artık sessizce yok sayıp durur, ama yeni sürümün çalışması için **açık UYAP/UETS sekmelerini yenilemek (F5)** gerekir.
+
 ## Testler
 
 `node --test tests/*.js` (CI'da çalışır). Bu testler yukarıdaki davranışı sınar; kapsam değişince testler de değişmelidir.

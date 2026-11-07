@@ -36,12 +36,19 @@
     } catch (_) { return null; }
   }
 
+  // Eklenti yeniden yüklenince sayfada kalan eski betiğin bağlamı geçersiz olur; sessizce durur.
+  const alive = () => { try { return Boolean(chrome.runtime?.id); } catch (_) { return false; } };
+  let interval;
+
   async function report() {
+    if (!alive()) { clearInterval(interval); return; }
     const ok = await check();
     if (ok === null) return;
-    chrome.runtime.sendMessage({type: 'session', ok, name: ok ? accountName() : ''}).catch(() => {});
+    try {
+      await chrome.runtime.sendMessage({type: 'session', ok, name: ok ? accountName() : ''});
+    } catch (_) { clearInterval(interval); }
   }
 
   setTimeout(report, 5000);
-  setInterval(report, INTERVAL);
+  interval = setInterval(report, INTERVAL);
 })();
