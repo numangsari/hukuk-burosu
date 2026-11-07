@@ -1,27 +1,9 @@
 {% load ui %}
 {# Dosya detayı > Özet sekmesi. Veriler views.CaseDetailView içinde (summary.py) hazırlanır. #}
-<div class="row g-3 mb-3">
-  <div class="col-sm-6 col-xl-4">
-    <a href="#" class="card stat-card" onclick="goCaseTab('#t-gorevler'); return false">
-      <div class="stat-icon"><i class="bi bi-check2-square"></i></div>
-      <div><div class="stat-label">Açık görev</div><div class="stat-value">{{ summary.open_task_count }}</div>
-        <div class="stat-hint {% if summary.overdue_task_count %}text-danger fw-medium{% endif %}">{% if summary.overdue_task_count %}{{ summary.overdue_task_count }} gecikmiş{% else %}Gecikmiş yok{% endif %}</div></div>
-    </a>
-  </div>
-  <div class="col-sm-6 col-xl-4">
-    <a href="#" class="card stat-card" onclick="goCaseTab('#t-safahat'); return false">
-      <div class="stat-icon warning"><i class="bi bi-diagram-3"></i></div>
-      <div><div class="stat-label">Bağlı dosya</div><div class="stat-value">{{ summary.linked_count }}</div>
-        <div class="stat-hint">{% if summary.linked_count %}Safahat ve muhasebe ortak{% else %}Bağlı dosya yok{% endif %}</div></div>
-    </a>
-  </div>
-  <div class="col-sm-6 col-xl-4">
-    <a href="#" class="card stat-card" onclick="goCaseTab('#t-belgeler'); return false">
-      <div class="stat-icon success"><i class="bi bi-files"></i></div>
-      <div><div class="stat-label">Belge</div><div class="stat-value">{{ summary.document_count }}</div>
-        <div class="stat-hint">{% if summary.last_document_at %}Son yükleme {{ summary.last_document_at|date:"d.m.Y" }}{% else %}Belge yüklenmedi{% endif %}</div></div>
-    </a>
-  </div>
+<div class="summary-strip mb-3">
+  <a href="#" onclick="goCaseTab('#t-gorevler'); return false"><i class="bi bi-check2-square"></i>Açık görev <strong>{{ summary.open_task_count }}</strong>{% if summary.overdue_task_count %}<span class="text-danger fw-medium">{{ summary.overdue_task_count }} gecikmiş</span>{% endif %}</a>
+  <a href="#" onclick="goCaseTab('#t-safahat'); return false"><i class="bi bi-diagram-3"></i>Bağlı dosya <strong>{{ summary.linked_count }}</strong></a>
+  <a href="#" onclick="goCaseTab('#t-belgeler'); return false"><i class="bi bi-files"></i>Belge <strong>{{ summary.document_count }}</strong>{% if summary.last_document_at %}<span class="text-body-secondary">son yükleme {{ summary.last_document_at|date:"d.m.Y" }}</span>{% endif %}</a>
 </div>
 
 <div class="row g-3">

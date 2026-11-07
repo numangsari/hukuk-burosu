@@ -1090,3 +1090,32 @@ tr.chain-prev > td:first-child { position: relative; }
 .nav-underline-tabs-flat .nav-link { padding: .5rem 0; margin-bottom: -1px; }
 .nav-underline-tabs .count-warning { background: var(--warning-soft, #fdf0d9); color: var(--warning-ink, #9a4d06); }
 .page-header-sticky { position: sticky; top: var(--topbar-h); z-index: 1020; background: var(--app-bg); margin-top: -1.75rem; padding: 1.75rem 0 .75rem; border-bottom: 1px solid var(--line); margin-bottom: 1rem; }
+
+/* Dosya detayı: kompakt kimlik alanı, ince özet şeridi, sabit sekme çubuğu */
+.case-detail .detail-hero { padding: .85rem 1.25rem; gap: .9rem; }
+.case-detail .hero-icon { width: 40px; height: 40px; border-radius: 10px; font-size: 1.15rem; }
+.case-detail .page-title { font-size: 1.35rem; margin: 0; }
+.case-detail .meta { margin-top: .25rem; }
+.case-detail .case-status-state { padding: .55rem 1.25rem; font-size: 1.05rem; letter-spacing: .08em; gap: .1rem; }
+.case-detail .case-status-body { padding: .6rem 1.25rem; }
+.case-detail .stage-track { padding: .2rem 0 0; }
+.case-detail .stage-step { font-size: .72rem; gap: .25rem; }
+.case-detail .case-closing-reason { font-size: .95rem; }
+.case-detail .case-closing-date { margin-top: .1rem; font-size: .78rem; }
+.summary-strip { display: flex; flex-wrap: wrap; gap: .4rem 1.75rem; align-items: center; padding: .5rem .9rem; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); font-size: .85rem; }
+.summary-strip a { color: var(--ink-2); display: inline-flex; align-items: baseline; gap: .4rem; }
+.summary-strip a:hover { color: var(--ink); text-decoration: none; }
+.summary-strip i { color: var(--muted); align-self: center; }
+.summary-strip strong { color: var(--ink); font-variant-numeric: tabular-nums; }
+.case-tabbar { position: sticky; top: var(--topbar-h); z-index: 1020; display: flex; align-items: center; gap: 1rem; background: var(--app-bg); border-bottom: 1px solid var(--line); margin-bottom: 1rem; }
+.case-tabbar .nav-underline-tabs { border-top: 0; padding: 0; flex: 1; min-width: 0; }
+.case-tabbar .nav-underline-tabs .nav-link { padding: .6rem 0; }
+.case-tabbar-id { display: none; align-items: center; gap: .5rem; max-width: 40%; min-width: 0; }
+.case-tabbar-id .clip { max-width: 22rem; }
+.case-tabbar.is-stuck .case-tabbar-id { display: flex; order: 2; margin-left: auto; }
+.case-tabbar .nav-underline-tabs { flex-wrap: nowrap; gap: 1.1rem; }
+.case-tabbar-id { flex: 0 0 auto; max-width: none; white-space: nowrap; padding-right: .75rem; }
+.case-tabbar-id .clip { max-width: 15rem; }
+.case-tabbar .nav-underline-tabs { scrollbar-width: none; gap: .9rem; }
+.case-tabbar .nav-underline-tabs::-webkit-scrollbar { display: none; }
+.case-tabbar-id .clip { max-width: 11rem; }

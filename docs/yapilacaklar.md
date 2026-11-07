@@ -10,7 +10,7 @@ Tarih: 7 Kasım 2026. Üç belgenin birleşimidir; çakışan maddeler tek satı
 
 - Karar verilenler: tasarım yönü = eski öneri (Y24), inceleme/oluşturma pop-up ile, yan panel yok (Y29), listelerde normal yazım (Y27), `ALLOWED_HOSTS` için ad + IP listesi ve yönetici ekranı (Y11).
 - Tasarım uygulamasında bitenler: renk/yazı tipi değişkenleri ve Source Serif 4, sıkı satır, `tr_title` normal yazım, dosya listesinde mahkeme/numara ayrımı, `…` ile kısaltma, tablo başlıklarında normal yazım, dosya listesinde "sonraki duruşma" sütunu, bakiye şeridi kompakt.
-- Sıradaki: Y31, Y32.
+- Sıradaki: Y32 (klavye kısayolları, komut paleti), sonra Y28, Y33–Y36.
 - Karar bekleyen en önemli güvenlik maddesi: Y01 (HTTPS). Seçenekler: ofis içi sertifika, ters vekil + yerel CA, şimdilik atla.
 - Açık not: geliştirme veritabanında gerçek büro verisi görünüyor; `CLAUDE.md` kuralı gereği sentetik veriyle değiştirilmesi değerlendirilmeli.
 - Yerelde çalıştırma: `uv run python -m pytest` (Windows'ta `uv run pytest` trampoline hatası verir), `PYTHONUTF8=1` gerekir.
@@ -69,7 +69,7 @@ Kullanım ~%99 masaüstünde olduğundan telefon maddeleri en sona alındı.
 | Y28 | Arşiv kartlarını varsayılan kompakt yap | U13 | [ ] | |
 | Y29 | Liste satırına tıklayınca kayıt özeti **pop-up (modal) içinde** açılsın; yan panel yapılmayacak. Önce görev listesinde pilot, sonra dosya ve belge listeleri. | M3 | [~] | **Karar (7 Kasım): yeni kayıtların tamamı pop-up; mevcut kayıtta görev ve tebligat pop-up, dosya ve müvekkil tam sayfa (liste satırı doğrudan detaya gider). Görev ve tebligat yapıldı:** görev pop-up zaten açılıyordu; kaydedilmemiş metin uyarısı eklendi, işlem yapılmadan kapanınca liste yenilenmiyor (kaydırma/filtre/sayfa korunur) ve odak satıra döner. Duruşmanın ayrıntı sayfası yok, işlemleri pop-up; belge listesi kaldı. **Karar verildi: yan panel yok, her şey pop-up.** Pop-up izinleri tam sayfa ile aynı; kaydedilmemiş değişiklik uyarısı; kapanınca filtre, sıralama, sayfa ve kaydırma konumu ve odaklanan satır korunur. Prototipteki sağ panel kaldırılacak. |
 | Y30 | Filtre, sıralama ve sütun tercihlerini kaydet; detaydan dönüşte konumu koru | M2 | [x] | Karar (7 Kasım): yalnızca "detaydan dönüşte konumu koru" yapıldı (geri bağlantısı ve geri tuşu; filtre, sıralama, sayfa, kaydırma; oturum içi, `sessionStorage`). Kalıcı filtre ve sütun seçimi yapılmadı. |
-| Y31 | Dosya detay yerleşimi: kompakt başlık, geniş ana alan, süre/sorumlu/sıradaki iş bilgisi (yan panel yerine sayfa içi dar sütun) | M5 | [ ] | 768 px yükseklikte sabit alanlar çalışma alanını yememeli. |
+| Y31 | Dosya detay yerleşimi: kompakt başlık, geniş ana alan, süre/sorumlu/sıradaki iş bilgisi (yan panel yerine sayfa içi dar sütun) | M5 | [x] | Yapıldı (7 Kasım): kompakt kimlik alanı, tek satırlık özet şeridi, kaydırınca sabit sekme çubuğu (dosya adı ve "Yeni görev" sağda). Sağ sütun (Ekip, Yaklaşan işler, Tarihler) zaten vardı. Yalnızca dosya detayı; müvekkil/görev detayı değişmedi. |
 | Y32 | Klavye kısayolları, komut paleti (`Ctrl K` genişletme), son açılan kayıtlar, daraltılabilir yan menü | M7 | [ ] | |
 | Y33 | Belge yüklemede sürükle-bırak | U17, K5 | [ ] | |
 | Y34 | Toplu işlem (satır seçimi, toplu atama/dışa aktarma) | M | [ ] | Kayıt bazlı izin; süre ve mali iptal kapsam dışı. |

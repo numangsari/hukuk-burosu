@@ -16,7 +16,7 @@
 </div>
 {% endif %}
 
-<div class="card mb-3">
+<div class="card mb-3 case-detail">
   <div class="detail-hero">
     <div class="hero-icon type-{{ case.case_type }}"><i class="bi bi-folder2-open"></i></div>
     <div class="min-w-0">
@@ -126,6 +126,10 @@
     {% endif %}
     {% endif %}
   </div>
+</div>
+<div id="case-hero-sentinel"></div>
+<div class="case-tabbar">
+  <div class="case-tabbar-id"><span class="fw-semibold clip">{{ case.display_name }}</span>{% if case.client_id %}<a class="btn btn-sm btn-primary" href="{% url 'tasks:create' %}?dosya={{ case.pk }}">Yeni görev</a>{% endif %}</div>
   <ul class="nav nav-underline-tabs">
     <li><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#t-ozet">Özet</button></li>
     <li><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-taraflar">Taraflar<span class="count">{{ party_links|length }}</span></button></li>
@@ -141,6 +145,17 @@
     <li><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-gecmis">Geçmiş</button></li>
   </ul>
 </div>
+<script>
+  (() => {
+    const sentinel = document.getElementById("case-hero-sentinel");
+    const bar = document.querySelector(".case-tabbar");
+    if (!sentinel || !bar) return;
+    const topbar = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--topbar-h")) || 64;
+    const update = () => bar.classList.toggle("is-stuck", sentinel.getBoundingClientRect().top < topbar);
+    addEventListener("scroll", update, { passive: true });
+    update();
+  })();
+</script>
 
 <div class="tab-content">
   <div class="tab-pane fade show active" id="t-ozet">{% include "cases/_summary.html" %}</div>
