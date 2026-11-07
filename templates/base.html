@@ -213,6 +213,44 @@
   });
 </script>
 {% endif %}
+{% if request.user.is_authenticated and not request.GET.pencere %}
+<script>
+  // Liste konumu: detaydan "geri" bağlantısıyla veya tarayıcı geri tuşuyla dönünce filtre, sıralama, sayfa ve kaydırma korunur.
+  // Yalnızca bu oturumda (sekme kapanınca silinir) ve yalnızca bu tarayıcıda tutulur; erişim hakkı vermez.
+  (() => {
+    const key = path => 'liste-konumu:' + path;
+    const read = path => { try { return JSON.parse(sessionStorage.getItem(key(path))); } catch (e) { return null; } };
+    const write = (path, value) => { try { sessionStorage.setItem(key(path), JSON.stringify(value)); } catch (e) {} };
+    const isList = !!document.getElementById('list-table');
+    const path = location.pathname;
+    if (isList) {
+      const save = () => write(path, { search: location.search, y: window.scrollY });
+      addEventListener('pagehide', save);
+      document.addEventListener('click', event => { if (event.target.closest('tbody a, tbody tr')) save(); });
+      const saved = read(path);
+      const navType = (performance.getEntriesByType('navigation')[0] || {}).type;
+      if (saved && (navType === 'back_forward' || sessionStorage.getItem('liste-donus') === path)) {
+        sessionStorage.removeItem('liste-donus');
+        if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+        const restore = () => window.scrollTo(0, saved.y);
+        if (document.readyState === 'complete') restore(); else addEventListener('load', restore);
+        setTimeout(restore, 250);
+      }
+    }
+    // Detay sayfasındaki "geri" bağlantısı: kayıtlı filtreyle listeye döner.
+    document.addEventListener('click', event => {
+      const link = event.target.closest('.eyebrow a[href]');
+      if (!link || event.ctrlKey || event.metaKey || event.shiftKey || event.button !== 0) return;
+      const url = new URL(link.href, location.href);
+      const saved = url.origin === location.origin && !url.search ? read(url.pathname) : null;
+      if (!saved) return;
+      event.preventDefault();
+      try { sessionStorage.setItem('liste-donus', url.pathname); } catch (e) {}
+      location.href = url.pathname + saved.search;
+    });
+  })();
+</script>
+{% endif %}
 {% if request.user.is_authenticated %}
 <script>
   // Yan menü kaydırılabiliyorsa altta gölge gösterilir; kullanıcı aşağıda bağlantı olduğunu fark eder.
