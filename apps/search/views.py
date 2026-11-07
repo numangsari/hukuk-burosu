@@ -8,14 +8,19 @@ from urllib.parse import urlencode
 
 from django.contrib.postgres.search import TrigramWordSimilarity
 from django.core.paginator import Paginator
-from django.db.models import Q
+from django.db.models import Prefetch, Q
 from django.shortcuts import render
 from django.views import View
 
-from apps.cases.models import Case, Document
+from apps.cases.models import Case, CaseParty, Document
 from apps.clients.models import Client, Party
 from apps.core.pagination import page_size
-from apps.core.permissions import filter_visible_cases, filter_visible_clients
+from apps.core.permissions import (
+    can_view_all_office_data,
+    filter_visible_cases,
+    filter_visible_clients,
+    filter_visible_tasks,
+)
 from apps.core.text import fold
 from apps.tasks.models import Task
 
@@ -49,9 +54,18 @@ def search_querysets(q: str, user=None) -> dict:
     key = fold(q)
     base_clients = Client.objects.all()
     base_cases = Case.objects.all()
+    base_tasks = Task.objects.all()
+    base_documents = Document.objects.all()
+    base_parties = Party.objects.all()
+    party_links = CaseParty.objects.select_related("case")
     if user is not None:
         base_clients = filter_visible_clients(base_clients, user)
         base_cases = filter_visible_cases(base_cases, user)
+        base_tasks = filter_visible_tasks(base_tasks, user)
+        base_documents = base_documents.filter(case__in=base_cases)
+        if not can_view_all_office_data(user):
+            base_parties = base_parties.filter(case_links__case__in=base_cases).distinct()
+            party_links = party_links.filter(case__in=base_cases)
     clients = (
         base_clients.filter(Q(search_key__contains=key) | Q(tckn=q) | Q(vkn=q))
         .select_related("responsible_lawyer")
@@ -81,15 +95,15 @@ def search_querysets(q: str, user=None) -> dict:
     return {
         "clients": clients,
         "cases": cases,
-        "parties": Party.objects.filter(Q(search_key__contains=key) | Q(identity_no=q))
-        .prefetch_related("case_links__case")
+        "parties": base_parties.filter(Q(search_key__contains=key) | Q(identity_no=q))
+        .prefetch_related(Prefetch("case_links", queryset=party_links))
         .order_by("name"),
-        "tasks": Task.objects.filter(
+        "tasks": base_tasks.filter(
             Q(title__unaccent__icontains=q) | Q(notes__unaccent__icontains=q)
         )
         .select_related("case", "assignee")
         .order_by("status", "due_date"),
-        "documents": Document.objects.filter(
+        "documents": base_documents.filter(
             Q(title__unaccent__icontains=q) | Q(original_name__unaccent__icontains=q)
         )
         .select_related("case")
