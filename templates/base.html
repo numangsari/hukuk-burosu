@@ -88,8 +88,8 @@
       {# Uyarı gün boyu gizlenebilir; tercih yalnızca bu tarayıcıda tutulur, ertesi gün yeniden görünür. #}
       <div class="alert alert-warning d-flex align-items-center gap-2 mb-3 py-2" id="backup-stale-alert"
            x-data="{ key: 'backupStaleHidden', today: new Date().toDateString(), hidden: false }"
-           x-init="try { hidden = localStorage.getItem(key) === today } catch (e) {}"
-           x-show="!hidden">
+           x-init="(() => { try { hidden = localStorage.getItem(key) === today } catch (e) {} })()"
+           x-show.important="!hidden">
         <i class="bi bi-exclamation-triangle-fill"></i>
         <span>Son 2 gündür başarılı yedek alınmadı.</span>
         <a class="ms-auto fw-semibold" href="{% url 'accounts:settings' %}?bolum=klasor">Ofis klasörüne git</a>
