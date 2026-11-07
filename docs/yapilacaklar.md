@@ -58,9 +58,9 @@ Kullanım ~%99 masaüstünde olduğundan telefon maddeleri en sona alındı.
 | Y26 | Tek sekme bileşeni, tek "Kaydet" yeri | U6, U7 | [ ] | |
 | Y27 | Listelerde BÜYÜK HARF yerine normal yazım göster (saklama `tr_upper` ile büyük kalır) | U10 | [ ] | Karar verildi: eski öneri normal yazım gösteriyor. Uygulamada `CLAUDE.md` §4 görüntüleme notu eklenmeli. |
 | Y28 | Arşiv kartlarını varsayılan kompakt yap | U13 | [ ] | |
-| Y29 | Liste yanında sağ inceleme paneli; önce görev listesinde pilot | M3 | [ ] | Panel izinleri tam sayfa ile aynı olmalı; kaydedilmemiş değişiklik uyarısı. |
+| Y29 | Liste satırına tıklayınca kayıt özeti **pop-up (modal) içinde** açılsın; yan panel yapılmayacak. Önce görev listesinde pilot, sonra dosya ve belge listeleri. | M3 | [ ] | **Karar verildi: yan panel yok, her şey pop-up.** Pop-up izinleri tam sayfa ile aynı; kaydedilmemiş değişiklik uyarısı; kapanınca filtre, sıralama, sayfa ve kaydırma konumu ve odaklanan satır korunur. Prototipteki sağ panel kaldırılacak. |
 | Y30 | Filtre, sıralama ve sütun tercihlerini kaydet; detaydan dönüşte konumu koru | M2 | [ ] | Tercih erişim hakkı kazandırmamalı. |
-| Y31 | Dosya detay yerleşimi: kompakt başlık, geniş ana alan, sağda süre/sorumlu/sıradaki iş | M5 | [ ] | 768 px yükseklikte sabit alanlar çalışma alanını yememeli. |
+| Y31 | Dosya detay yerleşimi: kompakt başlık, geniş ana alan, süre/sorumlu/sıradaki iş bilgisi (yan panel yerine sayfa içi dar sütun) | M5 | [ ] | 768 px yükseklikte sabit alanlar çalışma alanını yememeli. |
 | Y32 | Klavye kısayolları, komut paleti (`Ctrl K` genişletme), son açılan kayıtlar, daraltılabilir yan menü | M7 | [ ] | |
 | Y33 | Belge yüklemede sürükle-bırak | U17, K5 | [ ] | |
 | Y34 | Toplu işlem (satır seçimi, toplu atama/dışa aktarma) | M | [ ] | Kayıt bazlı izin; süre ve mali iptal kapsam dışı. |
