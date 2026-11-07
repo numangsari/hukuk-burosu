@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Dilekçe havuzu — {{ office.name }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Dilekçe havuzu</h1>
+    <div class="small text-body-secondary mt-1">Hazır dilekçe örnekleri; herkes indirebilir ve yeni örnek ekleyebilir.</div>
+  </div>
+  <div class="page-actions">
+    <a class="btn btn-primary" href="{% url 'tasks:pool_create' %}"><i class="bi bi-plus-lg"></i>Yeni dilekçe</a>
+  </div>
+</div>
+
+<div class="card table-card" id="list-card">
+  <form class="filter-bar" hx-get="{% url 'tasks:pool' %}" hx-target="#list-table" hx-push-url="true"
+        hx-trigger="input changed delay:300ms from:input[name=q], change" hx-indicator="#list-card">
+    <div class="grow"><i class="bi bi-search"></i><input class="form-control" type="search" name="q" value="{{ request.GET.q }}" placeholder="Başlık, tür veya açıklama ara"></div>
+    <select class="form-select" name="tur" aria-label="Dilekçe türü">
+      <option value="">Tüm türler</option>
+      {% for t in types %}<option value="{{ t.name }}" {% if request.GET.tur == t.name %}selected{% endif %}>{{ t.name }} ({{ t.count }})</option>{% endfor %}
+    </select>
+    <a class="small ms-auto" href="{% url 'tasks:pool' %}">Filtreleri temizle</a>
+  </form>
+  <div id="list-table">{% include "tasks/_pool_table.html" %}</div>
+</div>
+{% endblock %}

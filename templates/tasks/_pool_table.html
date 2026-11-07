@@ -1,0 +1,27 @@
+<div class="table-responsive">
+<table class="table table-hover">
+  <thead>
+    <tr><th>Başlık</th><th class="hide-md">Tür</th><th class="hide-lg">Açıklama</th><th class="hide-md">Yükleyen</th><th>Tarih</th><th></th></tr>
+  </thead>
+  <tbody>
+  {% for s in samples %}
+    <tr>
+      <td><a class="cell-main text-reset clip" style="--clip-w: 22rem" href="{{ s.file.url }}" target="_blank" title="{{ s.title }}">{{ s.title }}</a><div class="cell-sub clip" style="--clip-w: 22rem">{{ s.original_name }}</div></td>
+      <td class="hide-md">{% if s.petition_type %}<span class="chip no-dot clip" style="--clip-w: 12rem">{{ s.petition_type }}</span>{% endif %}</td>
+      <td class="hide-lg"><span class="clip" style="--clip-w: 24rem" title="{{ s.description }}">{{ s.description }}</span></td>
+      <td class="text-nowrap hide-md">{{ s.created_by|default:"—" }}</td>
+      <td class="text-nowrap tabular">{{ s.created_at|date:"d.m.Y" }}</td>
+      <td class="text-nowrap text-end">
+        <a class="btn btn-light btn-sm" href="{{ s.file.url }}" download="{{ s.original_name }}"><i class="bi bi-download"></i>İndir</a>
+        {% if s.created_by_id == request.user.pk or is_admin %}
+        <form class="d-inline" method="post" action="{% url 'tasks:pool_delete' s.pk %}" onsubmit="return confirm('Bu dilekçe havuzdan silinsin mi?')">{% csrf_token %}<button class="btn btn-light btn-sm" title="Sil"><i class="bi bi-trash"></i></button></form>
+        {% endif %}
+      </td>
+    </tr>
+  {% empty %}
+    <tr><td colspan="6"><div class="empty-state"><i class="bi bi-journal-text"></i><strong>Dilekçe yok</strong>Havuzda listelenecek dilekçe bulunamadı.</div></td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% include "partials/pagination.html" %}

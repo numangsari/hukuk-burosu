@@ -7,7 +7,7 @@ from django.utils import timezone
 from apps.cases.models import Case
 from apps.clients.models import Client
 from apps.core.models import TimeStampedModel
-from apps.core.text import tr_upper
+from apps.core.text import fold, tr_upper
 from apps.office.models import TaskType
 
 
@@ -242,3 +242,28 @@ class TaskDocument(models.Model):
     @property
     def is_pdf(self) -> bool:
         return self.original_name.lower().endswith(".pdf")
+
+
+class PetitionSample(TimeStampedModel):
+    """Dilekçe havuzu: büronun herkesin görüp indirebileceği hazır dilekçe örnekleri."""
+
+    title = models.CharField("başlık", max_length=200)
+    petition_type = models.CharField("dilekçe türü", max_length=80, blank=True)
+    description = models.TextField("açıklama", blank=True)
+    file = models.FileField("dosya", upload_to="petition-pool/%Y/")
+    original_name = models.CharField(max_length=300, blank=True)
+    size = models.PositiveBigIntegerField(default=0)
+    search_key = models.TextField(editable=False, blank=True)
+
+    class Meta:
+        verbose_name = "dilekçe örneği"
+        verbose_name_plural = "dilekçe havuzu"
+        ordering = ["-created_at", "-pk"]
+
+    def __str__(self):
+        return self.title
+
+    def save(self, *args, **kwargs):
+        # Büyük/küçük harf ve Türkçe karakter farkını yok sayan arama anahtarı.
+        self.search_key = fold(f"{self.title} {self.petition_type} {self.description}")
+        super().save(*args, **kwargs)

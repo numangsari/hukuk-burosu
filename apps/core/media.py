@@ -3,7 +3,7 @@
 Her dosya bağlı olduğu kaydın kuralıyla açılır:
 - cases/, tasks/, clients/          : bağlı dosya/görev/müvekkili görebilen kullanıcı
                                       (sorumlu bazlı modda başkasının kaydı 404 verir)
-- avatars/                          : giriş yapmış kullanıcı
+- avatars/, petition-pool/          : giriş yapmış kullanıcı
 - ledger/                           : muhasebe görme yetkisi
 - office/                           : ofis logosu, giriş ekranında da görünür (girişsiz)
 - diğer her yol (ör. imports/tmp)   : sunulmaz
@@ -30,11 +30,12 @@ def _record_for(path: str):
     from apps.cases.models import Document
     from apps.clients.models import PowerOfAttorney, RetainerAgreement
     from apps.office.models import OfficeSettings
-    from apps.tasks.models import TaskDocument
+    from apps.tasks.models import PetitionSample, TaskDocument
 
     owners = {
         "cases": (Document, "file"),
         "tasks": (TaskDocument, "file"),
+        "petition-pool": (PetitionSample, "file"),
         "clients": (PowerOfAttorney, "pdf"),
         "ledger": (LedgerEntry, "receipt"),
         "avatars": (User, "avatar"),
@@ -79,14 +80,14 @@ def _allowed(request, prefix: str) -> bool:
         from apps.accounting.permissions import can_view
 
         return can_view(request.user)
-    return prefix in {"cases", "tasks", "clients", "avatars"}
+    return prefix in {"cases", "tasks", "clients", "avatars", "petition-pool"}
 
 
 @login_not_required  # yetki aşağıda yol bazında denetlenir (logo girişsiz görünür)
 def protected_media(request, path):
     path = path.replace("\\", "/").lstrip("/")
     prefix = path.split("/", 1)[0]
-    if prefix not in {"cases", "tasks", "clients", "ledger", "avatars", "office"}:
+    if prefix not in {"cases", "tasks", "clients", "ledger", "avatars", "office", "petition-pool"}:
         raise Http404
     if not _allowed(request, prefix):
         if not request.user.is_authenticated:

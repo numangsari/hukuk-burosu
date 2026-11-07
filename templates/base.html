@@ -42,7 +42,8 @@
     <nav class="sidebar-nav">
       <div class="nav-section">Genel</div>
       <a class="side-link {% if ns == 'core' %}active{% endif %}" href="{% url 'core:home' %}"><i class="bi bi-grid-1x2"></i>Ana sayfa</a>
-      <a class="side-link {% if ns == 'tasks' %}active{% endif %}" href="{% url 'tasks:list' %}"><i class="bi bi-check2-square"></i>Görevler</a>
+      <a class="side-link {% if ns == 'tasks' and request.resolver_match.url_name != 'pool' and request.resolver_match.url_name != 'pool_create' %}active{% endif %}" href="{% url 'tasks:list' %}"><i class="bi bi-check2-square"></i>Görevler</a>
+      <a class="side-link {% if request.resolver_match.url_name == 'pool' %}active{% endif %}" href="{% url 'tasks:pool' %}"><i class="bi bi-journal-text"></i>Dilekçe havuzu</a>
       <a class="side-link" href="{% url 'notice_list' %}"><i class="bi bi-envelope"></i>Tebligatlar</a>
       <a class="side-link {% if ns == 'agenda' or ns == 'hearings' %}active{% endif %}" href="{% url 'agenda:calendar' %}"><i class="bi bi-calendar3"></i>Takvim</a>
       <div class="nav-section">Kayıtlar</div>
@@ -158,6 +159,7 @@
   const frame = document.getElementById('create-window-frame');
   const paths = {
     '{% url "tasks:create" %}': 'Yeni görev',
+    '{% url "tasks:pool_create" %}': 'Yeni dilekçe',
     '{% url "cases:create" %}': 'Yeni dosya',
     '{% url "clients:create" %}': 'Yeni müvekkil',
     '{% url "accounting:create" %}': 'Yeni gelir / gider',

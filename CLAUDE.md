@@ -144,6 +144,7 @@ uv run ruff format --check .                         # Format denetimi
 - **İş Akışı:** Sorumlu (`assignee`) ve kontrolcü (`reviewer`) arasında ilerleyen görevler. Durumlar: Aktif (`active`), Kontrolde (`review`), Kapalı (`done`).
 - **Belge Zorunluluğu:** `TaskType.requires_document` işaretli türlerde dilekçe yüklenmeden kontrole gönderilemez. Bu türlerde isteğe bağlı iş emri numarası (`Task.work_order_no`) girilir; diğer türlerde sunucu tarafında silinir.
 - **Görev Belgeleri:** Yüklenen belgeler hem medya deposunda saklanır hem de dosyanın ofis klasöründeki `Görevler` dizinine kopyalanır (`TaskDocument`). Onaylanan belgenin son sürümü dosyanın Belgeler sekmesinde yayınlanır. Dilekçeye ek belgeler ayrı türdedir (`TaskDocument.Kind.ATTACHMENT`, "Dilekçe ekleri"): kontrole göndermek için yalnızca dilekçe sayılır, onayda dilekçeyle birlikte dosyanın Belgeler sekmesine "Ek:" başlığıyla geçer.
+- **Dilekçe Havuzu (`PetitionSample`, `/gorevler/dilekce-havuzu/`):** Büronun hazır dilekçe örnekleri (şablon değil). Giriş yapan herkes görür, indirir ve yükler; yalnızca yükleyen veya yönetici siler. Dosyalar `petition-pool/` altında saklanır ve `protected_media` ile girişli herkese sunulur. Arama `search_key` (Türkçe harf farkını yok sayar) üzerinden yapılır.
 - **Puanlama (`TaskPoint`):** Görev kapatıldığında görev türünün puanı sorumluya ve kontrolcüye yazılır; yeniden açılırsa puanlar geri alınır.
 
 ### `apps/accounting`
