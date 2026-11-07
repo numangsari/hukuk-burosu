@@ -48,6 +48,7 @@ UYAP_PATHS = {
     "/list_dosya_evraklar.ajx",
     "/avukat_durusma_sorgula_brd.ajx",
     "/dosya_tahsilat_reddiyat_bilgileri_brd.ajx",
+    "/dosya_hesap_bilgileri.ajx",
 }
 
 

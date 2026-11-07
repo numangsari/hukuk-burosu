@@ -180,3 +180,34 @@ def test_document_is_copied_into_office_folder_when_configured(setup, settings, 
     assert len(copies) == 1
     assert "UYAP Evrakları" in str(copies[0])
     assert Document.objects.get(case=case).folder_path == str(copies[0])
+
+
+def test_enforcement_account_capture_is_accepted(setup):
+    # İcra dosyaları için eklenti `/dosya_hesap_bilgileri.ajx` yanıtı da gönderir.
+    client, auth, _, _, portal = setup
+    payload = json.dumps(
+        {
+            "type": "uyap",
+            "identity": "10000000146",
+            "captures": [
+                {
+                    "source": "UYAP",
+                    "path": "/search_phrase_detayli.ajx",
+                    "data": {
+                        "kategori": "İcra",
+                        "durum": "acik",
+                        "sonuc": [
+                            [{"dosyaId": "D1", "birimAdi": "Örnek İcra", "dosyaNo": "2026/9"}],
+                            1,
+                        ],
+                    },
+                },
+                {
+                    "source": "UYAP",
+                    "path": "/dosya_hesap_bilgileri.ajx",
+                    "data": {"kategori": "İcra", "dosyaId": "D1", "sonuc": {"ornek": True}},
+                },
+            ],
+        }
+    )
+    assert post(client, auth, payload).status_code == 200
