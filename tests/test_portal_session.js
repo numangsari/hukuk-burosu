@@ -9,7 +9,7 @@ function response(status, contentType = 'text/json') {
   return {status, headers: {get: () => contentType}};
 }
 
-async function run(hostname, fetch, {top = true, storage = {}} = {}) {
+async function run(hostname, fetch, {top = true, storage = {}, account = 'ÖRNEK AVUKAT'} = {}) {
   const sent = [];
   const timers = [];
   const window = {};
@@ -17,6 +17,7 @@ async function run(hostname, fetch, {top = true, storage = {}} = {}) {
   const context = {
     window, fetch, AbortSignal,
     location: {hostname},
+    document: {querySelectorAll: () => account === null ? [] : [{textContent: hostname === 'ptt.etebligat.gov.tr' ? 'Seçili Hesap: ' + account : ' ' + account + ' '}]},
     localStorage: {getItem: key => storage[key] ?? null},
     chrome: {runtime: {sendMessage: async message => { sent.push(message); }}},
     setTimeout: (fn, ms) => { timers.push({fn, ms, repeat: false}); return timers.length; },
@@ -31,7 +32,7 @@ async function run(hostname, fetch, {top = true, storage = {}} = {}) {
 test('UYAP oturumu açıksa ve JSON dönerse açık bildirilir', async () => {
   const calls = [];
   const result = await run('avukat.uyap.gov.tr', async (url, options) => { calls.push({url, options}); return response(200); });
-  assert.deepEqual(plain(result.sent), [{type: 'session', ok: true}]);
+  assert.deepEqual(plain(result.sent), [{type: 'session', ok: true, name: 'ÖRNEK AVUKAT'}]);
   assert.equal(calls[0].url, '/get_avukat_id.ajx');
   assert.equal(calls[0].options.method, 'POST');
   assert.equal(calls[0].options.credentials, 'include');
@@ -39,12 +40,12 @@ test('UYAP oturumu açıksa ve JSON dönerse açık bildirilir', async () => {
 
 test('UYAP 401 döndürürse oturum kapalı bildirilir', async () => {
   const result = await run('avukat.uyap.gov.tr', async () => response(401, 'text/xml'));
-  assert.deepEqual(plain(result.sent), [{type: 'session', ok: false}]);
+  assert.deepEqual(plain(result.sent), [{type: 'session', ok: false, name: ''}]);
 });
 
 test('UYAP giriş sayfasını 200 ile döndürürse oturum kapalı sayılır', async () => {
   const result = await run('avukat.uyap.gov.tr', async () => response(200, 'text/html'));
-  assert.deepEqual(plain(result.sent), [{type: 'session', ok: false}]);
+  assert.deepEqual(plain(result.sent), [{type: 'session', ok: false, name: ''}]);
 });
 
 test('Sunucu veya ağ hatasında oturum durumu bildirilmez', async () => {
@@ -56,14 +57,14 @@ test('Sunucu veya ağ hatasında oturum durumu bildirilmez', async () => {
 
 test('UETS erişim anahtarı yoksa kapalı, varsa API yanıtına göre bildirilir', async () => {
   const noKey = await run('ptt.etebligat.gov.tr', async () => response(200));
-  assert.deepEqual(plain(noKey.sent), [{type: 'session', ok: false}]);
+  assert.deepEqual(plain(noKey.sent), [{type: 'session', ok: false, name: ''}]);
   const calls = [];
   const open = await run('ptt.etebligat.gov.tr', async (url, options) => { calls.push({url, options}); return response(200); }, {storage: {accessToken: 'ornek'}});
-  assert.deepEqual(plain(open.sent), [{type: 'session', ok: true}]);
+  assert.deepEqual(plain(open.sent), [{type: 'session', ok: true, name: 'ÖRNEK AVUKAT'}]);
   assert.match(calls[0].url, /^https:\/\/api\.etebligat\.gov\.tr\/v1\/messages\?/);
   assert.equal(calls[0].options.headers.Authorization, 'Bearer ornek');
   const expired = await run('ptt.etebligat.gov.tr', async () => response(401), {storage: {accessToken: 'ornek'}});
-  assert.deepEqual(plain(expired.sent), [{type: 'session', ok: false}]);
+  assert.deepEqual(plain(expired.sent), [{type: 'session', ok: false, name: ''}]);
 });
 
 test('Yoklama dört dakikada bir yinelenir ve yalnızca üst çerçevede çalışır', async () => {
@@ -78,5 +79,30 @@ test('Yoklama dört dakikada bir yinelenir ve yalnızca üst çerçevede çalı�
 
 test('Yoklama verisi toplamaz: yalnızca durum bilgisi gönderilir', async () => {
   const result = await run('avukat.uyap.gov.tr', async () => ({status: 200, headers: {get: () => 'text/json'}, text: async () => { throw new Error('gövde okunmamalı'); }}));
-  assert.deepEqual(Object.keys(plain(result.sent[0])).sort(), ['ok', 'type']);
+  assert.deepEqual(Object.keys(plain(result.sent[0])).sort(), ['name', 'ok', 'type']);
+});
+
+test('Açık hesap adı yalnızca oturum açıkken ve kırpılmış olarak bildirilir', async () => {
+  const open = await run('avukat.uyap.gov.tr', async () => response(200));
+  assert.equal(plain(open.sent)[0].name, 'ÖRNEK AVUKAT');
+  const closed = await run('avukat.uyap.gov.tr', async () => response(401, 'text/xml'));
+  assert.equal(plain(closed.sent)[0].name, '');
+  const noName = await run('avukat.uyap.gov.tr', async () => response(200), {account: null});
+  assert.equal(plain(noName.sent)[0].name, '');
+});
+
+test('Birden fazla hesap adı düğümü belirsizse ad gönderilmez', async () => {
+  const sent = [];
+  const window = {};
+  window.top = window;
+  const nodes = [{textContent: 'BİRİ'}, {textContent: 'BAŞKASI'}];
+  const timers = [];
+  vm.runInNewContext(source, {
+    window, fetch: async () => response(200), AbortSignal, location: {hostname: 'avukat.uyap.gov.tr'},
+    document: {querySelectorAll: () => nodes}, localStorage: {getItem: () => null},
+    chrome: {runtime: {sendMessage: async message => { sent.push(message); }}},
+    setTimeout: (fn, ms) => { timers.push(fn); return 1; }, setInterval: () => 1
+  });
+  await timers[0]();
+  assert.equal(plain(sent)[0].name, '');
 });

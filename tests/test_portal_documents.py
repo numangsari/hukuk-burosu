@@ -21,8 +21,9 @@ def setup(case_factory, settings, tmp_path):
     PortalLawyerAccess.objects.create(
         user=lawyer, identity_number="10000000146", uyap_enabled=True, uets_enabled=True
     )
+    admin = User.objects.create_user(username="evrak-yonetici", role=User.Role.ADMIN)
     client = Client()
-    client.force_login(lawyer)
+    client.force_login(admin)
     key = client.post("/portal-inceleme/baglanti/").context["pair_key"]
     case = case_factory()
     portal = PortalCase.objects.create(

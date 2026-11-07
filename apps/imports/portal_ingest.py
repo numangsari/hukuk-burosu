@@ -232,9 +232,10 @@ def import_files(paths, user):
 
 
 def check_import_access(user):
-    """Bağlantı sahibi etkin bir yönetici veya avukat olmalı; kaynak izni ayrıca kişi bazında denetlenir."""
-    if not user.is_active or not user.is_lawyer_or_above:
-        raise RuntimeError("Sorumlu kullanıcı etkin bir yönetici veya avukat olmalı.")
+    """Eklenti yalnızca ana bilgisayarda yönetici tarafından bağlanır; veri kaynağı izni ayrıca
+    avukat bazında (`PortalLawyerAccess`) denetlenir."""
+    if not user.is_active or not user.is_office_admin:
+        raise RuntimeError("Sorumlu kullanıcı etkin bir yönetici olmalı.")
 
 
 @transaction.atomic

@@ -15,14 +15,22 @@ HEALTH = "/portal-inceleme/durum/"
 
 
 def paired_client():
-    user = User.objects.create_user(username="oturum-avukat", role=User.Role.LAWYER)
-    PortalLawyerAccess.objects.create(
-        user=user, identity_number="10000000146", uyap_enabled=True, uets_enabled=True
-    )
+    admin = User.objects.create_user(username="oturum-yonetici", role=User.Role.ADMIN)
     client = Client()
-    client.force_login(user)
+    client.force_login(admin)
     key = client.post("/portal-inceleme/baglanti/").context["pair_key"]
-    return user, {"HTTP_AUTHORIZATION": f"Bearer {key}"}
+    return admin, {"HTTP_AUTHORIZATION": f"Bearer {key}"}
+
+
+def lawyer(first="Ayşe", last="Avukat", **access):
+    user = User.objects.create_user(
+        username=f"{first}-{last}".lower(), first_name=first, last_name=last, role=User.Role.LAWYER
+    )
+    values = {"uyap_enabled": True, "uets_enabled": True, **access}
+    record = PortalLawyerAccess.objects.create(
+        user=user, identity_number=f"2000000{User.objects.count():04d}", **values
+    )
+    return user, record
 
 
 def millis(delta=dt.timedelta()):
@@ -55,6 +63,7 @@ def test_health_without_session_keeps_old_values_null():
     assert send(auth).status_code == 200
     connection = PortalConnection.objects.get()
     assert connection.uyap_session_ok is None and connection.uyap_session_at is None
+    assert connection.uyap_account is None and connection.uets_account is None
 
 
 @pytest.mark.parametrize(
@@ -81,49 +90,85 @@ def test_health_rejects_future_session_timestamp():
     assert PortalConnection.objects.get().uyap_session_ok is None
 
 
-def make(user, **values):
+def test_open_account_name_is_matched_to_the_permitted_lawyer():
+    _, auth = paired_client()
+    _, access = lawyer("Ayşe", "Avukat")
+    send(auth, uyap={"session": {"ok": True, "at": millis(), "name": "AYŞE AVUKAT"}})
+    connection = PortalConnection.objects.get()
+    assert connection.uyap_account == access
+    assert connection.uets_account is None
+
+
+def test_unknown_or_unpermitted_account_name_is_not_attributed():
+    _, auth = paired_client()
+    lawyer("Veli", "Avukat", uyap_enabled=False)
+    send(auth, uyap={"session": {"ok": True, "at": millis(), "name": "Veli Avukat"}})
+    assert PortalConnection.objects.get().uyap_account is None
+    send(auth, uyap={"session": {"ok": True, "at": millis(), "name": "Tanımsız Kişi"}})
+    assert PortalConnection.objects.get().uyap_account is None
+
+
+def test_account_is_cleared_when_another_account_or_no_name_is_reported():
+    _, auth = paired_client()
+    _, access = lawyer("Ayşe", "Avukat")
+    send(auth, uyap={"session": {"ok": True, "at": millis(), "name": "Ayşe Avukat"}})
+    assert PortalConnection.objects.get().uyap_account == access
+    send(auth, uyap={"session": {"ok": True, "at": millis()}})
+    assert PortalConnection.objects.get().uyap_account is None
+
+
+@pytest.mark.parametrize("name", [5, "x" * 201, ["Ayşe Avukat"]])
+def test_malformed_account_name_is_ignored(name):
+    _, auth = paired_client()
+    lawyer("Ayşe", "Avukat")
+    assert (
+        send(auth, uyap={"session": {"ok": True, "at": millis(), "name": name}}).status_code == 200
+    )
+    assert PortalConnection.objects.get().uyap_account is None
+
+
+def make(owner, **values):
     return PortalConnection.objects.create(
         key_hash=f"oturum-{PortalConnection.objects.count()}",
-        owner=user,
+        owner=owner,
         last_seen=timezone.now(),
         **values,
     )
 
 
-def uyap_state(user):
-    indicator = portal_status.portal_indicator(user)
-    return next(row["state"] for row in indicator["sources"] if row["key"] == "uyap")
-
-
-def lawyer():
-    return User.objects.create_user(username="gosterge-avukat", role=User.Role.LAWYER)
+def state(connection, source="uyap"):
+    return portal_status.connection_state(connection, source, timezone.now())
 
 
 def test_fresh_open_session_is_active_even_when_last_scan_said_no_session():
-    user = lawyer()
-    make(user, uyap_status="oturum_yok", uyap_session_ok=True, uyap_session_at=timezone.now())
-    assert uyap_state(user) == "aktif"
+    owner, _ = paired_client()
+    connection = make(
+        owner, uyap_status="oturum_yok", uyap_session_ok=True, uyap_session_at=timezone.now()
+    )
+    assert state(connection) == "aktif"
 
 
 def test_fresh_closed_session_is_passive_even_when_last_scan_was_good():
-    user = lawyer()
-    make(user, uyap_status="tamamlandi", uyap_session_ok=False, uyap_session_at=timezone.now())
-    assert uyap_state(user) == "pasif"
+    owner, _ = paired_client()
+    connection = make(
+        owner, uyap_status="tamamlandi", uyap_session_ok=False, uyap_session_at=timezone.now()
+    )
+    assert state(connection) == "pasif"
 
 
 @pytest.mark.parametrize("status", ["izin_yok", "sunucu_yok"])
 def test_open_session_but_blocked_transfer_is_passive(status):
-    user = lawyer()
-    make(user, uyap_status=status, uyap_session_ok=True, uyap_session_at=timezone.now())
-    assert uyap_state(user) == "pasif"
+    owner, _ = paired_client()
+    connection = make(
+        owner, uyap_status=status, uyap_session_ok=True, uyap_session_at=timezone.now()
+    )
+    assert state(connection) == "pasif"
 
 
 def test_stale_session_info_falls_back_to_scan_status():
-    user = lawyer()
+    owner, _ = paired_client()
     old = timezone.now() - dt.timedelta(minutes=30)
-    good_scan = make(user, uyap_status="tamamlandi", uyap_session_ok=False, uyap_session_at=old)
-    other = User.objects.create_user(username="eski-avukat-2", role=User.Role.LAWYER)
-    bad_scan = make(other, uyap_status="oturum_yok", uyap_session_ok=True, uyap_session_at=old)
-    now = timezone.now()
-    assert portal_status.connection_state(good_scan, "uyap", now) == "aktif"
-    assert portal_status.connection_state(bad_scan, "uyap", now) == "pasif"
+    good_scan = make(owner, uyap_status="tamamlandi", uyap_session_ok=False, uyap_session_at=old)
+    bad_scan = make(owner, uyap_status="oturum_yok", uyap_session_ok=True, uyap_session_at=old)
+    assert state(good_scan) == "aktif"
+    assert state(bad_scan) == "pasif"

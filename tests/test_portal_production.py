@@ -76,47 +76,24 @@ def test_non_admin_or_unpaired_key_is_still_rejected_without_debug():
 
 
 @override_settings(DEBUG=False)
-def test_authorized_lawyer_can_pair_and_send_own_data():
-    client, lawyer, response = paired(role=User.Role.LAWYER, username="avukat")
-    assert response.status_code == 200
-    connection = PortalConnection.objects.get()
-    assert connection.owner == lawyer
-    key = response.context["pair_key"]
-    body = {
-        "type": "notice",
-        "identity": "10000000146",
-        "list": {"id": "avukat-tebligat", "subject": "Avukat"},
-        "details": {"metin": "içerik"},
-    }
-    sent = Client().post(
-        INGEST,
-        json.dumps(body),
-        content_type="application/json",
-        HTTP_AUTHORIZATION=f"Bearer {key}",
-    )
-    assert sent.status_code == 200
-    assert lawyer in PortalNotice.objects.get().source_users.all()
-
-
-@override_settings(DEBUG=False)
-def test_lawyer_without_portal_permission_cannot_pair():
-    user = User.objects.create_user(username="izinsiz", role=User.Role.LAWYER)
-    PortalLawyerAccess.objects.create(user=user, identity_number="10000000147")
-    client = Client()
-    client.force_login(user)
-    assert client.get("/portal-inceleme/baglanti/").status_code == 404
-    assert client.post("/portal-inceleme/baglanti/").status_code == 404
-    assert PortalConnection.objects.count() == 0
-
-
-@override_settings(DEBUG=False)
-@pytest.mark.parametrize("role", [User.Role.INTERN, User.Role.SECRETARY, User.Role.PARALEGAL])
-def test_non_lawyer_roles_cannot_pair(role):
+@pytest.mark.parametrize(
+    "role",
+    [
+        User.Role.SENIOR,
+        User.Role.LAWYER,
+        User.Role.INTERN,
+        User.Role.PARALEGAL,
+        User.Role.SECRETARY,
+    ],
+)
+def test_only_admin_can_pair_the_extension(role):
+    # Eklenti yalnızca ana (sunucu) bilgisayarda yönetici tarafından eşleştirilir.
     user = User.objects.create_user(username=f"kullanici-{role}", role=role)
     PortalLawyerAccess.objects.create(
         user=user, identity_number="10000000148", uyap_enabled=True, uets_enabled=True
     )
     client = Client()
     client.force_login(user)
+    assert client.get("/portal-inceleme/baglanti/").status_code == 404
     assert client.post("/portal-inceleme/baglanti/").status_code == 404
     assert PortalConnection.objects.count() == 0

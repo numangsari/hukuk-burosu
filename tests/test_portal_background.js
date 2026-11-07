@@ -3,10 +3,11 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 
-function setup() {
+function setup({tabs = []} = {}) {
   const storage = {};
   let listener;
   const healthRequests = [];
+  const tabMessages = [];
   const event = {addListener() {}};
   const chrome = {
     runtime: {onMessage:{addListener(fn) { listener = fn; }}, onInstalled:event, onStartup:event, getURL:s => `chrome-extension://ornek/${s}`},
@@ -15,7 +16,7 @@ function setup() {
       async set(values) { Object.assign(storage, values); }
     }},
     alarms: {onAlarm:event, create() {}},
-    tabs: {onUpdated:event, async query() { return []; }}
+    tabs: {onUpdated:event, async query() { return tabs; }, async sendMessage(id, message) { tabMessages.push({id, message}); }}
   };
   vm.runInNewContext(fs.readFileSync('uyap-uets-eklentisi/background.js','utf8'), {
     chrome, URL, AbortSignal, setTimeout() {}, Date, Math, JSON, Promise,
@@ -28,7 +29,7 @@ function setup() {
       if (pending !== true) resolve(undefined);
     } catch (error) { reject(error); }
   });
-  return {call, storage, healthRequests};
+  return {call, storage, healthRequests, tabMessages};
 }
 
 test('Tamamlanan UYAP örneğinin izi yeniden başlatmada korunur', async () => {
@@ -104,4 +105,47 @@ test('Geçersiz veya alt çerçeveden gelen oturum bildirimi yok sayılır', asy
   assert.equal(await call({type:'session', ok:true}, {url:'https://avukat.uyap.gov.tr/',frameId:3}), undefined);
   assert.equal(await call({type:'session', ok:true}, {url:'https://baska.example/',frameId:0}), undefined);
   assert.equal(storage.session_uyap, undefined);
+});
+
+test('Oturum bildirimindeki hesap adı saklanır ve durumla birlikte iletilir', async () => {
+  const {call, storage, healthRequests} = setup();
+  storage.sync_key = 'a'.repeat(43);
+  await call({type:'session', ok:true, name:'ÖRNEK AVUKAT'});
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(storage.session_uyap.name, 'ÖRNEK AVUKAT');
+  assert.equal(healthRequests.at(-1).body.uyap.session.name, 'ÖRNEK AVUKAT');
+  await call({type:'session', ok:true, name:'x'.repeat(201)});
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(storage.session_uyap.name, '');
+});
+
+test('Oturum kapalıyken açılınca tarama kendiliğinden başlatılır', async () => {
+  const tab = {id: 7, url: 'https://avukat.uyap.gov.tr/'};
+  const {call, storage, tabMessages} = setup({tabs: [tab]});
+  storage.sync_key = 'a'.repeat(43);
+  storage.session_uyap = {ok: false, at: 1, name: ''};
+  storage.attempted_uyap = 0;
+  await call({type:'session', ok:true, name:'ÖRNEK AVUKAT'});
+  await new Promise(resolve => setTimeout(resolve, 20));
+  assert.deepEqual(tabMessages.map(item => [item.id, item.message.type]), [[7, 'auto_scan']]);
+});
+
+test('Oturum zaten açıksa her yoklamada yeni tarama başlatılmaz', async () => {
+  const tab = {id: 7, url: 'https://avukat.uyap.gov.tr/'};
+  const {call, storage, tabMessages} = setup({tabs: [tab]});
+  storage.sync_key = 'a'.repeat(43);
+  storage.session_uyap = {ok: true, at: 1, name: 'ÖRNEK AVUKAT'};
+  await call({type:'session', ok:true, name:'ÖRNEK AVUKAT'});
+  await new Promise(resolve => setTimeout(resolve, 20));
+  assert.deepEqual(tabMessages, []);
+});
+
+test('Oturum kapanınca tarama başlatılmaz', async () => {
+  const tab = {id: 7, url: 'https://avukat.uyap.gov.tr/'};
+  const {call, storage, tabMessages} = setup({tabs: [tab]});
+  storage.sync_key = 'a'.repeat(43);
+  storage.session_uyap = {ok: true, at: 1, name: ''};
+  await call({type:'session', ok:false, name:''});
+  await new Promise(resolve => setTimeout(resolve, 20));
+  assert.deepEqual(tabMessages, []);
 });

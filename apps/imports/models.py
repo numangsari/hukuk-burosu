@@ -256,6 +256,13 @@ class PortalConnection(models.Model):
     uyap_session_at = models.DateTimeField(null=True, blank=True)
     uets_session_ok = models.BooleanField(null=True, blank=True)
     uets_session_at = models.DateTimeField(null=True, blank=True)
+    # O an tarayıcıda açık olan hesabın bağlı olduğu izinli avukat (eşleşmezse boş).
+    uyap_account = models.ForeignKey(
+        "PortalLawyerAccess", null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
+    )
+    uets_account = models.ForeignKey(
+        "PortalLawyerAccess", null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
+    )
 
     class Meta:
         verbose_name = "portal bağlantısı"

@@ -94,15 +94,12 @@ def local_request(request):
 
 
 def can_pair(user):
-    """Yönetici her zaman, avukat yalnızca yönetici ona UYAP veya UETS izni verdiyse eşleştirebilir."""
+    """Eklenti yalnızca ana bilgisayarda, yönetici tarafından eşleştirilir."""
     try:
         check_import_access(user)
     except RuntimeError:
         return False
-    if user.is_office_admin:
-        return True
-    access = PortalLawyerAccess.objects.filter(user=user).first()
-    return bool(access and (access.uyap_enabled or access.uets_enabled))
+    return True
 
 
 @login_required
@@ -200,6 +197,14 @@ def health(request):
                     setattr(connection, f"{source}_session_ok", session["ok"])
                     setattr(connection, f"{source}_session_at", stamp)
                     fields += [f"{source}_session_ok", f"{source}_session_at"]
+                    # Tarayıcıda açık hesap, izinli avukatlardan biriyle eşleşiyorsa ona bağlanır.
+                    name = session.get("name")
+                    account = None
+                    if isinstance(name, str) and 0 < len(name) <= 200:
+                        with transaction.atomic():
+                            account = find_name_permission(name, f"{source}_enabled")
+                    setattr(connection, f"{source}_account", account)
+                    fields.append(f"{source}_account")
         # Sık durum bildirimleri kullanıcı işlem geçmişini gereksiz doldurmaz.
         updated = PortalConnection.objects.filter(pk=connection.pk, active=True).update(
             **{field: getattr(connection, field) for field in fields}

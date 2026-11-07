@@ -4,8 +4,9 @@ from datetime import timedelta
 
 from django.utils import timezone
 
-from .models import PortalConnection
-from .portal_ingest import check_import_access
+from apps.accounts.models import User
+
+from .models import PortalConnection, PortalLawyerAccess
 
 # Eklenti dakikada bir durum bildirir; bu süredir sessiz kalan bağlantı pasif sayılır.
 CONNECTED_WINDOW = timedelta(minutes=3)
@@ -17,10 +18,10 @@ BLOCKED_STATES = {"izin_yok", "sunucu_yok"}
 ACTIVE_STATES = {"basladi", "tamamlandi", "eksik"}
 SOURCES = (("uyap", "UYAP"), ("uets", "UETS"))
 STATE_TEXT = {
-    "aktif": "Aktif",
-    "pasif": "Pasif",
-    "kismi": "Bazı avukatlar pasif",
-    "yok": "Bağlı eklenti yok",
+    "aktif": "Aktarım var",
+    "pasif": "Aktarım yok",
+    "kismi": "Bazı avukatlarda aktarım yok",
+    "yok": "Otomasyon izni verilmiş avukat yok",
 }
 
 
@@ -46,33 +47,53 @@ def _summary(states):
     return "pasif"
 
 
-def _can_pair(user, connections):
-    from .portal_sync import can_pair
-
-    return can_pair(user) and not any(c.owner_id == user.pk for c in connections)
+def _permitted_accounts(source):
+    """Yöneticinin bu kaynak için otomasyon izni verdiği etkin avukatlar."""
+    return list(
+        PortalLawyerAccess.objects.select_related("user")
+        .filter(
+            user__is_active=True,
+            user__role__in=[User.Role.ADMIN, User.Role.SENIOR, User.Role.LAWYER],
+            **{f"{source}_enabled": True},
+        )
+        .order_by("user__first_name", "user__last_name", "pk")
+    )
 
 
 def portal_indicator(user, now=None):
-    """Kullanıcının göreceği durum özeti. Avukat ve yönetici kişi listesini de görür."""
+    """Üst çubuk özeti. Her izinli avukat için o an aktarımı var mı (hesabı ana bilgisayarda
+    açık, oturumu geçerli, eklenti bağlı) gösterilir; herkes görür."""
     now = now or timezone.now()
     connections = list(
         PortalConnection.objects.filter(active=True, owner__is_active=True).select_related("owner")
     )
-    try:
-        check_import_access(user)
-        show_names = True
-    except RuntimeError:
-        show_names = False
     sources = []
     for key, label in SOURCES:
-        people = [
-            {
-                "name": c.owner.get_full_name() or c.owner.username,
-                "state": connection_state(c, key, now),
-                "last_success": getattr(c, f"{key}_success_at"),
-            }
-            for c in connections
-        ]
+        people = []
+        for access in _permitted_accounts(key):
+            live = [
+                c
+                for c in connections
+                if getattr(c, f"{key}_account_id") == access.pk
+                and connection_state(c, key, now) == "aktif"
+            ]
+            matched = live or [
+                c for c in connections if getattr(c, f"{key}_account_id") == access.pk
+            ]
+            people.append(
+                {
+                    "name": access.user.get_full_name() or access.user.username,
+                    "state": "aktif" if live else "pasif",
+                    "last_success": max(
+                        (
+                            getattr(c, f"{key}_success_at")
+                            for c in matched
+                            if getattr(c, f"{key}_success_at")
+                        ),
+                        default=None,
+                    ),
+                }
+            )
         state = _summary([person["state"] for person in people])
         sources.append(
             {
@@ -80,11 +101,11 @@ def portal_indicator(user, now=None):
                 "label": label,
                 "state": state,
                 "text": STATE_TEXT[state],
-                "people": people if show_names else [],
+                "people": people,
             }
         )
     return {
         "sources": sources,
-        "show_names": show_names,
-        "can_pair": _can_pair(user, connections),
+        "show_names": True,
+        "can_pair": user.is_office_admin and not connections,
     }

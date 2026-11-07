@@ -83,7 +83,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
   if (message.type === 'session') {
     if (sender.frameId !== 0 || typeof message.ok !== 'boolean') return;
-    chrome.storage.local.set({['session_' + (uyap ? 'uyap' : 'uets')]: {ok: message.ok, at: Date.now()}}).then(() => reportHealth()).catch(() => {});
+    const sessionKey = 'session_' + (uyap ? 'uyap' : 'uets');
+    const accountName = typeof message.name === 'string' && message.name.length <= 200 ? message.name : '';
+    (async () => {
+      const previous = (await chrome.storage.local.get(sessionKey))[sessionKey];
+      await chrome.storage.local.set({[sessionKey]: {ok: message.ok, at: Date.now(), name: accountName}});
+      await reportHealth();
+      // Oturum kapalıyken (veya ilk kez) açıldıysa tarama beklemeden başlar; süre kuralı yine geçerlidir.
+      if (message.ok && previous?.ok !== true) await startScans();
+    })().catch(() => {});
     return;
   }
   if (message.type === 'scan_status') {
@@ -146,7 +154,7 @@ async function reportHealth() {
       const state = values['scan_' + source];
       const session = values['session_' + source];
       data[source] = {status: HEALTH_STATES.has(state) ? state : 'bekliyor', attempted: values['attempted_' + source] || null, completed: values['completed_' + source] || null};
-      if (session && typeof session.ok === 'boolean' && Number.isInteger(session.at)) data[source].session = {ok: session.ok, at: session.at};
+      if (session && typeof session.ok === 'boolean' && Number.isInteger(session.at)) data[source].session = {ok: session.ok, at: session.at, ...(session.name ? {name: session.name} : {})};
     }
     const serverUrl = await getServerUrl();
     await fetch(`${serverUrl}/portal-inceleme/durum/`, {

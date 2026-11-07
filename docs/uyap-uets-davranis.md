@@ -4,16 +4,18 @@ Tarih: 7 Kasım 2026. Eklenti (`uyap-uets-eklentisi/`) ile sunucu (`apps/imports
 
 ## Kim, nerede çalıştırır
 
-- **Model:** Her avukat kendi bilgisayarında eklentiyi kurar, UYAP/UETS'e kendi hesabıyla girer ve eklentiyi sunucuyla eşleştirir; veri otomatik akar. Tek avukatlı ofiste yalnızca o avukatın bilgisayarı yeterlidir. İstenirse ofiste sürekli açık tek bir bilgisayar da (Chrome, eklenti ve UYAP açık) toplayıcı olarak kullanılabilir.
-- **Eşleştirme (`/portal-inceleme/baglanti/`):** Yalnızca ofis ağından (RFC 1918 veya yerel) açılır. Yönetici her zaman eşleştirebilir. Avukat (kıdemli avukat, avukat) yalnızca yönetici ona UYAP veya UETS izni verdiyse eşleştirebilir. Stajyer, katip ve sekreter eşleştiremez (404).
-- **Veri kaynağı:** Gelen veri, UYAP/UETS sayfasındaki avukat adının sunucudaki izinli kişiyle (`PortalLawyerAccess`) eşleşmesine göre o kişiye bağlanır. Bağlantı sahibi ile veri sahibi aynı olmak zorunda değildir.
+- **Model:** Eklenti yalnızca **ana bilgisayarda** (sunucunun kurulu olduğu, sürekli açık bilgisayar) kurulur. UYAP veya UETS o bilgisayarın Chrome'unda açık ve oturum geçerliyken aktarım kendiliğinden başlar; sekme kapanınca veya oturum düşünce durur. Diğer kullanıcılar sisteme yalnızca tarayıcıdan bağlanır, eklenti kurmaz.
+- **Birden fazla avukat:** Başka bir avukatın verisi için o avukatın UYAP/UETS hesabı yine ana bilgisayarda açılır; aktarım o hesap için başlar. Aynı anda birden fazla hesap veya birden fazla bilgisayardan aktarım **şimdilik desteklenmez** (sonraki iş).
+- **Eşleştirme (`/portal-inceleme/baglanti/`):** Yalnızca ofis ağından açılır ve yalnızca yönetici eşleştirir; diğer roller 404 alır.
+- **Veri kaynağı:** Gelen veri, UYAP/UETS sayfasındaki avukat adının sunucudaki izinli kişiyle (`PortalLawyerAccess`, Ayarlar > Eklenti bağlantıları) eşleşmesine göre o kişiye bağlanır. Adı izinli kimseyle eşleşmeyen hesaptan veri alınmaz.
 - **Ortam:** Aktarım `DEBUG` ayarından bağımsızdır; üretimde de çalışır.
 
 ## Oturum yoklaması ve durum göstergesi (üst çubuk)
 
-- **Yoklama (`session.js`):** UYAP/UETS sayfası açıkken dört dakikada bir oturumun geçerli olup olmadığı sorulur (UYAP: `POST /get_avukat_id.ajx`, UETS: `GET /v1/messages?count=1`). `401` veya geçersiz yanıt "oturum kapalı", `200` "oturum açık", ağ ve sunucu hatası "belirsiz" (bildirilmez). Veri toplanmaz, yanıt gövdesi okunmaz. Sonuç eklenti durum bildirimiyle (`session: {ok, at}`) sunucuya gider ve `PortalConnection.*_session_ok/_at` alanlarında saklanır.
-- **Gösterge kuralı (bağlantı bazında):** Eklenti son 3 dakikada haber vermediyse pasif. Oturum bilgisi 10 dakikadan tazeyse: oturum açık ve tarama durumu `izin_yok`/`sunucu_yok` değilse **aktif**, aksi halde **pasif**; tarama sonucu eski olsa bile oturum bilgisi önceliklidir. Oturum bilgisi yoksa ya da eskiyse son tarama sonucuna bakılır (`basladi`, `tamamlandi`, `eksik` aktif sayılır).
-- **Genel ışık:** hepsi aktif yeşil, hiçbiri aktif değil kırmızı, karışık sarı, eşleşmiş eklenti yoksa gri. Üzerine gelince avukat listesi ve son başarılı aktarım saati görünür (yalnızca yönetici ve avukatlara; diğerleri yalnızca ışığı görür).
+- **Yoklama (`session.js`):** UYAP/UETS sayfası açıkken dört dakikada bir oturumun geçerli olup olmadığı sorulur (UYAP: `POST /get_avukat_id.ajx`, UETS: `GET /v1/messages?count=1`). `401` veya geçersiz yanıt "oturum kapalı", `200` "oturum açık", ağ ve sunucu hatası "belirsiz" (bildirilmez). Oturum açıksa sayfada görünen hesap adı da bildirilir. Başka veri toplanmaz, yanıt gövdesi okunmaz. Sonuç eklenti durum bildirimiyle (`session: {ok, at, name}`) sunucuya gider; `PortalConnection.*_session_ok/_at` alanlarında saklanır ve ad izinli avukatla eşleşirse `*_account` alanına yazılır.
+- **Otomatik başlama:** Oturum kapalıyken (veya ilk kez) açık algılanınca eklenti taramayı beklemeden başlatır (iki saatlik süre kuralı yine geçerlidir). Sekme kapanınca veya oturum düşünce tarama durur.
+- **Gösterge (herkese görünür):** Üst çubukta UYAP ve UETS için ışık; üzerine gelince Ayarlar > Eklenti bağlantıları'nda otomasyon izni verilmiş her avukat ve o an aktarımı olup olmadığı listelenir. Bir avukatta **aktarım var**: hesabı ana bilgisayarda açık, oturumu geçerli ve eklenti son 3 dakikada haber verdi (oturum bilgisi 10 dakikadan eskiyse son tarama sonucuna bakılır; `izin_yok` ve `sunucu_yok` durumunda aktarım yok sayılır).
+- **Genel ışık:** hepsinde aktarım varsa yeşil, hiçbirinde yoksa kırmızı, karışıksa sarı, otomasyon izni verilmiş avukat yoksa gri. Yalnızca aktarımı olması gereken avukatlara izin verilmelidir; izin verilen ama hesabı ana bilgisayarda açılmayan avukat ışığı sarı tutar.
 - **Oturumu canlı tutma:** Yoklamanın UYAP sunucusundaki boşta kalma süresini uzattığı doğrulanmadı. Etkisi uzun süreli gözlemle ölçülmeli; uzatmıyorsa ayrı bir yenileme isteği araştırılmalıdır.
 
 ## Eklenti tarama davranışı

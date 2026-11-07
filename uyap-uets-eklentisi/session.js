@@ -1,9 +1,19 @@
 // Oturum yoklaması: UYAP/UETS sayfası açıkken oturumun hâlâ geçerli olup olmadığını belirli aralıkla sorar
-// ve sonucu eklentiye bildirir. Yalnızca oturum durumunu okur; hiçbir veri toplamaz veya göndermez.
+// ve sonucu (oturum açık mı, hangi hesap açık) eklentiye bildirir. Başka veri toplamaz veya göndermez.
 (() => {
   if (window.top !== window) return;
   const uets = location.hostname === 'ptt.etebligat.gov.tr';
   const INTERVAL = 4 * 60 * 1000;
+
+  // Sayfada açık hesabın adı (bridge.js ile aynı kaynak); belirsizse boş.
+  function accountName() {
+    const nodes = uets
+      ? [...document.querySelectorAll('span')].filter(node => /^\s*Seçili Hesap:\s*[^\n]+\s*$/.test(node.textContent))
+      : [...document.querySelectorAll('#dropdownMenuButton .dropdown-toggle')];
+    if (nodes.length !== 1) return '';
+    const text = uets ? nodes[0].textContent.replace(/^\s*Seçili Hesap:\s*/, '') : nodes[0].textContent;
+    return text.trim().slice(0, 200);
+  }
 
   // true: oturum açık, false: oturum kapalı, null: belirsiz (ağ hatası, sunucu hatası).
   async function check() {
@@ -29,7 +39,7 @@
   async function report() {
     const ok = await check();
     if (ok === null) return;
-    chrome.runtime.sendMessage({type: 'session', ok}).catch(() => {});
+    chrome.runtime.sendMessage({type: 'session', ok, name: ok ? accountName() : ''}).catch(() => {});
   }
 
   setTimeout(report, 5000);
