@@ -1,6 +1,6 @@
 from django.core.management.base import BaseCommand
 
-from apps.agenda.google_sync import retry_pending_google_syncs
+from apps.agenda.google_sync import BACKGROUND_SYNC_GRACE_SECONDS, retry_pending_google_syncs
 from apps.office.models import OfficeSettings
 
 
@@ -10,7 +10,7 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         if not OfficeSettings.load().google_calendar_api_enabled:
             return
-        result = retry_pending_google_syncs()
+        result = retry_pending_google_syncs(min_age_seconds=BACKGROUND_SYNC_GRACE_SECONDS)
         if not result["success"]:
             self.stderr.write(result["error"])
             return

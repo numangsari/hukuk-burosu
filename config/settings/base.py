@@ -13,6 +13,9 @@ environ.Env.read_env(BASE_DIR / ".env", overwrite=False)
 
 SECRET_KEY = env("DJANGO_SECRET_KEY", default="")
 DEBUG = env.bool("DJANGO_DEBUG", default=False)
+
+# Google Takvim eşitlemesi istek dışında, arka planda yapılır (testlerde kapalı).
+GOOGLE_SYNC_BACKGROUND = env.bool("GOOGLE_SYNC_BACKGROUND", default=True)
 # Sabit adresler ortam değişkeninden gelir; yönetici ekranındaki ek adresler dinamik eklenir.
 ALLOWED_HOSTS = DynamicAllowedHosts(env.list("DJANGO_ALLOWED_HOSTS", default=["*"]))
 

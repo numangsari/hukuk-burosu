@@ -16,7 +16,7 @@ Durum: `[ ]` açık · `[~]` kısmen · `[x]` bitti. **Karar** = uygulamadan ön
 
 | No | İş | Kaynak | Durum | Not |
 |---|---|---|---|---|
-| Y12 | Google Takvim eşitlemesini istekten ayır (arka plan kuyruğu) | T7 | [~] | Başarısız eşitleme işaretlenip yeniden deneniyor; eşitleme hâlâ istek içinde. Mimari **karar**. |
+| Y12 | Google Takvim eşitlemesini istekten ayır (arka plan kuyruğu) | T7 | [x] | Yapıldı (7 Kasım): `queue_hearing_google_sync` ile eşitleme istek dışına alındı (yardımcı iş parçacığı + bekleyen işaret + beş dakikalık yeniden deneme); ayrı kuyruk servisi eklenmedi (çevrimdışı kurulum). Yeniden deneme yeni kayıtlara 2 dk dokunmaz. |
 | Y13 | UYAP/UETS Node testlerindeki 6 başarısızlığı düzelt ve CI'a ekle; desteklenen davranış matrisi (üretimde `DEBUG=False` iken aktarım kapalı) yaz | B19, B20 | [x] | Yapıldı (7 Kasım): 6 başarısız test güncel davranışa göre yeniden yazıldı (kod bilinçli olarak örneklemeden tam taramaya geçmişti), CI'a `node --test` eklendi, davranış matrisi `docs/uyap-uets-davranis.md`. Not: canlı aktarım üretimde (`DEBUG=False`) kapalı; açmak ayrı karar. |
 | Y14 | `postinstall.ps1` ve `check-reminders.ps1`'i gerçek kurulumlu Windows makinede dene | T4 | [~] | Betiklerin sözdizimi (PowerShell ayrıştırıcı, 0 hata) ve sahte servisli test (`tests/test_reminder_runner.py`) yeniden doğrulandı. Gerçek kurulum bu geliştirme makinesinde yok; elle deneme listesi `installer/README.md` içinde. Gerçek servis ve zamanlanmış görev denenmedi, madde açık. |
 | Y15 | `OfficeSettings.load()` için istek başına önbellek | T10 | [x] | Yapıldı (7 Kasım): istek başına önbellek (`RequestSettingsCacheMiddleware`); her çağrı ayrı kopya alır, `save()` önbelleği geçersiz kılar, istek dışında önbellek yok. |

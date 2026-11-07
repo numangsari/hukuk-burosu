@@ -115,6 +115,10 @@ def test_retry_command_is_silent_when_api_disabled(case_factory, capsys):
 
 def test_retry_command_reports_counts(case_factory, api_enabled, service, capsys):
     service.events.return_value.insert.return_value.execute.return_value = {"id": "ev-2"}
-    _hearing(case_factory, google_sync_pending=True)
+    hearing = _hearing(case_factory, google_sync_pending=True)
+    # Komut, yeni değişen kayıtları arka plan işine bırakır; eski kaydı yeniden dener.
+    Hearing.objects.filter(pk=hearing.pk).update(
+        updated_at=timezone.now() - dt.timedelta(minutes=10)
+    )
     call_command("retry_google_sync")
     assert "1 bekleyen eşitlemeden 1 başarılı" in capsys.readouterr().out

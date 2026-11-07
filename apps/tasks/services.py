@@ -303,9 +303,9 @@ def perform(
                     room=task.hearing.room,
                     created_by=user,
                 )
-                from apps.agenda.google_sync import sync_hearing_to_google
+                from apps.agenda.google_sync import queue_hearing_google_sync
 
-                transaction.on_commit(lambda: sync_hearing_to_google(next_hearing))
+                transaction.on_commit(lambda: queue_hearing_google_sync(next_hearing))
         if task.requires_accounting or (task.task_type and task.task_type.requires_accounting):
             TaskEvent.objects.create(
                 task=task,

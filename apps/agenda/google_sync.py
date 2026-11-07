@@ -11,13 +11,19 @@ Güvenlik & Bütünlük Kuralları:
 import datetime as dt
 import json
 import logging
+import threading
 
+from django.conf import settings
+from django.db import connections, transaction
 from django.utils import timezone
 
 from apps.cases.models import Hearing, HearingKind, HearingStatus
 from apps.office.models import OfficeSettings
 
 log = logging.getLogger(__name__)
+
+# Arka plan eşitlemesine tanınan süre (sn); yeniden deneme daha yeni kayıtlara dokunmaz.
+BACKGROUND_SYNC_GRACE_SECONDS = 120
 
 
 def get_calendar_service(office: OfficeSettings | None = None, require_enabled: bool = True):
@@ -248,6 +254,45 @@ def sync_hearing_to_google(hearing: Hearing) -> str | None:
         return None
 
 
+def _thread_main(job, args) -> None:
+    try:
+        job(*args)
+    finally:
+        connections.close_all()  # iş parçacığına ait veritabanı bağlantısını kapatır
+
+
+def _spawn(job, *args) -> None:
+    """İşi arka planda çalıştırır (Waitress/runserver sürecinde yardımcı iş parçacığı)."""
+    threading.Thread(target=_thread_main, args=(job, args), daemon=True, name="google-sync").start()
+
+
+def _run_queued_sync(hearing_pk: int) -> None:
+    """Kuyruktaki eşitlemeyi güncel kayıtla çalıştırır."""
+    try:
+        hearing = Hearing.objects.filter(pk=hearing_pk).first()
+        if hearing is not None:
+            sync_hearing_to_google(hearing)
+    except Exception:  # noqa: BLE001 - arka plan işi sessizce çökmemeli, yeniden deneme devralır
+        log.exception("Google Takvim arka plan eşitlemesi başarısız (Hearing #%s)", hearing_pk)
+
+
+def queue_hearing_google_sync(hearing: Hearing) -> None:
+    """Duruşma eşitlemesini istekten ayırır: kayıt bekliyor işaretlenir, Google çağrısı arka planda.
+
+    İşlem tamamlanınca (`on_commit`) iş parçacığı başlar. Süreç araya girip kapanırsa bekleyen
+    işaret kalır ve `retry_google_sync` komutu devralır. `GOOGLE_SYNC_BACKGROUND` kapalıysa
+    (testler) eşitleme çağrı içinde yapılır.
+    """
+    if not getattr(settings, "GOOGLE_SYNC_BACKGROUND", False):
+        sync_hearing_to_google(hearing)
+        return
+    if not OfficeSettings.load().google_calendar_api_enabled:
+        return
+    _set_sync_pending(hearing, True)
+    pk = hearing.pk
+    transaction.on_commit(lambda: _spawn(_run_queued_sync, pk))
+
+
 def delete_hearing_from_google(hearing: Hearing) -> None:
     """Yalnızca bu duruşmaya ait Google Takvim kaydını siler."""
     if not hearing.google_event_id:
@@ -298,12 +343,21 @@ def sync_all_hearings_to_google() -> dict:
     }
 
 
-def retry_pending_google_syncs(limit: int = 200) -> dict:
-    """Eşitlemesi başarısız olmuş duruşmaları yeniden dener (iptaller Google'dan silinir)."""
+def retry_pending_google_syncs(limit: int = 200, min_age_seconds: int = 0) -> dict:
+    """Eşitlemesi başarısız olmuş duruşmaları yeniden dener (iptaller Google'dan silinir).
+
+    `min_age_seconds`: bu süreden yeni değişen kayıtlar atlanır; arka plan işi hâlâ çalışıyor
+    olabilir ve aynı duruşma için ikinci bir etkinlik açılmamalıdır.
+    """
     service, cal_id = get_calendar_service()
     if service is None or not cal_id:
         return {"success": False, "error": "Google Takvim API ayarları eksik veya kapalı."}
-    pending = list(Hearing.objects.filter(google_sync_pending=True).order_by("starts_at")[:limit])
+    queryset = Hearing.objects.filter(google_sync_pending=True)
+    if min_age_seconds:
+        queryset = queryset.filter(
+            updated_at__lt=timezone.now() - dt.timedelta(seconds=min_age_seconds)
+        )
+    pending = list(queryset.order_by("starts_at")[:limit])
     synced = errors = 0
     for hearing in pending:
         sync_hearing_to_google(hearing)

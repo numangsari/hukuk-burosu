@@ -10,3 +10,6 @@ STORAGES = {
 # WhiteNoise, STATIC_ROOT yoksa her istekte uyarı verir; testler collectstatic gerektirmesin.
 STATIC_ROOT = BASE_DIR / ".test-static"  # noqa: F405
 STATIC_ROOT.mkdir(exist_ok=True)
+
+# Testler Google eşitlemesini çağrı içinde ve belirgin biçimde çalıştırır.
+GOOGLE_SYNC_BACKGROUND = False

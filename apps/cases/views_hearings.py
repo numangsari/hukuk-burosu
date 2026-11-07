@@ -16,7 +16,7 @@ from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.views.generic import ListView
 
 from apps.accounts.models import User
-from apps.agenda.google_sync import delete_hearing_from_google, sync_hearing_to_google
+from apps.agenda.google_sync import delete_hearing_from_google, queue_hearing_google_sync
 from apps.core.pagination import page_size
 from apps.core.permissions import (
     AdminRequiredMixin,
@@ -170,7 +170,7 @@ class HearingCreateStandaloneView(View):
             h = form.save(commit=False)
             h.created_by = request.user
             h.save()
-            sync_hearing_to_google(h)
+            queue_hearing_google_sync(h)
             messages.success(request, "Duruşma / etkinlik kaydı başarıyla eklendi.")
             if request.GET.get("pencere"):
                 return HttpResponse("<script>window.parent.location.reload()</script>")
@@ -202,7 +202,7 @@ class HearingResultModalView(View):
         form = HearingResultForm(request.POST, instance=hearing)
         if form.is_valid():
             h = form.save()
-            sync_hearing_to_google(h)
+            queue_hearing_google_sync(h)
             if h.status != HearingStatus.PLANNED and h.result and h.case:
                 text = f"{h.get_kind_display()} {h.get_status_display().lower()}"
                 CaseEvent.objects.create(
@@ -321,7 +321,7 @@ class HearingTaskCreateView(View):
                 )
 
             # Google Takvim senkronizasyonu
-            sync_hearing_to_google(hearing)
+            queue_hearing_google_sync(hearing)
 
             messages.success(request, f"{hearing.title_display} için görev oluşturuldu.")
             if request.headers.get("HX-Request"):
@@ -360,7 +360,7 @@ class HearingEditView(View):
         form = HearingForm(request.POST, instance=hearing)
         if form.is_valid():
             h = form.save()
-            sync_hearing_to_google(h)
+            queue_hearing_google_sync(h)
             messages.success(request, "Duruşma güncellendi.")
             next_url = request.POST.get("next") or (reverse("agenda:calendar") + "?view=list")
             return redirect(next_url)
