@@ -21,26 +21,36 @@ def tr_capitalize_words(value: str) -> str:
 
 
 _TITLE_SMALL_WORDS = {"ve", "ile", "veya"}
+# Büyük harf kalması gereken kısaltmalar (noktalama çıkarıldıktan sonra karşılaştırılır).
+_TITLE_ACRONYMS = {
+    "UYAP", "UETS", "SGK", "TCK", "CMK", "HMK", "İİK", "TBK", "TMK", "TTK", "KDV", "TC", "PTT",
+    "SMMM", "TİB",
+}  # fmt: skip
 
 
-def tr_title(value) -> str:
-    """Tamamı büyük harfli metni ekranda okunaklı yazıma çevirir (Sakarya 2. Asliye Ceza Mahkemesi).
-
-    Saklanan değeri değiştirmez; yalnızca gösterim içindir. Zaten karışık harfli metne (ör. UYAP'tan
-    gelen) dokunmaz. Nokta, tire ve eğik çizgiden sonra yeni kelime başlar (A.Ş., D.İş); kesme
-    işaretinden sonraki ek küçük kalır (Kaya'nın).
-    """
-    text = "" if value is None else str(value)
-    if not text or text != tr_upper(text):
-        return text
+def _title_word(word: str) -> str:
+    letters = [c for c in word if c.isalpha()]
+    core = "".join(c for c in word if c.isalnum())
+    if len(letters) < 2 or word != tr_upper(word) or core in _TITLE_ACRONYMS:
+        return word
     out = []
-    for i, char in enumerate(text):
-        if not char.isalpha() or i == 0 or not (text[i - 1].isalpha() or text[i - 1] in "'’"):
+    for i, char in enumerate(word):
+        if not char.isalpha() or i == 0 or not (word[i - 1].isalpha() or word[i - 1] in "'’"):
             out.append(char)
         else:
             out.append(tr_lower(char))
-    result = "".join(out)
-    words = result.split(" ")
+    return "".join(out)
+
+
+def tr_title(value) -> str:
+    """Büyük harfli kelimeleri ekranda okunaklı yazıma çevirir (Sakarya 2. Asliye Ceza Mahkemesi).
+
+    Saklanan değeri değiştirmez; yalnızca gösterim içindir. Karışık harfli kelimelere, tek harfe ve
+    kısaltmalara (UYAP, SGK...) dokunmaz. Nokta, tire ve eğik çizgiden sonra yeni kelime başlar
+    (A.Ş., D.İş); kesme işaretinden sonraki ek küçük kalır (Kaya'nın).
+    """
+    text = "" if value is None else str(value)
+    words = [_title_word(w) for w in text.split(" ")]
     return " ".join(
         w.lower() if i > 0 and w.lower() in _TITLE_SMALL_WORDS else w for i, w in enumerate(words)
     )

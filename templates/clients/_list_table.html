@@ -26,7 +26,7 @@
           </div>
         </div>
       </td>
-      <td><div>{{ c.responsible_lawyer }}</div>{% if office.use_assistant_assignee and c.responsible_intern %}<div class="cell-sub">{{ c.responsible_intern }}</div>{% endif %}</td>
+      <td class="text-nowrap"><div>{{ c.responsible_lawyer|tr_title }}</div>{% if office.use_assistant_assignee and c.responsible_intern %}<div class="cell-sub">{{ c.responsible_intern|tr_title }}</div>{% endif %}</td>
       <td class="text-end tabular fw-semibold">{{ c.case_count }}</td>
       <td class="text-end tabular">{% if c.open_task_count %}<span class="count-pill">{{ c.open_task_count }}</span>{% else %}<span class="text-body-secondary">0</span>{% endif %}</td>
       {% if can_view_balances %}<td class="text-end tabular {% if c.balance > 0 %}fw-semibold{% elif not c.balance %}text-body-secondary{% endif %}">{{ c.balance|tl }}{% if c.balance > 0 %}<span class="bal-tag ms-1" title="Müvekkil ofise borçlu">Alacak</span>{% elif c.balance < 0 %}<span class="bal-tag owed ms-1" title="Ofis müvekkile borçlu">Borç</span>{% endif %}</td>{% endif %}

@@ -12,7 +12,7 @@
       <td><span class="chip no-dot">{{ t.task_type }}</span></td>
       <td><span class="tabular">{{ t.case.archive_reference }}</span> · {{ t.case.display_name|tr_title }}</td>
       <td>{{ t.client|tr_title }}</td>
-      <td>{{ t.assignee }}</td><td>{{ t.reviewer|default:"—" }}</td>
+      <td class="text-nowrap">{{ t.assignee|tr_title }}</td><td class="text-nowrap">{{ t.reviewer|default:"—"|tr_title }}</td>
       <td>{% include "tasks/_chips.html" with part="status" %}</td>
       <td>{% include "tasks/_chips.html" with part="due" %}<div class="cell-sub tabular">{{ t.due_date|date:"d.m.Y" }}</div></td>
     </tr>

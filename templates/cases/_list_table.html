@@ -38,7 +38,7 @@
         {% if k.co_clients.all %} <span class="chip chip-info no-dot">+{{ k.co_clients.all|length }} müvekkil</span>{% endif %}
       </td>
       <td class="tabular">{% if k.open_task_count %}{{ k.open_task_count }}{% else %}<span class="text-body-secondary">—</span>{% endif %}</td>
-      <td><div>{{ k.responsible_lawyer }}</div>{% if office.use_assistant_assignee and k.responsible_intern %}<div class="cell-sub">{{ k.responsible_intern }}</div>{% endif %}</td>
+      <td class="text-nowrap"><div>{{ k.responsible_lawyer|tr_title }}</div>{% if office.use_assistant_assignee and k.responsible_intern %}<div class="cell-sub">{{ k.responsible_intern|tr_title }}</div>{% endif %}</td>
       <td class="tabular">{{ k.opened_on|date:"d.m.Y" }}</td>
     </tr>
   {% empty %}
