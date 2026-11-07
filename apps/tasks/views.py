@@ -461,13 +461,17 @@ def case_options(request):
     )
 
 
+PETITION_KINDS = (TaskDocument.Kind.PETITION, TaskDocument.Kind.ATTACHMENT)
+
+
 def documents_context(task, user, error="", warning=""):
     docs = list(task.documents.select_related("uploaded_by").order_by("-created_at"))
     current = [d for d in docs if d.is_current]
     return {
         "task_docs": current,
-        "source_docs": [d for d in current if d.kind != TaskDocument.Kind.PETITION],
+        "source_docs": [d for d in current if d.kind not in PETITION_KINDS],
         "petition_docs": [d for d in current if d.kind == TaskDocument.Kind.PETITION],
+        "attachment_docs": [d for d in current if d.kind == TaskDocument.Kind.ATTACHMENT],
         "old_docs": {
             d.pk: [o for o in docs if not o.is_current and _root(o, docs) == d.pk] for d in current
         },
@@ -507,9 +511,16 @@ class TaskDocumentUploadView(View):
                 validate_upload(f)
         except ValidationError as e:
             return _docs_partial(request, task, " ".join(e.messages))
+        kind = (
+            TaskDocument.Kind.ATTACHMENT
+            if request.POST.get("kind") == TaskDocument.Kind.ATTACHMENT
+            else TaskDocument.Kind.PETITION
+        )
         previous = task.documents.filter(
             pk=request.POST.get("replaces") or 0, is_current=True, kind=TaskDocument.Kind.PETITION
         ).first()
+        if kind == TaskDocument.Kind.ATTACHMENT and request.POST.get("replaces"):
+            raise PermissionDenied
         if request.POST.get("replaces") and not previous:
             raise PermissionDenied
         if previous and len(files) != 1:
@@ -518,7 +529,7 @@ class TaskDocumentUploadView(View):
         for f in files:
             doc = TaskDocument(
                 task=task,
-                kind=TaskDocument.Kind.PETITION,
+                kind=kind,
                 original_name=f.name[:300],
                 size=f.size,
                 uploaded_by=request.user,
@@ -530,7 +541,11 @@ class TaskDocumentUploadView(View):
             if previous:
                 previous.is_current = False
                 previous.save(update_fields=["is_current"])
-            verb = f"yeni sürüm yükledi (v{doc.version})" if previous else "belge yükledi"
+            verb = (
+                "ek yükledi"
+                if kind == TaskDocument.Kind.ATTACHMENT
+                else (f"yeni sürüm yükledi (v{doc.version})" if previous else "belge yükledi")
+            )
             TaskEvent.objects.create(
                 task=task,
                 actor=request.user,
@@ -550,7 +565,7 @@ class TaskDocumentDeleteView(View):
         task = visible_task_or_404(request, pk, Task.objects.select_for_update(of=("self",)))
         doc = get_object_or_404(TaskDocument, pk=doc_pk, task=task, is_current=True)
         if (
-            doc.kind != TaskDocument.Kind.PETITION
+            doc.kind not in PETITION_KINDS
             or task.status != TaskStatus.ACTIVE
             or not task.approval_seen
             or not (doc.uploaded_by_id == request.user.pk or is_admin(request.user))

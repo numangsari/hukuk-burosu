@@ -212,6 +212,7 @@ class TaskDocument(models.Model):
     class Kind(models.TextChoices):
         SOURCE = "source", "Görev için eklenen belge"
         PETITION = "petition", "Dilekçe"
+        ATTACHMENT = "attachment", "Dilekçe eki"
         LEGACY = "legacy", "Önceki belge"
 
     kind = models.CharField("belge türü", max_length=12, choices=Kind.choices, default=Kind.LEGACY)

@@ -14,8 +14,8 @@
         <div class="d-flex gap-1 flex-shrink-0">
           {% if d.is_pdf %}<a class="btn btn-light btn-sm" href="{{ d.file.url }}" target="_blank" rel="noopener"><i class="bi bi-eye"></i>Aç</a>{% endif %}
           <a class="btn btn-light btn-sm" href="{{ d.file.url }}" download><i class="bi bi-download"></i>İndir</a>
-          {% if can_upload and d.kind == "petition" %}
-            <button type="button" class="btn btn-light btn-sm" @click="replaces = '{{ d.pk }}'; $refs.file.click()"><i class="bi bi-arrow-repeat"></i>Yeni sürüm</button>
+          {% if can_upload and d.kind == "petition" or can_upload and d.kind == "attachment" %}
+            {% if d.kind == "petition" %}<button type="button" class="btn btn-light btn-sm" @click="replaces = '{{ d.pk }}'; $refs.file.click()"><i class="bi bi-arrow-repeat"></i>Yeni sürüm</button>{% endif %}
             {% if d.uploaded_by_id == request.user.pk or request.user.is_office_admin %}
             <button class="btn-ghost-danger" title="Sil" hx-post="{% url 'tasks:doc_delete' task.pk d.pk %}" hx-target="#task-docs" hx-swap="outerHTML" hx-confirm="Belge silinsin mi?{% if d.version > 1 %} Önceki sürüm güncel olur.{% endif %}"><i class="bi bi-trash"></i></button>
             {% endif %}

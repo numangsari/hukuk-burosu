@@ -101,7 +101,11 @@ def mirror_retainer(agreement) -> str:
 
 def publish_task_documents(task, user) -> tuple[list[Document], list[str]]:
     """Onaylanan görevin güncel belgelerini dosyanın Belgeler'ine ekler ve klasöre kopyalar."""
-    current = list(task.documents.filter(is_current=True, kind="petition").order_by("created_at"))
+    current = list(
+        task.documents.filter(is_current=True, kind__in=["petition", "attachment"]).order_by(
+            "kind", "created_at"
+        )
+    )
     category = next(
         (c for key, c in TYPE_CATEGORY.items() if key in task.task_type.name.lower()),
         DocumentCategory.OTHER,
@@ -110,7 +114,13 @@ def publish_task_documents(task, user) -> tuple[list[Document], list[str]]:
     date = timezone.localdate()
     for td in current:
         suffix = Path(td.original_name).suffix.lower()
-        title = task.title if len(current) == 1 else f"{task.title} - {Path(td.original_name).stem}"
+        is_attachment = td.kind == "attachment"
+        if is_attachment:
+            title = f"{task.title} - Ek: {Path(td.original_name).stem}"
+        elif sum(1 for item in current if item.kind == "petition") == 1:
+            title = task.title
+        else:
+            title = f"{task.title} - {Path(td.original_name).stem}"
         td.file.open("rb")
         try:
             content = td.file.read()
@@ -121,7 +131,8 @@ def publish_task_documents(task, user) -> tuple[list[Document], list[str]]:
             title=title[:300],
             category=category,
             original_name=td.original_name,
-            notes=f"Görevden: {task.title} (onaylayan {user})",
+            notes=f"Görevden: {task.title} (onaylayan {user})"
+            + (" · dilekçe eki" if is_attachment else ""),
             created_by=td.uploaded_by,
         )
         doc.file.save(td.original_name, ContentFile(content), save=False)
