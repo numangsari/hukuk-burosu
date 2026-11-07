@@ -17,7 +17,7 @@
 {{ party_lanes|json_script:"party-lanes" }}
 <datalist id="authority-options">{% for a in authorities %}<option value="{{ a }}">{% endfor %}</datalist>
 {{ form.intern_map|json_script:"intern-by-lawyer" }}
-<form method="post" id="case-form" class="card" @change="formChanged($event)" x-data="caseForm('{{ form.case_type.value|default:'civil' }}')">
+<form method="post" id="case-form" class="card" @change="formChanged($event)" x-data="caseForm('{{ form.case_type.value|default:'civil'|escapejs }}')">
   {% csrf_token %}
   {% if object and object.portalcase %}
   <div class="alert alert-secondary m-3 mb-0 py-2 small d-flex align-items-center gap-2">

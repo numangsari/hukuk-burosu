@@ -136,7 +136,7 @@
         </div>
       </div>
       <div class="col-xl-5">
-        <form method="post" class="card" x-data="{ role: '{{ form.role.value|default:'lawyer' }}' }">{% csrf_token %}<input type="hidden" name="section" value="kullanicilar">
+        <form method="post" class="card" x-data="{ role: '{{ form.role.value|default:'lawyer'|escapejs }}' }">{% csrf_token %}<input type="hidden" name="section" value="kullanicilar">
           {% if form.instance.pk %}<input type="hidden" name="user_id" value="{{ form.instance.pk|stringformat:'s' }}">{% endif %}
           <div class="form-section">
             <div class="form-section-head"><h2>{% if form.instance.pk %}{{ form.instance }} — düzenle{% else %}Yeni kullanıcı{% endif %}</h2>
@@ -306,7 +306,7 @@
 
   {% elif active == "yetkiler" %}
     {% with form=forms.yetkiler %}
-    <form method="post" class="card" style="max-width: 780px" x-data="{ visMode: '{{ form.case_visibility_mode.value|default:'public' }}', accMode: '{{ form.accounting_edit_mode.value|default:'everyone' }}' }">
+    <form method="post" class="card" style="max-width: 780px" x-data="{ visMode: '{{ form.case_visibility_mode.value|default:'public'|escapejs }}', accMode: '{{ form.accounting_edit_mode.value|default:'everyone'|escapejs }}' }">
       {% csrf_token %}<input type="hidden" name="section" value="yetkiler">
       <div class="form-section">
         <div class="form-section-head">

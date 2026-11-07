@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Giriş — {{ office.name }}{% endblock %}
 {% block anonymous %}
-<div class="login-page" x-data="pinLogin('{{ form.username.value|default:'' }}', {{ form.errors|yesno:'true,false' }})"
+<div class="login-page" x-data="pinLogin('{{ form.username.value|default:''|escapejs }}', {{ form.errors|yesno:'true,false' }})"
      @keydown.window="key($event)">
   <div class="login-brand">
     <span class="eyebrow">Büro Yönetim Sistemi</span>

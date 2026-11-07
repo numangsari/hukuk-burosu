@@ -8,7 +8,7 @@
   </div>
 </div>
 {{ intern_by_lawyer|json_script:"intern-by-lawyer" }}
-<form method="post" enctype="multipart/form-data" x-data="clientForm('{{ form.kind.value|default:'person' }}', {% if form.physical_archive_enabled.value %}true{% else %}false{% endif %})">
+<form method="post" enctype="multipart/form-data" x-data="clientForm('{{ form.kind.value|default:'person'|escapejs }}', {% if form.physical_archive_enabled.value %}true{% else %}false{% endif %})">
   {% csrf_token %}
   {% if form.non_field_errors %}<div class="alert alert-danger mb-3">{{ form.non_field_errors }}</div>{% endif %}
   {# Bölümler iki sütuna tarayıcı tarafından dengeli dağıtılır (.form-masonry). #}

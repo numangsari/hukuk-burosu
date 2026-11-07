@@ -13,7 +13,7 @@
 </div>
 {{ kind_help|json_script:"kind-help" }}
 <form method="post" id="entry-form" enctype="multipart/form-data"
-      x-data="entryForm('{{ form.kind.value|default:'fee' }}')">
+      x-data="entryForm('{{ form.kind.value|default:'fee'|escapejs }}')">
   {% csrf_token %}
   <input type="hidden" name="next" value="{{ request.GET.next }}">
   {% if form.non_field_errors %}<div class="alert alert-danger m-3 mb-0">{{ form.non_field_errors }}</div>{% endif %}
