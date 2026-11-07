@@ -1,12 +1,15 @@
 {% extends "base.html" %}
 {% block title %}{% if object %}Görevi düzenle{% else %}Yeni görev{% endif %} — {{ office.name }}{% endblock %}
 {% block content %}
-<div class="page-header">
+<div class="page-header page-header-sticky">
   <div>
     <div class="eyebrow"><a href="{% if object %}{{ object.get_absolute_url }}{% else %}{% url 'tasks:list' %}{% endif %}"><i class="bi bi-chevron-left"></i> {% if object %}{{ object.title }}{% else %}Görevler{% endif %}</a></div>
     <h1 class="page-title">{% if object %}Görevi düzenle{% else %}Yeni görev{% endif %}</h1>
   </div>
-
+  <div class="page-actions">
+    <a class="btn btn-light" href="{% if object %}{{ object.get_absolute_url }}{% else %}{% url 'tasks:list' %}{% endif %}">Vazgeç</a>
+    <button type="submit" form="task-form" class="btn btn-primary"><i class="bi bi-check2"></i>Kaydet</button>
+  </div>
 </div>
 {% if notice %}<div class="alert alert-info">Tebligat: {{ notice.subject|default:notice.sender }}. Belgeler göreve eklenecek.</div>{% endif %}
 {{ form.supervisor_map|json_script:"supervisor-map" }}
@@ -43,10 +46,6 @@
     {% if form.notes %}{% include "partials/field.html" with field=form.notes wrap_class="" %}{% endif %}
     {% if form.document %}{% include "partials/field.html" with field=form.document %}<ul class="small list-unstyled" id="selected-documents" aria-label="Seçilen belgeler"></ul>{% endif %}
   </div>
-  </div>
-  <div class="form-footer">
-    <a class="btn btn-light" href="{% if object %}{{ object.get_absolute_url }}{% else %}{% url 'tasks:list' %}{% endif %}">Vazgeç</a>
-    <button class="btn btn-primary"><i class="bi bi-check2"></i>Kaydet</button>
   </div>
 </form>
 <script>

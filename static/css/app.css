@@ -1089,3 +1089,4 @@ tr.chain-prev > td:first-child { position: relative; }
 .nav-underline-tabs-flat { padding: 0; border-top: 0; border-bottom: 1px solid var(--line); gap: 1.25rem; }
 .nav-underline-tabs-flat .nav-link { padding: .5rem 0; margin-bottom: -1px; }
 .nav-underline-tabs .count-warning { background: var(--warning-soft, #fdf0d9); color: var(--warning-ink, #9a4d06); }
+.page-header-sticky { position: sticky; top: var(--topbar-h); z-index: 1020; background: var(--app-bg); margin-top: -1.75rem; padding: 1.75rem 0 .75rem; border-bottom: 1px solid var(--line); margin-bottom: 1rem; }
