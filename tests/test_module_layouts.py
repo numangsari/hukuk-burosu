@@ -222,9 +222,10 @@ def test_new_forms_can_open_in_same_site_window(lawyer_client):
         assert "<form" in response.content.decode()
 
 
-def test_home_has_one_create_menu(lawyer_client):
-    html = lawyer_client.get(reverse("core:home")).content.decode()
-    assert html.count("Yeni kayıt oluştur") == 1
+@pytest.mark.parametrize("page", ["core:home", "cases:list", "clients:list", "tasks:list"])
+def test_topbar_has_one_create_menu_on_every_page(lawyer_client, page):
+    html = lawyer_client.get(reverse(page)).content.decode()
+    assert html.count(">Yeni kayıt<") == 1
     for name in (
         "tasks:create",
         "cases:create",
@@ -233,3 +234,13 @@ def test_home_has_one_create_menu(lawyer_client):
         "archive:create",
     ):
         assert reverse(name) in html
+
+
+def test_create_menu_is_not_duplicated_on_home_page_header(lawyer_client):
+    html = lawyer_client.get(reverse("core:home")).content.decode()
+    assert "Yeni kayıt oluştur" not in html
+
+
+def test_create_menu_hidden_inside_modal_frame(lawyer_client):
+    html = lawyer_client.get(reverse("cases:list") + "?pencere=1").content.decode()
+    assert ".topbar" in html and "display: none" in html  # üst çubuk pop-up içinde gizlenir

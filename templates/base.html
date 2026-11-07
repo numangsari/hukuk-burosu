@@ -78,6 +78,17 @@
         <div class="search-dd" id="search-dd" x-show="open" x-cloak></div>
       </form>
       <div class="ms-auto d-flex align-items-center gap-1">
+        <div class="dropdown">
+          <button class="btn btn-primary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false"><i class="bi bi-plus-lg me-1"></i>Yeni kayıt</button>
+          <ul class="dropdown-menu dropdown-menu-end">
+            <li><a class="dropdown-item" href="{% url 'tasks:create' %}">Görev</a></li>
+            <li><a class="dropdown-item" href="{% url 'cases:create' %}">Dosya</a></li>
+            <li><a class="dropdown-item" href="{% url 'clients:create' %}">Müvekkil</a></li>
+            {% if can_edit_accounting %}<li><a class="dropdown-item" href="{% url 'accounting:create' %}">Gelir / gider</a></li>{% endif %}
+            <li><a class="dropdown-item" href="{% url 'hearings:create' %}">Duruşma / etkinlik</a></li>
+            <li><a class="dropdown-item" href="{% url 'archive:create' %}">Fiziki klasör</a></li>
+          </ul>
+        </div>
         <span class="text-body-secondary small d-none d-md-inline me-2">{% now "j F Y, l" %}</span>
         <button class="icon-btn" title="Tema" hx-post="{% url 'accounts:theme_toggle' %}" hx-swap="none"
                 onclick="const h=document.documentElement; h.dataset.bsTheme = h.dataset.bsTheme === 'dark' ? 'light' : 'dark'">
