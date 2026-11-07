@@ -145,7 +145,7 @@ class SearchView(View):
         counts = {name: qs.count() for name, qs in querysets.items()}
         page_obj = paginator = None
         more = {}
-        if selected:
+        if selected and selected in querysets:
             # Tek tür: tüm sonuçlar sayfa sayfa.
             paginator = Paginator(
                 apply_sort(selected, querysets[selected], sort), page_size(request)

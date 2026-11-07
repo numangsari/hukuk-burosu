@@ -63,3 +63,11 @@ def test_search_hides_private_records_and_shared_party_links(
     office.case_visibility_mode = "public"
     office.save()
     assert search_querysets("denetim", user=stranger)["documents"].filter(pk=document.pk).exists()
+
+
+@pytest.mark.parametrize("query", ["", "x", "  "])
+@pytest.mark.parametrize("kind", ["muvekkil", "dosya", "gorev", "karsi", "belge"])
+def test_short_query_with_kind_returns_empty_page(lawyer_client, query, kind):
+    response = lawyer_client.get(reverse("search:search"), {"q": query, "tur": kind})
+    assert response.status_code == 200
+    assert response.context["total"] == 0
