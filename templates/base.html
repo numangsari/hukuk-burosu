@@ -16,9 +16,11 @@
   <script src="{% static 'js/archive-slots.js' %}" defer></script>
 {% if request.GET.pencere %}
 <style>
-  .sidebar, .sidebar-backdrop, .topbar, .page-foot, .eyebrow, .page-header .page-actions { display: none !important; }
+  .sidebar, .sidebar-backdrop, .topbar, .page-foot, .eyebrow, .page-header:not(.page-header-sticky) .page-actions { display: none !important; }
   .app-shell, .main { display: block !important; margin: 0 !important; width: 100% !important; }
-  .content { padding: 1rem !important; }
+  .content { padding: 0 1rem 1rem !important; }
+  .page-header-sticky { top: 0 !important; margin: 0 -1rem 1rem !important; padding: .6rem 1rem !important; }
+  .page-header-sticky > div:first-child { display: none; }
 </style>
 {% endif %}
 </head>
