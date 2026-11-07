@@ -89,8 +89,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       const previous = (await chrome.storage.local.get(sessionKey))[sessionKey];
       await chrome.storage.local.set({[sessionKey]: {ok: message.ok, at: Date.now(), name: accountName}});
       await reportHealth();
-      // Oturum kapalıyken (veya ilk kez) açıldıysa tarama beklemeden başlar; süre kuralı yine geçerlidir.
-      if (message.ok && previous?.ok !== true) await startScans();
+      // Oturum kapalıyken (veya ilk kez) açıldıysa ya da son tarama izin/sunucu sorunuyla kaldıysa tarama
+      // yeniden denenir; bekleme süresi kuralı (`startScans`) yine geçerlidir.
+      const scanState = (await chrome.storage.local.get('scan_' + (uyap ? 'uyap' : 'uets')))['scan_' + (uyap ? 'uyap' : 'uets')];
+      if (message.ok && (previous?.ok !== true || RETRY_STATES.includes(scanState))) await startScans();
     })().catch(() => {});
     return;
   }
@@ -113,7 +115,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       updates['progress_' + source] = null;
     }
     chrome.storage.local.set(updates).then(() => reportHealth()).catch(() => {});
-    if (state === 'oturum_yok' || state === 'sunucu_yok') chrome.alarms.create('portal-retry', {delayInMinutes: 5});
+    if (state === 'oturum_yok' || RETRY_STATES.includes(state)) chrome.alarms.create('portal-retry', {delayInMinutes: 5});
     return;
   }
   if (message.type === 'diagnostic') {
@@ -144,6 +146,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }).catch(() => {});
 });
 
+// Bu durumlarla kalan tarama iki saat beklemeden, beş dakika sonra yeniden denenir.
+const RETRY_STATES = ['sunucu_yok', 'izin_yok'];
 const HEALTH_STATES = new Set(['bekliyor','basladi','tamamlandi','eksik','oturum_yok','sunucu_yok','sekme_hazir_degil','sekme_yok','durduruldu','izin_yok']);
 async function reportHealth() {
   try {
@@ -175,7 +179,7 @@ async function startScansWhenIdentityVerified(force = false) {
   if (!values.sync_key) return;
   const tabs = await chrome.tabs.query({url: ['https://avukat.uyap.gov.tr/*', 'https://avukatbeta.uyap.gov.tr/*', 'https://ptt.etebligat.gov.tr/*']});
   for (const source of ['uyap', 'uets']) {
-    const interval = values['scan_' + source] === 'sunucu_yok' ? 300000 : 7200000;
+    const interval = RETRY_STATES.includes(values['scan_' + source]) ? 300000 : 7200000;
     const resume = source === 'uyap' && ['basladi', 'durduruldu'].includes(values.scan_uyap);
     if (!force && !resume && Date.now() - Math.max(values['completed_' + source] || 0, values['attempted_' + source] || 0) < interval) continue;
     const tab = tabs.find(item => source === 'uyap' ? /^https:\/\/(avukat|avukatbeta)\.uyap\.gov\.tr\//.test(item.url || '') : /^https:\/\/ptt\.etebligat\.gov\.tr\//.test(item.url || ''));

@@ -149,3 +149,40 @@ test('Oturum kapanınca tarama başlatılmaz', async () => {
   await new Promise(resolve => setTimeout(resolve, 20));
   assert.deepEqual(tabMessages, []);
 });
+
+test('Son tarama izin_yok ise oturum açıkken beş dakika sonra yeniden denenir', async () => {
+  const tab = {id: 7, url: 'https://avukat.uyap.gov.tr/'};
+  const {call, storage, tabMessages} = setup({tabs: [tab]});
+  storage.sync_key = 'a'.repeat(43);
+  storage.session_uyap = {ok: true, at: 1, name: 'ÖRNEK AVUKAT'};
+  storage.scan_uyap = 'izin_yok';
+  storage.attempted_uyap = Date.now() - 6 * 60 * 1000;
+  await call({type:'session', ok:true, name:'ÖRNEK AVUKAT'});
+  await new Promise(resolve => setTimeout(resolve, 20));
+  assert.deepEqual(tabMessages.map(item => item.message.type), ['auto_scan']);
+});
+
+test('izin_yok sonrası beş dakika dolmadan yeniden denenmez', async () => {
+  const tab = {id: 7, url: 'https://avukat.uyap.gov.tr/'};
+  const {call, storage, tabMessages} = setup({tabs: [tab]});
+  storage.sync_key = 'a'.repeat(43);
+  storage.session_uyap = {ok: true, at: 1, name: 'ÖRNEK AVUKAT'};
+  storage.scan_uyap = 'izin_yok';
+  storage.attempted_uyap = Date.now() - 60 * 1000;
+  await call({type:'session', ok:true, name:'ÖRNEK AVUKAT'});
+  await new Promise(resolve => setTimeout(resolve, 20));
+  assert.deepEqual(tabMessages, []);
+});
+
+test('Tarama tamamlanmışsa oturum yoklaması yeni tarama başlatmaz', async () => {
+  const tab = {id: 7, url: 'https://avukat.uyap.gov.tr/'};
+  const {call, storage, tabMessages} = setup({tabs: [tab]});
+  storage.sync_key = 'a'.repeat(43);
+  storage.session_uyap = {ok: true, at: 1, name: 'ÖRNEK AVUKAT'};
+  storage.scan_uyap = 'tamamlandi';
+  storage.completed_uyap = Date.now() - 10 * 60 * 1000;
+  storage.attempted_uyap = Date.now() - 10 * 60 * 1000;
+  await call({type:'session', ok:true, name:'ÖRNEK AVUKAT'});
+  await new Promise(resolve => setTimeout(resolve, 20));
+  assert.deepEqual(tabMessages, []);
+});
