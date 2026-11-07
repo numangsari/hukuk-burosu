@@ -322,14 +322,14 @@ _UNSAFE_NAME = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
 
 
 def uyap_document_names(kind, date_value, suffix):
-    """(başlık, dosya adı): "Kapalı Tebligat · 14.10.2026" ve "2026-10-14 Kapalı Tebligat.pdf"."""
+    """(başlık, dosya adı): "Kapalı Tebligat · 14/10/2026" ve "14-10-2026 Kapalı Tebligat.pdf".
+
+    Dosya adında "/" kullanılamadığı için orada tire kullanılır."""
     kind = _UNSAFE_NAME.sub("-", kind or "").strip()
     title = kind or "UYAP evrakı"
     if date_value:
-        title = (
-            f"{kind} · {date_value:%d.%m.%Y}" if kind else f"UYAP evrakı · {date_value:%d.%m.%Y}"
-        )
-    stem = f"{date_value:%Y-%m-%d} {kind}".strip() if date_value else (kind or "UYAP evrakı")
+        title = f"{kind or 'UYAP evrakı'} · {date_value:%d/%m/%Y}"
+    stem = f"{date_value:%d-%m-%Y} {kind}".strip() if date_value else (kind or "UYAP evrakı")
     stem = re.sub(r"\s+", " ", stem).strip(" .")[:150] or "UYAP evrakı"
     return title, stem + suffix
 

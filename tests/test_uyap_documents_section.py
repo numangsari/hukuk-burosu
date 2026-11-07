@@ -90,8 +90,8 @@ def test_ingested_evrak_is_marked_uyap_with_readable_title_and_file_name(ingest_
     document = Document.objects.get()
     assert document.source == DocumentSource.UYAP
     assert document.uyap_type == "Kapalı Tebligat"
-    assert document.title == "Kapalı Tebligat · 14.10.2026"
-    assert document.original_name == "2026-10-14 Kapalı Tebligat.pdf"
+    assert document.title == "Kapalı Tebligat · 14/10/2026"
+    assert document.original_name == "14-10-2026 Kapalı Tebligat.pdf"
     assert document.document_date == dt.date(2026, 10, 14)
 
 
@@ -110,7 +110,7 @@ def test_unsafe_characters_in_type_are_removed_from_file_name(ingest_setup):
         evrakId="E3",
     )
     name = Document.objects.get().original_name
-    assert name.startswith("2026-02-01 ")
+    assert name.startswith("01-02-2026 ")
     assert not any(ch in name for ch in '<>:"/\\|?*')
 
 
@@ -369,3 +369,36 @@ def test_backfill_marks_old_uyap_documents_and_renames_them(case_factory):
     assert manual.source == DocumentSource.OFFICE
     assert manual.title == "Elle (14/10/2026)"
     assert PortalDocument.objects.count() == 0
+
+
+def test_uyap_section_shows_dates_in_slash_format(case_factory, admin_client_view):
+    client, _ = admin_client_view
+    case = case_factory()
+    make_document(case, "Evrak · 19/10/2026", document_date=dt.date(2026, 10, 19))
+    html = client.get(uyap_url(case)).content.decode()
+    assert "19/10/2026" in html
+    assert "19.10.2026" not in html
+
+
+def test_reformat_migration_rewrites_uyap_names_to_slash_dates(case_factory):
+    migration = importlib.import_module("apps.cases.migrations.0051_uyap_document_name_format")
+    case = case_factory()
+    document = make_document(
+        case,
+        "Kapalı Tebligat · 14.10.2026",
+        uyap_type="Kapalı Tebligat",
+        document_date=dt.date(2026, 10, 14),
+    )
+    document.original_name = "2026-10-14 Kapalı Tebligat.pdf"
+    document.save()
+    manual = make_document(
+        case, "Elle · 14.10.2026", source=DocumentSource.OFFICE, document_date=dt.date(2026, 10, 14)
+    )
+
+    migration.reformat_uyap_document_names(django_apps, None)
+
+    document.refresh_from_db()
+    manual.refresh_from_db()
+    assert document.title == "Kapalı Tebligat · 14/10/2026"
+    assert document.original_name == "14-10-2026 Kapalı Tebligat.pdf"
+    assert manual.title == "Elle · 14.10.2026"

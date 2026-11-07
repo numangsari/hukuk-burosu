@@ -3,7 +3,7 @@
   <div class="card-header">
     <h2 class="card-title">UYAP evrakları</h2>
     <span class="chip no-dot" title="UYAP'tan otomatik alınır; silinemez ve düzenlenemez">Salt okunur</span>
-    <span class="small text-body-secondary ms-auto">{{ uyap_total }} evrak{% if uyap_latest %} · son alınan {{ uyap_latest|date:"d.m.Y H:i" }}{% endif %}</span>
+    <span class="small text-body-secondary ms-auto">{{ uyap_total }} evrak{% if uyap_latest %} · son alınan {{ uyap_latest|date:"d/m/Y H:i" }}{% endif %}</span>
   </div>
   {% if uyap_total %}
   <form class="inline-form row g-2 align-items-end" hx-get="{% url 'cases:uyap_documents' case.pk %}" hx-target="#uyap-documents" hx-swap="outerHTML" hx-trigger="change, keyup changed delay:300ms from:input[name=q]">
@@ -32,7 +32,7 @@
             </div>
           </div>
         </td>
-        <td class="tabular text-body-secondary">{% if d.document_date %}{{ d.document_date|date:"d.m.Y" }}{% else %}{{ d.created_at|date:"d.m.Y" }}{% endif %}</td>
+        <td class="tabular text-body-secondary">{% if d.document_date %}{{ d.document_date|date:"d/m/Y" }}{% else %}{{ d.created_at|date:"d/m/Y" }}{% endif %}</td>
         <td class="text-end text-nowrap"><a class="text-body-secondary" href="{{ d.file.url }}" download title="İndir"><i class="bi bi-download"></i></a></td>
       </tr>
     {% empty %}
