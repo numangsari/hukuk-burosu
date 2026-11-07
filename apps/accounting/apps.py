@@ -11,3 +11,4 @@ class AccountingConfig(AppConfig):
         from . import models
 
         auditlog.register(models.LedgerEntry)
+        auditlog.register(models.OfficeEntry)

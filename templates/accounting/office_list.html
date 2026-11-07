@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Ofis içi gelir / gider — {{ office.name }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="eyebrow"><a href="{% url 'accounting:list' %}"><i class="bi bi-chevron-left"></i> Muhasebe</a></div>
+    <h1 class="page-title">Ofis içi gelir / gider</h1>
+    <div class="small text-body-secondary mt-1">Müvekkile bağlı olmayan büro hareketleri; yalnızca yönetici görür.</div>
+  </div>
+  <div class="page-actions">
+    <a class="btn btn-primary" href="{% url 'accounting:office_create' %}"><i class="bi bi-plus-lg"></i>Yeni hareket</a>
+  </div>
+</div>
+
+<div class="card table-card" id="list-card">
+  <form class="filter-bar" hx-get="{% url 'accounting:office_list' %}" hx-target="#list-table" hx-push-url="true" hx-trigger="input changed delay:300ms from:input[name=q], change" hx-indicator="#list-card">
+    <div class="grow"><i class="bi bi-search"></i><input class="form-control" name="q" type="search" value="{{ request.GET.q }}" placeholder="Açıklama ara"></div>
+    <select class="form-select" name="tur" aria-label="Hareket türü">
+      <option value="">Tüm hareketler</option>
+      {% for value, label in kinds %}<option value="{{ value }}" {% if request.GET.tur == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+    <input class="form-control" type="date" name="baslangic" value="{{ start|date:'Y-m-d' }}" style="width: auto" title="Başlangıç">
+    <input class="form-control" type="date" name="bitis" value="{{ end|date:'Y-m-d' }}" style="width: auto" title="Bitiş">
+  </form>
+  <div id="list-table">{% include "accounting/_office_table.html" %}</div>
+</div>
+{% endblock %}

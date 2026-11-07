@@ -5,6 +5,7 @@ Her dosya bağlı olduğu kaydın kuralıyla açılır:
                                       (sorumlu bazlı modda başkasının kaydı 404 verir)
 - avatars/, petition-pool/          : giriş yapmış kullanıcı
 - ledger/                           : muhasebe görme yetkisi
+- office-ledger/                    : yalnızca yönetici (ofis içi gelir/gider belgeleri)
 - office/                           : ofis logosu, giriş ekranında da görünür (girişsiz)
 - diğer her yol (ör. imports/tmp)   : sunulmaz
 Dosyanın gerçekten bir kayda ait olması da kontrol edilir; sahipsiz dosya sunulmaz.
@@ -25,7 +26,7 @@ from .uploads import INLINE_TYPES
 
 def _record_for(path: str):
     """Yola karşılık gelen kaydı döner (yoksa None)."""
-    from apps.accounting.models import LedgerEntry
+    from apps.accounting.models import LedgerEntry, OfficeEntry
     from apps.accounts.models import User
     from apps.cases.models import Document
     from apps.clients.models import PowerOfAttorney, RetainerAgreement
@@ -38,6 +39,7 @@ def _record_for(path: str):
         "petition-pool": (PetitionSample, "file"),
         "clients": (PowerOfAttorney, "pdf"),
         "ledger": (LedgerEntry, "receipt"),
+        "office-ledger": (OfficeEntry, "receipt"),
         "avatars": (User, "avatar"),
         "office": (OfficeSettings, "logo"),
     }
@@ -80,6 +82,10 @@ def _allowed(request, prefix: str) -> bool:
         from apps.accounting.permissions import can_view
 
         return can_view(request.user)
+    if prefix == "office-ledger":
+        from apps.core.permissions import is_admin
+
+        return is_admin(request.user)
     return prefix in {"cases", "tasks", "clients", "avatars", "petition-pool"}
 
 
@@ -87,7 +93,16 @@ def _allowed(request, prefix: str) -> bool:
 def protected_media(request, path):
     path = path.replace("\\", "/").lstrip("/")
     prefix = path.split("/", 1)[0]
-    if prefix not in {"cases", "tasks", "clients", "ledger", "avatars", "office", "petition-pool"}:
+    if prefix not in {
+        "cases",
+        "tasks",
+        "clients",
+        "ledger",
+        "avatars",
+        "office",
+        "petition-pool",
+        "office-ledger",
+    }:
         raise Http404
     if not _allowed(request, prefix):
         if not request.user.is_authenticated:

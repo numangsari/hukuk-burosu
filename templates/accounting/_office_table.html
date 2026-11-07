@@ -1,0 +1,41 @@
+{% load ui %}
+<div class="px-3 py-2 d-flex flex-wrap gap-4 border-bottom">
+  <span>Gelir <strong class="tabular">{{ income|tl }}</strong></span>
+  <span>Gider <strong class="tabular">{{ expense|tl }}</strong></span>
+  <span>Net <strong class="tabular">{{ net|tl }}</strong></span>
+  <span class="small text-body-secondary ms-auto">İptal edilenler toplama girmez.</span>
+</div>
+<div class="table-responsive">
+<table class="table table-hover">
+  <thead><tr><th>Tarih</th><th>Tür</th><th>Açıklama</th><th class="text-end">Tutar</th><th class="hide-md">Kaydeden</th><th></th></tr></thead>
+  <tbody>
+  {% for e in entries %}
+    <tr {% if e.is_cancelled %}class="text-body-secondary"{% endif %}>
+      <td class="text-nowrap tabular">{{ e.date|date:"d.m.Y" }}</td>
+      <td class="text-nowrap">{{ e.get_kind_display }}</td>
+      <td><span class="clip {% if e.is_cancelled %}text-decoration-line-through{% endif %}" style="--clip-w: 28rem" title="{{ e.description }}">{{ e.description }}</span>
+        {% if e.receipt %} <a href="{{ e.receipt.url }}" target="_blank"><i class="bi bi-paperclip"></i></a>{% endif %}
+        {% if e.receipt_no %}<div class="cell-sub">Makbuz no: <span class="tabular">{{ e.receipt_no }}</span></div>{% endif %}
+        {% if e.is_cancelled %}<div class="cell-sub">İptal: {{ e.cancel_reason }} ({{ e.cancelled_by }})</div>{% endif %}</td>
+      <td class="text-end tabular text-nowrap">{{ e.amount|tl }}</td>
+      <td class="text-nowrap hide-md">{{ e.created_by|default:"—" }}</td>
+      <td class="text-end">
+        {% if not e.is_cancelled %}
+        <div class="cancel-pop" x-data="{ open: false }" @click.outside="open = false">
+          <button type="button" class="btn-ghost-danger" title="İptal et" @click="open = !open"><i class="bi bi-x-circle"></i></button>
+          <form method="post" action="{% url 'accounting:office_cancel' e.pk %}" class="cancel-panel" x-show="open" x-cloak x-transition>{% csrf_token %}
+            <label class="form-label">İptal nedeni</label>
+            <input class="form-control form-control-sm mb-2" name="reason" required maxlength="300">
+            <button class="btn btn-sm btn-outline-danger w-100">Hareketi iptal et</button>
+          </form>
+        </div>
+        {% endif %}
+      </td>
+    </tr>
+  {% empty %}
+    <tr><td colspan="6"><div class="empty-state"><i class="bi bi-wallet2"></i><strong>Hareket yok</strong>Bu dönemde ofis içi gelir veya gider kaydı bulunamadı.</div></td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% include "partials/pagination.html" %}

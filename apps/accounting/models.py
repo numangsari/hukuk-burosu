@@ -163,3 +163,40 @@ class LedgerEntry(TimeStampedModel):
     @property
     def balance_effect(self) -> Decimal:
         return self.amount * EFFECTS[EntryKind(self.kind)]
+
+
+class OfficeEntry(TimeStampedModel):
+    """Büronun kendi (müvekkile bağlı olmayan) geliri ve gideri; yalnızca yönetici görür.
+
+    Müvekkil bakiyesine ve cari hesaplara girmez. Silinmez, iptal edilir.
+    """
+
+    class Kind(models.TextChoices):
+        INCOME = "income", "Ofis geliri"
+        EXPENSE = "expense", "Ofis gideri"
+
+    kind = models.CharField("hareket türü", max_length=10, choices=Kind.choices)
+    amount = models.DecimalField(
+        "tutar (₺)",
+        max_digits=16,
+        decimal_places=2,
+        validators=[MinValueValidator(Decimal("0.01"))],
+    )
+    date = models.DateField("tarih")
+    description = models.CharField("açıklama", max_length=300)
+    receipt = models.FileField("belge / makbuz", upload_to="office-ledger/%Y/", blank=True)
+    receipt_no = models.CharField("makbuz no", max_length=60, blank=True)
+    is_cancelled = models.BooleanField("iptal", default=False)
+    cancelled_at = models.DateTimeField(null=True, blank=True)
+    cancelled_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True, related_name="+"
+    )
+    cancel_reason = models.CharField("iptal nedeni", max_length=300, blank=True)
+
+    class Meta:
+        verbose_name = "ofis içi gelir/gider"
+        verbose_name_plural = "ofis içi gelir/giderler"
+        ordering = ["-date", "-pk"]
+
+    def __str__(self):
+        return f"{self.get_kind_display()} {self.amount} ₺"

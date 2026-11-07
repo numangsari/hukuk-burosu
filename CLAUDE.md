@@ -156,6 +156,7 @@ uv run ruff format --check .                         # Format denetimi
   - *Müvekkilin Ofisten Alacağı:* Karşı Taraftan Tahsilat
   - *Cari Bakiye:* `(Ofise Borç − Müvekkilden Tahsilat) − Karşı Taraftan Tahsilat + Müvekkile Ödeme`
   - Pozitif bakiye = Müvekkil ofise borçlu ("Alacağımız"); Negatif bakiye = Ofis müvekkile borçlu ("Borcumuz"). Arayüzde yön kırmızı/yeşil renkle değil bu etiketlerle gösterilir.
+- **Ofis İçi Gelir/Gider (`OfficeEntry`, `/muhasebe/ofis/`):** Müvekkile bağlı olmayan büro geliri ve gideri. Yalnızca yönetici görür, ekler ve iptal eder (muhasebe rolü dahil kimse göremez); müvekkil bakiyesine, cari hesaplara ve raporlara girmez. Gider kaydında isteğe bağlı makbuz no tutulur. Belgeler `office-ledger/` altında yalnızca yöneticiye sunulur. Liste varsayılan olarak bu ayı gösterir; gelir, gider ve net toplamı iptal edilenleri saymaz.
 - **Kayıt Bütünlüğü:** Muhasebe hareketi silinmez; gerekirse iptal edilir (`cancelled`). Kasa toplamları ve bakiyeler yalnızca bakiye görme yetkisi (`can_view_balances`) olan kullanıcılara gösterilir.
 
 ### `apps/imports` & UYAP/UETS Entegrasyonu
