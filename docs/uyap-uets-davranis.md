@@ -24,6 +24,22 @@ Tarih: 7 Kasım 2026. Eklenti (`uyap-uets-eklentisi/`) ile sunucu (`apps/imports
 - **UETS:** Tebligat listesi 50'lik sayfalarla alınır; her tebligatın ayrıntısı ve ekleri (en çok 100 belge, 20 MB) sunucuya gönderilir.
 - **Durumlar:** `tamamlandi`, `eksik` (bir kayıt alınamadı), `oturum_yok`, `sunucu_yok`, `izin_yok`, `sekme_yok`, `sekme_hazir_degil`, `durduruldu`.
 
+## Keşfedilen uç noktalar (7 Kasım 2026, canlı oturumda doğrulandı)
+
+Veri içermez; yalnızca yol ve yanıt biçimi. UYAP arayüzü değişirse yeniden doğrulanmalıdır.
+
+| Amaç | İstek | Oturum açıkken | Oturum yokken |
+|---|---|---|---|
+| UYAP oturum yoklaması | `POST /get_avukat_id.ajx` gövde `{}` (sayfanın kendi çağırdığı hafif istek) | `200`, `text/json`, gövde bir sayı | `401`, `text/xml`, `<root><error>nosessionobject</error></root>` |
+| UETS oturum yoklaması | `GET https://api.etebligat.gov.tr/v1/messages?sort=inserttime&count=1&start=0` + `Authorization: Bearer <erişim anahtarı>` | `200`, JSON dizi | `401`, JSON nesne |
+| UYAP evrak listesi | `POST /list_dosya_evraklar.ajx` `{dosyaId, pageNumber}` | `son20Evrak` dizisi; her öğede `evrakId`, `dosyaId`, `tur`, `tip` (`DOSYA`/`GDN`/`GLN`), `isYetkili`, `ekEvrakListesi`, `birimEvrakNo`, `onaylandigiTarih` | |
+| UYAP evrak içeriği | `GET /download_document_brd.uyap?dosyaId=…&evrakId=…` | `200`, `application/pdf`, `Content-Disposition: inline; filename=…`, `Content-Length` yok (akış) | |
+| Diğer | `POST /get_evrak_mimeType_brd.ajx` (evrak türü), `GET /view_document_brd.uyap` (görüntüleme) | | |
+
+- UYAP, aynı tarayıcı profilindeki yeni sekmede mevcut oturumu paylaşır; oturum için ayrı giriş gerekmedi.
+- Oturum yoklaması UYAP sunucu tarafındaki boşta kalma süresini uzatır mı, doğrulanmadı. Etkisi, uzun süreli gözlemle ölçülmelidir.
+- Evrak indirme PDF döndürdü; diğer türlerde (UDF vb.) yanıt biçimi denenmedi.
+
 ## Testler
 
 `node --test tests/*.js` (CI'da çalışır). Bu testler yukarıdaki davranışı sınar; kapsam değişince testler de değişmelidir.
