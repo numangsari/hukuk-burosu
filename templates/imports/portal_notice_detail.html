@@ -32,7 +32,7 @@
       <div class="card-body">
         <ul class="mb-0">
           {% for document in notice.documents.all %}
-            <li><a href="{% url 'portal_notice_document' document.pk %}"><i class="bi bi-file-earmark-pdf me-1"></i>{{ document.original_name }}</a></li>
+            <li><a href="{% url 'portal_notice_document' document.pk %}" target="_blank"><i class="bi bi-file-earmark-pdf me-1"></i>{{ document.original_name }}</a></li>
           {% empty %}
             <li class="text-body-secondary">Henüz belge alınmadı.</li>
           {% endfor %}
@@ -46,7 +46,7 @@
       <div class="card-body">
         <p class="mb-2">Müvekkil: <strong>{{ notice.resolution_client }}</strong>{% if notice.resolution_case %} · Dosya: <strong>{{ notice.resolution_case }}</strong>{% endif %}</p>
         {% if notice.resolution_task %}
-          <p class="mb-2"><a class="btn btn-sm btn-outline-primary" href="{{ notice.resolution_task.get_absolute_url }}">Oluşturulan görevi aç</a></p>
+          <p class="mb-2"><a class="btn btn-sm btn-outline-primary" href="{{ notice.resolution_task.get_absolute_url }}"{% if request.GET.pencere %} target="_top"{% endif %}>Oluşturulan görevi aç</a></p>
         {% else %}
           <p class="mb-2">Görev yok: {{ notice.no_task_reason }}</p>
         {% endif %}

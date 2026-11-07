@@ -9,6 +9,7 @@ from django.http import FileResponse, Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
+from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.views.decorators.http import require_GET, require_POST
 
 from apps.cases.models import Case
@@ -50,6 +51,7 @@ def notice_document(request, pk):
 
 
 @login_required
+@xframe_options_sameorigin
 def notice_detail(request, pk):
     notice = get_object_or_404(PortalNotice.objects.prefetch_related("documents"), pk=pk)
     details = notice.data.get("ayrinti", {}) if isinstance(notice.data, dict) else {}

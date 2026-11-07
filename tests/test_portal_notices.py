@@ -130,6 +130,14 @@ def test_notice_task_places_original_document_in_case_folder(
 
 
 @pytest.mark.django_db
+def test_notice_detail_can_open_inside_modal_frame(sample):
+    client, _, _, _, _, _, notice = sample
+    response = client.get(reverse("portal_notice_detail", args=[notice.pk]), {"pencere": "1"})
+    assert response.status_code == 200
+    assert response.headers["X-Frame-Options"] == "SAMEORIGIN"
+    assert "Örnek tebligat" in response.content.decode()
+
+
 def test_notice_task_window_displays_accounting_choices(sample):
     client, _, _, _, _, _, notice = sample
     response = client.get(reverse("notice_task_create", args=[notice.pk]), HTTP_HX_REQUEST="true")

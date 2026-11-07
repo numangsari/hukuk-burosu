@@ -162,10 +162,11 @@
     if (!link || event.ctrlKey || event.metaKey || event.shiftKey || event.button !== 0) return;
     const url = new URL(link.href, location.href);
     const isTask = /^\/gorevler\/\d+\/$/.test(url.pathname);
-    if (url.origin !== location.origin || (!Object.hasOwn(paths, url.pathname) && !isTask)) return;
+    const isNotice = /^\/portal-inceleme\/tebligat\/\d+\/$/.test(url.pathname);
+    if (url.origin !== location.origin || (!Object.hasOwn(paths, url.pathname) && !isTask && !isNotice)) return;
     event.preventDefault();
     url.searchParams.set('pencere', '1');
-    document.getElementById('create-window-title').textContent = isTask ? 'Görev' : paths[url.pathname];
+    document.getElementById('create-window-title').textContent = isTask ? 'Görev' : isNotice ? 'Tebligat' : paths[url.pathname];
     active = true;
     clientSaved = false;
     frameLoads = 0;
