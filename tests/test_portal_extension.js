@@ -72,6 +72,48 @@ test('UETS sayfaları ve tebligat belgeleri sunucuya gönderilir', async () => {
   assert.equal(result.statuses.at(-1), 'tamamlandi');
 });
 
+test('UETS yalnızca son 30 günün tebligatlarını işler, eski olanların ayrıntısını çekmez', async () => {
+  const now = Math.floor(Date.now() / 1000);
+  const day = 86400;
+  const details = [];
+  const result = await run('ptt.etebligat.gov.tr', async url => {
+    const path = new URL(url);
+    if (path.pathname.endsWith('/messages')) {
+      // Sıralama yönü bilinmediği için eski ve yeni karışık gelir; tüm sayfalar gezilir.
+      return response([
+        {id:'yeni1', inserttime: now - 2 * day},
+        {id:'eski1', inserttime: now - 45 * day},
+        {id:'yeni2', inserttime: now - 29 * day},
+        {id:'eski2', inserttime: now - 400 * day},
+        {id:'tarihsiz'}
+      ]);
+    }
+    details.push(path.pathname.split('/').pop());
+    return response({eyp_details:{}});
+  });
+  assert.deepEqual(details.sort(), ['tarihsiz', 'yeni1', 'yeni2']);
+  assert.equal(result.uploads.length, 3);
+  assert.equal(result.statuses.at(-1), 'tamamlandi');
+});
+
+test('UETS taraması 30 günden eski mesajlar yüzünden sayfa gezmeyi bırakmaz', async () => {
+  const now = Math.floor(Date.now() / 1000);
+  const starts = [];
+  await run('ptt.etebligat.gov.tr', async url => {
+    const path = new URL(url);
+    if (path.pathname.endsWith('/messages')) {
+      const start = Number(path.searchParams.get('start'));
+      starts.push(start);
+      // İlk sayfa tamamen eski, ikinci sayfada yeni mesaj var.
+      return response(start === 0
+        ? Array.from({length:50}, (_, i) => ({id:'eski' + i, inserttime: now - 90 * 86400}))
+        : [{id:'yeni', inserttime: now - 86400}]);
+    }
+    return response({eyp_details:{}});
+  });
+  assert.deepEqual(starts, [0, 50]);
+});
+
 test('Sunucu veriyi kabul etmezse tarama tamamlandı denmez', async () => {
   const result = await run('ptt.etebligat.gov.tr', async url => {
     if (new URL(url).pathname.endsWith('/messages')) return response([{id:'1'}]);

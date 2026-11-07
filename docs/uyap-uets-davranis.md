@@ -24,7 +24,7 @@ Tarih: 7 Kasım 2026. Eklenti (`uyap-uets-eklentisi/`) ile sunucu (`apps/imports
 - **UYAP:** Altı kategori (Ceza, Hukuk, İcra, İdari Yargı, Satış Memurluğu, Arabuluculuk), her yargı birimi için açık ve kapalı dosyalar 10'luk sayfalarla **eksiksiz** taranır (örnekleme yok). Uç noktalar arası en az 5 sn beklenir.
 - **Dosya başına istekler:** dosya ayrıntısı, taraf bilgileri, evrak listesi (sayfalı), icra dosyalarında hesap bilgisi, tahsilat/reddiyat yanıtı ve **tüm evrakların içeriği** (aşağıda). Dosya türü kodu yoksa finans yanıtı istenmez ve tarama `eksik` sayılır.
 - **Yarım kalan tarama:** Tamamlanan dosyaların izi (SHA-256) tarayıcıda saklanır; kesilen tarama sonraki seferde bitmiş dosyaları yeniden sorgulamaz. Tarama bitince iz silinir.
-- **UETS:** Tebligat listesi 50'lik sayfalarla alınır; her tebligatın ayrıntısı ve ekleri (en çok 100 belge, 20 MB) sunucuya gönderilir.
+- **UETS:** Tebligat listesi 50'lik sayfalarla alınır. Yalnızca **son 30 günün** tebligatlarının (`inserttime`) ayrıntısı ve ekleri (en çok 100 belge, 20 MB) sunucuya gönderilir; daha eski tebligatlar atlanır. Liste sıralama yönü doğrulanmadığı için sayfaların tamamı gezilir (hafif istek), yeni mesaj kaçmaz.
 - **Durumlar:** `tamamlandi`, `eksik` (bir kayıt alınamadı), `oturum_yok`, `sunucu_yok`, `izin_yok`, `sekme_yok`, `sekme_hazir_degil`, `durduruldu`.
 
 ## Keşfedilen uç noktalar (7 Kasım 2026, canlı oturumda doğrulandı)

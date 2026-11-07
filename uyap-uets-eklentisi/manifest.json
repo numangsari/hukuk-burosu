@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Hukuk Bürosu — UYAP ve UETS Eklentisi",
-  "version": "0.5.4",
+  "version": "0.5.5",
   "description": "Hukuk bürosu UYAP ve UETS bağlantısı ve veri senkronizasyonu.",
   "permissions": [
     "storage",

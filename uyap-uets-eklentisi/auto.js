@@ -60,6 +60,7 @@
     }); };
     let partial = false;
     const seen = new Set();
+    const cutoff = Math.floor(Date.now() / 1000) - 30 * 86400;
     for (let page = 0; page < 2000; page++) {
       let rows;
       try { rows = await jsonResponse(await get(`/messages?sort=inserttime&count=50&start=${page * 50}`)); }
@@ -71,6 +72,9 @@
         if (!id) { partial = true; continue; }
         if (seen.has(String(id))) continue;
         seen.add(String(id)); newCount++; status('basladi', {processed: seen.size});
+        // Yalnızca son 30 günün tebligatları işlenir; eski olanların ayrıntısı ve belgesi çekilmez.
+        const insertTime = Number(row?.inserttime);
+        if (insertTime && insertTime < cutoff) continue;
         let details;
         try { details = await jsonResponse(await get('/messages/' + encodeURIComponent(String(id)) + '?eyp_details=true')); }
         catch (error) { if (['oturum', 'izin'].includes(error.message)) throw error; partial = true; continue; }
