@@ -56,19 +56,29 @@ test('Bağlantı bilgisi yalnızca yerel eşleştirme sayfasından kabul edilir'
 });
 
 
-test('Kaynak sahibi ayrımı tamamlanana kadar aktarım başlamaz', async () => {
-  const {call, storage, healthRequests} = setup();
+test('Açık portal sekmesi yoksa tarama başlamaz ve durum kaydedilir', async () => {
+  const {call, storage} = setup();
   storage.sync_key = 'a'.repeat(43);
   storage.attempted_uyap = 1700000000000;
   const result = await call({type:'start_scans'}, {url:'chrome-extension://ornek/popup.html',frameId:0});
   assert.equal(result.ok, true);
-  assert.equal(storage.scan_uyap, 'durduruldu');
-  assert.equal(storage.scan_uets, 'durduruldu');
+  assert.equal(storage.scan_uyap, 'sekme_yok');
+  assert.equal(storage.scan_uets, 'sekme_yok');
 });
 
-test('Portal sayfalarına yalnızca ad kontrolü yüklenir', () => {
+test('Eşleştirme olmadan tarama başlatılmaz', async () => {
+  const {call, storage} = setup();
+  const result = await call({type:'start_scans'}, {url:'chrome-extension://ornek/popup.html',frameId:0});
+  assert.equal(result.ok, true);
+  assert.equal(storage.scan_uyap, undefined);
+});
+
+test('Portal sayfalarına ad kontrolü, doğrulama köprüsü ve tarayıcı betiği yüklenir', () => {
   const manifest = JSON.parse(fs.readFileSync('uyap-uets-eklentisi/manifest.json', 'utf8'));
   assert.ok(manifest.content_scripts.some(entry => entry.js.includes('pair.js')));
   const portal = manifest.content_scripts.filter(entry => entry.matches.some(match => match.includes('uyap.gov.tr') || match.includes('etebligat.gov.tr')));
-  assert.deepEqual(portal.flatMap(entry => entry.js), ['account-name.js']);
+  assert.deepEqual(portal.flatMap(entry => entry.js), ['account-name.js', 'bridge.js', 'auto.js']);
+  // Tarama betiği sayfanın kendi bağlamında, köprü ise yalıtılmış bağlamda çalışır.
+  assert.equal(portal.find(entry => entry.js.includes('auto.js')).world, 'MAIN');
+  assert.equal(portal.find(entry => entry.js.includes('bridge.js')).world, undefined);
 });

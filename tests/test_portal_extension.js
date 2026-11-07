@@ -78,41 +78,56 @@ test('Sunucu veriyi kabul etmezse tarama tamamlandı denmez', async () => {
   assert.equal(result.statuses.at(-1), 'sunucu_yok');
 });
 
-test('UYAP her durumdan en fazla üç örnek alır ve sorguları yavaşlatır', async () => {
+const UNIT = body => response(body.yargiTuru === '0' ? [{tablo:'birim', kod:'Örnek'}] : []);
+
+// UYAP sayfalı liste yanıtı: toplam `total` dosyadan istenen sayfayı döndürür.
+function listPage(total, prefix, body) {
+  const start = (body.pageNumber - 1) * body.pageSize;
+  const count = Math.max(0, Math.min(body.pageSize, total - start));
+  const rows = Array.from({length:count}, (_, i) => ({dosyaId:`${prefix}${start + i + 1}`, birimAdi:'Örnek', dosyaNo:`2026/${start + i + 1}`, dosyaTurKod:1}));
+  return response([rows, total]);
+}
+
+const UYAP_PATHS = new Set([
+  '/yargiBirimleriSorgula_brd.ajx', '/search_phrase_detayli.ajx', '/dosyaAyrintiBilgileri_brd.ajx',
+  '/dosya_taraf_bilgileri_brd.ajx', '/list_dosya_evraklar.ajx', '/dosya_tahsilat_reddiyat_bilgileri_brd.ajx'
+]);
+
+test('UYAP tüm dosyaları sayfa sayfa tarar ve sorguları yavaşlatır', async () => {
   const queries = [];
   const result = await run('avukat.uyap.gov.tr', async (path, options) => {
     const body = JSON.parse(options.body);
     queries.push(path);
-    if (path === '/yargiBirimleriSorgula_brd.ajx') return response(body.yargiTuru === '0' ? [{tablo:'birim', kod:'Örnek'}] : []);
-    if (path === '/search_phrase_detayli.ajx') {
-      if (body.dosyaDurumKod === 1) return response([[], 0]);
-      const count = body.pageNumber === 1 ? 50 : 1;
-      return response([Array.from({length:count}, (_, i) => ({dosyaId:String((body.pageNumber - 1) * 50 + i + 1), birimAdi:'Örnek', dosyaNo:`2026/${i + 1}`})), 51]);
-    }
+    if (path === '/yargiBirimleriSorgula_brd.ajx') return UNIT(body);
+    if (path === '/search_phrase_detayli.ajx') return listPage(body.dosyaDurumKod === 0 ? 12 : 0, 'a', body);
     if (path === '/list_dosya_evraklar.ajx') return response({son20Evrak:[]});
     return response({ornek:true});
   });
-  assert.equal(queries.filter(path => path === '/search_phrase_detayli.ajx').length, 2);
-  assert.equal(result.uploads.filter(item => item.captures.length === 4).length, 3);
-  assert(result.uploads.every(item => item.captures.filter(c => c.path === '/search_phrase_detayli.ajx').every(c => c.data.sonuc[0].length <= 3)));
+  // Açık dosyalar 10'ar kayıtlık iki sayfa, kapalı dosyalar tek (boş) sayfa.
+  assert.equal(queries.filter(path => path === '/search_phrase_detayli.ajx').length, 3);
+  // Her dosya için liste kaydı, üç ayrıntı ve finans yanıtı gönderilir.
+  const cases = result.uploads.filter(item => item.captures.length === 5);
+  assert.equal(cases.length, 12);
+  assert.equal(new Set(cases.map(item => item.captures[0].data.sonuc[0][0].dosyaId)).size, 12);
   assert(result.delays.some(ms => ms >= 4900));
-  assert(!queries.some(path => /islem_gecmis|tahsilat|hesap/i.test(path)));
+  assert(queries.every(path => UYAP_PATHS.has(path)), 'beklenmeyen UYAP uç noktası çağrıldı');
+  assert(!queries.some(path => /islem_gecmis/i.test(path)));
   assert.equal(result.statuses.at(-1), 'tamamlandi');
 });
 
-test('Kesilen UYAP örnek taraması tamamlanan dosyaları yeniden sorgulamaz', async () => {
+test('Kesilen UYAP taraması tamamlanan dosyaları yeniden sorgulamaz', async () => {
   const saved = new Set();
   const details = [];
   const fetch = async (path, options) => {
     const body = JSON.parse(options.body);
-    if (path === '/yargiBirimleriSorgula_brd.ajx') return response(body.yargiTuru === '0' ? [{tablo:'birim', kod:'Örnek'}] : []);
-    if (path === '/search_phrase_detayli.ajx') return response(body.dosyaDurumKod === 0 ? [[1,2,3].map(i => ({dosyaId:String(i),birimAdi:'Örnek',dosyaNo:`2026/${i}`})),3] : [[],0]);
+    if (path === '/yargiBirimleriSorgula_brd.ajx') return UNIT(body);
+    if (path === '/search_phrase_detayli.ajx') return listPage(body.dosyaDurumKod === 0 ? 3 : 0, '', body);
     details.push(body.dosyaId);
     return response(path === '/list_dosya_evraklar.ajx' ? {son20Evrak:[]} : {ornek:true});
   };
   const first = await run('avukat.uyap.gov.tr', fetch, data => !data.captures.some(c => c.data?.dosyaId === '2'), saved);
   assert.equal(first.statuses.at(-1), 'sunucu_yok');
-  assert.equal(saved.size, 1);
+  assert.equal(saved.size, 2); // ilk dosyanın ana ve finans izi
   details.length = 0;
   const second = await run('avukat.uyap.gov.tr', fetch, true, saved);
   assert.equal(second.statuses.at(-1), 'tamamlandi');
@@ -121,28 +136,27 @@ test('Kesilen UYAP örnek taraması tamamlanan dosyaları yeniden sorgulamaz', a
   assert.equal(saved.size, 0);
 });
 
-test('Açık ve kapalı dosyalardan ayrı ayrı en fazla üç örnek seçer', async () => {
+test('Açık ve kapalı dosyalar ayrı ayrı ve eksiksiz taranır', async () => {
   const result = await run('avukat.uyap.gov.tr', async (path, options) => {
     const body = JSON.parse(options.body);
-    if (path === '/yargiBirimleriSorgula_brd.ajx') return response(body.yargiTuru === '0' ? [{tablo:'birim', kod:'Örnek'}] : []);
+    if (path === '/yargiBirimleriSorgula_brd.ajx') return UNIT(body);
     if (path === '/search_phrase_detayli.ajx') {
       assert.equal(body.pageSize, 10);
-      const prefix = body.dosyaDurumKod === 0 ? 'a' : 'k';
-      return response([Array.from({length:10}, (_, i) => ({dosyaId:prefix+i, birimAdi:'Örnek', dosyaNo:`2026/${i+1}`})), 100]);
+      return body.dosyaDurumKod === 0 ? listPage(15, 'a', body) : listPage(12, 'k', body);
     }
     return response(path === '/list_dosya_evraklar.ajx' ? {son20Evrak:[]} : {ornek:true});
   });
-  const cases = result.uploads.filter(item => item.captures.length === 4);
-  assert.equal(cases.length, 6);
-  assert.equal(cases.filter(item => item.captures[0].data.durum === 'acik').length, 3);
-  assert.equal(cases.filter(item => item.captures[0].data.durum === 'kapali').length, 3);
+  const cases = result.uploads.filter(item => item.captures.length === 5);
+  assert.equal(cases.length, 27);
+  assert.equal(cases.filter(item => item.captures[0].data.durum === 'acik').length, 15);
+  assert.equal(cases.filter(item => item.captures[0].data.durum === 'kapali').length, 12);
   assert.equal(result.statuses.at(-1), 'tamamlandi');
 });
 
 test('Erişilemeyen tek dosya diğer dosyaların aktarımını durdurmaz', async () => {
   const result = await run('avukat.uyap.gov.tr', async (path, options) => {
     const body = JSON.parse(options.body);
-    if (path === '/yargiBirimleriSorgula_brd.ajx') return response(body.yargiTuru === '0' ? [{tablo:'birim', kod:'Örnek'}] : []);
+    if (path === '/yargiBirimleriSorgula_brd.ajx') return UNIT(body);
     if (path === '/search_phrase_detayli.ajx') return response(body.dosyaDurumKod === 0 ? [[{dosyaId:'a',birimAdi:'Örnek',dosyaNo:'2026/1'},{dosyaId:'b',birimAdi:'Örnek',dosyaNo:'2026/2'}],2] : [[],0]);
     if (path === '/dosyaAyrintiBilgileri_brd.ajx' && body.dosyaId === 'a') return {ok:false,status:403};
     if (path === '/list_dosya_evraklar.ajx') return response({son20Evrak:[]});
@@ -157,8 +171,8 @@ test('UYAP evrak listesinin devam sayfalarını da kaydeder', async () => {
   const pages = [];
   const result = await run('avukat.uyap.gov.tr', async (path, options) => {
     const body = JSON.parse(options.body);
-    if (path === '/yargiBirimleriSorgula_brd.ajx') return response(body.yargiTuru === '0' ? [{tablo:'birim', kod:'Örnek'}] : []);
-    if (path === '/search_phrase_detayli.ajx') return response(body.dosyaDurumKod === 0 ? [[{dosyaId:'a',birimAdi:'Örnek',dosyaNo:'2026/1'}],1] : [[],0]);
+    if (path === '/yargiBirimleriSorgula_brd.ajx') return UNIT(body);
+    if (path === '/search_phrase_detayli.ajx') return body.dosyaDurumKod === 0 ? listPage(1, 'a', body) : listPage(0, 'k', body);
     if (path === '/list_dosya_evraklar.ajx') {
       pages.push(body.pageNumber);
       return response({son20Evrak:Array.from({length:body.pageNumber === 1 ? 20 : 1}, (_, i) => ({ornek:i + body.pageNumber * 100}))});
@@ -168,4 +182,17 @@ test('UYAP evrak listesinin devam sayfalarını da kaydeder', async () => {
   assert.deepEqual(pages, [1, 2]);
   assert.equal(result.uploads.flatMap(item => item.captures).filter(item => item.path === '/list_dosya_evraklar.ajx').length, 2);
   assert.equal(result.statuses.at(-1), 'tamamlandi');
+});
+
+test('Dosya türü kodu olmayan kayıtta finans yanıtı istenmez ve tarama eksik sayılır', async () => {
+  const queries = [];
+  const result = await run('avukat.uyap.gov.tr', async (path, options) => {
+    const body = JSON.parse(options.body);
+    queries.push(path);
+    if (path === '/yargiBirimleriSorgula_brd.ajx') return UNIT(body);
+    if (path === '/search_phrase_detayli.ajx') return response(body.dosyaDurumKod === 0 ? [[{dosyaId:'a',birimAdi:'Örnek',dosyaNo:'2026/1'}],1] : [[],0]);
+    return response(path === '/list_dosya_evraklar.ajx' ? {son20Evrak:[]} : {ornek:true});
+  });
+  assert(!queries.includes('/dosya_tahsilat_reddiyat_bilgileri_brd.ajx'));
+  assert.equal(result.statuses.at(-1), 'eksik');
 });

@@ -34,6 +34,7 @@ uv run python manage.py seed_dev                     # Küçük örnek kayıtlar
 uv run python manage.py seed_demo                    # Kapsamlı deneme verisi (DEBUG)
 uv run python manage.py runserver 0.0.0.0:8000       # Geliştirme sunucusu
 uv run pytest                                        # Test süiti (dev DB'de test_ veritabanı)
+node --test tests/*.js                               # UYAP/UETS eklentisi testleri (Node)
 uv run ruff check .                                  # Linter denetimi
 uv run ruff format --check .                         # Format denetimi
 ```
@@ -153,7 +154,7 @@ uv run ruff format --check .                         # Format denetimi
 - **Kayıt Bütünlüğü:** Muhasebe hareketi silinmez; gerekirse iptal edilir (`cancelled`). Kasa toplamları ve bakiyeler yalnızca bakiye görme yetkisi (`can_view_balances`) olan kullanıcılara gösterilir.
 
 ### `apps/imports` & UYAP/UETS Entegrasyonu
-- **Tarayıcı Eklentisi (`uyap-uets-eklentisi`):** UYAP Avukat Portal ve UETS oturumlarını yerel sunucuya bağlar.
+- **Tarayıcı Eklentisi (`uyap-uets-eklentisi`):** UYAP Avukat Portal ve UETS oturumlarını yerel sunucuya bağlar. Canlı aktarım yalnızca `DEBUG=True` iken çalışır; üretimde sunucu veriyi kabul etmez. Desteklenen davranış ve durumlar: `docs/uyap-uets-davranis.md`.
 - **UYAP evrak ön hazırlığı:** Eklenti `/list_dosya_evraklar.ajx` üzerinden evrak listelerini sayfalı alır; bu işlem evrak içeriklerini indirmez. İçerik indirme yolu ve yanıt biçimi doğrulanmadan otomatik indirme eklenmemeli. Sonraki uygulamada erişim izni, belge kimliğiyle tekrar önleme, yarım kalan işlemi sürdürme ve müvekkili eşleşmemiş dosyalar ele alınmalı.
 - **Dosya Bilgisi & Taraf Eşitlemesi (`portal_case_sync.py`):** Canlı UYAP aktarımında eşleşen büro dosyası yoksa otomatik `Case` açılır; vekili olduğumuz taraf sistemdeki bir müvekkille eşleşirse bağlanır, eşleşmezse `client=None` bırakılarak "Eksik büro bilgisi" filtresine (`?missing=1`) düşer. UYAP'tan gelen duruşmalar `Hearing` kaydı olarak aktarılır. **UYAP dosyalarının evrakları henüz otomatik çekilmez**; sisteme ayrıca yüklenmiş belgelerle UYAP dosya bilgileri birbirinden ayrıdır.
 - **Tebligat Yönetimi:** UETS tebligatlarından tebliğ tarihine yasal süre eklenerek süreli görev oluşturma pop-up'ı.
