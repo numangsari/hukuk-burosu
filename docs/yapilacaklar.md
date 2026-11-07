@@ -10,7 +10,7 @@ Tarih: 7 Kasım 2026. Üç belgenin birleşimidir; çakışan maddeler tek satı
 
 - Karar verilenler: tasarım yönü = eski öneri (Y24), inceleme/oluşturma pop-up ile, yan panel yok (Y29), listelerde normal yazım (Y27), `ALLOWED_HOSTS` için ad + IP listesi ve yönetici ekranı (Y11).
 - Tasarım uygulamasında bitenler: renk/yazı tipi değişkenleri ve Source Serif 4, sıkı satır, `tr_title` normal yazım, dosya listesinde mahkeme/numara ayrımı, `…` ile kısaltma, tablo başlıklarında normal yazım, dosya listesinde "sonraki duruşma" sütunu, bakiye şeridi kompakt.
-- Sıradaki: Y26 "Kaydet" yeri kararı, Y29 (görev listesinde pop-up pilot), Y30–Y32.
+- Sıradaki: Y29 (görev listesinde pop-up pilot), Y30–Y32.
 - Karar bekleyen en önemli güvenlik maddesi: Y01 (HTTPS). Seçenekler: ofis içi sertifika, ters vekil + yerel CA, şimdilik atla.
 - Açık not: geliştirme veritabanında gerçek büro verisi görünüyor; `CLAUDE.md` kuralı gereği sentetik veriyle değiştirilmesi değerlendirilmeli.
 - Yerelde çalıştırma: `uv run python -m pytest` (Windows'ta `uv run pytest` trampoline hatası verir), `PYTHONUTF8=1` gerekir.
@@ -64,7 +64,7 @@ Kullanım ~%99 masaüstünde olduğundan telefon maddeleri en sona alındı.
 |---|---|---|---|---|
 | Y24 | **Karar verildi (7 Kasım 2026): eski öneri ("Sade ve yoğun profesyonel").** Nötr gri zemin, tek vurgu `#1F3A63`, kırmızı `#B42318` = gecikti, kehribar `#9A4D06` = yaklaşıyor; serif başlık/dosya adı (Source Serif 4), arayüz Inter, tabular rakamlar; 6 px köşe, gölge yerine ince çizgi, ~40 px satır; renk yerine nokta + metin. Referans: `docs/prototip/tasarim-karsilastirma.html` (2. sekme). | U-öneri | [x] | Source Serif 4 `static/vendor/` altına yerel eklenmeli (CDN yok). Koyu tema aynı değişkenlerle yeniden ayarlanır, buton kontrastı ≥ 4.5:1. |
 | Y25 | **Kısmen yapıldı:** sıkı satır, dosya listesinde mahkeme/numara ayrımı ve `…` kısaltma bitti; sabit başlık ve ana sayfa kartındaki tekrar kaldı. (Eski öneri kuralları ile) Liste yoğunluğu: satır yüksekliği, sabit başlık, hizalı tutar/tarih; ana sayfa kartında tekrarlanan görev türünü kaldır | U11, U12, K1–K2, M1, M4 | [ ] | Mahkeme adı ile esas no'yu iki satıra ayırmak çoğu kırılmayı giderir. |
-| Y26 | Tek sekme bileşeni, tek "Kaydet" yeri | U6, U7 | [~] | Sekmeler tek stile geçti. Kaydet üstte kararı verildi (sabit üst çubuk): Yeni dosya ve Yeni görev yapıldı; `form-footer` kullanan diğer formlar (müvekkil, muhasebe, haciz, arşiv, kapatma vb.) kaldı. |
+| Y26 | Tek sekme bileşeni, tek "Kaydet" yeri | U6, U7 | [x] | Sekmeler tek stilde; Kaydet tüm kayıt formlarında sabit üst çubukta (pop-up dahil). Ayarlar, içe aktarma ve silme onay sayfaları kapsam dışı. |
 | Y27 | Listelerde BÜYÜK HARF yerine normal yazım göster (saklama `tr_upper` ile büyük kalır) | U10 | [~] | Listeler ve ana sayfa yapıldı (`tr_title`, `CLAUDE.md` §4'e işlendi); detay sayfası başlıkları kaldı; tablo başlıkları normal yazıma çevrildi. |
 | Y28 | Arşiv kartlarını varsayılan kompakt yap | U13 | [ ] | |
 | Y29 | Liste satırına tıklayınca kayıt özeti **pop-up (modal) içinde** açılsın; yan panel yapılmayacak. Önce görev listesinde pilot, sonra dosya ve belge listeleri. | M3 | [ ] | **Karar verildi: yan panel yok, her şey pop-up.** Pop-up izinleri tam sayfa ile aynı; kaydedilmemiş değişiklik uyarısı; kapanınca filtre, sıralama, sayfa ve kaydırma konumu ve odaklanan satır korunur. Prototipteki sağ panel kaldırılacak. |

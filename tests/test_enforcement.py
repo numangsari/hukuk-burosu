@@ -226,7 +226,7 @@ def test_stage_column_and_filter_do_not_mix_types(lawyer_client, case_factory):
     response = lawyer_client.get(reverse("cases:list"), {"stage": "enforcement:finalized"})
     assert [case.pk for case in response.context["cases"]] == [first.pk]
     html = response.content.decode()
-    assert "AŞAMA" in html and 'name="stage"' in html and "Takip kesinleşti" in html
+    assert "Aşama" in html and 'name="stage"' in html and "Takip kesinleşti" in html
     response = lawyer_client.get(
         reverse("cases:list"), {"stage": "civil:finalized"}, HTTP_HX_REQUEST="true"
     )

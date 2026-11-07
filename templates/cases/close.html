@@ -1,14 +1,18 @@
 {% extends "base.html" %}
 {% block title %}Dosyayı kapat — {{ case.archive_reference }}{% endblock %}
 {% block content %}
-<div class="page-header">
+<div class="page-header page-header-sticky">
   <div>
     <div class="eyebrow"><a href="{{ case.get_absolute_url }}"><i class="bi bi-chevron-left"></i> {{ case.display_name }}</a></div>
     <h1 class="page-title">Dosyayı kapat</h1>
   </div>
+  <div class="page-actions">
+    <a class="btn btn-light" href="{{ case.get_absolute_url }}">Vazgeç</a>
+    <button type="submit" form="close-form" class="btn btn-primary" onclick="return confirm('Dosya kapatılsın mı?')"><i class="bi bi-archive"></i>Dosyayı kapat</button>
+  </div>
 </div>
 {{ flags|json_script:"closing-flags" }}
-<form method="post" class="card" x-data="closeForm()">
+<form method="post" id="close-form" class="card" x-data="closeForm()">
   {% csrf_token %}
   {% if form.non_field_errors %}<div class="alert alert-danger m-3 mb-0">{{ form.non_field_errors }}</div>{% endif %}
   <div class="form-section">
@@ -70,10 +74,6 @@
   <div class="form-section">
     {% include "partials/field.html" with field=form.closing_note wrap_class="" %}
     <div class="form-text" x-show="noteRequired" x-cloak>Bu kapanma nedeninde açıklama zorunludur.</div>
-  </div>
-  <div class="form-footer">
-    <a class="btn btn-light" href="{{ case.get_absolute_url }}">Vazgeç</a>
-    <button class="btn btn-primary" onclick="return confirm('Dosya kapatılsın mı?')"><i class="bi bi-archive"></i>Dosyayı kapat</button>
   </div>
 </form>
 <script>

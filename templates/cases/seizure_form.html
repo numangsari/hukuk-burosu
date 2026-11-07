@@ -1,9 +1,9 @@
 {% extends "base.html" %}
 {% block title %}Haciz takibi — {{ office.name }}{% endblock %}
 {% block content %}
-<div class="page-header"><div><div class="eyebrow"><a href="{{ case.get_absolute_url }}#t-haciz">{{ case.display_name }}</a></div><h1 class="page-title">{% if item.pk %}Haciz takibini düzenle{% else %}Yeni haciz takibi{% endif %}</h1></div></div>
+<div class="page-header page-header-sticky"><div><div class="eyebrow"><a href="{{ case.get_absolute_url }}#t-haciz">{{ case.display_name }}</a></div><h1 class="page-title">{% if item.pk %}Haciz takibini düzenle{% else %}Yeni haciz takibi{% endif %}</h1></div><div class="page-actions">{% if item.pk and request.user.is_office_admin %}<button type="submit" form="seizure-delete-form" class="btn btn-outline-danger" onclick="return confirm('Haciz kaydı silinsin mi? Varsa oluşturulmuş görevler korunur.')">Sil</button>{% endif %}<a class="btn btn-light" href="{{ case.get_absolute_url }}#t-haciz">Vazgeç</a><button type="submit" form="seizure-form" class="btn btn-primary" {% if not form.borrowers %}disabled{% endif %}>Kaydet</button></div></div>
 {{ seizure_config|json_script:"seizure-config" }}
-<form method="post" class="card" x-data="seizureForm()">{% csrf_token %}
+<form method="post" id="seizure-form" class="card" x-data="seizureForm()">{% csrf_token %}
   <div class="form-section">
     {{ form.non_field_errors }}
     {% if not form.borrowers %}<div class="alert alert-info">Bu dosyada borçlu kayıtlı değil. <a href="{{ case.get_absolute_url }}#t-taraflar">Taraflar bölümünden borçluyu ekleyin</a>.</div>{% endif %}
@@ -24,7 +24,6 @@
     <div class="form-check mb-3">{{ form.is_active }}<label class="form-check-label" for="{{ form.is_active.id_for_label }}">{{ form.is_active.label }}</label>{{ form.is_active.errors }}</div>
     <div class="form-text">Yenileme tarihi girilmiş aktif kayıtlarda o gün dosyanın stajyerine görev, avukatına kontrol atanır. Bilgisayar kapalıysa ilk açılışta oluşturulur.</div>
   </div>
-  <div class="form-footer">{% if item.pk and request.user.is_office_admin %}<button type="submit" form="seizure-delete-form" class="btn btn-outline-danger me-auto" onclick="return confirm('Haciz kaydı silinsin mi? Varsa oluşturulmuş görevler korunur.')">Sil</button>{% endif %}<a class="btn btn-light" href="{{ case.get_absolute_url }}#t-haciz">Vazgeç</a><button class="btn btn-primary" {% if not form.borrowers %}disabled{% endif %}>Kaydet</button></div>
 </form>
 {% if item.pk and request.user.is_office_admin %}<form id="seizure-delete-form" method="post" action="{% url 'cases:seizure_delete' case.pk item.pk %}">{% csrf_token %}</form>{% endif %}
 <script>

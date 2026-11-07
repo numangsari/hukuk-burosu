@@ -1,8 +1,8 @@
 {% extends "base.html" %}
 {% block title %}Yeni fiziki klasör — {{ office.name }}{% endblock %}
 {% block content %}
-<div class="page-header"><h1 class="page-title">Yeni fiziki klasör</h1></div>
-<form method="post" class="card p-4" data-folder-create data-next-url="{% url 'archive:next_number' %}">
+<div class="page-header page-header-sticky"><h1 class="page-title">Yeni fiziki klasör</h1><div class="page-actions"><a class="btn btn-light" href="{% url 'archive:list' %}?view=explorer">Vazgeç</a><button type="submit" form="folder-form" class="btn btn-primary">Klasörü oluştur</button></div></div>
+<form method="post" id="folder-form" class="card p-4" data-folder-create data-next-url="{% url 'archive:next_number' %}">
   {% csrf_token %}
   {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
   <div class="row g-3">
@@ -11,6 +11,5 @@
     <div class="col-md-4">{% include "partials/field.html" with field=form.capacity %}</div>
   </div>
   <p class="text-body-secondary small" data-folder-number>Tür seçildiğinde sıradaki klasör numarası gösterilir.</p>
-  <div class="form-footer"><a class="btn btn-light" href="{% url 'archive:list' %}?view=explorer">Vazgeç</a><button class="btn btn-primary">Klasörü oluştur</button></div>
 </form>
 {% endblock %}
