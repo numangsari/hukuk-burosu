@@ -9,6 +9,12 @@ Tarih: 7 Kasım 2026. Eklenti (`uyap-uets-eklentisi/`) ile sunucu (`apps/imports
 - **Veri kaynağı:** Gelen veri, UYAP/UETS sayfasındaki avukat adının sunucudaki izinli kişiyle (`PortalLawyerAccess`) eşleşmesine göre o kişiye bağlanır. Bağlantı sahibi ile veri sahibi aynı olmak zorunda değildir.
 - **Ortam:** Aktarım `DEBUG` ayarından bağımsızdır; üretimde de çalışır.
 
+## Durum göstergesi (üst çubuk)
+
+- Her bağlantı için UYAP ve UETS ayrı değerlendirilir. **Aktif:** eklenti son 3 dakikada haber verdi ve son tarama sonucu oturumun açık olduğunu gösteriyor (`basladi`, `tamamlandi`, `eksik`). **Pasif:** eklenti sessiz ya da durum `oturum_yok`, `sekme_yok`, `sunucu_yok`, `izin_yok`, `sekme_hazir_degil`, `bekliyor`.
+- Genel ışık: hepsi aktif yeşil, hiçbiri aktif değil kırmızı, karışık sarı, eşleşmiş eklenti yoksa gri. Üzerine gelince avukat listesi ve son başarılı aktarım saati görünür (yalnızca yönetici ve avukatlara; diğerleri yalnızca ışığı görür).
+- **Sınır:** Oturum bilgisi son taramanın sonucudur. Eklenti oturumu ayrıca yoklamadığı için oturum iki taramanın arasında düşerse gösterge geç fark eder. Gerçek oturum denetimi için UYAP'ta hafif bir yoklama isteği keşfedilmelidir.
+
 ## Eklenti tarama davranışı
 
 - **Başlatma:** Eşleştirilmiş eklenti, açık UYAP veya UETS sekmesi bulursa tarar. Sekme yoksa durum `sekme_yok` olur. Sayfadaki avukat adı sunucudaki izinli kişiyle eşleşmeden tarama başlamaz (`bridge.js`, `account-name.js`).

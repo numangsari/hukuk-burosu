@@ -1120,3 +1120,20 @@ tr.chain-prev > td:first-child { position: relative; }
 .case-tabbar .nav-underline-tabs::-webkit-scrollbar { display: none; }
 .case-tabbar-id .clip { max-width: 11rem; }
 form.is-dragover { outline: 2px dashed var(--brand); outline-offset: -2px; background: color-mix(in srgb, var(--brand) 6%, transparent); }
+
+/* Üst çubuk UYAP/UETS bağlantı göstergesi */
+.portal-ind { display: flex; align-items: center; gap: .5rem; margin-right: .5rem; }
+.portal-badge { position: relative; display: inline-flex; align-items: center; gap: .35rem; padding: .15rem .55rem; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--ink-2); font-size: .72rem; font-weight: 650; letter-spacing: .03em; cursor: default; }
+.portal-dot { width: .55rem; height: .55rem; border-radius: 50%; background: var(--muted); display: inline-block; flex: 0 0 auto; }
+.portal-aktif > .portal-dot, .portal-dot.portal-aktif { background: #1f8a4c; }
+.portal-pasif > .portal-dot, .portal-dot.portal-pasif { background: #b42318; }
+.portal-kismi > .portal-dot { background: #c27803; }
+.portal-card { display: none; position: absolute; right: 0; top: calc(100% + .4rem); z-index: 1040; min-width: 15rem; max-width: 22rem; padding: .6rem .75rem; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; color: var(--ink); font-size: .8rem; font-weight: 500; letter-spacing: 0; text-align: left; white-space: normal; }
+.portal-badge:hover .portal-card, .portal-badge:focus .portal-card, .portal-badge:focus-within .portal-card { display: block; }
+.portal-card strong { display: block; margin-bottom: .35rem; font-weight: 650; }
+.portal-row { display: flex; align-items: center; gap: .45rem; padding: .15rem 0; }
+.portal-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.portal-time { color: var(--muted); font-variant-numeric: tabular-nums; font-size: .72rem; }
+.portal-hint { color: var(--muted); }
+.portal-link { display: inline-block; margin-top: .4rem; font-weight: 600; }
+@media (max-width: 767.98px) { .portal-ind { display: none; } }

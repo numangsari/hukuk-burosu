@@ -117,6 +117,15 @@ def pair(request):
     return render(request, "imports/portal_pair.html", {"pair_key": key})
 
 
+@login_required
+@never_cache
+def indicator(request):
+    """Üst çubuk göstergesini yenileyen parça (HTMX ile dakikada bir çağrılır)."""
+    from .portal_status import portal_indicator
+
+    return render(request, "imports/_portal_indicator.html", portal_indicator(request.user))
+
+
 HEALTH_STATES = {
     "bekliyor",
     "basladi",

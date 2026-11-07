@@ -1,0 +1,21 @@
+{# Üst çubuk UYAP/UETS göstergesi. Kullanım: {% portal_status %}; uç nokta aynı parçayı döndürür. #}
+<div id="portal-indicator" class="portal-ind" hx-get="{% url 'portal_indicator' %}" hx-trigger="every 60s" hx-swap="outerHTML">
+  {% for source in sources %}
+  <span class="portal-badge portal-{{ source.state }}" tabindex="0" aria-label="{{ source.label }}: {{ source.text }}">
+    <i class="portal-dot" aria-hidden="true"></i>{{ source.label }}
+    <span class="portal-card" role="tooltip">
+      <strong>{{ source.label }} · {{ source.text }}</strong>
+      {% for person in source.people %}
+      <span class="portal-row">
+        <i class="portal-dot portal-{{ person.state }}" aria-hidden="true"></i>
+        <span class="portal-name">{{ person.name }}</span>
+        <span class="portal-time">{% if person.last_success %}{{ person.last_success|date:"d.m H:i" }}{% else %}aktarım yok{% endif %}</span>
+      </span>
+      {% empty %}
+        {% if source.state == "yok" %}<span class="portal-hint">Bu kurulumda eşleştirilmiş eklenti yok.</span>{% endif %}
+      {% endfor %}
+      {% if can_pair %}<a class="portal-link" href="{% url 'portal_pair' %}">Bu bilgisayarı bağla</a>{% endif %}
+    </span>
+  </span>
+  {% endfor %}
+</div>

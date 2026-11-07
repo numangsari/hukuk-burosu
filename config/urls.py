@@ -15,6 +15,7 @@ urlpatterns = [
     path("portal-inceleme/", portal_views.index, name="portal_review"),
     path("portal-inceleme/baglanti/", portal_sync.pair, name="portal_pair"),
     path("portal-inceleme/durum/", portal_sync.health, name="portal_health"),
+    path("portal-inceleme/gosterge/", portal_sync.indicator, name="portal_indicator"),
     path(
         "portal-inceleme/izin/<int:pk>/sil/", portal_sync.remove_access, name="portal_remove_access"
     ),

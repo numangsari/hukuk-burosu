@@ -1,4 +1,4 @@
-{% load static ui %}<!doctype html>
+{% load static ui portal %}<!doctype html>
 <html lang="tr" data-bs-theme="{{ request.user.theme|default:'light' }}">
 <head>
   <meta charset="utf-8">
@@ -78,6 +78,7 @@
         <div class="search-dd" id="search-dd" x-show="open" x-cloak></div>
       </form>
       <div class="ms-auto d-flex align-items-center gap-1">
+        {% portal_status %}
         <div class="dropdown">
           <button class="btn btn-primary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false"><i class="bi bi-plus-lg me-1"></i>Yeni kayıt</button>
           <ul class="dropdown-menu dropdown-menu-end">
