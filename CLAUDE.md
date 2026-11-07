@@ -211,6 +211,7 @@ Ajan her görevde şu sırayı izler; kullanıcı açıkça daha dar kapsam iste
 - **Bağımlılıklar:** Çapraz modül importlarında döngü oluşturma; yeni bağımlılık için gerekçe, çevrimdışı çalışma etkisi, kurulum/paketleme etkisi ve test ihtiyacını değerlendir.
 - **Entegrasyon izolasyonu:** UYAP/UETS, Google Calendar, dosya sistemi ve veritabanı işlemlerini mümkün olduğunca birbirinden ayrılabilir arayüzlerde tut. Ağ hatası, yinelenen kayıt, kısmi başarısızlık ve yeniden deneme senaryolarını ele al.
 - **Kullanıcı deneyimi:** Mevcut Türkçe arayüz, HTMX/Alpine.js yaklaşımı ve CDN'siz çalışma korunur. Yeni ekranlar erişim kontrolü, boş durum ve anlaşılır hata mesajı içerir.
+- **Tasarım önceliği:** Kullanıcı kullanımın yaklaşık %99’unun bilgisayarda olacağını belirtti. Tasarım değerlendirmelerinde 1366×768 ve 1920×1080 masaüstü ekranları, okunaklı tablolar ve hızlı kayıt geçişleri önceliklidir; mobil iyileştirmeler düşük önceliklidir. [Masaüstü tasarım önerileri](docs/masaustu-tasarim-onerileri.md) öneri yol haritasıdır; uygulanmış özellikleri tarif etmez.
 
 ---
 
