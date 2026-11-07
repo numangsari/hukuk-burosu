@@ -57,9 +57,9 @@
           <div class="col-md-5">
             <label class="form-label" for="{{ form.poa_no.id_for_label }}">{{ form.poa_no.label|capfirst }}</label>
             <div class="input-group"><span class="input-group-text">V-</span>{{ form.poa_no }}</div>
-            {% for e in form.poa_no.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}
+            {% if form.poa_no.errors %}<div id="{{ form.poa_no.auto_id }}_error" class="invalid-feedback d-block">{% for e in form.poa_no.errors %}<div>{{ e }}</div>{% endfor %}</div>{% endif %}
           </div>
-          <div class="col-md-7 d-flex align-items-end"><div class="form-text mb-2">{{ form.poa_no.help_text }}</div></div>
+          <div class="col-md-7 d-flex align-items-end"><div id="{{ form.poa_no.auto_id }}_helptext" class="form-text mb-2">{{ form.poa_no.help_text }}</div></div>
         </div>
         <div class="mt-3">{% include "clients/_formset.html" with fs=formsets.vekalet.0 prefix="vekalet" add_label="Vekalet ekle" %}</div>
       </div>
