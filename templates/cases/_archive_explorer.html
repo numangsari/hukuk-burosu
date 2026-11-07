@@ -4,23 +4,10 @@
       Toplam <strong>{{ filtered_folder_count }}</strong> klasör listeleniyor
       {% if filtered_folder_count != folder_count %}<span class="text-body-tertiary">({{ folder_count }} kayıtlı klasörden filtrelendi)</span>{% endif %}
     </div>
-    {% if filtered_folder_count > 0 %}
-    <div class="text-body-tertiary small d-none d-sm-block">
-      {% if filtered_folder_count <= 2 %}
-        <span class="badge bg-body-secondary text-body-secondary"><i class="bi bi-arrows-angle-expand me-1"></i>Geniş Görünüm ({{ filtered_folder_count }} klasör)</span>
-      {% elif filtered_folder_count <= 6 %}
-        <span class="badge bg-body-secondary text-body-secondary"><i class="bi bi-grid me-1"></i>Ferah Görünüm ({{ filtered_folder_count }} klasör)</span>
-      {% elif filtered_folder_count <= 14 %}
-        <span class="badge bg-body-secondary text-body-secondary"><i class="bi bi-grid-3x2-gap me-1"></i>Dengeli Görünüm ({{ filtered_folder_count }} klasör)</span>
-      {% else %}
-        <span class="badge bg-body-secondary text-body-secondary"><i class="bi bi-grid-3x3-gap me-1"></i>Kompakt Görünüm ({{ filtered_folder_count }} klasör)</span>
-      {% endif %}
-    </div>
-    {% endif %}
   </div>
 
-  {# Dinamik Izgara: Klasör sayısı azaldıkça genişler, çoğaldıkça orantılı olarak daralır #}
-  <div class="archive-dynamic-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, {% if filtered_folder_count <= 2 %}380px{% elif filtered_folder_count <= 5 %}310px{% elif filtered_folder_count <= 14 %}260px{% else %}225px{% endif %}), {% if filtered_folder_count == 1 %}460px{% else %}1fr{% endif %})); gap: 0.875rem;">
+  {# Kartlar her zaman kompakt boyutta; klasör sayısı kart boyutunu değiştirmez. #}
+  <div class="archive-dynamic-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 225px), 1fr)); gap: 0.875rem;">
     {% for f in folder_list %}
     <div class="card p-2.5 p-sm-3 shadow-sm border rounded-3 position-relative hover-shadow transition d-flex flex-column h-100">
       

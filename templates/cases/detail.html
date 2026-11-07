@@ -21,13 +21,13 @@
     <div class="hero-icon type-{{ case.case_type }}"><i class="bi bi-folder2-open"></i></div>
     <div class="min-w-0">
       <div class="d-flex align-items-center gap-2 flex-wrap">
-        {% include "cases/_source_badge.html" %}<h1 class="page-title">{{ case.display_name }}</h1>
+        {% include "cases/_source_badge.html" %}<h1 class="page-title">{{ case.display_name|tr_title }}</h1>
         {% if flow_members|length > 1 %}<a class="chip chip-accent no-dot" href="#t-safahat" onclick="goCaseTab('#t-safahat'); return false"><i class="bi bi-link-45deg"></i>+{{ flow_members|length|add:"-1" }} dosya bağlı</a>{% endif %}
       </div>
       <div class="meta">
         <span><i class="bi bi-person"></i>Müvekkil{% if case.co_clients.all %}ler{% endif %}
           {% if case.client %}
-            <a class="fw-medium" href="{{ case.client.get_absolute_url }}">{{ case.client }}</a>
+            <a class="fw-medium" href="{{ case.client.get_absolute_url }}">{{ case.client|tr_title }}</a>
             {% if case.client.whatsapp_phone %}
               {% case_wa_templates case as c_templates %}
               <button type="button" class="btn btn-sm btn-ghost-success py-0 px-1 ms-1" title="Müvekkile WhatsApp Mesajı Gönder"

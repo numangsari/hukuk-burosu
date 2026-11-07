@@ -1119,3 +1119,4 @@ tr.chain-prev > td:first-child { position: relative; }
 .case-tabbar .nav-underline-tabs { scrollbar-width: none; gap: .9rem; }
 .case-tabbar .nav-underline-tabs::-webkit-scrollbar { display: none; }
 .case-tabbar-id .clip { max-width: 11rem; }
+form.is-dragover { outline: 2px dashed var(--brand); outline-offset: -2px; background: color-mix(in srgb, var(--brand) 6%, transparent); }
