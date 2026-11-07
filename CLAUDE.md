@@ -141,12 +141,12 @@ uv run ruff format --check .                         # Format denetimi
 
 ### `apps/tasks`
 - **İş Akışı:** Sorumlu (`assignee`) ve kontrolcü (`reviewer`) arasında ilerleyen görevler. Durumlar: Aktif (`active`), Kontrolde (`review`), Kapalı (`done`).
-- **Belge Zorunluluğu:** `TaskType.requires_document` işaretli türlerde dilekçe yüklenmeden kontrole gönderilemez.
+- **Belge Zorunluluğu:** `TaskType.requires_document` işaretli türlerde dilekçe yüklenmeden kontrole gönderilemez. Bu türlerde isteğe bağlı iş emri numarası (`Task.work_order_no`) girilir; diğer türlerde sunucu tarafında silinir.
 - **Görev Belgeleri:** Yüklenen belgeler hem medya deposunda saklanır hem de dosyanın ofis klasöründeki `Görevler` dizinine kopyalanır (`TaskDocument`). Onaylanan belgenin son sürümü dosyanın Belgeler sekmesinde yayınlanır.
 - **Puanlama (`TaskPoint`):** Görev kapatıldığında görev türünün puanı sorumluya ve kontrolcüye yazılır; yeniden açılırsa puanlar geri alınır.
 
 ### `apps/accounting`
-- **`LedgerEntry`:** Masraf (`expense`), Vekalet Ücreti (`fee`), Müvekkilden Tahsilat (`client_payment`), Karşı Taraftan Tahsilat / İcra Emanet (`trust_in`), Müvekkile Ödeme (`trust_out`).
+- **`LedgerEntry`:** Masraf (`expense`), Vekalet Ücreti (`fee`), Müvekkilden Tahsilat (`client_payment`), Karşı Taraftan Tahsilat / İcra Emanet (`trust_in`), Müvekkile Ödeme (`trust_out`). Giderlerde (`expense`) isteğe bağlı makbuz numarası (`receipt_no`) tutulur; diğer türlerde sunucu tarafında silinir.
 - **Bakiye Formülü:**
   - *Müvekkilin Ofise Borcu:* Vekalet Ücreti + Masraf
   - *Müvekkilin Ofisten Alacağı:* Karşı Taraftan Tahsilat

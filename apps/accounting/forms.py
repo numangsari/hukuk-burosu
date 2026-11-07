@@ -29,7 +29,16 @@ class LedgerEntryForm(BootstrapMixin, forms.ModelForm):
 
     class Meta:
         model = LedgerEntry
-        fields = ["kind", "client", "case", "amount", "date", "description", "receipt"]
+        fields = [
+            "kind",
+            "client",
+            "case",
+            "amount",
+            "date",
+            "description",
+            "receipt",
+            "receipt_no",
+        ]
         widgets = {"kind": forms.RadioSelect, "date": DateInput()}
 
     def __init__(self, *args, **kwargs):
@@ -51,6 +60,9 @@ class LedgerEntryForm(BootstrapMixin, forms.ModelForm):
 
     def clean(self):
         data = super().clean()
+        # Makbuz numarası yalnızca giderlerde tutulur.
+        if data.get("kind") != EntryKind.EXPENSE:
+            data["receipt_no"] = ""
         client, case = data.get("client"), data.get("case")
         if case and not case.client_id:
             self.add_error(

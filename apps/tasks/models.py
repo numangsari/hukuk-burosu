@@ -50,6 +50,7 @@ class Task(TimeStampedModel):
         limit_choices_to={"is_active": True},
     )
     due_date = models.DateField("son gün")
+    work_order_no = models.CharField("iş emri no", max_length=60, blank=True)
     notes = models.TextField("notlar", blank=True)
     requires_accounting = models.BooleanField("gelir/gider kaydı", null=True, blank=True)
     hearing = models.ForeignKey(

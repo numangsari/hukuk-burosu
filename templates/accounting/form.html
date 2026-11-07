@@ -49,6 +49,7 @@
       </div>
       <div class="col-md-6">{% include "partials/field.html" with field=form.date %}</div>
       <div class="col-12">{% include "partials/field.html" with field=form.receipt %}</div>
+      <div class="col-md-6" x-show="kind === 'expense'" x-cloak>{% include "partials/field.html" with field=form.receipt_no %}</div>
       <div class="col-12">{% include "partials/field.html" with field=form.description wrap_class="" %}</div>
     </div>
   </div>

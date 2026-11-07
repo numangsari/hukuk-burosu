@@ -49,10 +49,12 @@ class TaskForm(BootstrapMixin, forms.ModelForm):
             "assignee",
             "reviewer",
             "due_date",
+            "work_order_no",
             "notes",
             "requires_accounting",
         ]
         widgets = {"due_date": DateInput()}
+        labels = {"work_order_no": "İş emri no"}
 
     def __init__(self, *args, user=None, **kwargs):
         super().__init__(*args, **kwargs)
@@ -167,6 +169,9 @@ class TaskForm(BootstrapMixin, forms.ModelForm):
             )
         if data.get("task_type") and data["task_type"].requires_accounting:
             data["requires_accounting"] = True
+        # İş emri numarası yalnızca dilekçe (belge zorunlu) görev türlerinde tutulur.
+        if not (data.get("task_type") and data["task_type"].requires_document):
+            data["work_order_no"] = ""
         return data
 
 
