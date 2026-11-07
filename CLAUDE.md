@@ -47,6 +47,7 @@ uv run ruff format --check .                         # Format denetimi
 - Türkçe metin yardımcıları (`fold`, `tr_lower`, `tr_upper`, `tr_capitalize_words`).
 - Genel arayüz template tag'leri (`tl` para formatı, `sort_link`, `query_with`).
 - Dinamik sayfalama altyapısı (`pagination.py`).
+- Arayüz tasarım yönü "sade ve yoğun profesyonel": nötr gri zemin, tek vurgu lacivert `#1F3A63`, 6 px köşe, gölge yerine ince çizgi, sayfa başlıklarında serif (Source Serif 4, `static/vendor/source-serif/`), tabloda `tabular-nums` ve sıkı satır. Uzun hücre içeriği `.clip` / `.clip-inline` sınıfıyla tek satırda "…" ile kısalır. Kayıt incelemesi ve oluşturma pop-up (modal) ile yapılır; yan inceleme paneli kullanılmaz. Ayrıntı ve sıra: `docs/yapilacaklar.md`.
 - Türkçe hata sayfaları (`templates/400|403|403_csrf|404|500.html`) ve HTMX hata bildirimi (`static/js/htmx-errors.js`, başarısız HTMX isteğinde toast gösterir).
 - WhatsApp Click-to-Chat altyapısı (`whatsapp.py`): Uluslararası numara standardizasyonu (`clean_phone_for_whatsapp`), wa.me bağlantı üretici (`build_whatsapp_url`), duruşma/dosya mesaj şablonları ve evrensel düzenleme modalı (`whatsapp_modal.html`).
 
@@ -176,7 +177,7 @@ uv run ruff format --check .                         # Format denetimi
 1. **Dosya ve Müvekkil İlişkisi:** Görevler ilgili dosya bağlamında yönetilir; görevdeki müvekkil bilgisi dosyadan türetilir. **İstisna:** UYAP'tan yeni aktarılan ve müvekkili henüz eşleştirilemeyen `Case` kayıtlarında `client=None` olabilir. Bu dosyalarda müvekkil varmış gibi varsayım yapılmaz; eşleştirme kullanıcı tarafından tamamlanır. Yeni kod bu geçici durumu güvenli biçimde ele almalıdır.
 2. **Kayıt Silme Yetkisi:** Dosya, müvekkil, duruşma ve muhasebe kayıtlarını yalnızca yönetici silebilir. Muhasebe hareketleri fiziksel silinmek yerine iptal edilir.
 3. **Ofis Klasör Yapısı:** Belgeler `OfficeSettings.documents_root` altında düzenli hiyerarşide tutulur: `<Kök>\Müvekkiller\<Müvekkil Adı>\<Dosya Adı>\`.
-4. **Türkçe Karakter Standardı:** Müvekkil adları, dosya konuları ve görev başlıkları model seviyesinde Türkçe kurallarla büyük harfe dönüştürülür (`tr_upper`).
+4. **Türkçe Karakter Standardı:** Müvekkil adları, dosya konuları ve görev başlıkları model seviyesinde Türkçe kurallarla büyük harfe dönüştürülür (`tr_upper`). Listelerde ve ana sayfada ekranda normal yazım gösterilir (`tr_title` şablon filtresi, kelime bazlı; UYAP, SGK gibi kısaltmalar büyük kalır). Saklanan veri değişmez; yeni liste şablonlarında ad alanları `|tr_title` ile yazılır.
 5. **Aktivite Kaydı:** Tüm model değişiklikleri ve kullanıcı giriş/çıkışları `django-auditlog` ile kaydedilir.
 
 ---
