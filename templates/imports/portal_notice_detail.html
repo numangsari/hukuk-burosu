@@ -46,7 +46,7 @@
       <div class="card-body">
         <p class="mb-2">Müvekkil: <strong>{{ notice.resolution_client }}</strong>{% if notice.resolution_case %} · Dosya: <strong>{{ notice.resolution_case }}</strong>{% endif %}</p>
         {% if notice.resolution_task %}
-          <p class="mb-2"><a class="btn btn-sm btn-outline-primary" href="{{ notice.resolution_task.get_absolute_url }}"{% if request.GET.pencere %} target="_top"{% endif %}>Oluşturulan görevi aç</a></p>
+          <p class="mb-2"><i class="bi bi-check2-circle me-1 text-success"></i>Görev oluşturuldu</p>
         {% else %}
           <p class="mb-2">Görev yok: {{ notice.no_task_reason }}</p>
         {% endif %}

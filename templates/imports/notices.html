@@ -53,7 +53,7 @@
         </td>
         <td class="text-nowrap">
           {% if n.resolution_task %}
-            <a class="btn btn-sm btn-light" href="{% url 'portal_notice_detail' n.pk %}">
+            <a class="btn btn-sm btn-light" href="{{ n.resolution_task.get_absolute_url }}" title="Görevi aç">
               <i class="bi bi-check2-circle me-1 text-success"></i>Görev oluşturuldu
             </a>
           {% elif n.resolved_at %}

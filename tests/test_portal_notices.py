@@ -1,6 +1,7 @@
 import pytest
 from django.core.files.base import ContentFile
 from django.urls import reverse
+from django.utils import timezone
 
 from apps.accounts.models import User
 from apps.cases.models import Case
@@ -136,6 +137,28 @@ def test_notice_detail_can_open_inside_modal_frame(sample):
     assert response.status_code == 200
     assert response.headers["X-Frame-Options"] == "SAMEORIGIN"
     assert "Örnek tebligat" in response.content.decode()
+
+
+def test_notice_with_task_links_list_to_task_and_detail_only_states_it(sample):
+    import datetime as dt
+
+    client, admin, worker, _, _, case, notice = sample
+    task = Task.objects.create(
+        task_type=TaskType.objects.first(),
+        title="Tebligat görevi",
+        case=case,
+        assignee=worker,
+        reviewer=admin,
+        due_date=dt.date(2026, 11, 20),
+    )
+    notice.resolution_task = task
+    notice.resolved_at = timezone.now()
+    notice.save()
+    listing = client.get(reverse("notice_list"), {"durum": "all"}).content.decode()
+    assert task.get_absolute_url() in listing
+    detail = client.get(reverse("portal_notice_detail", args=[notice.pk])).content.decode()
+    assert "Görev oluşturuldu" in detail
+    assert task.get_absolute_url() not in detail
 
 
 def test_notice_task_window_displays_accounting_choices(sample):
