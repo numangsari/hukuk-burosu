@@ -1,8 +1,14 @@
+import contextvars
+import copy
 import datetime
 
 from django.db import models
 
 from apps.core.text import tr_capitalize_words
+
+# İstek başına ayar önbelleği. Yalnızca `RequestSettingsCacheMiddleware` açar;
+# istek dışında (komut, görev) boştur.
+request_cache = contextvars.ContextVar("office_settings_request_cache", default=None)
 
 
 class OfficeSettings(models.Model):
@@ -205,11 +211,21 @@ class OfficeSettings(models.Model):
         hosts = getattr(settings, "ALLOWED_HOSTS", None)
         if hasattr(hosts, "reset"):
             hosts.reset()
+        cache = request_cache.get()
+        if cache is not None:
+            cache.pop("obj", None)
 
     @classmethod
     def load(cls) -> "OfficeSettings":
-        obj, _ = cls.objects.get_or_create(pk=1)
-        return obj
+        """Tek ayar satırı. İstek sırasında veritabanından bir kez okunur; her çağrıya ayrı kopya
+        verilir, böylece formun kaydedilmemiş değişikliği başka yerde görünmez."""
+        cache = request_cache.get()
+        if cache is None:
+            obj, _ = cls.objects.get_or_create(pk=1)
+            return obj
+        if "obj" not in cache:
+            cache["obj"], _ = cls.objects.get_or_create(pk=1)
+        return copy.copy(cache["obj"])
 
     @property
     def slug(self) -> str:

@@ -35,7 +35,7 @@ class AlpineAttributes(HTMLParser):
 def test_bound_values_remain_javascript_strings(template, field):
     payload = "'+(window.auditXss=1)+'"
     form = SimpleNamespace(**{field: SimpleNamespace(value=payload)})
-    source = (Path(settings.BASE_DIR) / "templates" / template).read_text()
+    source = (Path(settings.BASE_DIR) / "templates" / template).read_text(encoding="utf-8")
     expressions = re.findall(r'x-data="[^"]*"', source)
     html = Template("".join(f"<div {attr}></div>" for attr in expressions)).render(
         Context({"form": form})

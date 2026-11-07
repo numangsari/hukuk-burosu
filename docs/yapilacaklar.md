@@ -6,7 +6,7 @@ Tarih: 7 Kasım 2026. Önceki üç incelemenin (`docs/inceleme-2026-11.md`, `doc
 
 - Karar: teknik sağlamlık maddeleri (Y12–Y18) yapılacak; güvenlik (HTTPS, PIN, yedek şifreleme vb.), hukuki özellikler (süre hesaplayıcı vb.) ve kalan büyük arayüz işleri (komut paleti, toplu işlem, erişilebilirlik, telefon, sabit tablo başlığı) listeden çıkarıldı. Gerekirse `docs/inceleme-*.md` dosyalarından geri alınır.
 - Arayüz tasarımı tamamlandı: sade ve yoğun profesyonel yön, liste yoğunluğu, tek sekme stili, Kaydet üstte, pop-up kuralları, kompakt dosya detayı, sürükle-bırak yükleme (ayrıntı `CLAUDE.md` §3).
-- Yerelde çalıştırma: `uv run python -m pytest` (Windows'ta `uv run pytest` trampoline hatası verir), `PYTHONUTF8=1` gerekir.
+- Yerelde çalıştırma: `uv run python -m pytest` (Windows'ta `uv run pytest` trampoline hatası verir), `PYTHONUTF8=1` artık gerekmez.
 
 Durum: `[ ]` açık · `[~]` kısmen · `[x]` bitti. **Karar** = uygulamadan önce kullanıcıdan karar gerekir.
 
@@ -19,10 +19,10 @@ Durum: `[ ]` açık · `[~]` kısmen · `[x]` bitti. **Karar** = uygulamadan ön
 | Y12 | Google Takvim eşitlemesini istekten ayır (arka plan kuyruğu) | T7 | [~] | Başarısız eşitleme işaretlenip yeniden deneniyor; eşitleme hâlâ istek içinde. Mimari **karar**. |
 | Y13 | UYAP/UETS Node testlerindeki 6 başarısızlığı düzelt ve CI'a ekle; desteklenen davranış matrisi (üretimde `DEBUG=False` iken aktarım kapalı) yaz | B19, B20 | [ ] | Hedef aktarım kapsamı netleşmeden test beklentisi değiştirilmez. |
 | Y14 | `postinstall.ps1` ve `check-reminders.ps1`'i gerçek kurulumlu Windows makinede dene | T4 | [~] | Sözdizimi ve sahte servisle çalışma doğrulandı; gerçek servis/zamanlanmış görev denenmedi. |
-| Y15 | `OfficeSettings.load()` için istek başına önbellek | T10 | [ ] | Eski değer riski ayrıca değerlendirilmeli. |
+| Y15 | `OfficeSettings.load()` için istek başına önbellek | T10 | [x] | Yapıldı (7 Kasım): istek başına önbellek (`RequestSettingsCacheMiddleware`); her çağrı ayrı kopya alır, `save()` önbelleği geçersiz kılar, istek dışında önbellek yok. |
 | Y16 | CI ve geliştirme veritabanı/kullanıcı adı `ozkurt` adlarını yeniden adlandır | T9 | [ ] | Eski kurulumların yükseltilmesi için `Ozkurt*` servis/görev adları kalmalı. |
 | Y17 | Performans: aktivite listesinde N+1, raporların tüm satırları belleğe alması | B23 | [ ] | Gerçek hacimle ölçüm yapılmadı. |
-| Y18 | Windows'ta `tests/test_audit_template_security.py` cp1254 kodlama hatası (`read_text()` kodlama vermiyor) | yeni | [ ] | Linux CI'da sorun yok; yerelde `PYTHONUTF8=1` ile geçiyor. |
+| Y18 | Windows'ta `tests/test_audit_template_security.py` cp1254 kodlama hatası (`read_text()` kodlama vermiyor) | yeni | [x] | Yapıldı (7 Kasım): `read_text(encoding="utf-8")`; `PYTHONUTF8` olmadan da geçer. |
 
 ## Bitenler (özet)
 
