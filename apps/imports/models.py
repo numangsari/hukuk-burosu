@@ -148,6 +148,29 @@ class PortalCase(models.Model):
         return f"{self.authority} {self.number}"
 
 
+class PortalDocument(models.Model):
+    """UYAP'tan alınmış bir dosya evrakı. Aynı evrak ikinci kez alınmaz; kullanıcı belgeyi
+    dosyadan silse bile yeniden indirilmez."""
+
+    portal_case = models.ForeignKey(PortalCase, on_delete=models.CASCADE, related_name="documents")
+    evrak_id = models.CharField(max_length=64)
+    content_hash = models.CharField(max_length=64)
+    document = models.OneToOneField(
+        "cases.Document", on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "UYAP evrakı"
+        verbose_name_plural = "UYAP evrakları"
+        constraints = [
+            models.UniqueConstraint(fields=["portal_case", "evrak_id"], name="uyap_evrak_tekil")
+        ]
+
+    def __str__(self):
+        return f"UYAP evrakı {self.evrak_id}"
+
+
 class PortalNotice(models.Model):
     fingerprint = models.CharField(max_length=64, unique=True)
     source_users = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name="+", blank=True)

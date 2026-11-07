@@ -33,7 +33,7 @@ window.addEventListener('message', event => {
   if (event.source === window && event.origin === location.origin && event.data?.source === 'ozkurt-sync') {
     if (window.top !== window || typeof event.data.id !== 'string') return;
     verifiedName().then(name => name ? chrome.runtime.sendMessage({type: 'sync_item', data: {...event.data.data, lawyer_name:name}}) : {ok:false}).then(result => {
-      window.postMessage({source: 'ozkurt-sync-response', id: event.data.id, ok: result?.ok === true}, location.origin);
+      window.postMessage({source: 'ozkurt-sync-response', id: event.data.id, ok: result?.ok === true, status: result?.status}, location.origin);
     }).catch(() => window.postMessage({source: 'ozkurt-sync-response', id: event.data.id, ok: false}, location.origin));
     return;
   }

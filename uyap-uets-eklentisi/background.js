@@ -58,7 +58,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       const current = Array.isArray(data.uyap_checkpoint) ? data.uyap_checkpoint.filter(x => /^[a-f0-9]{64}$/.test(x)) : [];
       if (message.action === 'add') {
         if (!current.includes(message.fingerprint)) current.push(message.fingerprint);
-        if (current.length > 100000) return {ok:false};
+        if (current.length > 500000) return {ok:false};
         await chrome.storage.local.set({uyap_checkpoint:current});
       } else if (message.action === 'clear') {
         await chrome.storage.local.set({uyap_checkpoint:[]});
@@ -77,7 +77,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         method: 'POST', credentials: 'omit', headers: {'Content-Type': 'application/json', Authorization: `Bearer ${key}`},
         body: JSON.stringify(redact(message.data)), signal: AbortSignal.timeout(120000)
       });
-      return {ok: response.ok};
+      return {ok: response.ok, status: response.status};
     })().then(sendResponse).catch(() => sendResponse({ok: false}));
     return true;
   }

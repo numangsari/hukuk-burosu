@@ -22,7 +22,7 @@
       if (event.source !== window || event.origin !== location.origin || event.data?.source !== 'ozkurt-sync-response' || event.data.id !== id) return;
       clearTimeout(timer);
       window.removeEventListener('message', onReply);
-      event.data.ok ? resolve() : reject(new Error('sunucu'));
+      event.data.ok ? resolve() : reject(Object.assign(new Error('sunucu'), {status: event.data.status}));
     }
     window.addEventListener('message', onReply);
     window.postMessage({source: 'ozkurt-sync', id, data}, location.origin);
@@ -119,6 +119,67 @@
         method: 'POST', credentials: 'include', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body), signal: AbortSignal.timeout(60000)
       }));
     };
+    const DOCUMENT_DELAY = 2500;
+    const MAX_DOCUMENT_BYTES = 20000000;
+    const evrakList = async caseId => {
+      const items = [];
+      const pages = new Set();
+      for (let page = 1; page <= 2000; page++) {
+        const data = await post('/list_dosya_evraklar.ajx', {dosyaId: caseId, pageNumber: page});
+        if (!data || !Array.isArray(data.son20Evrak)) throw new Error('yanit');
+        const signature = JSON.stringify(data.son20Evrak);
+        if (data.son20Evrak.length && pages.has(signature)) throw new Error('yanit');
+        pages.add(signature);
+        items.push(...data.son20Evrak);
+        if (data.son20Evrak.length < 20) break;
+        await wait(150);
+      }
+      return items;
+    };
+    // Evrak ve varsa ek evraklar; her biri ayrı indirilir.
+    const evrakEntries = items => {
+      const entries = [];
+      for (const item of items) {
+        if (!item || typeof item !== 'object') continue;
+        const meta = value => String(value ?? '').slice(0, 120);
+        if (item.evrakId != null && String(item.evrakId)) {
+          entries.push({id: String(item.evrakId), meta: {tur: meta(item.tur), tip: meta(item.tip), onaylandigiTarih: meta(item.onaylandigiTarih), birimEvrakNo: meta(item.birimEvrakNo)}});
+        }
+        if (Array.isArray(item.ekEvrakListesi)) {
+          for (const extra of item.ekEvrakListesi) {
+            if (extra && typeof extra === 'object' && extra.evrakId != null && String(extra.evrakId)) {
+              entries.push({id: String(extra.evrakId), meta: {tur: meta(extra.tur || ('Ek: ' + (item.tur || ''))), tip: meta(extra.tip || item.tip), onaylandigiTarih: meta(extra.onaylandigiTarih || item.onaylandigiTarih), birimEvrakNo: meta(item.birimEvrakNo)}});
+            }
+          }
+        }
+      }
+      return [...new Map(entries.map(entry => [entry.id, entry])).values()];
+    };
+    const documentName = disposition => {
+      const encoded = /filename\*=(?:UTF-8|utf-8)''([^;]+)/.exec(disposition || '');
+      if (encoded) { try { return decodeURIComponent(encoded[1]).slice(0, 200); } catch (_) { /* düz ada düş */ } }
+      const plain = /filename="?([^";]+)"?/i.exec(disposition || '');
+      return plain ? plain[1].slice(0, 200) : '';
+    };
+    const downloadDocument = async (caseId, evrakId) => {
+      await verify();
+      const delay = DOCUMENT_DELAY - (Date.now() - lastRequest);
+      if (delay > 0) await wait(delay);
+      await verify();
+      lastRequest = Date.now();
+      const response = await nativeFetch('/download_document_brd.uyap?' + new URLSearchParams({dosyaId: caseId, evrakId}).toString(), {
+        method: 'GET', credentials: 'include', signal: AbortSignal.timeout(120000)
+      });
+      if (response.status === 401) throw new Error('oturum');
+      if (!response.ok) throw new Error('yanit');
+      if (/text\/(html|xml)/i.test(response.headers.get('content-type') || '')) throw new Error('yanit');
+      if (Number(response.headers.get('content-length') || 0) > MAX_DOCUMENT_BYTES) throw new Error('boyut');
+      const bytes = new Uint8Array(await response.arrayBuffer());
+      if (!bytes.length || bytes.length > MAX_DOCUMENT_BYTES) throw new Error('boyut');
+      let binary = '';
+      for (let start = 0; start < bytes.length; start += 32768) binary += String.fromCharCode(...bytes.subarray(start, start + 32768));
+      return {name: documentName(response.headers.get('content-disposition')), content: btoa(binary)};
+    };
     const categories = [{name:'Ceza', code:'0'}, {name:'Hukuk', code:'1'}, {name:'İcra', code:'2'}, {name:'İdari Yargı', code:'6'}, {name:'Satış Memurluğu', code:'11'}, {name:'Arabuluculuk', code:'25'}];
     const paths = ['/dosyaAyrintiBilgileri_brd.ajx', '/dosya_taraf_bilgileri_brd.ajx', '/list_dosya_evraklar.ajx'];
     let partial = false;
@@ -165,7 +226,10 @@
               const financeFingerprint = await fingerprint('finans1:' + caseId);
               const mainDone = completedCases.has(caseFingerprint);
               const financeDone = completedCases.has(financeFingerprint);
-              if (mainDone && financeDone) continue;
+              const docsFingerprint = await fingerprint('belge1:' + caseId);
+              const docsDone = completedCases.has(docsFingerprint);
+              if (mainDone && financeDone && docsDone) continue;
+              let evrakItems = null;
               let caseComplete = true; status('basladi', {total: result[1] || 0, processed: seenCases.size, currentFile: row?.dosyaNo || ''});
               const itemList = {source:'UYAP', path:'/search_phrase_detayli.ajx', data:{kategori:category.name, birim:unit.kod, durum:state, sonuc:[[row], 1]}};
               let captures = [itemList];
@@ -176,12 +240,14 @@
                   const body = {dosyaId: caseId};
                   if (path === '/list_dosya_evraklar.ajx') {
                     const documentPages = new Set();
+                    evrakItems = [];
                     for (let documentPage = 1; documentPage <= 2000; documentPage++) {
                       const data = await post(path, {...body, pageNumber:documentPage});
-                      if (!data || !Array.isArray(data.son20Evrak)) { partial = true; caseComplete = false; break; }
+                      if (!data || !Array.isArray(data.son20Evrak)) { partial = true; caseComplete = false; evrakItems = null; break; }
                       const signature = JSON.stringify(data.son20Evrak);
-                      if (data.son20Evrak.length && documentPages.has(signature)) { partial = true; caseComplete = false; break; }
+                      if (data.son20Evrak.length && documentPages.has(signature)) { partial = true; caseComplete = false; evrakItems = null; break; }
                       documentPages.add(signature);
+                      evrakItems.push(...data.son20Evrak);
                       captures.push({source:'UYAP', path, data:{kategori:category.name, durum:state, dosyaId:caseId, sonuc:data}});
                       if (captures.length >= 90) { await send({type:'uyap', captures}); captures = [itemList]; }
                       if (data.son20Evrak.length < 20) break;
@@ -217,6 +283,30 @@
               await send({type:'uyap', captures});
               if (caseComplete && !mainDone) { await checkpoint('add', caseFingerprint); completedCases.add(caseFingerprint); }
               if (financeComplete && !financeDone) { await checkpoint('add', financeFingerprint); completedCases.add(financeFingerprint); }
+              if (!docsDone) {
+                let items = caseComplete && evrakItems ? evrakItems : null;
+                if (!items) {
+                  try { items = await evrakList(caseId); }
+                  catch (error) { if (['oturum', 'izin'].includes(error.message)) throw error; partial = true; items = null; }
+                }
+                if (items) {
+                  let docsComplete = true;
+                  for (const entry of evrakEntries(items)) {
+                    try {
+                      const file = await downloadDocument(caseId, entry.id);
+                      await send({type:'uyap_document', dosyaId:caseId, evrakId:entry.id, meta:entry.meta, name:file.name, content:file.content});
+                    } catch (error) {
+                      if (['oturum', 'izin'].includes(error.message)) throw error;
+                      if (error.message === 'sunucu' && ![400, 403, 404, 409].includes(error.status)) throw error;
+                      partial = true;
+                      // Sunucu belgeyi kalıcı reddetti (geçersiz/çok büyük): tekrar denemek yararsız.
+                      if (!(error.message === 'boyut' || (error.message === 'sunucu' && error.status === 400))) docsComplete = false;
+                    }
+                    await wait(150);
+                  }
+                  if (docsComplete) { await checkpoint('add', docsFingerprint); completedCases.add(docsFingerprint); }
+                }
+              }
             }
             if (page * 10 >= result[1]) break;
             if (!pageRows.length || page === 2000) { partial = true; break; }

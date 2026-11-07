@@ -51,6 +51,22 @@ def mirror_task_document(doc) -> str:
     return ""
 
 
+def mirror_uyap_document(doc: Document) -> str:
+    """UYAP'tan alınan evrakı dosyanın UYAP Evrakları klasörüne kopyalar."""
+    if folders.root() is None:
+        return NOT_CONFIGURED
+    try:
+        target = folders.copy_file(doc.file, folders.uyap_dir(doc.case), doc.original_name)
+    except folders.FolderError as e:
+        log.warning("UYAP evrakı klasöre kopyalanamadı: %s", e)
+        return str(e)
+    if len(str(target)) > Document._meta.get_field("folder_path").max_length:
+        return "Belge klasör yolu çok uzun; kopya yolu kaydedilemedi."
+    doc.folder_path = str(target)
+    Document.objects.filter(pk=doc.pk).update(folder_path=doc.folder_path)
+    return ""
+
+
 def mirror_poa(poa) -> str:
     """Vekalet PDF'ini müvekkilin Vekaletler klasörüne kopyalar."""
     if not poa.pdf:

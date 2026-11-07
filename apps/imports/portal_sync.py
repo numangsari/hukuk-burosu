@@ -31,11 +31,13 @@ from .models import (
     PortalNoticeDocument,
 )
 from .portal_ingest import (
+    DocumentRejected,
     check_import_access,
     clean,
     digest,
     import_captures,
     import_notice_document,
+    import_uyap_document,
     merge_portal_data,
 )
 
@@ -331,10 +333,10 @@ def receive(request):
             raise ValueError
         source = body.get("type")
         identity = body.get("identity")
-        if source not in {"uyap", "notice"}:
+        if source not in {"uyap", "notice", "uyap_document"}:
             raise ValueError
         name = body.get("lawyer_name")
-        permission = "uyap_enabled" if source == "uyap" else "uets_enabled"
+        permission = "uets_enabled" if source == "notice" else "uyap_enabled"
         with transaction.atomic():
             if name is not None:
                 allowed = find_name_permission(name, permission)
@@ -361,7 +363,11 @@ def receive(request):
                 return JsonResponse(
                     {"error": "Kişi için bu kaynaktan aktarım izni yok."}, status=403
                 )
-            if source == "uyap":
+            if source == "uyap_document":
+                if not getattr(settings, "PORTAL_UYAP_AUTOMATION_ENABLED", True):
+                    return JsonResponse({"error": "UYAP otomatik taraması durduruldu."}, status=403)
+                import_uyap_document(body, allowed.user)
+            elif source == "uyap":
                 if not getattr(settings, "PORTAL_UYAP_AUTOMATION_ENABLED", True):
                     return JsonResponse({"error": "UYAP otomatik taraması durduruldu."}, status=403)
                 items = body.get("captures")
@@ -410,6 +416,8 @@ def receive(request):
                     )
             else:
                 raise ValueError
+    except DocumentRejected as error:
+        return JsonResponse({"error": str(error)}, status=error.status)
     except (ValueError, TypeError, KeyError, RuntimeError, binascii.Error):
         return JsonResponse({"error": "Aktarım doğrulanamadı."}, status=400)
     return JsonResponse({"ok": True})

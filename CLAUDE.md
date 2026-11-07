@@ -156,8 +156,8 @@ uv run ruff format --check .                         # Format denetimi
 
 ### `apps/imports` & UYAP/UETS Entegrasyonu
 - **Tarayıcı Eklentisi (`uyap-uets-eklentisi`):** UYAP Avukat Portal ve UETS oturumlarını yerel sunucuya bağlar. Her avukat kendi bilgisayarında eklentiyi eşleştirir (yönetici her zaman; avukat yalnızca `PortalLawyerAccess` izni varsa); aktarım üretimde de çalışır. Üst çubukta UYAP/UETS durum göstergesi vardır (`portal_status.py`: yeşil aktif, kırmızı pasif, sarı bazı avukatlar pasif, gri eşleşmiş eklenti yok; üzerine gelince avukat listesi, yalnızca yönetici ve avukatlara). Desteklenen davranış ve durumlar: `docs/uyap-uets-davranis.md`.
-- **UYAP evrak ön hazırlığı:** Eklenti `/list_dosya_evraklar.ajx` üzerinden evrak listelerini sayfalı alır; bu işlem evrak içeriklerini indirmez. İçerik indirme yolu ve yanıt biçimi doğrulanmadan otomatik indirme eklenmemeli. Sonraki uygulamada erişim izni, belge kimliğiyle tekrar önleme, yarım kalan işlemi sürdürme ve müvekkili eşleşmemiş dosyalar ele alınmalı.
-- **Dosya Bilgisi & Taraf Eşitlemesi (`portal_case_sync.py`):** Canlı UYAP aktarımında eşleşen büro dosyası yoksa otomatik `Case` açılır; vekili olduğumuz taraf sistemdeki bir müvekkille eşleşirse bağlanır, eşleşmezse `client=None` bırakılarak "Eksik büro bilgisi" filtresine (`?missing=1`) düşer. UYAP'tan gelen duruşmalar `Hearing` kaydı olarak aktarılır. **UYAP dosyalarının evrakları henüz otomatik çekilmez**; sisteme ayrıca yüklenmiş belgelerle UYAP dosya bilgileri birbirinden ayrıdır.
+- **UYAP evrak içeriği:** Eklenti taranan her dosyanın tüm evraklarını `/download_document_brd.uyap` ile indirir; sunucu bunları dosyanın Belgeler sekmesine ve ofis klasöründeki `UYAP Evrakları` alt klasörüne ekler, aynı evrakı ikinci kez almaz (`PortalDocument`). Ayrıntı: `docs/uyap-uets-davranis.md`.
+- **Dosya Bilgisi & Taraf Eşitlemesi (`portal_case_sync.py`):** Canlı UYAP aktarımında eşleşen büro dosyası yoksa otomatik `Case` açılır; vekili olduğumuz taraf sistemdeki bir müvekkille eşleşirse bağlanır, eşleşmezse `client=None` bırakılarak "Eksik büro bilgisi" filtresine (`?missing=1`) düşer. UYAP'tan gelen duruşmalar `Hearing` kaydı olarak aktarılır. UYAP evrakları eklenti taramasıyla dosyanın Belgeler sekmesine indirilir (not: ilk tam tarama uzun sürer).
 - **Tebligat Yönetimi:** UETS tebligatlarından tebliğ tarihine yasal süre eklenerek süreli görev oluşturma pop-up'ı.
   - Dosyayla eşleştirilen tebligat belgeleri ilgili dosyanın `Tebligatlar` klasörüne kopyalanır. Dosyası olmayan tebligatlar sistemde saklanır; yanlış dosyaya otomatik yerleştirilmez. Önceden eşleştirilmiş belgeler `uv run python manage.py copy_notice_documents` ile güvenli biçimde yeniden kontrol edilebilir; mevcut farklı içerik ezilmez.
 
@@ -265,7 +265,7 @@ uv run ruff format --check .
 ## 11. Hukuki Süreler ve Dış Veri Sınırları
 
 - **Süre hesabı:** `notice_default_due_days` (varsayılan 14), hukuki sürelerin tamamı için geçerli bir kural değildir; görev oluştururken kullanılan varsayılan ayardır. Kesin süre, tebliğ usulü, başlangıç günü, tatil, dava/takip türü ve ilgili mevzuata göre değişir. Doğrulanmamış süreyi kesin hukuki son gün gibi gösterme; kullanıcı incelemesi gerektiren durumları belirt.
-- **UYAP veri kapsamı:** Eşitlenen dosya bilgileri, taraflar ve duruşmalar, **UYAP dosya evraklarının** da indirildiği anlamına gelmez. Evrak tabanlı işlemler yalnızca gerçekten yüklenmiş/erişilebilir dosyalar üzerinden yürütülür.
+- **UYAP veri kapsamı:** Evrak içerikleri yalnızca tarama o dosya için tamamlandıysa dosyada bulunur; bir dosyada belge yoksa taramanın henüz bitmediği veya evrakın reddedildiği (gösterge ve durum `eksik`) olabilir. Evrak tabanlı işlemler yalnızca gerçekten alınmış belgeler üzerinden yürütülür.
 - **Onay mekanizması:** `task_review_mode` ile belirlenen kontrolcü akışını atlama. Duruşma görevinin dokümante edilmiş kontrolcüsüz kapanış istisnasını ve diğer istisnaları değişiklik öncesinde doğrula.
 
 ---

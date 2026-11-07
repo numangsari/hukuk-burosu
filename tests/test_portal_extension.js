@@ -30,8 +30,10 @@ async function run(hostname, fetch, serverOk = true, saved = new Set()) {
       if (message.source === 'ozkurt-verify') queueMicrotask(() => dispatch({source:'ozkurt-verify-response', id:message.id, ok:true}));
       if (message.source === 'ozkurt-sync') {
         uploads.push(message.data);
-        const ok = typeof serverOk === 'function' ? serverOk(message.data) : serverOk;
-        queueMicrotask(() => dispatch({source:'ozkurt-sync-response', id:message.id, ok}));
+        const outcome = typeof serverOk === 'function' ? serverOk(message.data) : serverOk;
+        const ok = typeof outcome === 'number' ? outcome < 300 : outcome;
+        const status = typeof outcome === 'number' ? outcome : undefined;
+        queueMicrotask(() => dispatch({source:'ozkurt-sync-response', id:message.id, ok, status}));
       }
       if (message.source === 'ozkurt-checkpoint') {
         if (message.action === 'add') saved.add(message.fingerprint);
@@ -43,7 +45,7 @@ async function run(hostname, fetch, serverOk = true, saved = new Set()) {
   window.top = window;
   function dispatch(data) { for (const handler of [...handlers]) handler({source:window, origin, data}); }
   const context = {window, location:{hostname, origin}, localStorage:{getItem:() => 'ornek'},
-    crypto:{randomUUID:() => String(Math.random()), subtle:webcrypto.subtle}, AbortSignal, Uint8Array, TextEncoder, Map, Set,
+    crypto:{randomUUID:() => String(Math.random()), subtle:webcrypto.subtle}, AbortSignal, Uint8Array, TextEncoder, URLSearchParams, Map, Set,
     btoa: value => Buffer.from(value, 'binary').toString('base64'),
     setTimeout: (fn, ms) => { if (ms < 10000) { delays.push(ms); queueMicrotask(fn); } return 1; }, clearTimeout:() => {}};
   vm.runInNewContext(source, context);
@@ -127,7 +129,7 @@ test('Kesilen UYAP taraması tamamlanan dosyaları yeniden sorgulamaz', async ()
   };
   const first = await run('avukat.uyap.gov.tr', fetch, data => !data.captures.some(c => c.data?.dosyaId === '2'), saved);
   assert.equal(first.statuses.at(-1), 'sunucu_yok');
-  assert.equal(saved.size, 2); // ilk dosyanın ana ve finans izi
+  assert.equal(saved.size, 3); // ilk dosyanın ana, finans ve belge izi
   details.length = 0;
   const second = await run('avukat.uyap.gov.tr', fetch, true, saved);
   assert.equal(second.statuses.at(-1), 'tamamlandi');
@@ -195,4 +197,150 @@ test('Dosya türü kodu olmayan kayıtta finans yanıtı istenmez ve tarama eksi
   });
   assert(!queries.includes('/dosya_tahsilat_reddiyat_bilgileri_brd.ajx'));
   assert.equal(result.statuses.at(-1), 'eksik');
+});
+
+// ---- Evrak içeriği indirme -------------------------------------------------------------
+
+function pdfResponse(bytes = '%PDF-1.4\nornek', disposition = 'inline; filename="tensip.pdf"', type = 'application/pdf') {
+  const headers = {'content-type': type, 'content-disposition': disposition};
+  return {ok:true, status:200, headers:{get: name => headers[name.toLowerCase()] || ''},
+    arrayBuffer: async () => new TextEncoder().encode(bytes).buffer};
+}
+
+// Tek açık dosya ('a'), verilen evrak listesiyle; indirme istekleri `downloads` dizisine yazılır.
+function documentFetch({items, downloads = [], download = () => pdfResponse(), listFor}) {
+  return async (path, options) => {
+    if (path.startsWith('/download_document_brd.uyap')) {
+      const query = new URL(path, 'https://avukat.uyap.gov.tr').searchParams;
+      downloads.push({dosyaId: query.get('dosyaId'), evrakId: query.get('evrakId'), method: options.method, credentials: options.credentials});
+      return download(query.get('evrakId'));
+    }
+    const body = JSON.parse(options.body);
+    if (path === '/yargiBirimleriSorgula_brd.ajx') return UNIT(body);
+    if (path === '/search_phrase_detayli.ajx') return body.dosyaDurumKod === 0 ? listPage(1, 'a', body) : listPage(0, 'k', body);
+    if (path === '/list_dosya_evraklar.ajx') return response({son20Evrak: body.pageNumber === 1 ? (listFor ? listFor() : items) : []});
+    return response({ornek:true});
+  };
+}
+
+const EVRAKS = [
+  {evrakId:'e1', tur:'Tensip Zaptı', tip:'DOSYA', onaylandigiTarih:'05.11.2026', birimEvrakNo:'11'},
+  {evrakId:'e2', tur:'Tebliğ Mazbatası', tip:'GLN', onaylandigiTarih:'06.11.2026'}
+];
+
+test('UYAP evrakları tek tek indirilip sunucuya gönderilir ve dosya tamamlanır', async () => {
+  const downloads = [];
+  const saved = new Set();
+  const result = await run('avukat.uyap.gov.tr', documentFetch({items: EVRAKS, downloads}), true, saved);
+  assert.deepEqual(downloads.map(item => item.evrakId), ['e1', 'e2']);
+  assert(downloads.every(item => item.dosyaId === 'a1' && item.method === 'GET' && item.credentials === 'include'));
+  const documents = result.uploads.filter(item => item.type === 'uyap_document');
+  assert.equal(documents.length, 2);
+  assert.equal(documents[0].dosyaId, 'a1');
+  assert.equal(documents[0].name, 'tensip.pdf');
+  assert.equal(Buffer.from(documents[0].content, 'base64').toString(), '%PDF-1.4\nornek');
+  assert.equal(documents[0].meta.tur, 'Tensip Zaptı');
+  assert.equal(documents[1].meta.tip, 'GLN');
+  assert.equal(result.statuses.at(-1), 'tamamlandi');
+});
+
+test('Belgeleri tamamlanan dosya sonraki taramada yeniden indirilmez', async () => {
+  const saved = new Set();
+  const first = [];
+  await run('avukat.uyap.gov.tr', documentFetch({items: EVRAKS, downloads: first}), true, saved);
+  assert.equal(first.length, 2);
+  // Tarama bitince izler silinir; ara verilen taramayı taklit etmek için izleri geri koyarız.
+  const fingerprints = async () => {
+    const digest = async value => Buffer.from(await webcrypto.subtle.digest('SHA-256', new TextEncoder().encode(value))).toString('hex');
+    return [await digest('a1'), await digest('finans1:a1'), await digest('belge1:a1')];
+  };
+  for (const item of await fingerprints()) saved.add(item);
+  const second = [];
+  const result = await run('avukat.uyap.gov.tr', documentFetch({items: EVRAKS, downloads: second}), true, saved);
+  assert.equal(second.length, 0);
+  assert.equal(result.statuses.at(-1), 'tamamlandi');
+});
+
+test('Ana ve finans verisi tamam, belgeler eksikse yalnızca belgeler alınır', async () => {
+  const saved = new Set();
+  const digest = async value => Buffer.from(await webcrypto.subtle.digest('SHA-256', new TextEncoder().encode(value))).toString('hex');
+  saved.add(await digest('a1'));
+  saved.add(await digest('finans1:a1'));
+  const downloads = [];
+  const metadata = [];
+  const base = documentFetch({items: EVRAKS, downloads});
+  const result = await run('avukat.uyap.gov.tr', async (path, options) => {
+    if (['/dosyaAyrintiBilgileri_brd.ajx', '/dosya_taraf_bilgileri_brd.ajx', '/dosya_tahsilat_reddiyat_bilgileri_brd.ajx'].includes(path)) metadata.push(path);
+    return base(path, options);
+  }, true, saved);
+  assert.deepEqual(downloads.map(item => item.evrakId), ['e1', 'e2']);
+  assert.deepEqual(metadata, []);
+  assert.equal(result.statuses.at(-1), 'tamamlandi');
+});
+
+test('Sunucu dosyayı henüz bağlamadıysa belge atlanır, tarama sürer ve eksik sayılır', async () => {
+  const saved = new Set();
+  const result = await run('avukat.uyap.gov.tr', documentFetch({items: EVRAKS}), data => data.type === 'uyap_document' ? 409 : true, saved);
+  assert.equal(result.uploads.filter(item => item.type === 'uyap_document').length, 2);
+  assert.equal(result.statuses.at(-1), 'eksik');
+  // Belge izi eklenmediği için bir sonraki taramada yeniden denenir.
+  const digest = async value => Buffer.from(await webcrypto.subtle.digest('SHA-256', new TextEncoder().encode(value))).toString('hex');
+  assert.equal(saved.has(await digest('belge1:a1')), false);
+});
+
+test('Sunucu belgeyi kalıcı reddederse (400) tekrar denenmez', async () => {
+  const saved = new Set();
+  const digest = async value => Buffer.from(await webcrypto.subtle.digest('SHA-256', new TextEncoder().encode(value))).toString('hex');
+  const result = await run('avukat.uyap.gov.tr', documentFetch({items: EVRAKS}), data => data.type === 'uyap_document' ? 400 : true, saved);
+  assert.equal(result.statuses.at(-1), 'eksik');
+  // Tarama bitince izler temizlenir; o ana kadar belge izinin eklendiği saved'in temizlenmesinden anlaşılır.
+  assert.equal(saved.size, 0);
+  assert.equal(await digest('x') !== '', true);
+});
+
+test('Sunucu başka bir hata verirse tarama durur', async () => {
+  const result = await run('avukat.uyap.gov.tr', documentFetch({items: EVRAKS}), data => data.type === 'uyap_document' ? 500 : true);
+  assert.equal(result.statuses.at(-1), 'sunucu_yok');
+});
+
+test('İndirmede oturum kapanırsa (401) tarama oturum yok diye durur', async () => {
+  const result = await run('avukat.uyap.gov.tr', documentFetch({items: EVRAKS, download: () => ({ok:false, status:401, headers:{get:() => ''}})}));
+  assert.equal(result.statuses.at(-1), 'oturum_yok');
+});
+
+test('HTML veya XML yanıtı belge sayılmaz ve eksik bildirilir', async () => {
+  const result = await run('avukat.uyap.gov.tr', documentFetch({items: EVRAKS, download: () => pdfResponse('<html></html>', '', 'text/html')}));
+  assert.equal(result.uploads.filter(item => item.type === 'uyap_document').length, 0);
+  assert.equal(result.statuses.at(-1), 'eksik');
+});
+
+test('Çok büyük belge atlanır, diğerleri alınır', async () => {
+  const downloads = [];
+  const result = await run('avukat.uyap.gov.tr', documentFetch({
+    items: EVRAKS, downloads,
+    download: id => id === 'e1' ? ({...pdfResponse(), headers: {get: name => name.toLowerCase() === 'content-length' ? '30000000' : ''}}) : pdfResponse()
+  }));
+  const sent = result.uploads.filter(item => item.type === 'uyap_document');
+  assert.deepEqual(sent.map(item => item.evrakId), ['e2']);
+  assert.equal(result.statuses.at(-1), 'eksik');
+});
+
+test('Ek evraklar da indirilir ve aynı kimlik bir kez alınır', async () => {
+  const downloads = [];
+  const items = [{evrakId:'e1', tur:'Karar', ekEvrakListesi:[{evrakId:'e1-ek', tur:'Ek'}, {evrakId:'e1'}]}];
+  await run('avukat.uyap.gov.tr', documentFetch({items, downloads}));
+  assert.deepEqual(downloads.map(item => item.evrakId), ['e1', 'e1-ek']);
+});
+
+test('Belge indirmeleri istekler arasında bekleyerek yapılır', async () => {
+  const result = await run('avukat.uyap.gov.tr', documentFetch({items: EVRAKS}));
+  assert(result.delays.some(ms => ms >= 2400 && ms < 5000), 'belge indirme aralığı bulunamadı');
+});
+
+test('Dosya adı UTF-8 başlığından okunur', async () => {
+  const result = await run('avukat.uyap.gov.tr', documentFetch({
+    items: [EVRAKS[0]],
+    download: () => pdfResponse('%PDF-1.4\nx', "inline; filename*=UTF-8''Tensip%20Zapt%C4%B1.pdf")
+  }));
+  assert.equal(result.uploads.find(item => item.type === 'uyap_document').name, 'Tensip Zaptı.pdf');
 });

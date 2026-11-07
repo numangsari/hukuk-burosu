@@ -1,5 +1,7 @@
 """Eklentiden gelen UYAP/UETS verilerini işler."""
 
+import base64
+import binascii
 import hashlib
 import json
 import re
@@ -17,7 +19,13 @@ from django.utils.text import get_valid_filename
 from apps.clients.models import Client
 from apps.core.text import fold, tr_upper
 
-from .models import PortalCapture, PortalCase, PortalNotice, PortalNoticeDocument
+from .models import (
+    PortalCapture,
+    PortalCase,
+    PortalDocument,
+    PortalNotice,
+    PortalNoticeDocument,
+)
 from .portal_case_sync import sync_portal_case
 from .portal_finance import import_finance
 
@@ -284,6 +292,106 @@ def import_notice_document(notice, source_part, content, filename, user):
         from .notice_folders import schedule_notice_copy
 
         schedule_notice_copy(notice)
+    return document
+
+
+class DocumentRejected(Exception):
+    """Evrak kabul edilmedi; `status` eklentiye dönen HTTP durum kodudur."""
+
+    def __init__(self, message, status):
+        super().__init__(message)
+        self.status = status
+
+
+_DOCUMENT_SUFFIXES = {
+    ".pdf", ".udf", ".xml", ".zip", ".doc", ".docx", ".xls", ".xlsx",
+    ".jpg", ".jpeg", ".png", ".txt", ".p7s", ".tif", ".tiff",
+}  # fmt: skip
+MAX_DOCUMENT_BYTES = 20_000_000
+
+
+def document_category(kind):
+    from apps.cases.models import DocumentCategory
+
+    text = fold(str(kind or ""))
+    for words, category in (
+        (("tebli", "mazbata"), DocumentCategory.SERVICE),
+        (("karar", "hukum", "ilam"), DocumentCategory.DECISION),
+        (("dilekce", "cevap", "talep", "itiraz", "beyan"), DocumentCategory.PETITION),
+        (("bilirkisi", "kesif raporu"), DocumentCategory.EXPERT),
+    ):
+        if any(word in text for word in words):
+            return category
+    return DocumentCategory.OTHER
+
+
+def _evrak_name(filename, content):
+    path = PurePath(str(filename or "").replace("\\", "/"))
+    suffix = path.suffix.lower()
+    if content.startswith(b"%PDF-"):
+        suffix = ".pdf"
+    elif suffix not in _DOCUMENT_SUFFIXES or suffix == ".pdf":
+        suffix = ".bin"
+    try:
+        stem = get_valid_filename(path.stem)[:200]
+    except SuspiciousFileOperation:
+        stem = ""
+    return (stem or "UYAP_evraki") + suffix
+
+
+def import_uyap_document(body, source_user):
+    """Eklentiden gelen tek UYAP evrakını dosyanın Belgeler bölümüne ekler (yinelenmez)."""
+    from apps.cases.documents import mirror_uyap_document
+    from apps.cases.models import Document
+
+    dosya_id, evrak_id = body.get("dosyaId"), body.get("evrakId")
+    meta, name, encoded = body.get("meta") or {}, body.get("name"), body.get("content")
+    if (
+        not isinstance(dosya_id, str)
+        or not 1 <= len(dosya_id) <= 64
+        or not isinstance(evrak_id, str)
+        or not 1 <= len(evrak_id) <= 64
+        or not isinstance(meta, dict)
+        or not isinstance(encoded, str)
+        or not encoded
+        or not (name is None or isinstance(name, str))
+    ):
+        raise ValueError("Evrak bilgisi geçersiz.")
+    try:
+        content = base64.b64decode(encoded, validate=True)
+    except (binascii.Error, ValueError) as error:
+        raise ValueError("Evrak içeriği çözülemedi.") from error
+    if not content or len(content) > MAX_DOCUMENT_BYTES:
+        raise ValueError("Evrak boş olamaz ve 20 MB sınırını aşamaz.")
+    portal = PortalCase.objects.select_for_update().filter(data__liste__dosyaId=dosya_id).first()
+    if portal is None:
+        raise DocumentRejected("Dosya bulunamadı.", 404)
+    if not portal.source_users.filter(pk=source_user.pk).exists():
+        raise DocumentRejected("Bu dosya için evrak alma izni yok.", 403)
+    if portal.case_id is None:
+        raise DocumentRejected("Dosya henüz büro dosyasına bağlanmadı.", 409)
+    if PortalDocument.objects.filter(portal_case=portal, evrak_id=evrak_id).exists():
+        return None
+    kind = str(meta.get("tur") or "")[:120]
+    stamp = str(meta.get("onaylandigiTarih") or "")[:40]
+    title = (kind or "UYAP evrakı") + (f" ({stamp})" if stamp else "")
+    filename = _evrak_name(name, content)
+    document = Document(
+        case=portal.case,
+        title=title[:300],
+        category=document_category(kind),
+        notes=f"UYAP evrakı. Evrak no: {evrak_id}",
+        original_name=filename,
+    )
+    document.file.save(filename, ContentFile(content), save=False)
+    document.save()
+    PortalDocument.objects.create(
+        portal_case=portal,
+        evrak_id=evrak_id,
+        content_hash=hashlib.sha256(content).hexdigest(),
+        document=document,
+    )
+    mirror_uyap_document(document)
     return document
 
 
