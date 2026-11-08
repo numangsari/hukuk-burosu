@@ -180,6 +180,20 @@ def hearing_to_google_payload(hearing: Hearing) -> dict:
     }
 
 
+# Google'ın "etkinlik yok" yanıtları; yalnızca bunlarda yerel etkinlik kimliği bırakılır.
+GONE_STATUSES = {404, 410}
+
+
+def _http_status(error) -> int | None:
+    status = getattr(error, "status_code", None)
+    if status is None:
+        status = getattr(getattr(error, "resp", None), "status", None)
+    try:
+        return int(status) if status is not None else None
+    except (TypeError, ValueError):
+        return None
+
+
 def _set_sync_pending(hearing: Hearing, pending: bool) -> None:
     """Eşitleme bekleme işaretini audit kaydı üretmeden günceller."""
     if hearing.pk and hearing.google_sync_pending != pending:
@@ -211,7 +225,13 @@ def sync_hearing_to_google(hearing: Hearing) -> str | None:
                     eventId=hearing.google_event_id,
                 ).execute()
             except HttpError as e:
-                log.info("Google takvim etkinliği silinirken hata (zaten silinmiş olabilir): %s", e)
+                if _http_status(e) not in GONE_STATUSES:
+                    # Yetki/kota/sunucu hatası: etkinlik Google'da duruyor olabilir; kimlik
+                    # korunur, sonra yeniden denenir.
+                    log.warning("Google Takvim silme hatası (Hearing #%s): %s", hearing.pk, e)
+                    _set_sync_pending(hearing, True)
+                    return None
+                log.info("Google takvim etkinliği zaten silinmiş: %s", hearing.google_event_id)
             except Exception as e:
                 # Ağ hatası: etkinlik kimliği korunur, sonra yeniden denenir.
                 log.warning("Google Takvim silme hatası (Hearing #%s): %s", hearing.pk, e)

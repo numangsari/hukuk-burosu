@@ -111,7 +111,22 @@ def test_inactive_routine_and_inactive_assignee_are_skipped(intern, lawyer):
     assert not Task.objects.exists()
 
 
-def test_inactive_reviewer_is_dropped(intern):
+def test_inactive_reviewer_skips_task_when_review_is_required(intern):
+    # Kontrolcü pasifleşince görev kontrolcüsüz açılıp onaysız kapanamaz; kural atlanır.
+    off = make_user("pasifkontrol", "lawyer")
+    off.is_active = False
+    off.save()
+    routine(intern, reviewer=off)
+    assert routines.create_due_tasks(MONDAY) == (0, 1)
+    assert not Task.objects.exists()
+
+
+def test_inactive_reviewer_is_dropped_when_assignee_may_close_alone(intern):
+    from apps.office.models import OfficeSettings
+
+    office = OfficeSettings.load()
+    office.role_permissions = {"tasks.close_without_review": ["intern"]}
+    office.save(update_fields=["role_permissions"])
     off = make_user("pasifkontrol", "lawyer")
     off.is_active = False
     off.save()

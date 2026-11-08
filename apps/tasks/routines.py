@@ -2,12 +2,14 @@
 
 import calendar
 import datetime as dt
+import logging
 
 from django.core.files.base import ContentFile
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 from apps.cases.documents import mirror_task_document
+from apps.core.permission_registry import role_has_perm
 from apps.office.models import TaskType
 
 from . import services
@@ -16,6 +18,8 @@ from .models import RoutineTask, Task, TaskDocument, TaskEvent
 ROUTINE_TYPE_NAME = "Rutin Görev"
 # Sunucu kapalı kaldıysa kaçan gün en çok bu kadar geriye dönük açılır.
 CATCH_UP_DAYS = 3
+
+log = logging.getLogger(__name__)
 
 
 def _month_day(year: int, month: int, day: int) -> dt.date:
@@ -94,6 +98,15 @@ def create_due_tasks(today: dt.date | None = None) -> tuple[int, int]:
             skipped += 1
             continue
         reviewer = routine.reviewer if routine.reviewer and routine.reviewer.is_active else None
+        if (
+            routine.reviewer_id
+            and reviewer is None
+            and not role_has_perm(routine.assignee.role, "tasks.close_without_review")
+        ):
+            # Kontrolcü pasifleşmiş ve sorumlu onaysız kapatamıyor: görev kontrolcüsüz açılmaz.
+            log.warning("Rutin görev #%s atlandı: etkin kontrolcü yok.", routine.pk)
+            skipped += 1
+            continue
         second = routine.second_reviewer
         second = second if reviewer and second and second.is_active else None
         try:

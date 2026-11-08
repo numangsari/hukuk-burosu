@@ -176,6 +176,11 @@ class EntryCreateView(EditRequiredMixin, CreateView):
             return Client.objects.filter(pk=client_id).first()
         return None
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["user"] = self.request.user
+        return kwargs
+
     def get_initial(self):
         g = self.request.GET
         initial = {"date": timezone.localdate(), "kind": g.get("tur") or EntryKind.FEE}

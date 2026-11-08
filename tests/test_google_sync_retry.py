@@ -91,6 +91,42 @@ def test_cancelled_hearing_network_error_does_not_raise(case_factory, api_enable
     assert hearing.google_sync_pending is False
 
 
+def _http_error(status):
+    from googleapiclient.errors import HttpError
+
+    resp = MagicMock()
+    resp.status = status
+    resp.reason = "hata"
+    return HttpError(resp, b"{}")
+
+
+@pytest.mark.parametrize("status", [403, 429, 500])
+def test_cancelled_hearing_http_error_keeps_event_id(case_factory, api_enabled, service, status):
+    service.events.return_value.delete.return_value.execute.side_effect = _http_error(status)
+    hearing = _hearing(case_factory, status=HearingStatus.CANCELLED, google_event_id="ev-7")
+
+    assert google_sync.sync_hearing_to_google(hearing) is None
+    hearing.refresh_from_db()
+    assert hearing.google_event_id == "ev-7"
+    assert hearing.google_sync_pending is True
+
+
+@pytest.mark.parametrize("status", [404, 410])
+def test_cancelled_hearing_already_gone_clears_event_id(case_factory, api_enabled, service, status):
+    service.events.return_value.delete.return_value.execute.side_effect = _http_error(status)
+    hearing = _hearing(
+        case_factory,
+        status=HearingStatus.CANCELLED,
+        google_event_id="ev-8",
+        google_sync_pending=True,
+    )
+
+    google_sync.sync_hearing_to_google(hearing)
+    hearing.refresh_from_db()
+    assert hearing.google_event_id == ""
+    assert hearing.google_sync_pending is False
+
+
 def test_disabled_api_does_not_mark_pending(case_factory):
     hearing = _hearing(case_factory)
     assert google_sync.sync_hearing_to_google(hearing) is None

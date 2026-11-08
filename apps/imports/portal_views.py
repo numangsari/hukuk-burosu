@@ -20,6 +20,11 @@ from apps.clients.models import Client
 from apps.core.forms import BootstrapMixin
 from apps.core.list_export import build_result, export_response, wants_export
 from apps.core.permission_registry import has_perm
+from apps.core.permissions import (
+    filter_visible_cases,
+    filter_visible_clients,
+    filter_visible_notices,
+)
 from apps.core.text import tr_title
 from apps.tasks.models import TaskDocument
 from apps.tasks.views import TaskCreateView
@@ -38,7 +43,11 @@ from .portal_matching import (
 @login_required
 @require_GET
 def notice_document(request, pk):
-    document = get_object_or_404(PortalNoticeDocument, pk=pk)
+    document = get_object_or_404(
+        PortalNoticeDocument,
+        pk=pk,
+        notice__in=filter_visible_notices(PortalNotice.objects.all(), request.user),
+    )
     try:
         stream = document.file.open("rb")
     except (FileNotFoundError, ValueError):
@@ -58,7 +67,10 @@ def notice_document(request, pk):
 @login_required
 @xframe_options_sameorigin
 def notice_detail(request, pk):
-    notice = get_object_or_404(PortalNotice.objects.prefetch_related("documents"), pk=pk)
+    notice = get_object_or_404(
+        filter_visible_notices(PortalNotice.objects.prefetch_related("documents"), request.user),
+        pk=pk,
+    )
     details = notice.data.get("ayrinti", {}) if isinstance(notice.data, dict) else {}
     details = details if isinstance(details, dict) else {}
     source = details.get("eyp_details", {})
@@ -76,9 +88,19 @@ def notice_detail(request, pk):
     )
 
 
+def _visible_portal_cases(user):
+    """Görünür dosyaya bağlı UYAP kayıtları; dosyasız kayıt yalnızca tüm dosyaları görene açık."""
+    qs = PortalCase.objects.select_related("case")
+    from apps.core.permissions import can_view_all_office_data
+
+    if can_view_all_office_data(user):
+        return qs
+    return qs.filter(case__in=filter_visible_cases(Case.objects.all(), user))
+
+
 @login_required
 def detail(request, pk):
-    record = get_object_or_404(PortalCase.objects.select_related("case"), pk=pk)
+    record = get_object_or_404(_visible_portal_cases(request.user), pk=pk)
     data = record.data
     latest_detail = next(
         (item for item in reversed(data.get("ayrintilar", [])) if isinstance(item, dict)), {}
@@ -229,6 +251,12 @@ class NoTaskForm(BootstrapMixin, forms.Form):
         ),
     )
 
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if user is not None:
+            self.fields["client"].queryset = filter_visible_clients(Client.objects.all(), user)
+            self.fields["case"].queryset = filter_visible_cases(Case.objects.all(), user)
+
     def clean(self):
         data = super().clean()
         case, client = data.get("case"), data.get("client")
@@ -272,10 +300,22 @@ def _export_notices(notices, kind):
     return export_response(result, kind)
 
 
+def _suggested_case(notice, user):
+    """Tebligat konusundan önerilen dosya; kullanıcının göremediği dosya önerilmez."""
+    auth, num = parse_notice_subject(notice.subject)
+    case = find_matching_case(auth, num) if num else None
+    if case and not filter_visible_cases(Case.objects.filter(pk=case.pk), user).exists():
+        return None
+    return case
+
+
 def _notice_filters(request):
     """Tebligat listesi süzgeçleri: durum sekmesi, arama ve tarih aralığı (GET)."""
-    qs = PortalNotice.objects.select_related(
-        "resolution_client", "resolution_case", "resolution_task", "resolved_by"
+    qs = filter_visible_notices(
+        PortalNotice.objects.select_related(
+            "resolution_client", "resolution_case", "resolution_task", "resolved_by"
+        ),
+        request.user,
     ).order_by("-delivered_at", "-pk")
     state = request.GET.get("durum", "pending")
     if state not in {"pending", "task", "no_task", "all"}:
@@ -335,8 +375,7 @@ def notice_list(request):
     page = Paginator(notices, page_size(request)).get_page(request.GET.get("page"))
     for n in page.object_list:
         if not n.resolution_case:
-            auth, num = parse_notice_subject(n.subject)
-            n.suggested_case = find_matching_case(auth, num) if num else None
+            n.suggested_case = _suggested_case(n, request.user)
         else:
             n.suggested_case = None
     return render(
@@ -350,19 +389,23 @@ def notice_list(request):
 def notice_no_task(request, pk):
     if not has_perm(request.user, "notices.no_task"):
         raise PermissionDenied
-    notice = get_object_or_404(PortalNotice, pk=pk)
+    visible = filter_visible_notices(PortalNotice.objects.all(), request.user)
+    notice = get_object_or_404(visible, pk=pk)
     initial = {}
-    auth, num = parse_notice_subject(notice.subject)
-    suggested = find_matching_case(auth, num) if num else None
+    suggested = _suggested_case(notice, request.user)
     if suggested:
         initial["case"] = suggested.pk
         if suggested.client:
             initial["client"] = suggested.client.pk
 
-    form = NoTaskForm(request.POST or None, initial=initial if not request.POST else None)
+    form = NoTaskForm(
+        request.POST or None,
+        initial=initial if not request.POST else None,
+        user=request.user,
+    )
     if request.method == "POST" and form.is_valid():
         with transaction.atomic():
-            notice = get_object_or_404(PortalNotice.objects.select_for_update(), pk=pk)
+            notice = get_object_or_404(visible.select_for_update(), pk=pk)
             if notice.resolved_at:
                 messages.error(request, "Bu tebligat daha önce işlendi.")
             else:
@@ -406,7 +449,9 @@ class NoticeTaskCreateView(TaskCreateView):
             return redirect_to_login(request.get_full_path())
         if not has_perm(request.user, "notices.create_task"):
             raise PermissionDenied
-        self.notice = get_object_or_404(PortalNotice, pk=kwargs["pk"])
+        self.notice = get_object_or_404(
+            filter_visible_notices(PortalNotice.objects.all(), request.user), pk=kwargs["pk"]
+        )
         if self.notice.resolved_at:
             messages.error(request, "Bu tebligat daha önce işlendi.")
             return redirect("notice_list")
@@ -424,8 +469,7 @@ class NoticeTaskCreateView(TaskCreateView):
         initial = super().get_initial()
         if self.notice.delivered_at:
             initial["due_date"] = calculate_notice_due_date(self.notice.delivered_at)
-        auth, num = parse_notice_subject(self.notice.subject)
-        suggested = find_matching_case(auth, num) if num else None
+        suggested = _suggested_case(self.notice, self.request.user)
         if suggested:
             initial["case"] = suggested
             if suggested.client:
@@ -511,7 +555,10 @@ def notice_undo_no_task(request, pk):
         raise PermissionDenied
     suffix = "?pencere=1" if request.GET.get("pencere") else ""
     with transaction.atomic():
-        notice = get_object_or_404(PortalNotice.objects.select_for_update(), pk=pk)
+        notice = get_object_or_404(
+            filter_visible_notices(PortalNotice.objects.all(), request.user).select_for_update(),
+            pk=pk,
+        )
         if not notice.resolved_at or notice.resolution_task_id:
             messages.error(request, 'Geri alınacak bir "görev yok" işlemi bulunamadı.')
         else:

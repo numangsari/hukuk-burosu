@@ -24,3 +24,20 @@ def test_entry_return_url_stays_local(target, expected):
         client=SimpleNamespace(get_absolute_url=lambda: "/muvekkiller/1/")
     )
     assert view.get_success_url() == expected
+
+
+@pytest.mark.parametrize(
+    "target,expected",
+    [
+        ("/takvim/?view=list", "/takvim/?view=list"),
+        ("//example.invalid/", ""),
+        ("/\\example.invalid/", ""),
+        ("https://example.invalid/", ""),
+        ("", ""),
+    ],
+)
+def test_hearing_next_stays_local(target, expected):
+    from apps.cases.views_hearings import _safe_next
+
+    request = RequestFactory().post("/durusmalar/yeni/", {"next": target})
+    assert _safe_next(request) == expected

@@ -9,6 +9,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.decorators import method_decorator
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views import View
 from django.views.decorators.clickjacking import xframe_options_sameorigin
 
@@ -24,6 +25,14 @@ from apps.core.whatsapp import format_hearing_result_message
 from .forms import HearingClientNoteForm, HearingResultForm, HearingStandaloneForm
 from .hearing_list import list_context
 from .models import Case, CaseEvent, Hearing, HearingInformMethod, HearingStatus
+
+
+def _safe_next(request) -> str:
+    """POST'taki `next` adresi yalnızca site içi göreli yolsa döner; değilse boş."""
+    nxt = request.POST.get("next", "")
+    if nxt.startswith("/") and url_has_allowed_host_and_scheme(nxt, allowed_hosts=set()):
+        return nxt
+    return ""
 
 
 def _visible_hearing(request, pk):
@@ -92,7 +101,7 @@ class HearingCreateStandaloneView(View):
             _excuse_task_message(request, h)
             if request.GET.get("pencere"):
                 return HttpResponse("<script>window.parent.location.reload()</script>")
-            next_url = request.POST.get("next") or reverse("agenda:calendar")
+            next_url = _safe_next(request) or reverse("agenda:calendar")
             return redirect(next_url)
         return render(request, "cases/hearing_form.html", {"form": form, "title": "Yeni Etkinlik"})
 
@@ -159,7 +168,7 @@ class HearingEditView(View):
                 return _detail_redirect(request, h)
             if request.GET.get("pencere"):
                 return HttpResponse("<script>window.parent.location.reload()</script>")
-            next_url = request.POST.get("next") or (reverse("agenda:calendar") + "?view=list")
+            next_url = _safe_next(request) or (reverse("agenda:calendar") + "?view=list")
             return redirect(next_url)
         return self._render(request, form, hearing)
 

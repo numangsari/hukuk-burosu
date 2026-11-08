@@ -41,8 +41,16 @@ class LedgerEntryForm(BootstrapMixin, forms.ModelForm):
         ]
         widgets = {"kind": forms.RadioSelect, "date": DateInput()}
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, user=None, **kwargs):
         super().__init__(*args, **kwargs)
+        if user is not None:
+            # Kullanıcı yalnızca görebildiği dosya ve müvekkile hareket girer.
+            from apps.core.permissions import filter_visible_cases, filter_visible_clients
+
+            self.fields["client"].queryset = filter_visible_clients(
+                self.fields["client"].queryset, user
+            )
+            self.fields["case"].queryset = filter_visible_cases(self.fields["case"].queryset, user)
         self.fields["kind"].choices = EntryKind.choices
         self.fields["kind"].widget.attrs.update({"class": "form-check-input", "x-model": "kind"})
         self.fields["client"].widget.attrs.update({"x-ref": "client", "@change": "filterCases()"})

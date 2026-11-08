@@ -97,6 +97,26 @@ def filter_visible_clients(qs, user):
     )
 
 
+def filter_visible_notices(qs, user):
+    """UETS tebligatları: bağlı dosya veya müvekkil görünürse görünür.
+
+    Dosyaya/müvekkile bağlanmamış tebligat işlenmeyi beklediği için herkese görünür.
+    """
+    if can_view_all_office_data(user):
+        return qs
+    from apps.cases.models import Case
+    from apps.clients.models import Client
+
+    return qs.filter(
+        Q(resolution_case__in=filter_visible_cases(Case.objects.all(), user))
+        | Q(
+            resolution_case__isnull=True,
+            resolution_client__in=filter_visible_clients(Client.objects.all(), user),
+        )
+        | Q(resolution_case__isnull=True, resolution_client__isnull=True)
+    )
+
+
 def filter_visible_tasks(qs, user):
     """Kullanıcının görebileceği görevler: kendi görevleri veya görünür dosyaların görevleri.
 

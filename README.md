@@ -15,7 +15,7 @@ Hukuk büroları için özel olarak tasarlanmış; dava, icra, müvekkil, görev
 ### 2. Birleşik Takvim & Duruşma Yönetimi
 - **3 Farklı Görünüm Modu:** Tek ekranda Ay Görünümü, Hafta Görünümü ve Liste/Duruşmalar Görünümü (`/takvim/`).
 - **Duruşma ve Toplantı Takibi:** Duruşmaların yanı sıra dosyasız müvekkil randevuları, arabuluculuk görüşmeleri ve ofis içi toplantılar.
-- **Otomatik Duruşma Görevi:** Duruşmadan 1 gün önce sabah dosya sorumlusuna otomatik görev açılır. Görev; duruşmaya girilmediyse *"Mazeret Gönderildi"*, girildiyse *"Duruşmada Verilen Kararlar"* ve *"Müvekkile Bilgi Verildi"* seçenekleriyle kapatılır.
+- **Duruşma Sonucu ve Bilgilendirme:** Duruşmalar UYAP'tan otomatik gelir. Yapılmış duruşmada verilen karar, sonraki duruşma tarihi ve müvekkil bilgilendirmesi duruşma penceresinden girilir; gerekirse aynı pencereden görev açılır.
 - **Google Takvim API Entegrasyonu:** Sistemdeki duruşma ve randevular ofis Google Takvimi'ne tek yönlü (mükerrer kayıt yapmadan ve mevcut etkinliklere dokunmadan) otomatik aktarılır.
 - **Excel Dökümü ve Hızlı Ara Karar:** Tek tıkla ara karar tutanağı girme ve duruşma listesini Excel olarak dışa aktarma.
 
@@ -33,7 +33,7 @@ Hukuk büroları için özel olarak tasarlanmış; dava, icra, müvekkil, görev
 ### 5. UYAP & UETS Otomasyonu
 - **Tarayıcı Eklentisi:** UYAP Avukat Portal ve UETS oturumlarıyla doğrudan haberleşen yerel tarayıcı eklentisi (`uyap-uets-eklentisi`).
 - **Dosya, Taraf ve Duruşma Eşitleme:** UYAP'taki dosya bilgileri, taraf listeleri, duruşmalar ve icra dosya hesapları sisteme otomatik aktarılır.
-- **Süreli Tebligat Görevleri:** UETS'ten gelen tebligatlardan otomatik yasal süre rozetleri hesaplanır ve tek tıkla görev oluşturulur.
+- **Tebligat Görevleri:** UETS'ten gelen tebligattan tek tıkla görev oluşturulur. Görevin bitiş tarihi tebliğ tarihine ayarlı gün sayısı eklenerek önerilir; bu kesin hukuki son gün değildir, avukat kontrol etmelidir.
 
 ### 6. Cari Hesap, Finans & Muhasebe
 - **Müvekkil Cari Bakiyesi:** Masraf, vekalet ücreti, müvekkilden tahsilat, karşı taraftan tahsilat ve ödeme hareketleri.

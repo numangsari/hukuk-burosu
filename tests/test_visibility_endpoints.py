@@ -184,3 +184,79 @@ def test_media_checks_record_visibility(restricted, task, stranger, lawyer):
 
 def test_public_mode_keeps_everything_visible(task, stranger):
     assert login(stranger).get(reverse("tasks:detail", args=[task.pk])).status_code == 200
+
+
+# ---- UETS tebligatı, UYAP kaydı ve muhasebe formu ---------------------------------------
+
+
+@pytest.fixture
+def notice(task):
+    from apps.imports.models import PortalNotice, PortalNoticeDocument
+
+    record = PortalNotice.objects.create(
+        fingerprint="gizli-tebligat",
+        subject="Gizli tebligat",
+        resolution_case=task.case,
+        resolution_client=task.case.client,
+    )
+    doc = PortalNoticeDocument(
+        notice=record, source_part="part", content_hash="hash", original_name="belge.pdf"
+    )
+    doc.file.save("belge.pdf", ContentFile(b"%PDF-1.4\ndeneme"))
+    return record
+
+
+def test_notice_endpoints_hide_invisible_case(restricted, notice, stranger, lawyer):
+    doc = notice.documents.get()
+    urls = [
+        reverse("portal_notice_detail", args=[notice.pk]),
+        reverse("portal_notice_document", args=[doc.pk]),
+    ]
+    for url in urls:
+        assert login(stranger).get(url).status_code == 404, url
+        assert login(lawyer).get(url).status_code == 200, url
+    listing = login(stranger).get(reverse("notice_list") + "?durum=all")
+    assert "Gizli tebligat" not in listing.content.decode()
+    assert (
+        "Gizli tebligat"
+        in login(lawyer).get(reverse("notice_list") + "?durum=all").content.decode()
+    )
+
+
+def test_unmatched_notice_stays_visible_for_processing(restricted, stranger):
+    from apps.imports.models import PortalNotice
+
+    record = PortalNotice.objects.create(fingerprint="eslesmemis", subject="Eşleşmemiş tebligat")
+    assert login(stranger).get(reverse("portal_notice_detail", args=[record.pk])).status_code == 200
+
+
+def test_portal_case_detail_hides_invisible_case(restricted, task, stranger, lawyer):
+    from apps.imports.models import PortalCase
+
+    record = PortalCase.objects.create(
+        fingerprint="gizli-uyap", authority="Örnek Mahkeme", number="2026/1", case=task.case
+    )
+    url = reverse("portal_review_detail", args=[record.pk])
+    assert login(stranger).get(url).status_code == 404
+    assert login(lawyer).get(url).status_code == 200
+
+
+def test_ledger_form_rejects_invisible_case(restricted, task, stranger):
+    from apps.accounting.models import LedgerEntry
+
+    office = OfficeSettings.load()
+    office.role_permissions = {**office.role_permissions, "accounting.edit": ["lawyer"]}
+    office.save(update_fields=["role_permissions"])
+    response = login(stranger).post(
+        reverse("accounting:create"),
+        {
+            "kind": "expense",
+            "client": task.case.client_id,
+            "case": task.case_id,
+            "amount": "100",
+            "date": timezone.localdate().isoformat(),
+            "description": "deneme",
+        },
+    )
+    assert response.status_code == 200  # form hatasıyla yeniden gösterilir
+    assert not LedgerEntry.objects.exists()
