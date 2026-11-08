@@ -50,6 +50,7 @@
       <a class="side-link" href="{% url 'notice_list' %}"><i class="bi bi-envelope"></i>Tebligatlar</a>
       <div class="nav-section">Kayıtlar</div>
       <a class="side-link {% if ns == 'cases' %}active{% endif %}" href="{% url 'cases:list' %}"><i class="bi bi-folder2-open"></i>Dosyalar</a>
+      <a class="side-link {% if ns == 'enforcement' %}active{% endif %}" href="{% url 'enforcement:list' %}"><i class="bi bi-hammer"></i>İcra İşlemleri</a>
       <a class="side-link {% if ns == 'clients' %}active{% endif %}" href="{% url 'clients:list' %}"><i class="bi bi-people"></i>Müvekkiller</a>
       <a class="side-link {% if ns == 'archive' %}active{% endif %}" href="{% url 'archive:list' %}"><i class="bi bi-archive"></i>Fiziki Arşiv</a>
       <a class="side-link {% if request.resolver_match.url_name == 'pool' %}active{% endif %}" href="{% url 'tasks:pool' %}"><i class="bi bi-journal-text"></i>Dilekçe Havuzu</a>

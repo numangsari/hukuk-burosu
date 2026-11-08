@@ -14,7 +14,7 @@
       <td class="text-end tabular fw-semibold amount-{{ e.kind }}">{{ e.amount|tl }}</td>
       <td class="small text-body-secondary">{{ e.created_by|default:"—" }}</td>
       <td class="text-end">
-        {% if can_edit_accounting and not e.is_cancelled %}
+        {% perm "accounting.cancel" e as can_cancel_entry %}        {% if can_cancel_entry and not e.is_cancelled %}
         {% include "accounting/_cancel.html" with next=request.get_full_path %}
         {% endif %}
       </td>

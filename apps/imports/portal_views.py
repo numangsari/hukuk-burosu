@@ -1,3 +1,5 @@
+import datetime as dt
+
 from django import forms
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
@@ -29,7 +31,6 @@ from .portal_finance import import_finance
 from .portal_matching import (
     calculate_notice_due_date,
     find_matching_case,
-    get_notice_urgency,
     parse_notice_subject,
 )
 
@@ -271,7 +272,6 @@ def _export_notices(notices, kind):
 
     rows = []
     for n in notices:
-        due = calculate_notice_due_date(n.delivered_at)
         if n.resolution_task_id:
             state = "Görev oluşturuldu"
         elif n.resolved_at:
@@ -284,7 +284,6 @@ def _export_notices(notices, kind):
                 timezone.localtime(n.delivered_at).strftime("%d.%m.%Y %H:%M")
                 if n.delivered_at
                 else "",
-                due if n.delivered_at else None,
                 n.sender,
                 n.subject or "Tebligat",
                 tr_title(case.display_name) if case else "",
@@ -293,7 +292,6 @@ def _export_notices(notices, kind):
         )
     columns = [
         Column("Tarih", width=1.2),
-        Column("Olası son gün", "date", 1.0),
         Column("Gönderen", width=1.8),
         Column("Konu", width=3.6),
         Column("Eşleşen dosya", width=2.2),
@@ -303,13 +301,64 @@ def _export_notices(notices, kind):
     return export_response(result, kind)
 
 
+def _notice_filters(request):
+    """Tebligat listesi süzgeçleri: durum sekmesi, arama ve tarih aralığı (GET)."""
+    qs = PortalNotice.objects.select_related(
+        "resolution_client", "resolution_case", "resolution_task", "resolved_by"
+    ).order_by("-delivered_at", "-pk")
+    state = request.GET.get("durum", "pending")
+    if state not in {"pending", "task", "no_task", "all"}:
+        state = "pending"
+    counts = {
+        "pending": qs.filter(resolved_at__isnull=True).count(),
+        "task": qs.filter(resolution_task__isnull=False).count(),
+        "no_task": qs.filter(resolved_at__isnull=False, resolution_task__isnull=True).count(),
+        "all": qs.count(),
+    }
+    if state == "pending":
+        qs = qs.filter(resolved_at__isnull=True)
+    elif state == "task":
+        qs = qs.filter(resolution_task__isnull=False)
+    elif state == "no_task":
+        qs = qs.filter(resolved_at__isnull=False, resolution_task__isnull=True)
+    q = request.GET.get("q", "").strip()
+    if q:
+        qs = qs.filter(
+            Q(sender__icontains=q)
+            | Q(subject__icontains=q)
+            | Q(resolution_case__official_no__icontains=q)
+            | Q(resolution_case__authority__icontains=q)
+            | Q(resolution_client__name__icontains=q)
+        )
+    start, end = request.GET.get("baslangic", ""), request.GET.get("bitis", "")
+    try:
+        if start:
+            qs = qs.filter(delivered_at__date__gte=dt.date.fromisoformat(start))
+        if end:
+            qs = qs.filter(delivered_at__date__lte=dt.date.fromisoformat(end))
+    except ValueError:
+        start = end = ""
+    tabs = [
+        ("pending", "İşlem bekleyenler"),
+        ("task", "Göreve bağlananlar"),
+        ("no_task", "Görev gerekmeyenler"),
+        ("all", "Tümü"),
+    ]
+    return qs, {
+        "state": state,
+        "counts": counts,
+        "tabs": tabs,
+        "q": q,
+        "start": start,
+        "end": end,
+    }
+
+
 @login_required
 def notice_list(request):
     from apps.core.pagination import page_size
 
-    notices = PortalNotice.objects.select_related(
-        "resolution_client", "resolution_case", "resolution_task", "resolved_by"
-    ).order_by("-delivered_at", "-pk")
+    notices, filters = _notice_filters(request)
     if kind := wants_export(request):
         return _export_notices(notices, kind)
     page = Paginator(notices, page_size(request)).get_page(request.GET.get("page"))
@@ -319,11 +368,11 @@ def notice_list(request):
             n.suggested_case = find_matching_case(auth, num) if num else None
         else:
             n.suggested_case = None
-        n.suggested_due_date = calculate_notice_due_date(n.delivered_at)
-        urgency, due_label = get_notice_urgency(n.suggested_due_date)
-        n.due_urgency = urgency
-        n.due_label = due_label
-    return render(request, "imports/notices.html", {"notices": page.object_list, "page_obj": page})
+    return render(
+        request,
+        "imports/notices.html",
+        {"notices": page.object_list, "page_obj": page, **filters},
+    )
 
 
 @login_required

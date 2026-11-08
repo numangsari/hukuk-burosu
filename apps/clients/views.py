@@ -176,10 +176,6 @@ class ClientListView(ListExportMixin, ListView):
             qs = qs.filter(responsible_lawyer_id=lawyer)
         if intern := g.get("intern"):
             qs = qs.filter(responsible_intern_id=intern)
-        if g.get("tasks") == "yes":
-            qs = qs.filter(open_task_count__gt=0)
-        elif g.get("tasks") == "no":
-            qs = qs.filter(open_task_count=0)
         if show_balance and g.get("debt") == "yes":
             qs = qs.filter(balance__gt=0)
         elif show_balance and g.get("debt") == "no":

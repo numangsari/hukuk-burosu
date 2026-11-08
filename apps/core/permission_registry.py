@@ -37,6 +37,7 @@ class Permission:
     help: str
     default: tuple
     scoped: bool = False  # Sorumlu / yardımcı sorumlu seçeneği olan (dosya bazlı) yetki
+    default_relations: tuple = ()  # Kayıt yoksa varsayılan olarak yetkili ilişkiler (scoped)
 
 
 PERMISSIONS = [
@@ -137,6 +138,15 @@ PERMISSIONS = [
         scoped=True,
     ),
     Permission(
+        "accounting.cancel",
+        "Muhasebe",
+        "Muhasebe hareketini iptal etme",
+        "Varsayılan: yönetici ile ilgili dosya/müvekkilin sorumlusu ve yardımcı sorumlusu.",
+        tuple(ADMIN_ONLY),
+        scoped=True,
+        default_relations=("responsible", "assistant"),
+    ),
+    Permission(
         "accounting.balances",
         "Muhasebe",
         "Bakiye, cari hesap ve finansal raporları görme",
@@ -181,10 +191,14 @@ def allowed_roles(saved: dict | None, key: str) -> set:
 
 
 def allowed_relations(saved: dict | None, key: str) -> set:
-    """Yetkiyi nesne bazlı kullanabilen ilişkiler (sorumlu, yardımcı sorumlu); varsayılan yok."""
-    if not BY_KEY[key].scoped:
+    """Yetkiyi nesne bazlı kullanabilen ilişkiler (sorumlu, yardımcı sorumlu)."""
+    perm = BY_KEY[key]
+    if not perm.scoped:
         return set()
-    return set((saved or {}).get(key) or []) & set(RELATION_KEYS)
+    chosen = (saved or {}).get(key)
+    if chosen is None:
+        chosen = perm.default_relations
+    return set(chosen) & set(RELATION_KEYS)
 
 
 def relations_to(user, obj) -> set:

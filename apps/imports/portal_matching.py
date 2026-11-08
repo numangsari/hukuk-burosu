@@ -100,7 +100,7 @@ def find_matching_case(authority, number, dosya_turu=None):
 
 
 def calculate_notice_due_date(delivered_at, days=None):
-    """Tebligat teslim tarihine gün ekleyerek olası son tarihi hesaplar."""
+    """Tebligat teslim tarihine gün ekleyerek görev için varsayılan bitiş tarihini hesaplar."""
     if days is None:
         from apps.office.models import OfficeSettings
 
@@ -109,20 +109,3 @@ def calculate_notice_due_date(delivered_at, days=None):
         return timezone.localdate() + timedelta(days=days)
     base_date = delivered_at.date() if hasattr(delivered_at, "date") else delivered_at
     return base_date + timedelta(days=days)
-
-
-def get_notice_urgency(due_date):
-    """overdue / today / soon (≤3 gün) / normal — görevlerdeki renk sınıflarıyla tam uyumlu."""
-    if not due_date:
-        return "normal", ""
-    today = timezone.localdate()
-    days_left = (due_date - today).days
-    if days_left < 0:
-        return "overdue", f"{-days_left} gün gecikti"
-    if days_left == 0:
-        return "today", "Bugün"
-    if days_left == 1:
-        return "soon", "Yarın"
-    if days_left <= 3:
-        return "soon", f"{days_left} gün kaldı"
-    return "normal", f"{days_left} gün kaldı"

@@ -58,7 +58,7 @@ def test_no_task_requires_reason_and_matching_case(sample):
     client.post(url, {"client": other.pk, "reason": "Değişiklik"})
     notice.refresh_from_db()
     assert notice.no_task_reason == "Gerek yok"
-    assert "Görev yok" in client.get(reverse("notice_list")).content.decode()
+    assert "Görev yok" in client.get(reverse("notice_list"), {"durum": "no_task"}).content.decode()
 
 
 @pytest.mark.django_db
@@ -199,7 +199,10 @@ def test_notice_task_copies_documents_and_cannot_repeat(sample):
     assert document.file.url in page
     client.post(url, data)
     assert Task.objects.count() == 1
-    assert "Görev oluşturuldu" in client.get(reverse("notice_list")).content.decode()
+    assert (
+        "Görev oluşturuldu"
+        in client.get(reverse("notice_list"), {"durum": "task"}).content.decode()
+    )
 
 
 @pytest.mark.django_db

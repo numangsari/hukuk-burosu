@@ -1,10 +1,12 @@
 {% extends "base.html" %}
+{% load ui %}
 {% block title %}Dosyalar — {{ office.name }}{% endblock %}
 {% block content %}
 <div class="page-header">
   <div>
     <h1 class="page-title">Dosyalar</h1>
   </div>
+  {% module_strip "cases" %}
   <div class="page-actions">
     {% include "partials/export_buttons.html" %}
     <a class="btn btn-primary" href="{% url 'cases:create' %}"><i class="bi bi-folder-plus"></i>Yeni dosya</a>

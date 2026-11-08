@@ -1,16 +1,30 @@
 {% extends "base.html" %}
+{% load ui %}
 {% block title %}Tebligatlar{% endblock %}
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3">
-  <h1 class="page-title mb-0">Tebligatlar</h1>
+<div class="page-header">
+  <div><h1 class="page-title">Tebligatlar</h1></div>
+  {% module_strip "notices" %}
+  <div class="page-actions">
   {% include "partials/export_buttons.html" %}
+  </div>
+</div>
+<form method="get" class="filter-bar mb-3">
+  <div class="grow"><i class="bi bi-search"></i><input class="form-control" type="search" name="q" value="{{ q }}" placeholder="Gönderen, konu, dosya veya müvekkil ara"></div>
+  <input class="form-control" type="date" name="baslangic" value="{{ start }}" aria-label="Başlangıç tarihi" style="max-width: 11rem;">
+  <input class="form-control" type="date" name="bitis" value="{{ end }}" aria-label="Bitiş tarihi" style="max-width: 11rem;">
+  <input type="hidden" name="durum" value="{{ state }}">
+  <button class="btn btn-light" type="submit"><i class="bi bi-funnel"></i>Süz</button>
+  {% if q or start or end %}<a class="btn btn-light" href="?durum={{ state }}" title="Süzgeçleri temizle"><i class="bi bi-x-lg"></i></a>{% endif %}
+</form>
+<div class="chip-group mb-3" role="tablist" aria-label="Tebligat durumu">
+  {% for key, label in tabs %}<a class="chip-btn {% if state == key %}active{% endif %}" href="?durum={{ key }}{% if q %}&q={{ q|urlencode }}{% endif %}{% if start %}&baslangic={{ start }}{% endif %}{% if end %}&bitis={{ end }}{% endif %}" {% if state == key %}aria-current="page"{% endif %}>{{ label }} <span class="text-body-secondary">{{ counts|get_item:key }}</span></a>{% endfor %}
 </div>
 <div class="table-responsive">
   <table class="table table-hover">
     <thead>
       <tr>
         <th>Tarih</th>
-        <th>Olası Son Gün</th>
         <th>Gönderen</th>
         <th>Konu</th>
         <th>Eşleşen Dosya</th>
@@ -21,17 +35,6 @@
       {% for n in notices %}
       <tr data-href="{% url 'portal_notice_detail' n.pk %}" onclick="if (!event.target.closest('a, button')) this.querySelector('a.notice-open').click()">
         <td class="text-nowrap">{{ n.delivered_at|date:"d.m.Y H:i" }}</td>
-        <td class="text-nowrap">
-          {% if n.suggested_due_date %}
-            <span class="due due-{{ n.due_urgency }}" title="Teslimden itibaren {{ office.notice_default_due_days }} gün">
-              <i class="bi {% if n.due_urgency == 'overdue' or n.due_urgency == 'today' %}bi-exclamation-circle-fill{% else %}bi-calendar-event{% endif %}"></i>
-              {{ n.due_label }}
-            </span>
-            <div class="cell-sub tabular">{{ n.suggested_due_date|date:"d.m.Y" }} · {{ office.notice_default_due_days }} gün</div>
-          {% else %}
-            —
-          {% endif %}
-        </td>
         <td>{{ n.sender }}</td>
         <td>
           <a href="{% url 'portal_notice_detail' n.pk %}" class="notice-open fw-medium text-decoration-none text-reset">
@@ -79,7 +82,7 @@
       </tr>
       {% empty %}
       <tr>
-        <td colspan="6" class="text-center py-4 text-body-secondary">Tebligat bulunamadı.</td>
+        <td colspan="5" class="text-center py-4 text-body-secondary">Tebligat bulunamadı.</td>
       </tr>
       {% endfor %}
     </tbody>

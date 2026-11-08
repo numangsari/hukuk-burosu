@@ -7,6 +7,7 @@
   <div>
     <h1 class="page-title mb-0">Takvim / Duruşma</h1>
   </div>
+  {% module_strip "hearings" %}
   <div class="d-flex align-items-center gap-2">
     {% if view == 'list' %}{% url 'hearings:export' as hearing_export_url %}{% include "partials/export_buttons.html" with export_base=hearing_export_url %}{% endif %}
     <a href="{% url 'hearings:create' %}?next={{ request.get_full_path|urlencode }}" class="btn btn-primary">

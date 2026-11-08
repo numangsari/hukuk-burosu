@@ -21,7 +21,12 @@ from apps.reports.base import Column
 
 from .forms import LedgerEntryForm
 from .models import KIND_HELP, EntryKind, LedgerEntry
-from .permissions import EditRequiredMixin, ViewRequiredMixin, can_exclude_portal
+from .permissions import (
+    CancelRequiredMixin,
+    EditRequiredMixin,
+    ViewRequiredMixin,
+    can_exclude_portal,
+)
 from .services import cancel_entry, create_entry, set_portal_exclusion
 
 SORT_OPTIONS = [
@@ -91,7 +96,9 @@ class EntryListView(ListExportMixin, ViewRequiredMixin, ListView):
 
     def filtered(self):
         g = self.request.GET
-        qs = LedgerEntry.objects.select_related("client", "case", "created_by", "cancelled_by")
+        qs = LedgerEntry.objects.select_related(
+            "client", "case__client", "created_by", "cancelled_by"
+        )
         if (c := g.get("musteri", "")).isdecimal() and len(c) <= 18:
             qs = qs.filter(client_id=c)
         if (k := g.get("dosya", "")).isdecimal() and len(k) <= 18:
@@ -208,7 +215,7 @@ class EntryCreateView(EditRequiredMixin, CreateView):
         )
 
 
-class EntryCancelView(EditRequiredMixin, View):
+class EntryCancelView(CancelRequiredMixin, View):
     def permission_object(self, request):
         return (
             LedgerEntry.objects.select_related("case__client", "client")

@@ -267,7 +267,7 @@ def test_list_tabs_date_filters_and_columns(admin_user, case, lawyer):
     day = timezone.localdate().isoformat()
     assert rows("upcoming", baslangic=day, bitis=day)[0] == {today.pk}
     html = rows("upcoming")[1].content.decode()
-    for column in ("Tarih / Saat", "Mahkeme / Esas", "Dosya / Müvekkil", "Sorumlu avukat"):
+    for column in ("Tarih / Saat", "Mahkeme / Esas", "Müvekkil", "Sorumlu avukat"):
         assert column in html
     assert "Katılma durumu" in html and "Takvim / Duruşma" in html
     for label in ("Yaklaşanlar", "Geçmiş", "Bugün", "Bu hafta", "Gelecek hafta", "Bu ay"):

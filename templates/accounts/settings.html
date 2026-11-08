@@ -21,10 +21,10 @@
       <a class="{% if active == 'puanlar' %}active{% endif %}" href="?bolum=puanlar"><i class="bi bi-bar-chart"></i>Personel puanları</a>
       {% endif %}
       <a class="{% if active == 'yetkiler' %}active{% endif %}" href="?bolum=yetkiler"><i class="bi bi-shield-check"></i>Yetkiler ve çalışma düzeni</a>
+      <div class="nav-group">Sistem</div>
       <a class="{% if active == 'eklenti' %}active{% endif %}" href="?bolum=eklenti"><i class="bi bi-puzzle"></i>Eklenti ayarları</a>
       <a class="{% if active == 'takvim' %}active{% endif %}" href="?bolum=takvim"><i class="bi bi-calendar3"></i>Google Takvim
         {% if calendar_connected %}<span class="chip chip-success ms-auto">Bağlı</span>{% endif %}</a>
-      <div class="nav-group">Sistem ve Gözlem</div>
       <a class="{% if active == 'monitor' %}active{% endif %}" href="?bolum=monitor"><i class="bi bi-activity"></i>Sistem monitörü</a>
       <a class="{% if active == 'erisim' %}active{% endif %}" href="?bolum=erisim"><i class="bi bi-hdd-network"></i>Erişim adresleri</a>
       <a href="{% url 'portal_review' %}"><i class="bi bi-cloud-arrow-down"></i>UYAP ve UETS inceleme</a>

@@ -7,6 +7,7 @@
   <div>
     <h1 class="page-title mb-0">Fiziki Arşiv</h1>
   </div>
+  {% module_strip "archive" %}
   <div class="d-flex align-items-center gap-2">
     <a class="btn btn-primary" href="{% url 'archive:create' %}"><i class="bi bi-plus-lg me-1"></i>Yeni fiziki klasör</a>
     <a class="btn btn-light" href="{% url 'archive:category_create' %}"><i class="bi bi-plus-lg me-1"></i>Yeni klasör türü</a>

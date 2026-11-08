@@ -105,16 +105,37 @@ def test_case_must_belong_to_client(admin_user, case_factory, client_factory):
 
 
 def test_cancel_requires_reason(admin_user, intern, client_factory):
-    c = client_factory()
+    c = client_factory(responsible_lawyer=admin_user, responsible_intern=None)
     e = add(c, EntryKind.FEE, "100")
     url = reverse("accounting:cancel", args=[e.pk])
     login(admin_user).post(url, {"reason": ""})
     e.refresh_from_db()
     assert not e.is_cancelled
-    # Herkes kayıt girip iptal edebilir (stajyer dahil).
-    login(intern).post(url, {"reason": "Yanlış tutar"})
+    # Sorumlu olmayan stajyer iptal edemez; yönetici edebilir.
+    assert login(intern).post(url, {"reason": "Yanlış tutar"}).status_code == 403
     e.refresh_from_db()
-    assert e.is_cancelled and e.cancelled_by == intern and e.cancel_reason == "Yanlış tutar"
+    assert not e.is_cancelled
+    login(admin_user).post(url, {"reason": "Yanlış tutar"})
+    e.refresh_from_db()
+    assert e.is_cancelled and e.cancelled_by == admin_user and e.cancel_reason == "Yanlış tutar"
+
+
+def test_cancel_allowed_for_file_responsible(admin_user, case_factory, client_factory):
+    case = case_factory()
+    mine = add(case.client, EntryKind.FEE, "100", case=case)
+    foreign_case = case_factory(
+        client=client_factory(
+            first_name="Başka", responsible_lawyer=admin_user, responsible_intern=None
+        )
+    )
+    foreign = add(foreign_case.client, EntryKind.FEE, "100", case=foreign_case)
+    c = login(case.responsible_lawyer)
+    assert (
+        c.post(reverse("accounting:cancel", args=[foreign.pk]), {"reason": "x"}).status_code == 403
+    )
+    c.post(reverse("accounting:cancel", args=[mine.pk]), {"reason": "Hatalı"})
+    mine.refresh_from_db()
+    assert mine.is_cancelled
 
 
 def test_records_for_everyone_balances_for_selected(lawyer, intern, client_factory, case_factory):
@@ -162,7 +183,6 @@ def test_client_list_balance_tasks_and_filters(lawyer, client_factory, case_fact
     assert rows["TEMİZ"].balance == D("0") and rows["TEMİZ"].open_task_count == 0
     names = lambda r: [c.first_name for c in r.context["clients"]]  # noqa: E731
     assert names(lawyer_client.get(url, {"debt": "yes"})) == ["BORÇLU"]
-    assert names(lawyer_client.get(url, {"tasks": "yes"})) == ["BORÇLU"]
     assert names(lawyer_client.get(url, {"sort": "-balance"}))[0] == "BORÇLU"
 
 

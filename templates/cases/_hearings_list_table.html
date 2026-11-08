@@ -7,7 +7,7 @@
           <th style="width: 130px;">Tarih / Saat</th>
           <th style="width: 130px;" class="hide-lg">Tür</th>
           <th>Mahkeme / Esas</th>
-          <th>Dosya / Müvekkil</th>
+          <th>Müvekkil</th>
           <th>Sorumlu avukat</th>
           <th style="width: 140px;">Katılma durumu</th>
           <th style="width: 130px;" class="text-end">İşlemler</th>
@@ -25,22 +25,16 @@
           </td>
           <td class="hide-lg"><span class="badge bg-body-secondary text-body border" style="font-size: 0.8rem;">{{ h.get_kind_display }}</span></td>
           <td>
-            <div class="cell-main fw-medium">{{ h.authority|default:h.case.authority|default:"—"|tr_title }}</div>
-            <div class="cell-sub text-body-secondary small tabular">{% if h.case %}{{ h.case.official_no_display|default:"—" }}{% endif %}</div>
+            {% if h.case %}
+              <div class="cell-main"><a href="{{ h.case.get_absolute_url }}#t-durusmalar" class="fw-semibold">{{ h.case.display_name|tr_title }}</a>
+                {% if h.case.archive_reference %}<span class="chip chip-accent no-dot ms-1 py-0 px-1" style="font-size: 0.7rem;">{{ h.case.archive_reference }}</span>{% endif %}</div>
+            {% else %}
+              <div class="cell-main fw-medium">{{ h.authority|default:"—"|tr_title }}</div>
+              <div class="cell-sub small"><span class="text-body-emphasis">{{ h.title_display }}</span> <span class="badge bg-secondary-subtle text-secondary ms-1" style="font-size: 0.7rem;">Dosyasız</span></div>
+            {% endif %}
           </td>
           <td>
-            <div class="cell-main">
-              {% if h.case %}
-                <a href="{{ h.case.get_absolute_url }}#t-durusmalar" class="fw-semibold">{{ h.case.display_name|tr_title }}</a>
-                {% if h.case.archive_reference %}<span class="chip chip-accent no-dot ms-1 py-0 px-1" style="font-size: 0.7rem;">{{ h.case.archive_reference }}</span>{% endif %}
-              {% else %}
-                <span class="fw-semibold text-body-emphasis">{{ h.title_display }}</span>
-                <span class="badge bg-secondary-subtle text-secondary ms-1" style="font-size: 0.7rem;">Dosyasız</span>
-              {% endif %}
-            </div>
-            <div class="cell-sub text-body-secondary small">
-              {% with c=h.effective_client %}{% if c %}<i class="bi bi-person me-1"></i><a href="{{ c.get_absolute_url }}" class="text-body-secondary">{{ c|tr_title }}</a>{% else %}<span class="text-body-tertiary">Müvekkilsiz</span>{% endif %}{% endwith %}
-            </div>
+            {% with c=h.effective_client %}{% if c %}<i class="bi bi-person me-1"></i><a href="{{ c.get_absolute_url }}">{{ c|tr_title }}</a>{% else %}<span class="text-body-tertiary">Müvekkilsiz</span>{% endif %}{% endwith %}
           </td>
           <td class="small text-nowrap">{% if h.assigned_to %}<i class="bi bi-person-badge me-1"></i>{{ h.assigned_to|tr_title }}{% else %}<span class="chip chip-warning no-dot">Seçilmedi</span>{% endif %}</td>
           <td>

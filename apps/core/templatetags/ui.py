@@ -153,3 +153,11 @@ def client_wa_templates(client):
     if not client:
         return {}
     return get_client_wa_templates(client)
+
+
+@register.inclusion_tag("partials/module_strip.html")
+def module_strip(key):
+    """Modül başlığının yanındaki salt okunur özet satırı (bkz. apps/core/module_stats.py)."""
+    from apps.core.module_stats import module_stats
+
+    return {"stats": module_stats(key)}

@@ -16,9 +16,9 @@
       <td class="text-end tabular fw-semibold">{{ e.amount|tl }}</td>
       {% if can_view_balances and show_running != False %}<td class="text-end tabular">{{ r.balance|tl }}</td>{% endif %}
       <td class="text-end">
-        {% if portal_lane %}
+        {% perm "accounting.cancel" e as can_cancel_entry %}        {% if portal_lane %}
           {% if can_exclude_portal and not e.is_cancelled %}{% include "accounting/_exclude.html" with next=next %}{% endif %}
-        {% elif can_edit_accounting and not e.is_cancelled %}
+        {% elif can_cancel_entry and not e.is_cancelled %}
         {% include "accounting/_cancel.html" with next=next %}
         {% endif %}
       </td>

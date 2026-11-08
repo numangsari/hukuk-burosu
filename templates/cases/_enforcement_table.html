@@ -1,0 +1,49 @@
+{% load ui %}
+<div class="table-responsive">
+<table class="table table-hover">
+  <thead>
+    <tr>
+      <th>{% sort_link "archive_no" "Fiziki arşiv no" %}</th>
+      <th>Dosya bilgisi</th>
+      <th class="hide-lg">{% sort_link "enforcement_type" "İcra türü" %}</th>
+      <th>{% sort_link "client__name" "Müvekkil" %}</th>
+      <th class="hide-md">{% sort_link "stage" "Aşama" %}</th>
+      <th>Haciz durumu</th>
+      <th class="hide-md">{% sort_link "notice_count" "Tebligat" %}</th>
+      <th class="hide-lg">{% sort_link "next_renewal" "Haciz yenileme" %}</th>
+      <th>{% sort_link "last_action" "Son işlem" %}</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for k in cases %}
+    <tr data-href="{{ k.get_absolute_url }}" onclick="location.href=this.dataset.href">
+      <td><a href="{{ k.get_absolute_url }}" class="fw-semibold tabular">{{ k.archive_reference|default:"—" }}</a></td>
+      <td>
+        {% with name=k.authority|default:k.display_name %}
+        <div class="cell-main clip" title="{{ name|tr_title }}">{{ name|tr_title }}</div>
+        {% endwith %}
+        <div class="cell-sub clip">{% if k.official_no_display %}<span class="tabular">{{ k.official_no_display }}</span>{% endif %}{% if k.subject %} · {{ k.subject|tr_title }}{% endif %}</div>
+      </td>
+      <td class="hide-lg">{{ k.get_enforcement_type_display|default:"—" }}</td>
+      <td>
+        {% if k.client %}{{ k.client|tr_title }}{% else %}<span class="chip chip-warning no-dot">Müvekkil eksik</span>{% endif %}
+        {% if k.client_role %}<div class="cell-sub">{{ k.get_client_role_display }}</div>{% endif %}
+      </td>
+      <td class="hide-md">{% if k.is_open %}{{ k.stage_label|default:"—" }}{% else %}<span class="case-list-status case-list-status-closed">Kapalı</span>{% endif %}</td>
+      <td>
+        {% for s in k.seizures.all %}{% if s.is_active %}
+          <div class="small"><span class="fw-medium">{{ s.get_kind_display|default:"Haciz" }}</span>{% if s.state_label %} <span class="text-body-secondary">· {{ s.state_label }}</span>{% endif %}</div>
+        {% endif %}{% endfor %}
+        {% if k.seizure_count == 0 %}<span class="text-body-secondary">—</span>{% endif %}
+      </td>
+      <td class="tabular hide-md">{% if k.notice_count %}<span class="chip chip-info no-dot"><i class="bi bi-envelope me-1"></i>{{ k.notice_count }}</span>{% else %}<span class="text-body-secondary">—</span>{% endif %}</td>
+      <td class="tabular text-nowrap hide-lg">{% if k.next_renewal %}{{ k.next_renewal|date:"d.m.Y" }}{% else %}<span class="text-body-secondary">—</span>{% endif %}</td>
+      <td class="tabular text-nowrap">{{ k.last_action|date:"d.m.Y" }}</td>
+    </tr>
+  {% empty %}
+    <tr><td colspan="9"><div class="empty-state"><i class="bi bi-hammer"></i><strong>İcra dosyası bulunamadı</strong>Filtreleri değiştirin.</div></td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% include "partials/pagination.html" %}

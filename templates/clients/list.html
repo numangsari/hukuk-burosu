@@ -1,10 +1,12 @@
 {% extends "base.html" %}
+{% load ui %}
 {% block title %}Müvekkiller — {{ office.name }}{% endblock %}
 {% block content %}
 <div class="page-header">
   <div>
     <h1 class="page-title">Müvekkiller</h1>
   </div>
+  {% module_strip "clients" %}
   <div class="page-actions">
     {% include "partials/export_buttons.html" %}
     <a class="btn btn-primary" href="{% url 'clients:create' %}"><i class="bi bi-person-plus"></i>Yeni müvekkil</a>
@@ -33,11 +35,6 @@
       {% for u in interns %}<option value="{{ u.pk }}" {% if request.GET.intern == u.pk|stringformat:'s' %}selected{% endif %}>{{ u }}</option>{% endfor %}
     </select>
     {% endif %}
-    <select class="form-select" name="tasks">
-      <option value="">Görev: tümü</option>
-      <option value="yes" {% if request.GET.tasks == 'yes' %}selected{% endif %}>Açık görevi olan</option>
-      <option value="no" {% if request.GET.tasks == 'no' %}selected{% endif %}>Açık görevi olmayan</option>
-    </select>
     {% if can_view_balances %}
     <select class="form-select" name="debt">
       <option value="">Bakiye: tümü</option>

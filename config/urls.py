@@ -53,6 +53,7 @@ urlpatterns = [
     path("muvekkiller/", include("apps.clients.urls")),
     path("dosyalar/", include("apps.cases.urls")),
     path("arsiv/", include("apps.cases.urls_archive")),
+    path("icra/", include("apps.cases.urls_enforcement")),
     path("durusmalar/", include("apps.cases.urls_hearings")),
     path("takvim/", include("apps.agenda.urls")),
     path("gorevler/", include("apps.tasks.urls")),

@@ -6,6 +6,7 @@
   <div>
     <h1 class="page-title">Görevler</h1>
   </div>
+  {% module_strip "tasks" %}
   <div class="page-actions">
     {% include "partials/export_buttons.html" %}
     <a class="btn btn-primary" href="{% url 'tasks:create' %}"><i class="bi bi-plus-lg"></i>Yeni görev</a>

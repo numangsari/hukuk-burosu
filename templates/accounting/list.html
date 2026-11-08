@@ -6,6 +6,7 @@
   <div>
     <h1 class="page-title">Muhasebe</h1>
   </div>
+  {% module_strip "accounting" %}
   <div class="page-actions">
     {% include "partials/export_buttons.html" %}
     {% if can_edit_accounting %}<a class="btn btn-primary" href="{% url 'accounting:create' %}"><i class="bi bi-plus-lg"></i>Yeni gelir / gider</a>{% endif %}

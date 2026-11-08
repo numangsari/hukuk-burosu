@@ -26,6 +26,11 @@ def can_edit(user, obj=None) -> bool:
     return _active(user) and has_perm(user, "accounting.edit", obj)
 
 
+def can_cancel(user, obj=None) -> bool:
+    """Hareket iptali ("accounting.cancel"); varsayılan yönetici ve dosya sorumluları."""
+    return _active(user) and has_perm(user, "accounting.cancel", obj)
+
+
 def can_exclude_portal(user, obj=None) -> bool:
     """UYAP kaynaklı hareketi hesap dışı bırakma ("accounting.exclude_portal")."""
     return _active(user) and has_perm(user, "accounting.exclude_portal", obj)
@@ -40,6 +45,18 @@ class ViewRequiredMixin:
     def dispatch(self, request, *args, **kwargs):
         if not can_view(request.user):
             raise PermissionDenied
+        return super().dispatch(request, *args, **kwargs)
+
+
+class CancelRequiredMixin:
+    def permission_object(self, request):
+        return None
+
+    def dispatch(self, request, *args, **kwargs):
+        if not can_cancel(request.user):
+            obj = self.permission_object(request) if request.user.is_authenticated else None
+            if obj is None or not can_cancel(request.user, obj):
+                raise PermissionDenied
         return super().dispatch(request, *args, **kwargs)
 
 

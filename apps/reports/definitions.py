@@ -911,7 +911,6 @@ class NoticeReportForm(PeriodForm):
 
 def build_notices(d, user):
     from apps.imports.models import PortalNotice
-    from apps.imports.portal_matching import calculate_notice_due_date
 
     qs = PortalNotice.objects.select_related("resolution_case", "resolution_task")
     state = d.get("state") or "all"
@@ -932,7 +931,6 @@ def build_notices(d, user):
         rows.append(
             [
                 n.delivered_at.date() if n.delivered_at else None,
-                calculate_notice_due_date(n.delivered_at) if n.delivered_at else None,
                 n.sender, n.subject or "Tebligat",
                 n.resolution_case.display_name if n.resolution_case else "", status,
             ]
@@ -942,7 +940,6 @@ def build_notices(d, user):
         subtitle=f"{dict(NoticeReportForm.base_fields['state'].choices)[state]} · {_period(d)}",
         columns=[
             Column("Geliş tarihi", "date", 0.9),
-            Column("Olası son gün", "date", 0.9),
             Column("Gönderen", "text", 1.6),
             Column("Konu", "text", 3.4),
             Column("Eşleşen dosya", "text", 2),
