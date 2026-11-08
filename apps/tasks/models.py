@@ -54,6 +54,34 @@ class RoutineTask(TimeStampedModel):
         related_name="+",
         limit_choices_to={"is_active": True},
     )
+    # Açılan görevlerin ortak alanları (normal görev formundakilerle aynı).
+    task_type = models.ForeignKey(
+        TaskType,
+        verbose_name="görev türü",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+    case = models.ForeignKey(
+        Case,
+        verbose_name="dosya",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+    second_reviewer = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name="2. kontrolcü",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="+",
+        limit_choices_to={"is_active": True},
+    )
+    requires_accounting = models.BooleanField("gelir/gider kaydı", null=True, blank=True)
+    notes = models.TextField("not", blank=True)
     frequency = models.CharField(
         "sıklık", max_length=10, choices=Frequency.choices, default=Frequency.WEEKLY
     )
@@ -78,10 +106,39 @@ class RoutineTask(TimeStampedModel):
         return self.title
 
     @property
+    def client_id(self):
+        """Müvekkil her zaman dosyanın müvekkilidir (görev formuyla aynı arayüz)."""
+        return self.case.client_id if self.case_id else None
+
+    @property
     def schedule_label(self) -> str:
         if self.frequency == self.Frequency.WEEKLY:
             return f"Her hafta {dict(self.WEEKDAYS).get(self.weekday, '?')}"
         return f"Her ayın {self.month_day}. günü"
+
+
+def routine_document_upload_to(instance, filename):
+    from pathlib import Path
+    from uuid import uuid4
+
+    name = Path(filename)
+    return f"routines/{instance.routine_id}/{uuid4().hex[:8]}_{name.stem[:80]}{name.suffix.lower()}"
+
+
+class RoutineDocument(models.Model):
+    """Rutin görevin her açılışında göreve kopyalanan belge."""
+
+    routine = models.ForeignKey(RoutineTask, on_delete=models.CASCADE, related_name="documents")
+    file = models.FileField(upload_to=routine_document_upload_to, max_length=500)
+    original_name = models.CharField(max_length=300)
+    size = models.PositiveBigIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["pk"]
+
+    def __str__(self):
+        return self.original_name
 
 
 class Task(TimeStampedModel):

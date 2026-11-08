@@ -104,14 +104,15 @@ def can_do(action: Action, task: Task, user) -> bool:
         return False
     if action.key == "close" and task.approval_seen and requires_review(task):
         return False
-    if is_admin(user):
-        return True
     if action.who == "assignee":
-        # Kontrole sorumlu (ve yönetici) gönderir; kontrolcü gönderemez.
+        # Kontrole yalnızca sorumlu gönderir ve kapatır; kontrolcü ve yönetici yapamaz.
         return user.pk == task.assignee_id
     if action.who == "reviewer":
+        # Kontrolde yalnızca sırası gelen kontrolcü onaylar veya revizyon ister.
         return bool(task.active_reviewer_id and user.pk == task.active_reviewer_id)
-    # manager (reopen)
+    # manager (reopen): yönetici de yeniden açabilir.
+    if is_admin(user):
+        return True
     if task.reviewer_id:
         return user.pk == task.reviewer_id
     return user.pk in (task.assignee_id, task.created_by_id)
@@ -138,13 +139,14 @@ def can_delete(task: Task, user) -> bool:
 
 
 def can_edit(task: Task, user) -> bool:
+    """Aktif görevi yalnızca oluşturan, yönetici ve kıdemli avukat düzenler."""
     if task.status != S.ACTIVE or not task.approval_seen:
         return False
-    if is_admin(user):
-        return True
-    if task.reviewer_id:
-        return user.pk == task.reviewer_id
-    return user.pk in (task.assignee_id, task.created_by_id)
+    return bool(
+        is_admin(user)
+        or user.role == user.Role.SENIOR
+        or (task.created_by_id and user.pk == task.created_by_id)
+    )
 
 
 @transaction.atomic

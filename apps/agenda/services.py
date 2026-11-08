@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 import icalendar
 import recurring_ical_events
 from django.core.cache import cache
+from django.urls import reverse
 from django.utils import timezone
 
 from apps.office.models import OfficeSettings
@@ -328,6 +329,7 @@ def hearing_events(start: dt.date, end: dt.date, user=None) -> list[Event]:
                 description=h.notes or h.result or "",
                 days=[local_s.date()],
                 source="hearing",
+                url=reverse("hearings:detail", args=[h.pk]),
                 client_name=str(client) if client else "",
                 responsible=str(responsible) if responsible else "",
                 status=h.get_status_display(),

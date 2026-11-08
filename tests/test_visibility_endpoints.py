@@ -156,9 +156,14 @@ def test_case_options_hides_invisible_case(restricted, task, stranger, lawyer):
 def test_hearing_list_endpoints_hide_invisible_hearing(restricted, hearing, stranger, lawyer):
     other = login(stranger)
     assert other.get(reverse("hearings:edit", args=[hearing.pk])).status_code == 404
+    assert other.get(reverse("hearings:detail", args=[hearing.pk])).status_code == 404
     assert other.get(reverse("hearings:result", args=[hearing.pk])).status_code == 404
     assert other.get(reverse("hearings:task_create", args=[hearing.pk])).status_code == 404
-    assert login(lawyer).get(reverse("hearings:edit", args=[hearing.pk])).status_code == 200
+    assert login(lawyer).get(reverse("hearings:detail", args=[hearing.pk])).status_code == 200
+    # Oluşturan, yönetici veya kıdemli olmayan avukat görür ama düzenleyemez.
+    hearing.created_by = None
+    hearing.save()
+    assert login(lawyer).get(reverse("hearings:edit", args=[hearing.pk])).status_code == 403
 
 
 def test_standalone_hearing_form_ignores_invisible_case(restricted, task, stranger):

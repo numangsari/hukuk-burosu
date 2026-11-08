@@ -3,6 +3,7 @@
 import datetime as dt
 
 from django.contrib import messages
+from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import Q
@@ -22,6 +23,7 @@ from apps.core.permissions import (
     AdminRequiredMixin,
     filter_visible_cases,
     filter_visible_hearings,
+    is_admin,
 )
 
 from .forms import (
@@ -337,42 +339,81 @@ class HearingTaskCreateView(View):
         )
 
 
-class HearingEditView(View):
+def can_edit_hearing(hearing, user) -> bool:
+    """Duruşmayı yalnızca oluşturan, yönetici ve kıdemli avukat düzenler."""
+    return bool(
+        is_admin(user)
+        or user.role == user.Role.SENIOR
+        or (hearing.created_by_id and hearing.created_by_id == user.pk)
+    )
+
+
+def _visible_hearing(request, pk):
+    return get_object_or_404(
+        filter_visible_hearings(
+            Hearing.objects.select_related("case", "case__client", "client", "assigned_to"),
+            request.user,
+        ),
+        pk=pk,
+    )
+
+
+@method_decorator(xframe_options_sameorigin, name="dispatch")
+class HearingDetailView(View):
+    """Duruşma ayrıntısı; düzenleme yetkisi olanlar aynı pencerede düzenler."""
+
     def get(self, request, pk):
-        hearing = get_object_or_404(
-            filter_visible_hearings(Hearing.objects.select_related("case"), request.user), pk=pk
-        )
-        form = HearingForm(instance=hearing)
+        hearing = _visible_hearing(request, pk)
         return render(
             request,
-            "cases/hearing_form.html",
+            "cases/hearing_detail.html",
+            {
+                "hearing": hearing,
+                "can_edit": can_edit_hearing(hearing, request.user),
+                "tasks": hearing.tasks.select_related("assignee"),
+            },
+        )
+
+
+@method_decorator(xframe_options_sameorigin, name="dispatch")
+class HearingEditView(View):
+    def _render(self, request, form, hearing):
+        inline = bool(request.htmx)
+        return render(
+            request,
+            "cases/_hearing_form.html" if inline else "cases/hearing_form.html",
             {
                 "form": form,
                 "hearing": hearing,
+                "inline": inline,
                 "title": f"Duruşmayı Düzenle — {hearing.title_display}",
             },
         )
 
+    def get(self, request, pk):
+        hearing = _visible_hearing(request, pk)
+        if not can_edit_hearing(hearing, request.user):
+            raise PermissionDenied
+        return self._render(request, HearingForm(instance=hearing), hearing)
+
     def post(self, request, pk):
-        hearing = get_object_or_404(
-            filter_visible_hearings(Hearing.objects.select_related("case"), request.user), pk=pk
-        )
+        hearing = _visible_hearing(request, pk)
+        if not can_edit_hearing(hearing, request.user):
+            raise PermissionDenied
         form = HearingForm(request.POST, instance=hearing)
         if form.is_valid():
             h = form.save()
             queue_hearing_google_sync(h)
             messages.success(request, "Duruşma güncellendi.")
+            if request.htmx:
+                suffix = "?pencere=1" if request.GET.get("pencere") else ""
+                return HttpResponse(
+                    status=204,
+                    headers={"HX-Redirect": reverse("hearings:detail", args=[h.pk]) + suffix},
+                )
             next_url = request.POST.get("next") or (reverse("agenda:calendar") + "?view=list")
             return redirect(next_url)
-        return render(
-            request,
-            "cases/hearing_form.html",
-            {
-                "form": form,
-                "hearing": hearing,
-                "title": f"Duruşmayı Düzenle — {hearing.title_display}",
-            },
-        )
+        return self._render(request, form, hearing)
 
 
 class HearingDeleteStandaloneView(AdminRequiredMixin, View):

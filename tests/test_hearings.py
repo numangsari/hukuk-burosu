@@ -4,6 +4,7 @@ import pytest
 from django.urls import reverse
 from django.utils import timezone
 
+from apps.accounts.models import User
 from apps.agenda.services import hearing_events
 from apps.cases.models import (
     Case,
@@ -279,3 +280,43 @@ def test_agenda_hearing_events(db, admin_user, case_with_hearings):
     events = hearing_events(today - dt.timedelta(days=10), today + dt.timedelta(days=10))
     assert len(events) >= 3
     assert any(ev.source == "hearing" for ev in events)
+
+
+def test_hearing_detail_and_inline_edit_permissions(client, admin_user, lawyer, case_with_hearings):
+    from .conftest import make_user
+
+    case, h1, _, _ = case_with_hearings
+    senior = make_user("kidemli3", User.Role.SENIOR)
+    detail = reverse("hearings:detail", args=[h1.pk])
+    edit = reverse("hearings:edit", args=[h1.pk])
+    # Herkes ayrıntıyı görür; düzenle butonu yalnızca yetkilide.
+    client.force_login(lawyer)
+    page = client.get(detail + "?pencere=1")
+    assert page.status_code == 200 and page["X-Frame-Options"] == "SAMEORIGIN"
+    assert f'hx-get="{edit}' not in page.content.decode()
+    assert client.get(edit).status_code == 403
+    assert client.post(edit, {}).status_code == 403
+    for user in (admin_user, senior):
+        client.force_login(user)
+        assert f'hx-get="{edit}' in client.get(detail).content.decode()
+        fragment = client.get(edit, HTTP_HX_REQUEST="true")
+        assert fragment.status_code == 200 and b"<html" not in fragment.content
+    h1.created_by = lawyer
+    h1.save()
+    client.force_login(lawyer)
+    assert client.get(edit).status_code == 200  # oluşturan düzenleyebilir
+
+
+def test_hearing_inline_edit_success_redirects_to_detail(client, admin_user, case_with_hearings):
+    _, h1, _, _ = case_with_hearings
+    client.force_login(admin_user)
+    starts = (timezone.now() + dt.timedelta(days=9)).strftime("%Y-%m-%d %H:%M")
+    resp = client.post(
+        reverse("hearings:edit", args=[h1.pk]) + "?pencere=1",
+        {"kind": HearingKind.HEARING, "starts_at": starts, "room": "C-3"},
+        HTTP_HX_REQUEST="true",
+    )
+    assert resp.status_code == 204
+    assert resp["HX-Redirect"] == reverse("hearings:detail", args=[h1.pk]) + "?pencere=1"
+    h1.refresh_from_db()
+    assert h1.room == "C-3"

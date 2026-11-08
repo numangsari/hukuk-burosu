@@ -537,7 +537,10 @@ def test_hearing_events_show_information_regardless_of_connected_task(case_facto
     events = hearing_events(now.date(), (now + dt.timedelta(days=5)).date())
 
     assert len(events) == 2
-    assert all(not event.url and event.client_name for event in events)
+    assert all(
+        event.url == f"/durusmalar/{h.pk}/" and event.client_name
+        for event, h in zip(events, Hearing.objects.order_by("starts_at"), strict=True)
+    )
 
 
 def test_calendar_hearing_opens_information_not_task_creation(lawyer_client, case_factory):
@@ -567,7 +570,7 @@ def test_calendar_hearing_opens_information_not_task_creation(lawyer_client, cas
         assert 'data-bs-target="#calendarEventModal"' in content
         assert f'hx-get="{url}"' not in content
         assert task.get_absolute_url() not in content
-        assert 'data-event-location="Örnek mahkeme"' in content
+        assert f'href="{reverse("hearings:detail", args=[hearing.pk])}"' in content
         assert 'data-event-source="Randevu"' in content
     response = lawyer_client.get(url, HTTP_HX_REQUEST="true")
     assert response.status_code == 200

@@ -27,6 +27,8 @@ class MultipleFileField(forms.FileField):
 
 
 class TaskForm(BootstrapMixin, forms.ModelForm):
+    # Mevcut kayıtta not ve belge görev geçmişinden yönetilir; rutin görevde formda kalır.
+    keep_notes_and_documents = False
     # Yalnızca dosya listesini süzmek için; kaydedilen müvekkil her zaman dosyanın müvekkilidir.
     client = forms.ModelChoiceField(label="müvekkil", queryset=Client.objects.all(), required=False)
     case = CaseChoiceField(
@@ -85,8 +87,9 @@ class TaskForm(BootstrapMixin, forms.ModelForm):
         cases = Case.objects.exclude(status=CaseStatus.CLOSED)
         users = User.objects.filter(is_active=True)
         if self.instance.pk:
-            self.fields.pop("notes")
-            self.fields.pop("document")
+            if not self.keep_notes_and_documents:
+                self.fields.pop("notes")
+                self.fields.pop("document")
             # Pasife alınmış tür/kapanmış dosya/pasif kullanıcı mevcut görevde seçili kalabilsin.
             types = types | TaskType.objects.filter(pk=self.instance.task_type_id)
             cases = cases | Case.objects.filter(pk=self.instance.case_id)

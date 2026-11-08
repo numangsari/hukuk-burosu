@@ -5,6 +5,7 @@ from django.core.management import call_command
 from django.test import Client as HttpClient
 from django.urls import reverse
 
+from apps.accounts.models import User
 from apps.tasks import routines
 from apps.tasks.models import RoutineTask, Task
 
@@ -126,18 +127,27 @@ def test_management_command_runs(intern):
 # ---- ekran -----------------------------------------------------------------------------
 
 
-def test_only_admin_manages_routines(admin_user, lawyer, intern):
+def test_only_admin_and_senior_manage_routines(admin_user, lawyer, intern):
+    senior = make_user("kidemli", User.Role.SENIOR)
     url = reverse("tasks:routines")
     assert login(admin_user).get(url).status_code == 200
+    assert login(senior).get(url).status_code == 200
+    assert login(senior).get(reverse("tasks:routine_create")).status_code == 200
     for user in (lawyer, intern):
         assert login(user).get(url).status_code == 403
         assert login(user).get(reverse("tasks:routine_create")).status_code == 403
+
+
+def type_data():
+    task_type = routines.routine_task_type()
+    return {"task_type": task_type.pk, "requires_accounting": "no"}
 
 
 def test_admin_creates_weekly_routine(admin_user, intern, lawyer):
     r = login(admin_user).post(
         reverse("tasks:routine_create"),
         {
+            **type_data(),
             "title": "Haftalık arşiv kontrolü",
             "assignee": intern.pk,
             "reviewer": lawyer.pk,
@@ -155,7 +165,13 @@ def test_admin_creates_weekly_routine(admin_user, intern, lawyer):
 
 def test_monthly_requires_day_and_weekly_requires_weekday(admin_user, intern):
     c = login(admin_user)
-    base = {"title": "X", "assignee": intern.pk, "due_days": "0", "is_active": "on"}
+    base = {
+        **type_data(),
+        "title": "X",
+        "assignee": intern.pk,
+        "due_days": "0",
+        "is_active": "on",
+    }
     monthly = c.post(reverse("tasks:routine_create"), {**base, "frequency": "monthly"})
     weekly = c.post(reverse("tasks:routine_create"), {**base, "frequency": "weekly"})
     assert "month_day" in monthly.context["form"].errors
@@ -163,20 +179,22 @@ def test_monthly_requires_day_and_weekly_requires_weekday(admin_user, intern):
     assert not RoutineTask.objects.exists()
 
 
-def test_admin_edits_and_deletes_routine(admin_user, intern):
+def test_admin_edits_and_deletes_routine(admin_user, intern, lawyer):
     r = routine(intern)
     c = login(admin_user)
     resp = c.post(
         reverse("tasks:routine_update", args=[r.pk]),
         {
+            **type_data(),
             "title": "Yeni ad",
             "assignee": intern.pk,
+            "reviewer": lawyer.pk,
             "frequency": "monthly",
             "month_day": "5",
             "due_days": "0",
         },
     )
-    assert resp.status_code == 302
+    assert resp.status_code == 302, resp.context["form"].errors
     r.refresh_from_db()
     assert r.title == "Yeni ad" and r.month_day == 5 and r.weekday is None and not r.is_active
     assert c.post(reverse("tasks:routine_delete", args=[r.pk])).status_code == 302
@@ -188,3 +206,79 @@ def test_deleting_routine_keeps_generated_tasks(admin_user, intern):
     routines.create_due_tasks(MONDAY)
     login(admin_user).post(reverse("tasks:routine_delete", args=[r.pk]))
     assert Task.objects.count() == 1 and Task.objects.get().routine_id is None
+
+
+def test_routine_create_in_popup_reloads_parent(admin_user, intern, lawyer):
+    url = reverse("tasks:routine_create") + "?pencere=1"
+    r = login(admin_user).post(
+        url,
+        {
+            **type_data(),
+            "title": "Pencere",
+            "assignee": intern.pk,
+            "reviewer": lawyer.pk,
+            "frequency": "weekly",
+            "weekday": "0",
+            "due_days": "0",
+            "is_active": "on",
+        },
+    )
+    assert r.status_code == 200, r.context["form"].errors
+    assert b"window.parent.location.reload()" in r.content
+    assert (
+        RoutineTask.objects.filter(title="PENCERE").exists()
+        or RoutineTask.objects.filter(title="Pencere").exists()
+    )
+
+
+def test_routine_form_asks_task_details_and_copies_them(
+    admin_user, intern, lawyer, case_factory, tmp_path, settings
+):
+    from django.core.files.uploadedfile import SimpleUploadedFile
+
+    settings.MEDIA_ROOT = tmp_path
+    case = case_factory()
+    third = make_user("ucuncu", User.Role.SENIOR)
+    r = login(admin_user).post(
+        reverse("tasks:routine_create"),
+        {
+            **type_data(),
+            "requires_accounting": "yes",
+            "title": "Dosya rutini",
+            "case": case.pk,
+            "assignee": intern.pk,
+            "reviewer": lawyer.pk,
+            "second_reviewer": third.pk,
+            "notes": "Rutin not",
+            "document": SimpleUploadedFile("sablon.pdf", b"%PDF-1.4 x", "application/pdf"),
+            "frequency": "weekly",
+            "weekday": "0",
+            "due_days": "2",
+            "is_active": "on",
+        },
+    )
+    assert r.status_code == 302, getattr(r, "context", None) and r.context["form"].errors
+    created, _ = routines.create_due_tasks(MONDAY)
+    assert created == 1
+    task = Task.objects.get()
+    assert task.case == case and task.client_id == case.client_id
+    assert task.second_reviewer == third and task.requires_accounting is True
+    assert task.events.filter(kind="note", comment="Rutin not").exists()
+    assert task.documents.filter(original_name="sablon.pdf", is_current=True).count() == 1
+
+
+def test_routine_second_reviewer_needs_first(admin_user, intern, lawyer):
+    r = login(admin_user).post(
+        reverse("tasks:routine_create"),
+        {
+            **type_data(),
+            "title": "X",
+            "assignee": intern.pk,
+            "second_reviewer": lawyer.pk,
+            "frequency": "weekly",
+            "weekday": "0",
+            "due_days": "0",
+        },
+    )
+    assert "second_reviewer" in r.context["form"].errors
+    assert not RoutineTask.objects.exists()

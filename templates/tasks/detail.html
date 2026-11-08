@@ -6,6 +6,9 @@
   <div class="eyebrow"><a href="{% url 'tasks:list' %}"><i class="bi bi-chevron-left"></i> Görevler</a></div>
 </div>
 
+<div x-data="{ editing: false }" @task-edit-open="editing = true" @task-edit-cancel="editing = false; document.getElementById('task-edit-slot').innerHTML = ''">
+<div id="task-edit-slot" x-show="editing" x-cloak></div>
+<div x-show="!editing">
 <div class="card mb-3" x-data="{ revise: false, close: false, hearingOutcome: '{% if task.hearing.excuse_submitted %}excused{% else %}attended{% endif %}', clientInformed: 'yes', nextHearing: false }">
   <div class="detail-hero">
     <div class="hero-icon"><i class="bi bi-check2-square"></i></div>
@@ -39,7 +42,7 @@
         <button class="btn btn-outline-danger btn-icon" title="Sil"><i class="bi bi-trash"></i></button>
       </form>
       {% endif %}
-      {% if can_edit %}<a class="btn btn-light" href="{% url 'tasks:update' task.pk %}{% if request.GET.pencere %}?pencere=1{% endif %}"><i class="bi bi-pencil"></i>Düzenle</a>{% endif %}
+      {% if can_edit %}<button type="button" class="btn btn-light" hx-get="{% url 'tasks:update' task.pk %}{% if request.GET.pencere %}?pencere=1{% endif %}" hx-target="#task-edit-slot" hx-swap="innerHTML" @click="$dispatch('task-edit-open')"><i class="bi bi-pencil"></i>Düzenle</button>{% endif %}
       {% for a in actions %}
         {% if a.key == 'close' %}<button type="button" class="btn btn-{{ a.style }}" @click="close = !close">{% if task.hearing %}Görevi Tamamla{% else %}{{ a.label }}{% endif %}</button>
         {% elif a.needs_comment %}<button type="button" class="btn btn-{{ a.style }}" @click="revise = !revise">{{ a.label }}</button>
@@ -230,5 +233,7 @@
       </form>
     </div></div>
   </div>
+</div>
+</div>
 </div>
 {% endblock %}

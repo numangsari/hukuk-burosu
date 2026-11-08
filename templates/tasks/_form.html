@@ -1,0 +1,53 @@
+{{ form.supervisor_map|json_script:"supervisor-map" }}
+{{ form.document_type_ids|json_script:"document-types" }}
+{{ form.accounting_type_ids|json_script:"accounting-types" }}
+<form method="post" id="task-form" enctype="multipart/form-data" x-data="taskForm()" data-case-options-url="{% url 'tasks:case_options' %}"{% if inline %} hx-post="{% url 'tasks:update' object.pk %}?pencere=1" hx-target="#task-edit-slot" hx-swap="innerHTML" hx-encoding="multipart/form-data"{% endif %}>
+  {% csrf_token %}
+  {% if form.non_field_errors %}<div class="alert alert-danger m-3 mb-0">{{ form.non_field_errors }}</div>{% endif %}
+  <div class="form-masonry">
+  <div class="form-section card">
+    <div class="form-section-head"><h2>Görev</h2></div>
+    <div class="row">
+      <div class="col-md-4">{% include "partials/field.html" with field=form.task_type %}</div>
+      <div class="col-md-8">{% include "partials/field.html" with field=form.title %}</div>
+    </div>
+    {% if form.work_order_no %}<div class="row" x-show="requiresDocument" x-cloak><div class="col-md-4">{% include "partials/field.html" with field=form.work_order_no %}</div></div>{% endif %}
+    <p class="text-body-secondary small mb-0" x-show="requiresDocument" x-cloak><i class="bi bi-file-earmark-text text-primary me-1"></i>Bu görev türünde dilekçe / belge oluşturmak gerekmektedir.</p>
+    <p class="text-body-secondary small mb-0 text-primary" x-show="requiresAccounting" x-cloak><i class="bi bi-wallet2 me-1"></i>Bu görev türünde gelir / gider kaydı işlemek zorunludur.</p>
+  </div>
+  <div class="form-section card">
+    <div class="form-section-head"><h2>İlgili dosya</h2><p>Müvekkil seçerseniz dosya listesi o müvekkile göre filtrelenir; dosya seçilince müvekkil otomatik gelir.</p></div>
+    <div class="row">
+      <div class="col-md-5">{% include "partials/field.html" with field=form.client %}</div>
+      <div class="col-md-7">{% include "partials/field.html" with field=form.case %}</div>
+    </div>
+  </div>
+  <div class="form-section card">
+    <div class="form-section-head"><h2>Sorumlu ve kontrolcü</h2><p>Sorumlu işi yapar ve kontrole gönderir; kontrolcü onaylar ya da revizyon ister.</p></div>
+    <div class="row">
+      <div class="col-md-3">{% include "partials/field.html" with field=form.assignee %}</div>
+      <div class="col-md-3">{% include "partials/field.html" with field=form.reviewer %}</div>
+      <div class="col-md-3">{% include "partials/field.html" with field=form.second_reviewer %}</div>
+      {% if form.due_date %}<div class="col-md-3">{% include "partials/field.html" with field=form.due_date %}</div>{% endif %}
+    </div>
+    <div class="mb-3 accounting-choice"><div class="accounting-choice-head"><label class="form-label fw-semibold mb-0">Gelir/gider kaydı</label><div class="segmented-control">{% for radio in form.requires_accounting %}{% if radio.data.value %}<label class="segment-choice">{{ radio.tag }}<span>{{ radio.choice_label }}</span></label>{% endif %}{% endfor %}</div></div><div class="form-text">{{ form.requires_accounting.help_text }}</div>{% for error in form.requires_accounting.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}</div>
+    {% if form.notes %}{% include "partials/field.html" with field=form.notes wrap_class="" %}{% endif %}
+    {% if form.document %}{% include "partials/field.html" with field=form.document %}<ul class="small list-unstyled" id="selected-documents" aria-label="Seçilen belgeler"></ul>{% endif %}
+    {% if form.remove_documents and form.remove_documents.field.queryset %}<div class="mb-3"><label class="form-label fw-semibold">Eklenmiş belgeler <span class="fw-normal text-body-secondary">(işaretlenenler kaldırılır)</span></label>{{ form.remove_documents }}</div>{% endif %}
+  </div>
+  {% if form.frequency %}
+  <div class="form-section card">
+    <div class="form-section-head"><h2>Ne zaman açılsın</h2><p>Günü gelince sorumluya bu bilgilerle görev açılır.</p></div>
+    <div class="row">
+      <div class="col-md-4"><div class="mb-3"><label class="form-label fw-semibold" for="{{ form.frequency.id_for_label }}">Sıklık</label>
+        <select name="frequency" id="{{ form.frequency.id_for_label }}" class="form-select" x-model="frequency">{% for value, label in form.fields.frequency.choices %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></div></div>
+      <div class="col-md-4" x-show="frequency === 'weekly'">{% include "partials/field.html" with field=form.weekday %}</div>
+      <div class="col-md-4" x-show="frequency === 'monthly'" x-cloak>{% include "partials/field.html" with field=form.month_day %}</div>
+      <div class="col-md-4">{% include "partials/field.html" with field=form.due_days %}</div>
+      <div class="col-12">{% include "partials/field.html" with field=form.is_active %}</div>
+    </div>
+  </div>
+  {% endif %}
+  </div>
+  {% if inline %}<div class="d-flex gap-2 justify-content-end mt-3"><button type="button" class="btn btn-light" @click="$dispatch('task-edit-cancel')">Vazgeç</button><button type="submit" class="btn btn-primary"><i class="bi bi-check2"></i>Kaydet</button></div>{% endif %}
+</form>

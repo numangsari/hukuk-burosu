@@ -15,6 +15,18 @@ class AdminRequiredMixin(UserPassesTestMixin):
         return is_admin(self.request.user)
 
 
+def can_manage_routines(user) -> bool:
+    """Rutin görev kurallarını yönetici ve kıdemli avukat yönetir."""
+    return bool(
+        is_admin(user) or (user and user.is_authenticated and user.role == user.Role.SENIOR)
+    )
+
+
+class RoutineManagerMixin(UserPassesTestMixin):
+    def test_func(self):
+        return can_manage_routines(self.request.user)
+
+
 def can_view_all_office_data(user) -> bool:
     """Kullanıcının tüm müvekkil ve dosyaları görüp göremeyeceğini döner.
 

@@ -76,14 +76,10 @@ def test_second_reviewer_revision_restarts_from_first(task, intern, lawyer, seco
     assert keys(task, lawyer) >= {"approve"} and keys(task, second) == set()
 
 
-def test_admin_acts_at_each_step(task, intern, admin_user):
+def test_admin_cannot_act_on_review_steps(task, intern, admin_user):
     services.perform(task, "submit", intern)
-    services.perform(task, "approve", admin_user)
-    task.refresh_from_db()
-    assert task.status == TaskStatus.REVIEW and task.review_step == 2
-    services.perform(task, "approve", admin_user)
-    task.refresh_from_db()
-    assert task.status == TaskStatus.ACTIVE
+    with pytest.raises(PermissionDenied):
+        services.perform(task, "approve", admin_user)
 
 
 def test_single_reviewer_task_is_unchanged(task, intern, lawyer):

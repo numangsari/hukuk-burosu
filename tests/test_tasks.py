@@ -6,6 +6,7 @@ from django.test import Client as HttpClient
 from django.urls import reverse
 from django.utils import timezone
 
+from apps.accounts.models import User
 from apps.cases.models import CaseEvent
 from apps.office.models import TaskType
 from apps.tasks import services
@@ -159,7 +160,9 @@ def test_permissions(task_factory, lawyer, intern, admin_user):
         services.perform(t, "approve", intern)  # sorumlu kendi işini onaylayamaz
     with pytest.raises(ValidationError):
         services.perform(t, "cancel", lawyer)  # iptal işlemi yok
-    services.perform(t, "approve", admin_user)  # yönetici her işlemi yapabilir
+    with pytest.raises(PermissionDenied):
+        services.perform(t, "approve", admin_user)  # yönetici kontrolcü değilse onaylayamaz
+    services.perform(t, "approve", lawyer)
     assert t.status == TaskStatus.ACTIVE and t.stage_label == "Onaylandı"
     assert services.available_actions(t, lawyer) == []
     assert [a.key for a in services.available_actions(t, intern)] == ["close"]
@@ -405,10 +408,11 @@ def test_reassigned_task_is_new_not_revision(task_factory, intern, lawyer):
     assert not t.assignee_seen and not t.revision_requested
 
 
-def test_submit_only_assignee_or_admin(task_factory, admin_user, lawyer):
+def test_submit_only_assignee(task_factory, admin_user, lawyer, intern):
     t = task_factory(title="Yetki")
     assert "submit" not in [a.key for a in services.available_actions(t, lawyer)]  # kontrolcü
-    assert "submit" in [a.key for a in services.available_actions(t, admin_user)]
+    assert "submit" not in [a.key for a in services.available_actions(t, admin_user)]
+    assert "submit" in [a.key for a in services.available_actions(t, intern)]
 
 
 def test_own_task_is_new_until_opened(task_factory, intern):
@@ -454,12 +458,31 @@ def test_marked_task_types_require_document():
     assert not TaskType.objects.get(name="Dava Dosyası İnceleme").requires_document
 
 
-def test_only_reviewer_or_admin_can_edit_task(task_factory, lawyer, intern, admin_user):
+def test_only_creator_admin_and_senior_can_edit_task(task_factory, lawyer, intern, admin_user):
+    from .conftest import make_user
+
+    senior = make_user("kidemli2", User.Role.SENIOR)
     task = task_factory(assignee=intern, reviewer=lawyer, created_by=intern)
     url = reverse("tasks:update", args=[task.pk])
-    assert login(intern).get(url).status_code == 403
-    assert login(lawyer).get(url).status_code == 200
+    assert login(lawyer).get(url).status_code == 403  # kontrolcü bile düzenleyemez
+    assert login(intern).get(url).status_code == 200  # oluşturan
     assert login(admin_user).get(url).status_code == 200
+    assert login(senior).get(url).status_code == 200
+    other = task_factory(assignee=intern, reviewer=lawyer, created_by=admin_user)
+    assert login(intern).get(reverse("tasks:update", args=[other.pk])).status_code == 403
+
+
+def test_inline_edit_returns_form_fragment_and_redirects(task_factory, lawyer, intern, admin_user):
+    task = task_factory(assignee=intern, reviewer=lawyer, created_by=admin_user)
+    url = reverse("tasks:update", args=[task.pk]) + "?pencere=1"
+    page = login(admin_user).get(url, HTTP_HX_REQUEST="true")
+    assert page.status_code == 200
+    assert b"<html" not in page.content and b'id="task-form"' in page.content
+    detail = login(admin_user).get(task.get_absolute_url() + "?pencere=1").content.decode()
+    assert "task-edit-slot" in detail
+    assert "task-edit-slot" in login(admin_user).get(task.get_absolute_url()).content.decode()
+    hidden = login(lawyer).get(task.get_absolute_url() + "?pencere=1").content.decode()
+    assert 'hx-get="' + reverse("tasks:update", args=[task.pk]) not in hidden  # düzenle butonu yok
 
 
 def test_task_notes_are_separate_and_record_author(task_factory, lawyer, intern):

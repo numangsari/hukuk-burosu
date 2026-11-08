@@ -3,13 +3,15 @@
 import calendar
 import datetime as dt
 
+from django.core.files.base import ContentFile
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
+from apps.cases.documents import mirror_task_document
 from apps.office.models import TaskType
 
 from . import services
-from .models import RoutineTask, Task
+from .models import RoutineTask, Task, TaskDocument, TaskEvent
 
 ROUTINE_TYPE_NAME = "Rutin Görev"
 # Sunucu kapalı kaldıysa kaçan gün en çok bu kadar geriye dönük açılır.
@@ -43,12 +45,45 @@ def routine_task_type() -> TaskType:
     return task_type
 
 
+def copy_routine_extras(routine: RoutineTask, task: Task) -> None:
+    """Kuraldaki notu ve belgeleri yeni açılan göreve aktarır."""
+    if routine.notes.strip():
+        TaskEvent.objects.create(
+            task=task,
+            actor=routine.created_by,
+            kind=TaskEvent.Kind.NOTE,
+            comment=routine.notes.strip(),
+        )
+    for source in routine.documents.all():
+        try:
+            with source.file.open("rb") as handle:
+                content = ContentFile(handle.read())
+        except OSError:
+            continue  # dosyası kaybolmuş belge görevin açılmasını engellemez
+        doc = TaskDocument(
+            task=task,
+            kind=TaskDocument.Kind.SOURCE,
+            original_name=source.original_name,
+            size=source.size,
+            uploaded_by=routine.created_by,
+        )
+        doc.file.save(source.original_name, content, save=False)
+        doc.save()
+
+        def mirror(doc=doc):
+            mirror_task_document(doc)
+
+        transaction.on_commit(mirror)
+
+
 def create_due_tasks(today: dt.date | None = None) -> tuple[int, int]:
     """Günü gelen rutin kuralların görevlerini bir kez oluşturur: (oluşturulan, atlanan)."""
     today = today or timezone.localdate()
     created = skipped = 0
-    for routine in RoutineTask.objects.filter(is_active=True).select_related(
-        "assignee", "reviewer"
+    for routine in (
+        RoutineTask.objects.filter(is_active=True)
+        .select_related("assignee", "reviewer", "second_reviewer", "task_type", "case")
+        .prefetch_related("documents")
     ):
         occurrence = latest_occurrence(routine, today)
         if occurrence is None or occurrence < today - dt.timedelta(days=CATCH_UP_DAYS):
@@ -59,19 +94,25 @@ def create_due_tasks(today: dt.date | None = None) -> tuple[int, int]:
             skipped += 1
             continue
         reviewer = routine.reviewer if routine.reviewer and routine.reviewer.is_active else None
+        second = routine.second_reviewer
+        second = second if reviewer and second and second.is_active else None
         try:
             with transaction.atomic():
                 task = Task.objects.create(
-                    task_type=routine_task_type(),
+                    task_type=routine.task_type or routine_task_type(),
                     title=routine.title,
+                    case=routine.case,
                     assignee=routine.assignee,
                     reviewer=reviewer,
+                    second_reviewer=second,
+                    requires_accounting=bool(routine.case_id and routine.requires_accounting),
                     due_date=occurrence + dt.timedelta(days=routine.due_days),
                     routine=routine,
                     routine_date=occurrence,
                     created_by=routine.created_by,
                 )
                 services.on_created(task, routine.created_by)
+                copy_routine_extras(routine, task)
         except IntegrityError:
             pass  # aynı gün başka bir çalıştırma açmış
         else:

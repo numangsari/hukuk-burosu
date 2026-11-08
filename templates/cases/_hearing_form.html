@@ -1,0 +1,73 @@
+<form method="post" class="card p-4"{% if inline %} hx-post="{% url 'hearings:edit' hearing.pk %}?pencere=1" hx-target="#hearing-edit-slot" hx-swap="innerHTML"{% endif %}>
+  {% csrf_token %}
+  <input type="hidden" name="next" value="{{ request.GET.next|default:'' }}">
+
+  {% if form.non_field_errors %}
+  <div class="alert alert-danger mb-3">
+    {% for error in form.non_field_errors %}{{ error }}{% endfor %}
+  </div>
+  {% endif %}
+
+  {% if form.title %}
+  <div class="mb-3">
+    {% include "partials/field.html" with field=form.title %}
+    <div class="form-text small">Etkinlik başlığı veya konusu (örn: "Müvekkil Ön Görüşmesi", "Sözleşme Müzakeresi" vb.).</div>
+  </div>
+  {% endif %}
+
+  <div class="row g-3 mb-3">
+    <div class="col-md-6">
+      {% include "partials/field.html" with field=form.kind %}
+    </div>
+    {% if form.assigned_to %}
+    <div class="col-md-6">
+      {% include "partials/field.html" with field=form.assigned_to %}
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="row g-3 mb-3">
+    {% if form.case %}
+    <div class="col-md-6">
+      {% include "partials/field.html" with field=form.case %}
+      <div class="form-text small">Mevcut bir dosyaya bağlıysa seçin.</div>
+    </div>
+    {% endif %}
+    {% if form.client %}
+    <div class="col-md-6">
+      {% include "partials/field.html" with field=form.client %}
+      <div class="form-text small">Dosyası henüz açılmamış müvekkiller için seçilebilir.</div>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="row g-3 mb-3">
+    <div class="col-md-6">
+      {% include "partials/field.html" with field=form.starts_at %}
+    </div>
+    <div class="col-md-6">
+      {% if form.ends_at %}
+        {% include "partials/field.html" with field=form.ends_at %}
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="row g-3 mb-3">
+    <div class="col-md-8">
+      {% include "partials/field.html" with field=form.authority %}
+    </div>
+    <div class="col-md-4">
+      {% include "partials/field.html" with field=form.room %}
+    </div>
+  </div>
+
+  <div class="mb-3">
+    {% include "partials/field.html" with field=form.notes %}
+  </div>
+  {% include "partials/field.html" with field=form.is_remote %}
+
+  <div class="d-flex justify-content-between align-items-center pt-3 border-top mt-2">
+    {% if inline %}<button type="button" class="btn btn-light" @click="$dispatch('hearing-edit-cancel')">Vazgeç</button>{% else %}<a href="{{ request.GET.next|default:'/takvim/?view=list' }}" class="btn btn-light">Vazgeç</a>{% endif %}
+    <button type="submit" class="btn btn-primary"><i class="bi bi-check2 me-1"></i>Kaydet</button>
+  </div>
+</form>

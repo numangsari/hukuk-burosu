@@ -277,6 +277,15 @@ class TaskUpdateView(VisibleFormMixin, UpdateView):
     form_class = TaskForm
     template_name = "tasks/form.html"
 
+    def get_template_names(self):
+        # Görev penceresinde "Düzenle" yerinde açılır: yalnızca form parçası döner.
+        return ["tasks/_form.html"] if self.request.htmx else [self.template_name]
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["inline"] = bool(self.request.htmx)
+        return ctx
+
     @transaction.atomic
     def post(self, request, *args, **kwargs):
         return super().post(request, *args, **kwargs)
@@ -301,8 +310,13 @@ class TaskUpdateView(VisibleFormMixin, UpdateView):
         response = super().form_valid(form)
         services.on_updated(self.object, self.request.user, changed, old_assignee)
         messages.success(self.request, "Görev güncellendi.")
-        if self.request.GET.get("pencere"):
-            return redirect(self.object.get_absolute_url() + "?pencere=1")
+        suffix = "?pencere=1" if self.request.GET.get("pencere") else ""
+        if self.request.htmx:
+            return HttpResponse(
+                status=204, headers={"HX-Redirect": self.object.get_absolute_url() + suffix}
+            )
+        if suffix:
+            return redirect(self.object.get_absolute_url() + suffix)
         return response
 
 

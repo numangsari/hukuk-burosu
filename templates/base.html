@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="{% static 'vendor/bootstrap-icons/bootstrap-icons.min.css' %}">
   <link rel="stylesheet" href="{% static 'css/app.css' %}">
   <script src="{% static 'vendor/htmx.min.js' %}" defer></script>
+  <script src="{% static 'js/task-form.js' %}" defer></script>
   <script src="{% static 'vendor/alpine.min.js' %}" defer></script>
   <script src="{% static 'js/searchable-select.js' %}" defer></script>
   <script src="{% static 'js/htmx-errors.js' %}" defer></script>
@@ -43,13 +44,13 @@
       <div class="nav-section">Genel</div>
       <a class="side-link {% if ns == 'core' %}active{% endif %}" href="{% url 'core:home' %}"><i class="bi bi-grid-1x2"></i>Ana sayfa</a>
       <a class="side-link {% if ns == 'tasks' and request.resolver_match.url_name != 'pool' and request.resolver_match.url_name != 'pool_create' %}active{% endif %}" href="{% url 'tasks:list' %}"><i class="bi bi-check2-square"></i>Görevler</a>
-      <a class="side-link {% if request.resolver_match.url_name == 'pool' %}active{% endif %}" href="{% url 'tasks:pool' %}"><i class="bi bi-journal-text"></i>Dilekçe havuzu</a>
-      <a class="side-link" href="{% url 'notice_list' %}"><i class="bi bi-envelope"></i>Tebligatlar</a>
       <a class="side-link {% if ns == 'agenda' or ns == 'hearings' %}active{% endif %}" href="{% url 'agenda:calendar' %}"><i class="bi bi-calendar3"></i>Takvim</a>
+      <a class="side-link" href="{% url 'notice_list' %}"><i class="bi bi-envelope"></i>Tebligatlar</a>
       <div class="nav-section">Kayıtlar</div>
-      <a class="side-link {% if ns == 'clients' %}active{% endif %}" href="{% url 'clients:list' %}"><i class="bi bi-people"></i>Müvekkiller</a>
       <a class="side-link {% if ns == 'cases' %}active{% endif %}" href="{% url 'cases:list' %}"><i class="bi bi-folder2-open"></i>Dosyalar</a>
+      <a class="side-link {% if ns == 'clients' %}active{% endif %}" href="{% url 'clients:list' %}"><i class="bi bi-people"></i>Müvekkiller</a>
       <a class="side-link {% if ns == 'archive' %}active{% endif %}" href="{% url 'archive:list' %}"><i class="bi bi-archive"></i>Fiziki Arşiv</a>
+      <a class="side-link {% if request.resolver_match.url_name == 'pool' %}active{% endif %}" href="{% url 'tasks:pool' %}"><i class="bi bi-journal-text"></i>Dilekçe Havuzu</a>
       <div class="nav-section">Finans ve Rapor</div>
       {% if can_view_accounting %}<a class="side-link {% if ns == 'accounting' %}active{% endif %}" href="{% url 'accounting:list' %}"><i class="bi bi-wallet2"></i>Muhasebe</a>{% endif %}
       <a class="side-link {% if ns == 'reports' %}active{% endif %}" href="{% url 'reports:index' %}"><i class="bi bi-bar-chart-line"></i>Raporlar</a>
@@ -84,6 +85,7 @@
           <button class="btn btn-primary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false"><i class="bi bi-plus-lg me-1"></i>Yeni kayıt</button>
           <ul class="dropdown-menu dropdown-menu-end">
             <li><a class="dropdown-item" href="{% url 'tasks:create' %}">Görev</a></li>
+            {% if can_manage_routines %}<li><a class="dropdown-item" href="{% url 'tasks:routine_create' %}">Rutin görev</a></li>{% endif %}
             <li><a class="dropdown-item" href="{% url 'cases:create' %}">Dosya</a></li>
             <li><a class="dropdown-item" href="{% url 'clients:create' %}">Müvekkil</a></li>
             {% if can_edit_accounting %}<li><a class="dropdown-item" href="{% url 'accounting:create' %}">Gelir / gider</a></li>{% endif %}
@@ -160,6 +162,7 @@
   const paths = {
     '{% url "tasks:create" %}': 'Yeni görev',
     '{% url "tasks:pool_create" %}': 'Yeni dilekçe',
+    '{% url "tasks:routine_create" %}': 'Yeni rutin görev',
     '{% url "cases:create" %}': 'Yeni dosya',
     '{% url "clients:create" %}': 'Yeni müvekkil',
     '{% url "accounting:create" %}': 'Yeni gelir / gider',
@@ -179,10 +182,12 @@
     const url = new URL(link.href, location.href);
     const isTask = /^\/gorevler\/\d+\/$/.test(url.pathname);
     const isNotice = /^\/portal-inceleme\/tebligat\/\d+\/$/.test(url.pathname);
-    if (url.origin !== location.origin || (!Object.hasOwn(paths, url.pathname) && !isTask && !isNotice)) return;
+    const isHearing = /^\/durusmalar\/\d+\/$/.test(url.pathname);
+    const isRoutine = /^\/gorevler\/rutin\/\d+\/$/.test(url.pathname);
+    if (url.origin !== location.origin || (!Object.hasOwn(paths, url.pathname) && !isTask && !isNotice && !isHearing && !isRoutine)) return;
     event.preventDefault();
     url.searchParams.set('pencere', '1');
-    document.getElementById('create-window-title').textContent = isTask ? 'Görev' : isNotice ? 'Tebligat' : paths[url.pathname];
+    document.getElementById('create-window-title').textContent = isTask ? 'Görev' : isNotice ? 'Tebligat' : isHearing ? 'Duruşma / etkinlik' : isRoutine ? 'Rutin görev' : paths[url.pathname];
     active = true;
     clientSaved = false;
     frameLoads = 0;
@@ -209,7 +214,7 @@
   });
   modal.addEventListener('hidden.bs.modal', () => {
     // Pop-up içinde işlem yapıldıysa (sayfa yeniden yüklendi) liste yenilenir; yapılmadıysa kaydırma ve filtre konumu olduğu gibi kalır.
-    const changed = active && /\/gorevler\/\d+\//.test(frame.getAttribute('src') || '') && frameLoads > 1;
+    const changed = active && /\/(gorevler|durusmalar|portal-inceleme\/tebligat)\/\d+\//.test(frame.getAttribute('src') || '') && frameLoads > 1;
     const back = trigger;
     active = false;
     frame.removeAttribute('src');

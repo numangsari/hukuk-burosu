@@ -19,7 +19,7 @@
         <tr>
           <td class="tabular">
             <div class="fw-semibold {% if h.starts_at|date:'Y-m-d' == today|date:'Y-m-d' %}text-primary{% endif %}">
-              {{ h.starts_at|date:"d.m.Y" }}
+              <a class="text-reset" href="{% url 'hearings:detail' h.pk %}" title="Duruşma ayrıntısı">{{ h.starts_at|date:"d.m.Y" }}</a>
             </div>
             <div class="small text-body-secondary d-flex align-items-center gap-1">
               <i class="bi bi-clock"></i>{{ h.starts_at|date:"H:i" }}

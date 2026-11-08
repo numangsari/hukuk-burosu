@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% load ui %}
+{% block title %}{{ hearing.title_display|tr_title }} — {{ office.name }}{% endblock %}
+{% block content %}
+<div class="page-header mb-3">
+  <div class="eyebrow"><a href="{% url 'agenda:calendar' %}?view=list"><i class="bi bi-chevron-left"></i> Duruşmalar</a></div>
+</div>
+<div x-data="{ editing: false }" @hearing-edit-open="editing = true" @hearing-edit-cancel="editing = false; document.getElementById('hearing-edit-slot').innerHTML = ''">
+  <div id="hearing-edit-slot" x-show="editing" x-cloak></div>
+  <div x-show="!editing">
+    <div class="card mb-3">
+      <div class="detail-hero">
+        <div class="hero-icon"><i class="bi bi-calendar-event"></i></div>
+        <div class="min-w-0">
+          <div class="small text-body-secondary fw-medium">{{ hearing.get_kind_display }}</div>
+          <div class="d-flex align-items-center gap-2 flex-wrap">
+            <h1 class="page-title">{{ hearing.title_display|tr_title }}</h1>
+            {% if hearing.is_remote %}<span class="chip chip-info">E-duruşma</span>{% endif %}
+            {% if hearing.excuse_submitted %}<span class="chip chip-warning">Mazeret Sunuldu</span>{% else %}<span class="chip">{{ hearing.get_status_display }}</span>{% endif %}
+          </div>
+          <div class="meta">
+            <span><i class="bi bi-calendar-event"></i><strong class="tabular">{{ hearing.starts_at|date:"d.m.Y H:i" }}</strong>{% if hearing.ends_at %} – <span class="tabular">{{ hearing.ends_at|date:"H:i" }}</span>{% endif %}</span>
+            {% if hearing.authority or hearing.case.authority %}<span><i class="bi bi-bank"></i>{{ hearing.authority|default:hearing.case.authority|tr_title }}</span>{% endif %}
+            {% if hearing.room %}<span><i class="bi bi-geo-alt"></i>Salon: {{ hearing.room }}</span>{% endif %}
+          </div>
+        </div>
+        <div class="page-actions">
+          {% if can_edit %}<button type="button" class="btn btn-light" hx-get="{% url 'hearings:edit' hearing.pk %}{% if request.GET.pencere %}?pencere=1{% endif %}" hx-target="#hearing-edit-slot" hx-swap="innerHTML" @click="$dispatch('hearing-edit-open')"><i class="bi bi-pencil"></i>Düzenle</button>{% endif %}
+        </div>
+      </div>
+    </div>
+    <div class="card"><div class="card-body">
+      <dl class="row mb-0">
+        <dt class="col-sm-3">Dosya</dt>
+        <dd class="col-sm-9">{% if hearing.case %}<a href="{{ hearing.case.get_absolute_url }}#t-durusmalar"{% if request.GET.pencere %} target="_top"{% endif %}>{{ hearing.case.archive_reference }} — {{ hearing.case.display_name|tr_title }}</a>{% else %}<span class="text-body-secondary">Dosyasız</span>{% endif %}</dd>
+        <dt class="col-sm-3">Müvekkil</dt>
+        <dd class="col-sm-9">{% with c=hearing.effective_client %}{% if c %}<a href="{{ c.get_absolute_url }}"{% if request.GET.pencere %} target="_top"{% endif %}>{{ c|tr_title }}</a>{% else %}<span class="text-body-secondary">—</span>{% endif %}{% endwith %}</dd>
+        <dt class="col-sm-3">Sorumlu</dt>
+        <dd class="col-sm-9">{% if hearing.assigned_to %}{{ hearing.assigned_to|tr_title }}{% elif hearing.case.responsible_lawyer %}{{ hearing.case.responsible_lawyer|tr_title }}{% else %}—{% endif %}</dd>
+        <dt class="col-sm-3">Not</dt>
+        <dd class="col-sm-9">{{ hearing.notes|linebreaksbr|default:"—" }}</dd>
+        {% if hearing.result %}
+        <dt class="col-sm-3">Sonuç / Ara karar</dt>
+        <dd class="col-sm-9">{{ hearing.result|linebreaksbr }}</dd>
+        {% endif %}
+        {% if hearing.client_informed is not None %}
+        <dt class="col-sm-3">Müvekkil bilgilendirme</dt>
+        <dd class="col-sm-9">{% if hearing.client_informed %}Bilgi verildi{% else %}Bilgi verilmedi: {{ hearing.client_not_informed_reason }}{% endif %}</dd>
+        {% endif %}
+        <dt class="col-sm-3">Bağlantılı görev</dt>
+        <dd class="col-sm-9">{% for t in tasks %}<a href="{{ t.get_absolute_url }}{% if request.GET.pencere %}?pencere=1{% endif %}">{{ t.title|tr_title }}</a> <span class="text-body-secondary">({{ t.assignee }})</span>{% if not forloop.last %}<br>{% endif %}{% empty %}<span class="text-body-secondary">Yok</span>{% endfor %}</dd>
+      </dl>
+    </div></div>
+  </div>
+</div>
+{% endblock %}

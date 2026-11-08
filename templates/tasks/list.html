@@ -7,7 +7,7 @@
     <h1 class="page-title">Görevler</h1>
   </div>
   <div class="page-actions">
-    {% if request.user.role == 'admin' %}<a class="btn btn-light" href="{% url 'tasks:routines' %}"><i class="bi bi-arrow-repeat"></i>Rutin görevler</a>{% endif %}
+    {% if can_manage_routines %}<a class="btn btn-light" href="{% url 'tasks:routines' %}"><i class="bi bi-arrow-repeat"></i>Rutin görevler</a>{% endif %}
     <a class="btn btn-primary" href="{% url 'tasks:create' %}"><i class="bi bi-plus-lg"></i>Yeni görev</a>
   </div>
 </div>
