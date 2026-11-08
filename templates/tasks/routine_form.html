@@ -12,4 +12,32 @@
   </div>
 </div>
 {% include "tasks/_form.html" %}
+{% if object %}
+<div class="card mt-3">
+  <div class="card-header"><h2 class="card-title">Geçmiş</h2></div>
+  <div class="card-body">
+    <p class="mb-3">Açılan: <strong>{{ history.summary.opened }}</strong> · Tamamlanan: <strong>{{ history.summary.done }}</strong>{% if history.summary.last_done %} · Son tamamlanma: <strong>{{ history.summary.last_done|date:"d.m.Y H:i" }}</strong>{% endif %}</p>
+    {% if history.rows %}
+    <div class="table-responsive"><table class="table table-sm align-middle mb-0">
+      <thead><tr><th>Gün</th><th>Görev</th><th>Sorumlu</th><th>Durum</th><th>Tamamlanma</th><th>Sonuç notu</th><th>Gelir/gider</th></tr></thead>
+      <tbody>
+      {% for row in history.rows %}
+        <tr>
+          <td class="text-nowrap tabular">{{ row.task.routine_date|date:"d.m.Y" }}</td>
+          <td><a href="{{ row.task.get_absolute_url }}"{% if request.GET.pencere %} target="_top"{% endif %}>#{{ row.task.pk }}</a></td>
+          <td class="text-nowrap">{{ row.task.assignee }}</td>
+          <td>{{ row.task.get_status_display }}{% if row.task.stage_label %} <span class="text-body-secondary">· {{ row.task.stage_label }}</span>{% endif %}</td>
+          <td class="text-nowrap tabular">{% if row.task.completed_at %}{{ row.task.completed_at|date:"d.m.Y H:i" }}{% if row.closed %}<div class="small text-body-secondary">{{ row.closed.actor }}</div>{% endif %}{% else %}—{% endif %}</td>
+          <td class="small">{{ row.closed.comment|default:"—"|linebreaksbr }}</td>
+          <td class="small">{{ row.ledger.comment|default:"—" }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table></div>
+    {% else %}
+    <div class="text-body-secondary">Bu kuraldan henüz görev açılmadı.</div>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
 {% endblock %}

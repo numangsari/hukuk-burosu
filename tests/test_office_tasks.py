@@ -38,7 +38,7 @@ def test_office_task_has_no_case_or_client(intern):
     assert t.case_id is None and t.client_id is None and t.is_office_task
 
 
-def test_form_creates_office_task_without_case(lawyer, intern):
+def test_task_form_requires_case(lawyer, intern):
     r = login(lawyer).post(
         reverse("tasks:create"),
         {
@@ -47,12 +47,11 @@ def test_form_creates_office_task_without_case(lawyer, intern):
             "assignee": intern.pk,
             "reviewer": lawyer.pk,
             "due_date": "2026-11-10",
-            "requires_accounting": "yes",
+            "requires_accounting": "no",
         },
     )
-    assert r.status_code == 302, r.context["form"].errors
-    t = Task.objects.get()
-    assert t.case_id is None and t.requires_accounting is False
+    assert r.status_code == 200 and "case" in r.context["form"].errors
+    assert not Task.objects.exists()
 
 
 @pytest.mark.parametrize("mode", ["public", "restricted"])

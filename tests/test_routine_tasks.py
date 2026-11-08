@@ -7,7 +7,7 @@ from django.urls import reverse
 
 from apps.accounts.models import User
 from apps.office.models import TaskType
-from apps.tasks import routines
+from apps.tasks import routines, services
 from apps.tasks.models import RoutineTask, Task
 
 from .conftest import make_user
@@ -311,3 +311,20 @@ def test_routine_type_is_fixed_and_title_is_free(admin_user, intern, lawyer):
     assert task.requires_document is True and task.title == "SERBEST AD"
     page = login(admin_user).get(reverse("tasks:routine_create")).content.decode()
     assert 'name="requires_document"' in page
+
+
+def test_routine_tab_shows_counts_and_history(admin_user, intern, lawyer, case_factory):
+    r = routine(intern, reviewer=None)
+    routines.create_due_tasks(MONDAY)
+    task = Task.objects.get()
+    services.perform(task, "close", intern, "Kontrol edildi")
+    c = login(admin_user)
+    page = c.get(reverse("tasks:routines")).content.decode()
+    assert "Tamamlanan" in page and "Rutin görevler" in page
+    detail = c.get(reverse("tasks:routine_update", args=[r.pk])).content.decode()
+    assert "Geçmiş" in detail and "Kontrol edildi" in detail
+    assert "Açılan: <strong>1</strong>" in detail and "Tamamlanan: <strong>1</strong>" in detail
+    # Görevler ekranında yönetici ve kıdemli sekmeyi görür, diğerleri görmez.
+    tab = f'<a class="segment" href="{reverse("tasks:routines")}">'
+    assert tab in c.get(reverse("tasks:list")).content.decode()
+    assert tab not in login(lawyer).get(reverse("tasks:list")).content.decode()

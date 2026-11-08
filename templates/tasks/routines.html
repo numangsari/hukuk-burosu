@@ -3,8 +3,7 @@
 {% block content %}
 <div class="page-header">
   <div>
-    <div class="eyebrow"><a href="{% url 'tasks:list' %}"><i class="bi bi-chevron-left"></i> Görevler</a></div>
-    <h1 class="page-title">Rutin görevler</h1>
+    <h1 class="page-title">Görevler</h1>
     <div class="small text-body-secondary mt-1">Günü gelince sorumluya kendiliğinden ofis içi görev açılır.</div>
   </div>
   <div class="page-actions">
@@ -12,9 +11,10 @@
   </div>
 </div>
 <div class="card table-card">
+  <div class="px-3 pt-3"><div class="segmented-control"><a class="segment" href="{% url 'tasks:list' %}?kapsam=bana">Bana atanmış</a><a class="segment" href="{% url 'tasks:list' %}?kapsam=tumu">Tümü</a><a class="segment active" href="{% url 'tasks:routines' %}">Rutin görevler</a></div></div>
   <div class="table-responsive">
   <table class="table table-hover">
-    <thead><tr><th>Görev</th><th>Ne zaman</th><th>Sorumlu</th><th class="hide-lg">Kontrolcü</th><th class="hide-md">Süre</th><th>Durum</th><th></th></tr></thead>
+    <thead><tr><th>Görev</th><th>Ne zaman</th><th>Sorumlu</th><th class="hide-lg">Kontrolcü</th><th class="hide-md">Süre</th><th>Açılan</th><th>Tamamlanan</th><th class="hide-lg">Son tamamlanma</th><th>Durum</th><th></th></tr></thead>
     <tbody>
     {% for r in routines %}
       <tr>
@@ -23,6 +23,9 @@
         <td class="text-nowrap">{{ r.assignee }}</td>
         <td class="text-nowrap hide-lg">{{ r.reviewer|default:"—" }}</td>
         <td class="text-nowrap hide-md">{% if r.due_days %}{{ r.due_days }} gün{% else %}Aynı gün{% endif %}</td>
+        <td class="tabular">{{ r.opened_count }}</td>
+        <td class="tabular">{{ r.done_count }}</td>
+        <td class="text-nowrap hide-lg tabular">{{ r.last_done|date:"d.m.Y H:i"|default:"—" }}</td>
         <td>{% if r.is_active %}<span class="chip">Etkin</span>{% else %}<span class="chip no-dot">Durduruldu</span>{% endif %}</td>
         <td class="text-end text-nowrap">
           <a class="btn btn-light btn-sm" href="{% url 'tasks:routine_update' r.pk %}"><i class="bi bi-pencil"></i>Düzenle</a>
@@ -30,7 +33,7 @@
         </td>
       </tr>
     {% empty %}
-      <tr><td colspan="7"><div class="empty-state"><i class="bi bi-arrow-repeat"></i><strong>Rutin görev yok</strong>Yeni rutin görev ekleyerek başlayın.</div></td></tr>
+      <tr><td colspan="10"><div class="empty-state"><i class="bi bi-arrow-repeat"></i><strong>Rutin görev yok</strong>Yeni rutin görev ekleyerek başlayın.</div></td></tr>
     {% endfor %}
     </tbody>
   </table>

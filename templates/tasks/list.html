@@ -7,13 +7,12 @@
     <h1 class="page-title">Görevler</h1>
   </div>
   <div class="page-actions">
-    {% if can_manage_routines %}<a class="btn btn-light" href="{% url 'tasks:routines' %}"><i class="bi bi-arrow-repeat"></i>Rutin görevler</a>{% endif %}
     <a class="btn btn-primary" href="{% url 'tasks:create' %}"><i class="bi bi-plus-lg"></i>Yeni görev</a>
   </div>
 </div>
 
 <div class="card table-card" id="list-card">
-  <div class="px-3 pt-3"><div class="segmented-control">{% for key, label in scopes %}<a class="segment {% if scope == key %}active{% endif %}" href="{% query_with kapsam=key page=None %}">{{ label }}</a>{% endfor %}</div></div>
+  <div class="px-3 pt-3"><div class="segmented-control">{% for key, label in scopes %}<a class="segment {% if scope == key %}active{% endif %}" href="{% query_with kapsam=key page=None %}">{{ label }}</a>{% endfor %}{% if can_manage_routines %}<a class="segment" href="{% url 'tasks:routines' %}">Rutin görevler</a>{% endif %}</div></div>
   {% include "tasks/_tabs.html" %}
   <form class="filter-bar" hx-get="{% url 'tasks:list' %}" hx-target="#list-table" hx-push-url="true"
         hx-trigger="input changed delay:300ms from:input[name=q], change" hx-indicator="#list-card">

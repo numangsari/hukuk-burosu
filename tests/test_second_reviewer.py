@@ -143,9 +143,10 @@ def form_data(task_type, intern, lawyer, second=None, **kw):
     return data
 
 
-def test_form_saves_second_reviewer(intern, lawyer, second):
+def test_form_saves_second_reviewer(intern, lawyer, second, case_factory):
     t = TaskType.objects.first()
-    r = login(lawyer).post(reverse("tasks:create"), form_data(t, intern, lawyer, second))
+    data = form_data(t, intern, lawyer, second, case=case_factory().pk)
+    r = login(lawyer).post(reverse("tasks:create"), data)
     assert r.status_code == 302
     assert Task.objects.get().second_reviewer == second
 

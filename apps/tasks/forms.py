@@ -29,15 +29,14 @@ class MultipleFileField(forms.FileField):
 class TaskForm(BootstrapMixin, forms.ModelForm):
     # Mevcut kayıtta not ve belge görev geçmişinden yönetilir; rutin görevde formda kalır.
     keep_notes_and_documents = False
+    # Görev bir dosyaya bağlıdır; yalnızca rutin görev kuralında dosya isteğe bağlıdır.
+    case_required = True
     # Yalnızca dosya listesini süzmek için; kaydedilen müvekkil her zaman dosyanın müvekkilidir.
     client = forms.ModelChoiceField(label="müvekkil", queryset=Client.objects.all(), required=False)
     case = CaseChoiceField(
         label="dosya",
         queryset=Case.objects.none(),
-        required=False,
-        help_text=(
-            "Boş bırakılırsa ofis içi görev olur; yalnızca sorumlu, kontrolcü ve yönetici görür."
-        ),
+        required=True,
     )
     document = MultipleFileField(label="Belge", required=False, widget=MultipleFileInput)
     requires_accounting = forms.TypedChoiceField(
@@ -79,6 +78,7 @@ class TaskForm(BootstrapMixin, forms.ModelForm):
 
     def __init__(self, *args, user=None, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields["case"].required = self.case_required
         office = OfficeSettings.load()
         self.task_review_mode = office.task_review_mode
         if self.task_review_mode in (
