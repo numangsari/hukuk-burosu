@@ -34,7 +34,7 @@ uv run python manage.py seed_dev                     # Küçük örnek kayıtlar
 uv run python manage.py seed_demo                    # Kapsamlı deneme verisi (DEBUG)
 uv run python manage.py runserver 0.0.0.0:8000       # Geliştirme sunucusu
 uv run pytest                                        # Test süiti (dev DB'de test_ veritabanı)
-node --test tests/*.js                               # UYAP/UETS eklentisi testleri (Node)
+node --test tests/*.js tests/js/*.cjs              # UYAP/UETS eklentisi ve arayüz betiği testleri (Node)
 uv run ruff check .                                  # Linter denetimi
 uv run ruff format --check .                         # Format denetimi
 ```
@@ -43,7 +43,7 @@ uv run ruff format --check .                         # Format denetimi
 
 ## 3. Mimari ve Modül Yapısı
 
-**Görsel proje haritası:** `docs/obsidian/` klasörü Obsidian'da ayrı kasa olarak açılır; `Proje Haritası.canvas` ana ilişkileri, bağlantılı notlar grafik görünümünü sağlar. Harita koddan otomatik üretilmez; ilgili yapı değiştiğinde notlar ve çizim birlikte güncellenir. İş kurallarının asıl kaynağı bu belge ve koddur.
+**Görsel proje haritası:** `docs/obsidian/` klasörü Obsidian'da ayrı kasa olarak açılır; `Proje Haritası.canvas` ana ilişkileri, bağlantılı notlar grafik görünümünü sağlar. Obsidian kurmadan `docs/proje-haritasi.html` tarayıcıda açılabilir; dış bağlantı gerektirmez. Harita koddan otomatik üretilmez; ilgili yapı değiştiğinde notlar, çizim ve tarayıcı görünümü birlikte güncellenir. İş kurallarının asıl kaynağı bu belge ve koddur.
 
 ### `apps/core`
 - Ortak model altyapısı (`TimeStampedModel`), TCKN / VKN / IBAN doğrulayıcıları.
@@ -166,7 +166,7 @@ uv run ruff format --check .                         # Format denetimi
   - Pozitif bakiye = Müvekkil ofise borçlu ("Alacağımız"); Negatif bakiye = Ofis müvekkile borçlu ("Borcumuz"). Arayüzde yön kırmızı/yeşil renkle değil bu etiketlerle gösterilir.
 - **Ofis içi gelir/gider (kaldırıldı):** Ekran, menü ve URL'ler kaldırıldı; `OfficeEntry` modeli ve verisi (`office-ledger/` belgeleri dahil) silinmedi, ileride yeniden eklenebilir.
 - **UYAP kaynaklı hareket (`LedgerEntry.portal_ref` dolu):** Dosya Muhasebe sekmesi sol "Büro kaydı", sağ "UYAP (salt okunur)" olarak ikiye ayrılır; genel bakiye ikisini birlikte hesaplar. UYAP hareketi iptal edilmez, yetkili (`accounting.exclude_portal`) gerekçeyle hesap dışı bırakır/geri alır (`excluded_from_balance`; bakiye, toplam ve ekstre `counted()`/`balance_effect` ile dışlar). Sözleşme, ihtarname ve diğer türde (`Case.has_portal` yanlış) UYAP bölümü (taraflar, muhasebe) gösterilmez.
-- **Kayıt Bütünlüğü:** Muhasebe hareketi silinmez; gerekirse iptal edilir (`cancelled`). Kasa toplamları ve bakiyeler yalnızca bakiye görme yetkisi (`accounting.balances`) olan kullanıcılara gösterilir.
+- **Kayıt Bütünlüğü:** Muhasebe hareketi silinmez; gerekirse iptal edilir (`cancelled`). Veritabanı kısıtları tutarı sıfırdan büyük, iptal kaydını iptal zamanlı tutar (`ledger_amount_positive`, `ledger_cancel_has_time`). Kasa toplamları ve bakiyeler yalnızca bakiye görme yetkisi (`accounting.balances`) olan kullanıcılara gösterilir.
 
 ### `apps/imports` & UYAP/UETS Entegrasyonu
 - **Tarayıcı Eklentisi (`uyap-uets-eklentisi`):** UYAP Avukat Portal ve UETS oturumlarını yerel sunucuya bağlar. Eklenti yalnızca **ana bilgisayarda** (sunucunun kurulu olduğu, sürekli açık bilgisayar) kurulur; UYAP/UETS orada açık ve oturum geçerliyken aktarım kendiliğinden başlar, sekme kapanınca veya oturum düşünce durur. Eşleştirmeyi yalnızca yönetici yapar; aktarım üretimde de çalışır. Başka bir avukatın verisi için o avukatın hesabı yine ana bilgisayarda açılır. Üst çubukta, herkese görünen UYAP/UETS durum göstergesi vardır (`portal_status.py`): Ayarlar > Eklenti bağlantıları'nda otomasyon izni verilmiş her avukat için o an aktarım olup olmadığı listelenir. Eşzamanlı çoklu hesap veya çoklu bilgisayar aktarımı henüz desteklenmez. Desteklenen davranış ve durumlar: `docs/uyap-uets-davranis.md`.
@@ -195,7 +195,7 @@ uv run ruff format --check .                         # Format denetimi
 2. **Kayıt Silme Yetkisi:** Dosya, müvekkil, duruşma ve muhasebe kayıtlarını yalnızca yönetici silebilir. Muhasebe hareketleri fiziksel silinmek yerine iptal edilir.
 3. **Ofis Klasör Yapısı:** Belgeler `OfficeSettings.documents_root` altında düzenli hiyerarşide tutulur: `<Kök>\Müvekkiller\<Müvekkil Adı>\<Dosya Adı>\`.
 4. **Türkçe Karakter Standardı:** Müvekkil adları, dosya konuları ve görev başlıkları model seviyesinde Türkçe kurallarla büyük harfe dönüştürülür (`tr_upper`). Listelerde ve ana sayfada ekranda normal yazım gösterilir (`tr_title` şablon filtresi, kelime bazlı; UYAP, SGK gibi kısaltmalar büyük kalır). Saklanan veri değişmez; yeni liste şablonlarında ad alanları `|tr_title` ile yazılır.
-5. **Aktivite Kaydı:** Tüm model değişiklikleri ve kullanıcı giriş/çıkışları `django-auditlog` ile kaydedilir.
+5. **Aktivite Kaydı:** Tüm model değişiklikleri ve kullanıcı giriş/çıkışları `django-auditlog` ile kaydedilir. `OfficeSettings` (yetki matrisi dahil) da kayıtlıdır; Google anahtarı, iCal adresi ve banka bilgisi kayda yazılmaz.
 
 ---
 

@@ -158,6 +158,14 @@ class LedgerEntry(TimeStampedModel):
         verbose_name_plural = "muhasebe hareketleri"
         ordering = ["-date", "-pk"]
         indexes = [models.Index(fields=["client", "is_cancelled"])]
+        # Form dışı yazımda da (servis, aktarım, kabuk) bütünlük veritabanında korunur.
+        constraints = [
+            models.CheckConstraint(condition=models.Q(amount__gt=0), name="ledger_amount_positive"),
+            models.CheckConstraint(
+                condition=models.Q(is_cancelled=False) | models.Q(cancelled_at__isnull=False),
+                name="ledger_cancel_has_time",
+            ),
+        ]
 
     def __str__(self):
         return f"{self.get_kind_display()} {self.amount} ₺"

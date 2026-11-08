@@ -177,3 +177,16 @@ def test_matrix_page_is_admin_only_and_lists_every_permission(admin_user, lawyer
     assert not registry.has_perm(lawyer, "cases.view_all")
     login(lawyer).post(url, {"section": "yetkiler", "perm:cases.view_all:lawyer": "on"})
     assert not registry.has_perm(lawyer, "cases.view_all")  # yönetici olmayan kaydedemez
+
+
+@pytest.mark.django_db
+def test_permission_matrix_change_is_audited_without_secrets():
+    from auditlog.models import LogEntry
+
+    office = OfficeSettings.load()
+    office.role_permissions = {"cases.view_all": ["admin"]}
+    office.google_service_account_json = '{"private_key": "gizli"}'
+    office.save()
+    entry = LogEntry.objects.get_for_object(office).latest("timestamp")
+    assert "role_permissions" in entry.changes_dict
+    assert "google_service_account_json" not in entry.changes_dict

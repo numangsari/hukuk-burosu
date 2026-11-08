@@ -53,7 +53,7 @@ def test_ledger_report_filters_state_source_and_kind(admin_user, case_factory):
         )
 
     add()
-    add(is_cancelled=True)
+    add(is_cancelled=True, cancelled_at=timezone.now())
     add(portal_ref="u1", excluded_from_balance=True)
     add(portal_ref="u2", kind=EntryKind.EXPENSE)
     assert len(d.build_ledger({}, admin_user).rows) == 2  # varsayılan: geçerli kayıtlar
@@ -158,7 +158,11 @@ def test_client_facing_reports_hide_office_internal_information(
 def test_client_statement_excludes_cancelled_and_excluded_entries(admin_user, case_factory):
     case = case_factory()
     today = timezone.localdate()
-    for kwargs in ({}, {"is_cancelled": True}, {"portal_ref": "x", "excluded_from_balance": True}):
+    for kwargs in (
+        {},
+        {"is_cancelled": True, "cancelled_at": timezone.now()},
+        {"portal_ref": "x", "excluded_from_balance": True},
+    ):
         LedgerEntry.objects.create(
             client=case.client, case=case, kind=EntryKind.FEE, amount=100, date=today, **kwargs
         )
@@ -193,7 +197,7 @@ def test_client_summary_groups_valid_entries_by_case(admin_user, case_factory):
     for kind, amount, extra in (
         (EntryKind.FEE, 1000, {}),
         (EntryKind.COLLECTION, 400, {}),
-        (EntryKind.EXPENSE, 50, {"is_cancelled": True}),
+        (EntryKind.EXPENSE, 50, {"is_cancelled": True, "cancelled_at": timezone.now()}),
         (EntryKind.EXPENSE, 70, {"portal_ref": "z", "excluded_from_balance": True}),
     ):
         LedgerEntry.objects.create(

@@ -4,6 +4,7 @@ from decimal import Decimal
 import pytest
 from django.test import Client as HttpClient
 from django.urls import reverse
+from django.utils import timezone
 
 from apps.accounting.models import EntryKind, LedgerEntry
 from apps.accounting.views import statement
@@ -45,7 +46,7 @@ def test_balance_formulas_example_from_spec(client_factory):
 def test_cancelled_entries_excluded(client_factory):
     c = client_factory()
     add(c, EntryKind.FEE, "1000")
-    add(c, EntryKind.FEE, "500", is_cancelled=True)
+    add(c, EntryKind.FEE, "500", is_cancelled=True, cancelled_at=timezone.now())
     assert c.ledger_entries.balances()["balance"] == D("1000")
 
 
@@ -231,10 +232,33 @@ def test_settings_sections_render(admin_user, intern):
 def test_cancelled_entries_only_in_history_tab(admin_user, case_factory):
     case = case_factory()
     kept = add(case.client, EntryKind.FEE, "800", case=case)
-    gone = add(case.client, EntryKind.EXPENSE, "123", case=case, is_cancelled=True)
+    gone = add(
+        case.client,
+        EntryKind.EXPENSE,
+        "123",
+        case=case,
+        is_cancelled=True,
+        cancelled_at=timezone.now(),
+    )
     c = login(admin_user)
     for url in (case.get_absolute_url(), case.client.get_absolute_url()):
         response = c.get(url)
         assert [r["entry"].pk for r in response.context["ledger_rows"]] == [kept.pk]
         assert [e.pk for e in response.context["cancelled_entries"]] == [gone.pk]
         assert "İptal edilen muhasebe hareketleri" in response.content.decode()
+
+
+@pytest.mark.parametrize("amount", ["0", "-5"])
+def test_database_rejects_non_positive_amount(client_factory, amount):
+    from django.db import IntegrityError, transaction
+
+    with pytest.raises(IntegrityError), transaction.atomic():
+        add(client_factory(), EntryKind.EXPENSE, amount)
+
+
+def test_database_rejects_cancel_without_time(client_factory):
+    from django.db import IntegrityError, transaction
+
+    entry = add(client_factory(), EntryKind.EXPENSE, "10")
+    with pytest.raises(IntegrityError), transaction.atomic():
+        LedgerEntry.objects.filter(pk=entry.pk).update(is_cancelled=True)
