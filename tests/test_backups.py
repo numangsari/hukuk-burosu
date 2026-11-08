@@ -472,11 +472,32 @@ def test_restore_command_takes_safety_backup_first(backup_env, monkeypatch):
         "apps.backups.management.commands.restore.restore",
         lambda path: calls.append(("restore", path)),
     )
+    monkeypatch.setattr(
+        "apps.backups.management.commands.restore.migrate_schema",
+        lambda: calls.append(("migrate",)),
+    )
     call_command("restore", str(archive), "--yes")
     safety = BackupRecord.objects.filter(kind=BackupRecord.Kind.PRE_RESTORE).first()
     assert safety is not None and safety.status == BackupRecord.Status.OK
     assert (backup_env / "yedekler" / safety.file_name).exists()
-    assert calls == [("restore", archive)]
+    # Eski sürüm yedeği yeni sürüme yüklenince şema geri yüklemeden sonra güncellenir.
+    assert calls == [("restore", archive), ("migrate",)]
+
+
+def test_restore_command_reports_failed_schema_update(backup_env, monkeypatch):
+    from django.core.management import call_command
+    from django.core.management.base import CommandError
+
+    rec = services.run_backup(BackupRecord.Kind.MANUAL)
+    archive = backup_env / "yedekler" / rec.file_name
+    monkeypatch.setattr("apps.backups.management.commands.restore.restore", lambda path: None)
+
+    def broken():
+        raise RuntimeError("kısıt ihlali")
+
+    monkeypatch.setattr("apps.backups.management.commands.restore.migrate_schema", broken)
+    with pytest.raises(CommandError, match="veritabanı yapısı bu sürüme güncellenemedi"):
+        call_command("restore", str(archive), "--yes", "--guvenlik-yedegi-alma")
 
 
 def test_restore_command_aborts_when_safety_backup_fails(backup_env, monkeypatch):

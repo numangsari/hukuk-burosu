@@ -1,9 +1,15 @@
 from pathlib import Path
 
+from django.core.management import call_command
 from django.core.management.base import BaseCommand, CommandError
 
 from apps.backups.models import BackupRecord
 from apps.backups.services import BackupError, restore, run_backup
+
+
+def migrate_schema() -> None:
+    """Eski sürümde alınmış yedeğin veritabanı yapısını kurulu sürüme getirir."""
+    call_command("migrate", interactive=False, verbosity=0)
 
 
 class Command(BaseCommand):
@@ -46,6 +52,13 @@ class Command(BaseCommand):
             restore(path)
         except BackupError as e:
             raise CommandError(str(e)) from e
+        try:
+            migrate_schema()
+        except Exception as e:
+            raise CommandError(
+                "Veriler geri yüklendi, ancak veritabanı yapısı bu sürüme güncellenemedi "
+                f"({e}). Uygulamayı kapalı tutun; 'manage.py migrate' ile yeniden deneyin."
+            ) from e
         self.stdout.write(
             self.style.SUCCESS("Geri yükleme tamamlandı. Uygulama servisini başlatın.")
         )

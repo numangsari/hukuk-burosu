@@ -186,7 +186,7 @@ uv run ruff format --check .                         # Format denetimi
 - **Otomatik Yedekleme:** Günlük yedekte veritabanı dökümü parolasız arşive alınır; sistem belgeleri ofis klasöründeki `Sistem Belgeleri` altında ayrı kopyalanır ve silinmez. Aynı adlı farklı içerik varsa üzerine yazılmaz, yedek başarısız bildirilir. Elle ve güncelleme öncesi yedekler belgeleri de arşive alır. Günlük veritabanı yedeğinden geri yükleme mevcut sistem belgelerine dokunmaz; yeni kurulumda ayrı belge kopyası ayrıca yerine konmalıdır.
 - **Windows geliştirme ortamı:** `Hukuk Burosu Gelistirme Yedek` zamanlanmış görevi, açık kullanıcı oturumunda `scripts/backup_hidden.vbs` aracılığıyla yarım saatte bir yedek zamanını kontrol eder; komut penceresi açılmaz.
 - **Saklama Politikası:** Son 30 günün günlük yedekleri + son 12 ayın aylık ilk yedekleri korunur (`apply_retention`).
-- **Geri Yükleme:** `manage.py restore <yedek.zip> --yes` komutu ile tek adımda güvenli geri yükleme.
+- **Geri Yükleme:** `manage.py restore <yedek.zip> --yes` komutu ile tek adımda güvenli geri yükleme. Geri yüklemeden sonra `migrate` kendiliğinden çalışır; eski sürümde alınmış yedek kurulu sürümün şemasına getirilir (başarısızsa komut hata verir, uygulama kapalı tutulur).
 
 ---
 
