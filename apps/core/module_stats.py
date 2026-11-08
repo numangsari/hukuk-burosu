@@ -115,7 +115,20 @@ def _enforcement():
     return enforcement_stats()
 
 
+def _home():
+    tasks = dict(_tasks())
+    hearings = dict(_hearings())
+    notices = dict(_notices())
+    return [
+        ("Açık görev", tasks["Açık görev"]),
+        ("Geciken görev", tasks["Geciken"]),
+        ("Bugünkü duruşma", hearings["Bugün"]),
+        ("Bekleyen tebligat", notices["İşlem bekleyen"]),
+    ]
+
+
 BUILDERS = {
+    "home": _home,
     "cases": _cases,
     "clients": _clients,
     "tasks": _tasks,

@@ -10,7 +10,7 @@ from django.views import View
 from apps.core.permissions import AdminRequiredMixin
 
 from .models import BackupRecord
-from .services import local_dir, run_backup
+from .services import BackupError, dump_database, local_dir, run_backup
 
 
 class BackupNowView(AdminRequiredMixin, View):
@@ -54,6 +54,32 @@ class ExportAllListsZipView(AdminRequiredMixin, View):
         slug = OfficeSettings.load().slug
         response = HttpResponse(data, content_type="application/zip")
         response["Content-Disposition"] = f'attachment; filename="{slug}-tum-tablolar-{stamp}.zip"'
+        return response
+
+
+class ExportDatabaseDumpView(AdminRequiredMixin, View):
+    """Veritabanının güncel dökümünü (`db.dump`, pg_dump özel biçimi) indirir."""
+
+    def get(self, request):
+        import os
+        import tempfile
+
+        fd, name = tempfile.mkstemp(prefix="db-", suffix=".dump")
+        os.close(fd)
+        path = Path(name)
+        try:
+            dump_database(path)
+        except BackupError as e:
+            path.unlink(missing_ok=True)
+            messages.error(request, f"Veritabanı dökümü alınamadı: {e}")
+            return redirect(f"{reverse('accounts:settings')}?bolum=veri_aktarim")
+        try:
+            data = path.read_bytes()
+        finally:
+            path.unlink(missing_ok=True)
+        response = HttpResponse(data, content_type="application/octet-stream")
+        response["Content-Disposition"] = 'attachment; filename="db.dump"'
+        response["Cache-Control"] = "private, no-store"
         return response
 
 

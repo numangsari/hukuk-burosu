@@ -29,7 +29,7 @@
         {% if k.client %}{{ k.client|tr_title }}{% else %}<span class="chip chip-warning no-dot">Müvekkil eksik</span>{% endif %}
         {% if k.client_role %}<div class="cell-sub">{{ k.get_client_role_display }}</div>{% endif %}
       </td>
-      <td class="hide-md">{% if k.is_open %}{{ k.stage_label|default:"—" }}{% else %}<span class="case-list-status case-list-status-closed">Kapalı</span>{% endif %}</td>
+      <td class="hide-md">{% if k.is_open %}{{ k.stage_label|default:k.uyap_stage|default:"—" }}{% else %}<span class="case-list-status case-list-status-closed">Kapalı</span>{% endif %}</td>
       <td>
         {% for s in k.seizures.all %}{% if s.is_active %}
           <div class="small"><span class="fw-medium">{{ s.get_kind_display|default:"Haciz" }}</span>{% if s.state_label %} <span class="text-body-secondary">· {{ s.state_label }}</span>{% endif %}</div>
@@ -41,7 +41,7 @@
       <td class="tabular text-nowrap">{{ k.last_action|date:"d.m.Y" }}</td>
     </tr>
   {% empty %}
-    <tr><td colspan="9"><div class="empty-state"><i class="bi bi-hammer"></i><strong>İcra dosyası bulunamadı</strong>Filtreleri değiştirin.</div></td></tr>
+    <tr><td colspan="9"><div class="empty-state"><i class="bi bi-bank"></i><strong>İcra dosyası bulunamadı</strong>Filtreleri değiştirin.</div></td></tr>
   {% endfor %}
   </tbody>
 </table>

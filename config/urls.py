@@ -17,7 +17,6 @@ urlpatterns = [
         portal_views.NoticeTaskCreateView.as_view(),
         name="notice_task_create",
     ),
-    path("portal-inceleme/", portal_views.index, name="portal_review"),
     path("portal-inceleme/baglanti/", portal_sync.pair, name="portal_pair"),
     path("portal-inceleme/durum/", portal_sync.health, name="portal_health"),
     path("portal-inceleme/gosterge/", portal_sync.indicator, name="portal_indicator"),

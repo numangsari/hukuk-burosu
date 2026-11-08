@@ -404,22 +404,22 @@ class SettingsView(View):
         # Task workload per user
         open_tasks_by_user = dict(
             Task.objects.filter(status__in=OPEN_STATUSES)
-            .values_list("assigned_to_id")
+            .values_list("assignee_id")
             .annotate(c=Count("id"))
         )
         overdue_tasks_by_user = dict(
             Task.objects.filter(status__in=OPEN_STATUSES, due_date__lt=today)
-            .values_list("assigned_to_id")
+            .values_list("assignee_id")
             .annotate(c=Count("id"))
         )
         review_waiting_by_user = dict(
-            Task.objects.filter(status=TaskStatus.IN_REVIEW)
+            Task.objects.filter(status=TaskStatus.REVIEW)
             .values_list("reviewer_id")
             .annotate(c=Count("id"))
         )
         closed_tasks_by_user = dict(
-            Task.objects.filter(status=TaskStatus.CLOSED)
-            .values_list("assigned_to_id")
+            Task.objects.filter(status=TaskStatus.DONE)
+            .values_list("assignee_id")
             .annotate(c=Count("id"))
         )
 

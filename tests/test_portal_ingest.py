@@ -114,7 +114,7 @@ def test_import_preserves_source_without_creating_office_records(tmp_path, monke
     assert import_files([path], user) == result
     web = HttpClient()
     web.force_login(user)
-    assert "Örnek ileti" in web.get("/portal-inceleme/").content.decode()
+    assert "Örnek ileti" in web.get("/tebligatlar/", {"durum": "all"}).content.decode()
     record = PortalCase.objects.get(number="2026/1")
     assert "ÖRNEK KARŞI TARAF" in web.get(f"/portal-inceleme/{record.pk}/").content.decode()
 

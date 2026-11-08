@@ -27,7 +27,6 @@
         {% if calendar_connected %}<span class="chip chip-success ms-auto">Bağlı</span>{% endif %}</a>
       <a class="{% if active == 'monitor' %}active{% endif %}" href="?bolum=monitor"><i class="bi bi-activity"></i>Sistem monitörü</a>
       <a class="{% if active == 'erisim' %}active{% endif %}" href="?bolum=erisim"><i class="bi bi-hdd-network"></i>Erişim adresleri</a>
-      <a href="{% url 'portal_review' %}"><i class="bi bi-cloud-arrow-down"></i>UYAP ve UETS inceleme</a>
       <a href="{% url 'activity:list' %}"><i class="bi bi-clock-history"></i>Aktivite kaydı</a>
       <a class="{% if active == 'kullanici_analizi' %}active{% endif %}" href="?bolum=kullanici_analizi"><i class="bi bi-person-lines-fill"></i>Kullanıcı analizi</a>
       <a class="{% if active == 'veri_aktarim' %}active{% endif %}" href="?bolum=veri_aktarim"><i class="bi bi-database-down"></i>Veri içe / dışa aktar</a>
@@ -814,6 +813,7 @@
                 <input type="hidden" name="return_section" value="veri_aktarim">
                 <button class="btn btn-primary w-100" {% if backup_problem %}disabled{% endif %}><i class="bi bi-hdd-network"></i>Şimdi tam yedek oluştur</button>
               </form>
+              <a class="btn btn-light w-100 mt-2" href="{% url 'backups:export_db_dump' %}"><i class="bi bi-database-down"></i>Verileri db.dump olarak indir</a>
             </div>
           </div>
         </div>

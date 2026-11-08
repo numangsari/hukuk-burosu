@@ -24,7 +24,7 @@ from apps.core.text import tr_title
 from apps.tasks.models import TaskDocument
 from apps.tasks.views import TaskCreateView
 
-from .models import PortalCapture, PortalCase, PortalNotice, PortalNoticeDocument
+from .models import PortalCase, PortalNotice, PortalNoticeDocument
 from .notice_folders import schedule_notice_copy
 from .portal_case_sync import sync_portal_case
 from .portal_finance import import_finance
@@ -72,35 +72,6 @@ def notice_detail(request, pk):
             "source_subject": source.get("Konu", ""),
             "source_name": source.get("DosyaAdi", ""),
             "can_undo_no_task": has_perm(request.user, "notices.undo_no_task"),
-        },
-    )
-
-
-@login_required
-@user_passes_test(lambda user: user.is_office_admin)
-def index(request):
-    query = request.GET.get("q", "").strip()
-    cases = PortalCase.objects.select_related("case")
-    if query:
-        cases = cases.filter(Q(authority__icontains=query) | Q(number__icontains=query))
-    from apps.core.pagination import page_size
-
-    page = Paginator(cases, page_size(request, default=50)).get_page(request.GET.get("page"))
-    for rec in page.object_list:
-        if not rec.case_id:
-            rec.suggested_case = find_matching_case(rec.authority, rec.number)
-        else:
-            rec.suggested_case = None
-    return render(
-        request,
-        "imports/portal_review.html",
-        {
-            "page_obj": page,
-            "query": query,
-            "case_count": PortalCase.objects.count(),
-            "created_count": PortalCase.objects.filter(case__isnull=False).count(),
-            "notices": PortalNotice.objects.prefetch_related("documents"),
-            "response_count": PortalCapture.objects.count(),
         },
     )
 

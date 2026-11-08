@@ -3,6 +3,7 @@
 {% block content %}
 <div class="page-header">
   <h1 class="page-title">{{ greeting }}, {{ request.user.first_name|default:request.user.username }}</h1>
+  {% module_strip "home" %}
 </div>
 
 <div class="row g-4 home-panels">

@@ -85,10 +85,37 @@ def test_export_and_unauthenticated(admin_user, client, case_factory):
 
 
 @pytest.mark.parametrize(
-    "key", ["cases", "clients", "tasks", "hearings", "accounting", "archive", "notices"]
+    "key", ["home", "cases", "clients", "tasks", "hearings", "accounting", "archive", "notices"]
 )
 def test_module_stats_do_not_fail(key, db):
     from django.core.cache import cache
 
     cache.clear()
     assert module_stats(key)
+
+
+def test_settings_sections_render_for_admin(admin_user, client):
+    client.force_login(admin_user)
+    url = reverse("accounts:settings")
+    for section in ("kullanici_analizi", "monitor", "yetkiler", "gorev_turleri", "kullanicilar"):
+        assert client.get(url, {"bolum": section}).status_code == 200, section
+
+
+def test_db_dump_export_admin_only(admin_user, lawyer_client, client, monkeypatch):
+    def fake_dump(target):
+        target.write_bytes(b"PGDMP-test")
+
+    monkeypatch.setattr("apps.backups.views.dump_database", fake_dump)
+    url = reverse("backups:export_db_dump")
+    assert lawyer_client.get(url).status_code == 403
+    client.force_login(admin_user)
+    response = client.get(url)
+    assert response.status_code == 200
+    assert response.content == b"PGDMP-test"
+    assert 'filename="db.dump"' in response["Content-Disposition"]
+
+
+def test_portal_review_page_removed(admin_user, client):
+    client.force_login(admin_user)
+    html = client.get(reverse("accounts:settings"), {"bolum": "monitor"}).content.decode()
+    assert "UYAP ve UETS inceleme" not in html
