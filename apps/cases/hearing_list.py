@@ -9,7 +9,7 @@ from apps.core.permissions import filter_visible_cases
 
 from .models import LIST_KINDS, RESULT_KINDS, Case, Hearing, HearingStatus
 
-SCOPES = ("upcoming", "past", "all")
+SCOPES = ("upcoming", "past")
 
 
 def base_hearings(user):
@@ -32,11 +32,17 @@ def needs_action_q(today: dt.date) -> Q:
     )
 
 
+def missing_info_q(today: dt.date) -> Q:
+    """Yaklaşanlarda eksik bilgi: bugün sonuç ve bilgilendirme, ilerideki duruşmada sorumlu."""
+    upcoming_no_lawyer = Q(
+        starts_at__date__gt=today, kind__in=RESULT_KINDS, assigned_to__isnull=True
+    ) & ~Q(status=HearingStatus.CANCELLED)
+    return needs_action_q(today) | upcoming_no_lawyer
+
+
 def scoped(qs, scope: str, today: dt.date):
     if scope == "past":
         return qs.filter(starts_at__date__lt=today).order_by("-starts_at")
-    if scope == "all":
-        return qs.order_by("-starts_at")
     return qs.filter(starts_at__date__gte=today).order_by("starts_at")  # upcoming
 
 
@@ -57,8 +63,6 @@ def apply_filters(qs, params):
     lawyer = params.get("avukat")
     if lawyer and str(lawyer).isdigit():
         qs = qs.filter(assigned_to_id=lawyer)
-    if kind := params.get("tur"):
-        qs = qs.filter(kind=kind)
     attendance = params.get("katilim")
     if attendance == "excuse":
         qs = qs.filter(excuse_submitted=True)
@@ -114,6 +118,9 @@ def list_context(request) -> dict:
         "quick_ranges": ranges,
         # Sekmelerde eksik bilgisi (sonuç/bilgilendirme) olan duruşma sayıları (uyarı rozeti).
         "attention_counts": {
-            key: scoped(base, key, today).filter(needs_action_q(today)).count() for key in SCOPES
+            key: scoped(base, key, today)
+            .filter(missing_info_q(today) if key == "upcoming" else needs_action_q(today))
+            .count()
+            for key in SCOPES
         },
     }

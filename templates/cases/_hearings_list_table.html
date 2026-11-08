@@ -53,7 +53,8 @@
               <a class="btn btn-sm {% if h.needs_attention %}btn-warning{% else %}btn-light{% endif %}" href="{% url 'hearings:detail' h.pk %}"><i class="bi bi-journal-check me-1"></i>İşlemler</a>
               {% if h.needs_attention %}<div class="small text-warning-emphasis mt-1"><i class="bi bi-exclamation-triangle me-1"></i>Eksik: {% if h.result_missing %}sonuç{% endif %}{% if h.result_missing and h.inform_missing %}, {% endif %}{% if h.inform_missing %}bilgilendirme{% endif %}</div>{% endif %}
             {% else %}
-              <a class="btn btn-sm btn-light" href="{% url 'hearings:edit' h.pk %}"><i class="bi bi-pencil me-1"></i>Düzenle</a>
+              <a class="btn btn-sm {% if h.assignee_missing %}btn-warning{% else %}btn-light{% endif %}" href="{% url 'hearings:edit' h.pk %}"><i class="bi bi-pencil me-1"></i>Düzenle</a>
+              {% if h.assignee_missing %}<div class="small text-warning-emphasis mt-1"><i class="bi bi-exclamation-triangle me-1"></i>Eksik: sorumlu avukat</div>{% endif %}
             {% endif %}
           </td>
         </tr>

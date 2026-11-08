@@ -1,0 +1,13 @@
+{# Rapor kategorisi kartı: group (label, reports) #}
+<section class="card report-group">
+  <div class="card-header"><h3 class="card-title">{{ group.label }}</h3></div>
+  <ul class="report-list list-unstyled mb-0">
+    {% for key, r in group.reports.items %}
+    <li><a class="report-link" href="{% url 'reports:report' key %}">
+      <span class="stat-icon {% if r.financial %}warning{% endif %}"><i class="bi {{ r.icon }}"></i></span>
+      <span class="min-w-0"><span class="fw-semibold d-block">{{ r.title }}</span><span class="small text-body-secondary d-block">{{ r.desc }}</span></span>
+      <span class="ms-auto d-flex gap-1 flex-shrink-0"><span class="chip chip-success no-dot">Excel</span><span class="chip chip-danger no-dot">PDF</span></span>
+    </a></li>
+    {% endfor %}
+  </ul>
+</section>

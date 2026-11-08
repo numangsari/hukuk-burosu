@@ -229,6 +229,7 @@ class CaseForm(PreserveExistingAssigneeMixin, BootstrapMixin, forms.ModelForm):
             attrs={
                 "class": "form-select",
                 "data-archive-folder": "",
+                "data-searchable": "Klasör ara…",
                 "data-case-id": self.instance.pk or "",
                 "data-client-id": selected_client,
             },
@@ -591,7 +592,8 @@ class HearingStandaloneForm(BootstrapMixin, forms.ModelForm):
 
         def _label(obj):
             client_name = obj.client.name if obj.client else "Müvekkilsiz"
-            return f"{obj.archive_reference or '-'} · {obj.display_name} · {client_name}"
+            parts = [obj.archive_reference, obj.display_name, client_name]
+            return " · ".join(part for part in parts if part)
 
         self.fields["case"].label_from_instance = _label
         # Sorumlu avukat dosyadan otomatik gelmez; yönetici, kıdemli, avukat ve stajyer seçilebilir.
@@ -602,6 +604,9 @@ class HearingStandaloneForm(BootstrapMixin, forms.ModelForm):
         self.fields["assigned_to"].empty_label = "Seçiniz…"
         if self.instance.pk:
             self.initial["attendance"] = self.instance.attendance
+            # Müvekkil kayıtta boşsa dosyanın müvekkili gösterilir.
+            if not self.instance.client_id and self.instance.case_id:
+                self.initial["client"] = self.instance.case.client_id
         else:
             # Yeni kayıtta tarih alanı bugünün tarihi ve içinde bulunulan saatle gelir.
             now = timezone.localtime().replace(minute=0, second=0, microsecond=0)
@@ -619,14 +624,30 @@ class HearingStandaloneForm(BootstrapMixin, forms.ModelForm):
             self.fields["kind"].choices = [
                 choice for choice in self.fields["kind"].choices if choice[0] != HearingKind.EXPERT
             ]
+        # Kayıt açıldıktan sonra tür değiştirilemez (alanlar ve zorunluluklar türe bağlı).
+        if self.instance.pk:
+            self.fields["kind"].disabled = True
         # UYAP kaydının tarih, saat, mahkeme ve dosya bilgisi değiştirilemez; UYAP'tan güncellenir.
         if self.instance.pk and self.instance.portal_ref:
             for name in ("kind", "case", "client", "starts_at", "ends_at"):
                 self.fields[name].disabled = True
                 self.fields[name].help_text = "UYAP kaydı; UYAP'tan gelir, değiştirilemez."
 
+    @property
+    def is_listed(self) -> bool:
+        """Seçili tür duruşma, ön inceleme veya keşif mi (başlık yok, katılma durumu var)."""
+        if self.is_bound:
+            kind = self.data.get(self.add_prefix("kind"))
+        else:
+            kind = self.initial.get("kind") or self.instance.kind
+        return kind in LIST_KINDS
+
     def clean(self):
         cleaned_data = super().clean()
+        if cleaned_data.get("kind") in LIST_KINDS:
+            cleaned_data["title"] = ""  # duruşma, ön inceleme ve keşifte etkinlik başlığı yok
+            if not (self.instance.pk and self.instance.portal_ref):
+                cleaned_data["ends_at"] = None  # bitiş saati de yok (UYAP kaydı korunur)
         case = cleaned_data.get("case")
         client = cleaned_data.get("client")
         title = cleaned_data.get("title")
@@ -691,6 +712,20 @@ class HearingResultForm(BootstrapMixin, forms.ModelForm):
         if not result:
             raise forms.ValidationError("Duruşmada verilen kararı yazın.")
         return result
+
+
+class HearingClientNoteForm(BootstrapMixin, forms.ModelForm):
+    """Müvekkile giden mesaja eklenen ayrı not (isteğe bağlı)."""
+
+    class Meta:
+        model = Hearing
+        fields = ["client_note"]
+        labels = {"client_note": "Müvekkile not"}
+        widgets = {
+            "client_note": forms.Textarea(
+                attrs={"rows": 3, "placeholder": "Mesaja eklenecek açıklama (isteğe bağlı)..."}
+            )
+        }
 
 
 class CaseEventForm(BootstrapMixin, forms.ModelForm):

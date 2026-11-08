@@ -14,11 +14,13 @@ from django.views.generic import CreateView, DetailView, ListView, UpdateView, V
 from apps.accounts.models import User
 from apps.cases.documents import mirror_task_document
 from apps.cases.models import Case, Hearing
+from apps.core.list_export import ListExportMixin
 from apps.core.pagination import page_size
 from apps.core.permissions import filter_visible_cases, filter_visible_tasks, is_admin
-from apps.core.text import fold
+from apps.core.text import fold, tr_title
 from apps.core.uploads import validate_upload
 from apps.office.models import HEARING_TASK_TYPE_NAME, TaskType
+from apps.reports.base import Column
 
 from . import services
 from .forms import CommentForm, TaskForm
@@ -68,9 +70,35 @@ def visible_task_or_404(request, pk, queryset=None):
     return get_object_or_404(filter_visible_tasks(qs, request.user), pk=pk)
 
 
-class TaskListView(ListView):
+class TaskListView(ListExportMixin, ListView):
     template_name = "tasks/list.html"
     context_object_name = "tasks"
+
+    export_title = "Görev Listesi"
+
+    def export_columns(self):
+        return [
+            Column("Görev", width=2.8),
+            Column("Tür", width=1.4),
+            Column("Dosya", width=2.4),
+            Column("Müvekkil", width=1.8),
+            Column("Sorumlu", width=1.3),
+            Column("Kontrolcü", width=1.3),
+            Column("Durum", width=1.0),
+            Column("Son gün", "date", 1.0),
+        ]
+
+    def export_row(self, task):
+        return [
+            tr_title(task.title),
+            str(task.task_type),
+            tr_title(task.case.display_name) if task.case_id else "",
+            tr_title(task.client) if task.client_id else "",
+            tr_title(task.assignee) if task.assignee_id else "",
+            tr_title(task.reviewer) if task.reviewer_id else "",
+            task.stage_label or task.get_status_display(),
+            task.due_date,
+        ]
 
     def get_paginate_by(self, queryset):
         return page_size(self.request)
@@ -222,22 +250,21 @@ class TaskCreateView(VisibleFormMixin, CreateView):
                 .first()
             )
         if case:
-            assignee_id = case.responsible_intern_id or case.responsible_lawyer_id
-            reviewer_id = case.responsible_lawyer_id
-            if assignee_id and reviewer_id == assignee_id:
-                reviewer_id = (
-                    case.responsible_lawyer.supervisor_id
-                    if case.responsible_lawyer
-                    and case.responsible_lawyer.supervisor_id != assignee_id
-                    else None
-                )
-            initial.update(
-                case=case,
-                client=case.client_id,
-                assignee=assignee_id,
-                reviewer=reviewer_id,
-            )
+            initial.update(case=case, client=case.client_id, **self.team_initial(case))
         return initial
+
+    @staticmethod
+    def team_initial(case) -> dict:
+        """Dosyanın ekibi: yardımcı sorumlu görevin sorumlusu, sorumlu avukat kontrolcüsü olur."""
+        assignee_id = case.responsible_intern_id or case.responsible_lawyer_id
+        reviewer_id = case.responsible_lawyer_id
+        if assignee_id and reviewer_id == assignee_id:
+            reviewer_id = (
+                case.responsible_lawyer.supervisor_id
+                if case.responsible_lawyer and case.responsible_lawyer.supervisor_id != assignee_id
+                else None
+            )
+        return {"assignee": assignee_id, "reviewer": reviewer_id}
 
     def form_valid(self, form):
         form.instance.created_by = self.request.user

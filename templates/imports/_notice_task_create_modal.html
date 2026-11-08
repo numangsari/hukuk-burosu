@@ -4,6 +4,7 @@
       hx-target="#notice-modal-dialog"
       hx-disabled-elt="find button[type=submit]">
   {% csrf_token %}
+  {{ form.supervisor_map|json_script:"supervisor-map" }}
   <div class="modal-header">
     <h2 class="modal-title fs-6">Tebligattan Görev Oluştur</h2>
     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Kapat"></button>

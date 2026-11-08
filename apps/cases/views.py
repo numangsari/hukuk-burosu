@@ -29,11 +29,13 @@ from apps.accounting.permissions import can_view as can_view_accounting
 from apps.accounting.views import statement
 from apps.accounts.models import User
 from apps.clients.models import Client, Party
+from apps.core.list_export import ListExportMixin
 from apps.core.pagination import page_size
 from apps.core.permission_registry import has_perm
 from apps.core.permissions import PermissionRequiredMixin, filter_visible_cases, is_admin
-from apps.core.text import fold
+from apps.core.text import fold, tr_title
 from apps.office.models import Court
+from apps.reports.base import Column
 
 from . import flows, seizure_types, services, stages, summary
 from .archive_locations import validate_archive_location
@@ -77,10 +79,43 @@ SORT_FIELDS = {
 }
 
 
-class CaseListView(ListView):
+class CaseListView(ListExportMixin, ListView):
     model = Case
     template_name = "cases/list.html"
     context_object_name = "cases"
+
+    export_title = "Dosya Listesi"
+
+    def export_columns(self):
+        return [
+            Column("Arşiv yeri", width=1.1),
+            Column("Dosya", width=2.6),
+            Column("Tür", width=1.1),
+            Column("Müvekkil", width=2.2),
+            Column("Durum", width=0.8),
+            Column("Aşama", width=1.2),
+            Column("Sorumlu avukat", width=1.4),
+            Column("Yardımcı sorumlu", width=1.4),
+            Column("Sonraki duruşma", "date", 1.1),
+            Column("Açık görev", "int", 0.8),
+        ]
+
+    def export_row(self, case):
+        clients = [
+            str(c) for c in ([case.client] if case.client else []) + list(case.co_clients.all())
+        ]
+        return [
+            case.archive_reference or "",
+            tr_title(case.display_name),
+            case.get_case_type_display(),
+            tr_title(", ".join(clients)),
+            case.get_status_display(),
+            case.get_stage_display() if hasattr(case, "get_stage_display") else "",
+            tr_title(case.responsible_lawyer) if case.responsible_lawyer else "",
+            tr_title(case.responsible_intern) if case.responsible_intern else "",
+            timezone.localtime(case.next_hearing).date() if case.next_hearing else None,
+            case.open_task_count,
+        ]
 
     def get_paginate_by(self, queryset):
         return page_size(self.request)

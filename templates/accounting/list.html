@@ -6,11 +6,10 @@
   <div>
     <h1 class="page-title">Muhasebe</h1>
   </div>
-  {% if can_edit_accounting or request.user.role == 'admin' %}
   <div class="page-actions">
+    {% include "partials/export_buttons.html" %}
     {% if can_edit_accounting %}<a class="btn btn-primary" href="{% url 'accounting:create' %}"><i class="bi bi-plus-lg"></i>Yeni gelir / gider</a>{% endif %}
   </div>
-  {% endif %}
 </div>
 
 {% if can_view_balances %}<div id="acc-summary">{% include "accounting/_summary.html" %}</div>{% endif %}

@@ -6,6 +6,7 @@ from django.utils import timezone
 from apps.cases.models import Hearing, HearingKind, HearingStatus
 from apps.clients.models import Client, ClientContact, ClientRepresentative, ContactKind, PersonKind
 from apps.core.templatetags.ui import clean_wa_phone, json_attr, wa_url
+from apps.core.text import tr_title
 from apps.core.whatsapp import (
     build_whatsapp_url,
     clean_phone_for_whatsapp,
@@ -65,7 +66,8 @@ def test_whatsapp_message_formatters(case_factory):
         authority="İstanbul 3. Asliye Hukuk Mahkemesi",
         is_remote=True,
         result="Bilirkişi raporu bekleniyor.",
-        decisions="1. Bilirkişiye ek süre verildi.\n2. Gelecek celseye kadar rapor tanzim edilecek.",
+        decisions="1. Bilirkişiye ek süre verildi.",
+        client_note="Rapor çıkınca size haber vereceğiz.",
     )
 
     # Duruşma sonucu mesajı
@@ -74,7 +76,9 @@ def test_whatsapp_message_formatters(case_factory):
     )
     assert case.client.name in result_msg
     assert "İstanbul 3. Asliye Hukuk Mahkemesi" in result_msg
-    assert "Bilirkişiye ek süre verildi." in result_msg
+    assert "Rapor çıkınca size haber vereceğiz." in result_msg
+    assert "Bilirkişiye ek süre verildi." not in result_msg  # karar metni mesaja yazılmaz
+    assert "Duruşmada Verilen Karar" not in result_msg
     assert "20.10.2026 saat 11:00" in result_msg
     assert "Adalet Hukuk Bürosu" in result_msg
 
@@ -86,7 +90,7 @@ def test_whatsapp_message_formatters(case_factory):
 
     # Dosya bilgilendirme mesajı
     case_msg = format_case_info_message(case, office_name=office.name)
-    assert case.display_name in case_msg
+    assert tr_title(case.display_name) in case_msg
     assert case.client.name in case_msg
 
     # Şablon sözlükleri

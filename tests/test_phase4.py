@@ -159,7 +159,14 @@ def test_every_report_previews_and_exports(key, admin_user, report_data):
     c = login(admin_user)
     url = reverse("reports:report", args=[key])
     params = {"goster": 1}
-    if key == "cari-ekstre":
+    if key in (
+        "cari-ekstre",
+        "muvekkil-dosya-durumu",
+        "muvekkil-durusmalari",
+        "muvekkil-gorevleri",
+        "muvekkil-masraf-ozeti",
+        "muvekkil-tebligatlari",
+    ):
         params["client"] = report_data.client_id
     r = c.get(url, params)
     assert r.status_code == 200 and r.context["result"] is not None
@@ -180,17 +187,27 @@ def test_report_values(admin_user, report_data):
     assert res.rows[-1][5] == Decimal("5500")
     r = c.get(reverse("reports:report", args=["gorevler"]), {"goster": 1, "status": "overdue"})
     assert [row[1] for row in r.context["result"].rows] == ["GECİKMİŞ İŞ"]
-    r = c.get(reverse("reports:report", args=["dosya-son-durum"]), {"goster": 1})
+    r = c.get(reverse("reports:report", args=["dosya-raporu"]), {"goster": 1})
     row = r.context["result"].rows[0]
-    assert row[1] == "2026/0007" and row[4] == 1
-    assert "Sonraki duruşma" not in [column.label for column in r.context["result"].columns]
+    assert row[0] == "2026/0007" and row[9] == 1
 
 
 def test_financial_reports_hidden_without_permission(intern, report_data):
     assert not intern.can_view_balances
     c = login(intern)
     keys = set(c.get(reverse("reports:index")).context["reports"])
-    assert keys == {"gorevler", "dosya-listesi", "dosya-son-durum", "haciz-takibi"}
+    assert keys == {
+        "muvekkil-dosya-durumu",
+        "muvekkil-durusmalari",
+        "muvekkil-tebligatlari",
+        "dosya-raporu",
+        "muvekkil-listesi",
+        "muvekkil-gorevleri",
+        "gorevler",
+        "muhasebe-hareketleri",
+        "durusma-raporu",
+        "tebligat-raporu",
+    }
     assert c.get(reverse("reports:report", args=["donem-muhasebe"])).status_code == 403
 
 
@@ -207,13 +224,13 @@ def test_reports_do_not_query_per_row(
         LedgerEntry.objects.create(
             client=c, case=k, kind="trust_in", amount=Decimal("40"), date=dt.date(2026, 10, 2)
         )
-    from apps.reports.definitions import build_client_cases, build_debtors
+    from apps.reports.definitions import build_cases, build_debtors
 
     with django_assert_max_num_queries(4):
         res = build_debtors({}, admin_user)
     assert len(res.rows) == 12 and res.rows[0][3] == Decimal("40")
-    with django_assert_max_num_queries(3):
-        res = build_client_cases({}, admin_user)
+    with django_assert_max_num_queries(4):
+        res = build_cases({}, admin_user)
     assert len(res.rows) == 12
 
 

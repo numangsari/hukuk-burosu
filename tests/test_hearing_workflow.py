@@ -259,16 +259,22 @@ def test_list_tabs_date_filters_and_columns(admin_user, case, lawyer):
 
     assert rows("upcoming")[0] == {upcoming.pk, today.pk}  # bugün dahil
     assert rows("past")[0] == {pending.pk, past_ok.pk}
-    assert rows("all")[0] == {upcoming.pk, today.pk, pending.pk, past_ok.pk}
-    assert meeting.pk not in rows("all")[0] and expert.pk not in rows("all")[0]
+    assert rows("all")[0] == {
+        upcoming.pk,
+        today.pk,
+    }  # "Tümü" kalktı: bilinmeyen kapsam yaklaşanlara düşer
+    assert meeting.pk not in rows("upcoming")[0] and expert.pk not in rows("upcoming")[0]
     day = timezone.localdate().isoformat()
-    assert rows("all", baslangic=day, bitis=day)[0] == {today.pk}
+    assert rows("upcoming", baslangic=day, bitis=day)[0] == {today.pk}
     html = rows("upcoming")[1].content.decode()
     for column in ("Tarih / Saat", "Mahkeme / Esas", "Dosya / Müvekkil", "Sorumlu avukat"):
         assert column in html
     assert "Katılma durumu" in html and "Takvim / Duruşma" in html
-    for label in ("Yaklaşanlar", "Geçmiş", "Tümü", "Bugün", "Bu hafta", "Gelecek hafta", "Bu ay"):
+    for label in ("Yaklaşanlar", "Geçmiş", "Bugün", "Bu hafta", "Gelecek hafta", "Bu ay"):
         assert label in html
+    assert ">Tümü" not in html.split("Sorumlu")[0] and 'name="tur"' not in html
+    past_only = rows("past")[1].content.decode()
+    assert "Gelecek hafta" not in past_only  # hızlı tarih filtreleri yalnızca Yaklaşanlar'da
     assert "Sonuç Bekleyenler" not in html and 'name="baslangic"' in html and 'name="bitis"' in html
     past_html = rows("past")[1].content.decode()
     assert (
@@ -286,7 +292,6 @@ def test_list_filters_lawyer_kind_and_attendance(admin_user, case, lawyer, inter
         return {h.pk for h in r.context["hearings"]}
 
     assert ids(avukat=lawyer.pk) == {a.pk}
-    assert ids(tur=HearingKind.DISCOVERY) == {b.pk}
     assert ids(katilim="remote") == {a.pk}
     assert ids(katilim="attend") == {b.pk}
 
@@ -372,9 +377,11 @@ def test_list_edit_button_opens_edit_form_directly(admin_user, case, lawyer):
     future = make_hearing(case, 4, assigned_to=lawyer)
     done = make_hearing(case, -1, assigned_to=lawyer)
     c = login(admin_user)
-    html = c.get(reverse("agenda:calendar"), {"view": "list", "scope": "all"}).content.decode()
+    url = reverse("agenda:calendar")
+    html = c.get(url, {"view": "list", "scope": "upcoming"}).content.decode()
     assert f'href="{reverse("hearings:edit", args=[future.pk])}"' in html  # ara pencere yok
-    assert f'href="{reverse("hearings:detail", args=[done.pk])}"' in html  # yapılmışta işlemler
+    past = c.get(url, {"view": "list", "scope": "past"}).content.decode()
+    assert f'href="{reverse("hearings:detail", args=[done.pk])}"' in past  # yapılmışta işlemler
     r = c.post(
         reverse("hearings:edit", args=[future.pk]) + "?pencere=1",
         form_data(case, lawyer, days=9),
@@ -389,9 +396,13 @@ def test_tabs_show_missing_info_counts(admin_user, case):
     make_hearing(case, 5)
     c = login(admin_user)
     r = c.get(reverse("agenda:calendar"), {"view": "list"})
-    assert r.context["attention_counts"] == {"upcoming": 1, "past": 1, "all": 2}
+    assert r.context["attention_counts"] == {
+        "upcoming": 2,
+        "past": 1,
+    }  # bugün + sorumlusuz ilerideki
     html = r.content.decode()
-    assert html.count('class="count count-warning"') == 3
+    assert html.count('class="count count-warning"') == 2
+    assert "Eksik: sorumlu avukat" in html
     assert "Eksik bilgisi olan duruşma" in html
 
 
@@ -536,3 +547,26 @@ def test_manual_hearing_merges_with_later_uyap_record(admin_user, case):
     assert Hearing.objects.count() == 1  # mükerrer açılmaz
     manual.refresh_from_db()
     assert manual.portal_ref == "77"
+
+
+def test_client_note_is_separate_and_in_whatsapp_preview(admin_user, case, lawyer):
+    from apps.core.whatsapp import format_hearing_result_message
+
+    h = make_hearing(case, -1, assigned_to=lawyer, result="Dosya karar için ertelendi.")
+    c = login(admin_user)
+    url = reverse("hearings:client_note", args=[h.pk])
+    r = c.post(url, {"client_note": "Bir sonraki celsede hazır bulunmanız gerekmez."})
+    assert r.status_code == 302
+    h.refresh_from_db()
+    assert h.client_note.startswith("Bir sonraki") and h.result == "Dosya karar için ertelendi."
+    message = format_hearing_result_message(h)
+    assert "Bir sonraki celsede hazır bulunmanız gerekmez." in message
+    assert "Dosya karar için ertelendi." not in message and "Verilen Karar" not in message
+    page = c.get(reverse("hearings:detail", args=[h.pk])).content.decode()
+    assert "Müvekkile giden mesaj böyle görünecek" in page and "Bir sonraki celsede" in page
+    # Yaklaşan duruşmada not girilemez.
+    future = make_hearing(case, 4, assigned_to=lawyer)
+    assert (
+        c.post(reverse("hearings:client_note", args=[future.pk]), {"client_note": "x"}).status_code
+        == 403
+    )

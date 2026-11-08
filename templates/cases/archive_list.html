@@ -16,51 +16,6 @@
   </div>
 </div>
 
-<div class="row g-3 mb-3">
-  <div class="col-6 col-md-2">
-    <a href="{% query_with scope='all' %}" class="card text-decoration-none h-100 p-3 hover-shadow transition">
-      <div class="text-body-secondary small mb-1">Fiziki Klasör</div>
-      <div class="fs-4 fw-bold text-primary">{{ folder_count }}</div>
-      <div class="text-body-tertiary" style="font-size: 0.75rem;">Arşiv Klasörleri</div>
-    </a>
-  </div>
-  <div class="col-6 col-md-2">
-    <a href="{% query_with scope='all' %}" class="card text-decoration-none h-100 p-3 hover-shadow transition {% if current_scope == 'all' %}border-primary shadow-sm{% endif %}">
-      <div class="text-body-secondary small mb-1">Toplam Dosya</div>
-      <div class="fs-4 fw-bold">{{ total_count }}</div>
-      <div class="text-body-tertiary" style="font-size: 0.75rem;">{{ open_count }} Açık · {{ closed_count }} Kapalı</div>
-    </a>
-  </div>
-  <div class="col-6 col-md-2">
-    <a href="{% query_with scope='dava' %}" class="card text-decoration-none h-100 p-3 hover-shadow transition {% if current_scope == 'dava' %}border-info shadow-sm{% endif %}">
-      <div class="text-body-secondary small mb-1">Dava Arşivi</div>
-      <div class="fs-4 fw-bold text-info">{{ dava_count }}</div>
-      <div class="text-body-tertiary" style="font-size: 0.75rem;">Hukuk / Ceza / İdari</div>
-    </a>
-  </div>
-  <div class="col-6 col-md-2">
-    <a href="{% query_with scope='icra' %}" class="card text-decoration-none h-100 p-3 hover-shadow transition {% if current_scope == 'icra' or current_scope == 'enforcement' %}border-danger shadow-sm{% endif %}">
-      <div class="text-body-secondary small mb-1">İcra Arşivi</div>
-      <div class="fs-4 fw-bold text-danger">{{ enforcement_count }}</div>
-      <div class="text-body-tertiary" style="font-size: 0.75rem;">İcra Takipleri</div>
-    </a>
-  </div>
-  <div class="col-6 col-md-2">
-    <a href="{% query_with scope='arabuluculuk' %}" class="card text-decoration-none h-100 p-3 hover-shadow transition {% if current_scope == 'arabuluculuk' or current_scope == 'ihtarname' %}border-success shadow-sm{% endif %}">
-      <div class="text-body-secondary small mb-1">Arabuluculuk & Diğer</div>
-      <div class="fs-4 fw-bold text-success">{{ other_special_count }}</div>
-      <div class="text-body-tertiary" style="font-size: 0.75rem;">Arb. / İhtar / Sözleşme</div>
-    </a>
-  </div>
-  <div class="col-6 col-md-2">
-    <a href="{% query_with scope='missing' %}" class="card text-decoration-none h-100 p-3 hover-shadow transition {% if current_scope == 'missing' %}border-warning shadow-sm{% endif %}">
-      <div class="text-body-secondary small mb-1">Yeri Eksik Olanlar</div>
-      <div class="fs-4 fw-bold {% if missing_count > 0 %}text-warning{% endif %}">{{ missing_count }}</div>
-      <div class="text-body-tertiary" style="font-size: 0.75rem;">Klasör atanmamış</div>
-    </a>
-  </div>
-</div>
-
 {# Üst Sekmeler: Tümü - Klasör Tipleri Sırayla - Müvekkile Özel - Arşiv Yeri Eksikler #}
 <div class="mb-3">
   <ul class="nav nav-underline-tabs nav-underline-tabs-flat flex-wrap">

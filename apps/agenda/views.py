@@ -11,7 +11,6 @@ from django.views.generic import TemplateView
 
 from apps.accounts.models import User
 from apps.cases.forms import ATTENDANCE_CHOICES
-from apps.cases.models import LIST_KINDS, HearingKind
 from apps.core.pagination import page_size
 
 from .services import calendar_events
@@ -121,7 +120,6 @@ class AgendaView(TemplateView):
                 lawyers=User.objects.filter(is_active=True)
                 .exclude(role__in=[User.Role.PARALEGAL, User.Role.SECRETARY, User.Role.ACCOUNTANT])
                 .order_by("first_name", "last_name"),
-                kinds=[(v, label) for v, label in HearingKind.choices if v in LIST_KINDS],
                 attendance_choices=ATTENDANCE_CHOICES,
             )
 

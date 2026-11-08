@@ -53,13 +53,13 @@
   <div class="form-section">
     <div class="form-section-head"><h2>Kurum ve dosya bilgileri</h2></div>
     <div class="row">
-      <div class="col-12" x-show="labels.authority" x-cloak>
+      <div class="col-md-7" x-show="labels.authority" x-cloak>
         <div class="mb-3">
           <label class="form-label" for="{{ form.authority.id_for_label }}" x-text="labels.authority"></label>
           {{ form.authority }}{% for e in form.authority.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}
         </div>
       </div>
-      <div class="col-12" x-show="labels.official_no" x-cloak>
+      <div class="col-md-5" x-show="labels.official_no" x-cloak>
         <div class="mb-3">
           <label class="form-label d-flex justify-content-between align-items-center" for="{{ form.official_sequence.id_for_label }}">
             <span id="official-number-label" x-text="labels.official_no">Dosya Numarası</span>

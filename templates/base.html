@@ -13,6 +13,8 @@
   <script src="{% static 'vendor/alpine.min.js' %}" defer></script>
   <script src="{% static 'js/searchable-select.js' %}" defer></script>
   <script src="{% static 'js/htmx-errors.js' %}" defer></script>
+  <script src="{% static 'js/date-limits.js' %}" defer></script>
+  <script src="{% static 'js/list-export.js' %}" defer></script>
   <script src="{% static 'js/notice-task.js' %}" defer></script>
   <script src="{% static 'js/archive-slots.js' %}" defer></script>
   <script src="{% static 'js/file-drop.js' %}" defer></script>
@@ -150,7 +152,7 @@
 {% endif %}
 {% if request.user.is_authenticated and not request.GET.pencere %}
 <div class="modal fade" id="create-window" tabindex="-1" aria-label="Yeni kayıt" aria-hidden="true">
-  <div class="modal-dialog modal-xl modal-dialog-scrollable"><div class="modal-content">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable" id="create-window-dialog"><div class="modal-content">
     <div class="modal-header"><h2 class="modal-title fs-6" id="create-window-title"></h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Kapat"></button></div>
     <div class="modal-body p-0"><iframe id="create-window-frame" title="Yeni kayıt" style="width:100%;height:75vh;border:0"></iframe></div>
   </div></div>
@@ -187,6 +189,10 @@
     event.preventDefault();
     url.searchParams.set('pencere', '1');
     document.getElementById('create-window-title').textContent = isTask ? 'Görev' : isNotice ? 'Tebligat' : isHearing ? (url.pathname.endsWith('/duzenle/') ? 'Duruşmayı düzenle' : 'Duruşma / etkinlik') : isRoutine ? 'Rutin görev' : paths[url.pathname];
+    // Duruşma / etkinlik penceresi küçük açılır ve içeriğe göre boylanır.
+    document.getElementById('create-window-dialog').classList.toggle('modal-lg', isHearing);
+    document.getElementById('create-window-dialog').classList.toggle('modal-xl', !isHearing);
+    frame.style.height = isHearing ? '' : '75vh';
     active = true;
     clientSaved = false;
     frameLoads = 0;
@@ -199,6 +205,14 @@
     if (!active) return;
     frameLoads += 1;
     const url = new URL(frame.contentWindow.location.href);
+    if (/^\/durusmalar\/\d+\//.test(url.pathname)) {
+      // İçeriğe göre yükseklik (en çok %75 görünüm); düzenleme formu açılınca da uyum sağlar.
+      const fit = () => {
+        try { frame.style.height = Math.min(Math.max(frame.contentDocument.documentElement.scrollHeight, 320), window.innerHeight * 0.75) + 'px'; } catch (e) {}
+      };
+      fit();
+      try { new ResizeObserver(fit).observe(frame.contentDocument.body); } catch (e) {}
+    }
     if (openedPath === '{% url "clients:create" %}' && url.pathname === '{% url "accounting:create" %}') clientSaved = true;
     if (!url.searchParams.has('pencere')) { active = false; location.reload(); }
   });

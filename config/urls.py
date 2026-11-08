@@ -8,6 +8,11 @@ urlpatterns = [
     path("tebligatlar/", portal_views.notice_list, name="notice_list"),
     path("tebligatlar/<int:pk>/gorev-yok/", portal_views.notice_no_task, name="notice_no_task"),
     path(
+        "tebligatlar/<int:pk>/gorev-yok-geri-al/",
+        portal_views.notice_undo_no_task,
+        name="notice_undo_no_task",
+    ),
+    path(
         "tebligatlar/<int:pk>/gorev-olustur/",
         portal_views.NoticeTaskCreateView.as_view(),
         name="notice_task_create",

@@ -549,6 +549,7 @@ select[data-searchable-ready="1"] { display: none; }
   padding: .85rem 0; border: 0; border-bottom: 2px solid transparent; border-radius: 0;
   color: var(--muted); font-weight: 550; font-size: .875rem; background: none; white-space: nowrap;
 }
+.nav-underline-tabs { overflow-y: hidden; }
 .nav-underline-tabs .nav-link:hover { color: var(--ink); }
 .nav-underline-tabs .nav-link.active { color: var(--brand); border-bottom-color: var(--brand); }
 .nav-underline-tabs .count { font-size: .7rem; font-weight: 650; padding: .05rem .45rem; border-radius: 999px; background: var(--neutral-soft); color: var(--ink-2); margin-left: .3rem; }
@@ -566,7 +567,7 @@ select[data-searchable-ready="1"] { display: none; }
 .alert-success { --bs-alert-bg: var(--success-soft); --bs-alert-color: var(--success-ink); --bs-alert-border-color: color-mix(in srgb, var(--success-ink) 25%, transparent); }
 
 .toast-stack { position: fixed; right: 1.5rem; top: 1rem; z-index: 1090; display: flex; flex-direction: column; gap: .5rem; }
-.toast-stack .alert { box-shadow: var(--shadow-lg); min-width: 280px; margin: 0; }
+.toast-stack .alert { box-shadow: var(--shadow-lg); min-width: 280px; margin: 0; background-color: var(--surface); background-image: linear-gradient(var(--bs-alert-bg), var(--bs-alert-bg)); }
 
 .dropdown-menu { --bs-dropdown-border-color: var(--line); --bs-dropdown-border-radius: var(--radius); --bs-dropdown-bg: var(--surface); box-shadow: var(--shadow-lg); padding: .4rem; font-size: .875rem; }
 .dropdown-item { border-radius: 6px; padding: .45rem .7rem; }
@@ -1212,3 +1213,20 @@ form.is-dragover { outline: 2px dashed var(--brand); outline-offset: -2px; backg
 /* Yetki matrisi: sorumlu / yardımcı sorumlu sütunları */
 .perm-matrix .perm-relation { border-left: 1px solid var(--line); background: color-mix(in srgb, var(--brand) 4%, transparent); }
 .perm-matrix th.perm-relation + th.perm-relation, .perm-matrix td.perm-relation + td.perm-relation { border-left: 0; }
+
+/* WhatsApp mesaj önizlemesi */
+.wa-preview { white-space: pre-wrap; font: inherit; font-size: .875rem; padding: .75rem 1rem; border-radius: 12px; background: color-mix(in srgb, #25d366 12%, var(--surface)); border: 1px solid color-mix(in srgb, #25d366 35%, var(--line)); }
+/* Dosya formu: kurum adı ve dosya numarası tek satırda; numara alanları sütun içinde taşmaz */
+.case-number-row { flex-wrap: nowrap; }
+.case-number-seq { min-width: 4rem; }
+.case-number-kind { flex: 0 0 7.5rem; min-width: 7rem; }
+.case-number-year { flex: 0 0 5.5rem; }
+
+/* Raporlar: ortadan ikiye bölünmüş ekran (sol müvekkil, sağ ofis) */
+@media (min-width: 992px) { .reports-col-office { border-left: 1px solid var(--line); padding-left: 1.5rem; } }
+.reports-col-client .report-card { border-left: 3px solid var(--brand); }
+.report-group .card-header { padding-bottom: .5rem; }
+.report-list li + li { border-top: 1px solid var(--line); }
+.report-link { display: flex; align-items: center; gap: .85rem; padding: .75rem 1.25rem; color: inherit; text-decoration: none; }
+.report-link:hover { background: color-mix(in srgb, var(--brand) 6%, transparent); }
+.report-link .stat-icon { flex: 0 0 auto; }

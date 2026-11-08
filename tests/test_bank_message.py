@@ -2,6 +2,7 @@ import pytest
 from django.test import Client
 from django.urls import reverse
 
+from apps.core.text import tr_title
 from apps.core.whatsapp import get_case_wa_templates, get_client_wa_templates
 from apps.office.models import OfficeSettings
 
@@ -30,7 +31,7 @@ def test_client_and_case_templates_include_bank_details(case_factory):
     for text in (client_templates["Banka Bilgileri"], case_templates["Banka Bilgileri"]):
         assert BANK in text
         assert "Sayın" in text
-    assert case.display_name in case_templates["Banka Bilgileri"]
+    assert tr_title(case.display_name) in case_templates["Banka Bilgileri"]
 
 
 def test_advance_templates_carry_bank_details_when_set(case_factory):

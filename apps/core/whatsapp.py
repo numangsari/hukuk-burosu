@@ -3,6 +3,8 @@
 import urllib.parse
 from typing import TYPE_CHECKING, Any
 
+from apps.core.text import tr_title
+
 if TYPE_CHECKING:
     from apps.cases.models import Case, Hearing
     from apps.clients.models import Client
@@ -70,26 +72,24 @@ def format_hearing_result_message(
     lines = [f"Sayın {client_name},"]
     if hearing.case:
         if hearing.case.authority:
-            case_label = hearing.case.display_name
+            case_label = tr_title(hearing.case.display_name)
         elif hearing.authority:
             no_disp = hearing.case.official_no_display or hearing.case.display_name
-            case_label = f"{hearing.authority} {no_disp}".strip()
+            case_label = tr_title(f"{hearing.authority} {no_disp}").strip()
         else:
-            case_label = hearing.case.display_name
+            case_label = tr_title(hearing.case.display_name)
         lines.append(f"{case_label} sayılı dosyanızın bugünkü celsesi tamamlanmıştır.")
     elif hearing.authority:
         title = hearing.title or "Duruşmanız"
-        lines.append(f"{hearing.authority} nezdindeki {title} tamamlanmıştır.")
+        lines.append(f"{tr_title(hearing.authority)} nezdindeki {title} tamamlanmıştır.")
     else:
         title = hearing.title or "Dosyanızın duruşması"
         lines.append(f"{title} tamamlanmıştır.")
 
-    if hearing.excuse_submitted:
-        lines.append("Not: Bu celse için mahkemeye mazeret dilekçesi sunulmuştur.")
-
-    dec = (decisions or hearing.decisions or hearing.result or "").strip()
-    if dec:
-        lines.append(f"Duruşmada Verilen Karar / Sonuç:\n{dec}")
+    # Karar/sonuç metni mesaja yazılmaz; yerine "Müvekkile not" alanındaki metin gelir.
+    note = (decisions or getattr(hearing, "client_note", "") or "").strip()
+    if note:
+        lines.append(note)
 
     # Sonraki duruşma parametre olarak verilmediyse ve dosyada varsa otomatik getir
     if not next_hearing_dt and hearing.case:
@@ -125,16 +125,16 @@ def format_hearing_reminder_message(
     lines = [f"Sayın {client_name},"]
     if hearing.case:
         if hearing.case.authority:
-            case_label = hearing.case.display_name
+            case_label = tr_title(hearing.case.display_name)
         elif hearing.authority:
             no_disp = hearing.case.official_no_display or hearing.case.display_name
-            case_label = f"{hearing.authority} {no_disp}".strip()
+            case_label = tr_title(f"{hearing.authority} {no_disp}").strip()
         else:
-            case_label = hearing.case.display_name
+            case_label = tr_title(hearing.case.display_name)
         lines.append(f"{case_label} sayılı dosyanızın duruşması {dt_str} tarihindedir.")
     elif hearing.authority:
         title = hearing.title or "Duruşmanız"
-        lines.append(f"{hearing.authority} {title} {dt_str} tarihindedir.")
+        lines.append(f"{tr_title(hearing.authority)} {title} {dt_str} tarihindedir.")
     else:
         title = hearing.title or "Duruşmanız"
         lines.append(f"{title} {dt_str} tarihindedir.")
@@ -157,7 +157,7 @@ def format_case_info_message(case: "Case", office_name: str | None = None) -> st
     client_name = case.client.name if case.client else "Müvekkilimiz"
     return (
         f"Sayın {client_name},\n\n"
-        f"{case.display_name} sayılı dosyanız ile ilgili olarak bilgi vermek amacıyla "
+        f"{tr_title(case.display_name)} sayılı dosyanız ile ilgili olarak bilgi vermek amacıyla "
         f"iletişime geçiyoruz.\n\n"
         f"Bilgilerinize sunarız.\n{office}"
     )
@@ -204,14 +204,15 @@ def get_case_wa_templates(case: "Case", office_name: str | None = None) -> dict[
     if bank:
         account_text = (
             f"Hesap bilgilerimiz aşağıdadır:\n\n{bank}\n\n"
-            f"Açıklama kısmına dosya numarasını ({case.display_name}) yazmanızı rica ederiz.\n\n"
+            f"Açıklama kısmına dosya numarasını ({tr_title(case.display_name)}) "
+            "yazmanızı rica ederiz.\n\n"
         )
     else:
         account_text = "Hesap bilgileri için büromuzla iletişime geçmenizi rica ederiz.\n\n"
 
     adv_text = (
         f"Sayın {client_name},\n\n"
-        f"{case.display_name} sayılı dosyanızın dava ve takip masrafları için "
+        f"{tr_title(case.display_name)} sayılı dosyanızın dava ve takip masrafları için "
         f"masraf avansı yatırılması gerekmektedir. {account_text}"
         f"İyi çalışmalar dileriz.\n{office}"
     )
@@ -222,7 +223,8 @@ def get_case_wa_templates(case: "Case", office_name: str | None = None) -> dict[
     if bank:
         templates["Banka Bilgileri"] = (
             f"Sayın {client_name},\n\n"
-            f"{case.display_name} sayılı dosyanız için ödeme yapacağınız hesap bilgileri:\n\n"
+            f"{tr_title(case.display_name)} sayılı dosyanız için ödeme yapacağınız "
+            "hesap bilgileri:\n\n"
             f"{bank}\n\n"
             f"Açıklama kısmına dosya numarasını yazmanızı rica ederiz.\n\n"
             f"İyi çalışmalar dileriz.\n{office}"

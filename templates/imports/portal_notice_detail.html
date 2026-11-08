@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load ui %}
 {% block title %}Tebligat ayrıntısı — {{ office.name }}{% endblock %}
 {% block content %}
 <div class="page-header mb-3">
@@ -64,13 +65,18 @@
     <div class="card">
       <div class="card-header"><h2 class="card-title">İşlem bilgisi</h2></div>
       <div class="card-body">
-        <p class="mb-2">Müvekkil: <strong>{{ notice.resolution_client }}</strong>{% if notice.resolution_case %} · Dosya: <strong>{{ notice.resolution_case }}</strong>{% endif %}</p>
+        <p class="mb-2">Müvekkil: <strong>{{ notice.resolution_client|tr_title }}</strong>{% if notice.resolution_case %} · Dosya: <strong>{{ notice.resolution_case|tr_title }}</strong>{% endif %}</p>
         {% if notice.resolution_task %}
           <p class="mb-2"><i class="bi bi-check2-circle me-1 text-success"></i>Görev oluşturuldu</p>
         {% else %}
           <p class="mb-2">Görev yok: {{ notice.no_task_reason }}</p>
         {% endif %}
         <div class="small text-body-secondary">{{ notice.resolved_by }} · {{ notice.resolved_at|date:"d.m.Y H:i" }}</div>
+        {% if not notice.resolution_task and can_undo_no_task %}
+        <form method="post" class="mt-3" action="{% url 'notice_undo_no_task' notice.pk %}{% if request.GET.pencere %}?pencere=1{% endif %}" onsubmit="return confirm('Görev yok işlemi geri alınsın mı? Tebligat yeniden işlenmemiş olur.')">{% csrf_token %}
+          <button class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-counterclockwise me-1"></i>Geri al</button>
+        </form>
+        {% endif %}
       </div>
     </div>
     {% endif %}

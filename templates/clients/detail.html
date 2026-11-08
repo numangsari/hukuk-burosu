@@ -31,6 +31,7 @@
   <ul class="nav nav-underline-tabs" role="tablist">
     <li><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#t-genel">Genel bilgiler</button></li>
     <li><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-dosyalar">Dosyalar<span class="count">{{ cases|length }}</span></button></li>
+    <li><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-gorevler">Görevler<span class="count">{{ client_tasks|length }}</span></button></li>
     <li><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-belgeler">Belgeler</button></li>
     <li><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-muhasebe" id="tab-muhasebe">Muhasebe</button></li>
     <li><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-raporlar">Raporlar</button></li>
@@ -185,6 +186,29 @@
     </div>
   </div>
 
+  <div class="tab-pane fade" id="t-gorevler">
+    <div class="card table-card">
+      <div class="card-header"><h2 class="card-title">Görevler</h2></div>
+      <div class="table-responsive">
+      <table class="table table-hover">
+        <thead><tr><th>Görev</th><th>Dosya</th><th>Sorumlu → Kontrolcü</th><th>Durum</th><th>Son gün</th></tr></thead>
+        <tbody>
+        {% for t in client_tasks %}
+          <tr data-href="{{ t.get_absolute_url }}" onclick="if (!event.target.closest('a, button')) this.querySelector('a.cell-main').click()">
+            <td><a class="cell-main text-reset" href="{{ t.get_absolute_url }}">{{ t.title|tr_title }}</a><div class="cell-sub">{{ t.task_type }}</div></td>
+            <td class="small">{% if t.case %}{{ t.case.display_name|tr_title }}{% else %}—{% endif %}</td>
+            <td>{{ t.assignee }}<div class="cell-sub">{{ t.reviewer|default:"—" }}</div></td>
+            <td>{% include "tasks/_chips.html" with part="status" %}</td>
+            <td>{% include "tasks/_chips.html" with part="due" %}</td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="5"><div class="empty-state py-3"><strong>Görev yok</strong>Bu müvekkile bağlı görev bulunmuyor.</div></td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      </div>
+    </div>
+  </div>
   <div class="tab-pane fade" id="t-belgeler">
     <div class="card"><div class="card-header"><h2 class="card-title">Görev belgeleri</h2></div>
       <ul class="doc-list">{% for doc in task_documents %}

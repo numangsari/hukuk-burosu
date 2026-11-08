@@ -12,10 +12,10 @@ from django.utils import timezone
 from apps.accounting.models import _MONEY as MONEY
 from apps.accounting.models import CREDIT_EXPR, EntryKind, LedgerEntry
 from apps.accounts.models import User
-from apps.cases import seizure_types, stages
+from apps.cases import stages
 from apps.cases.flows import cluster
-from apps.cases.models import Case, CaseEvent, CaseStatus, CaseType, Seizure
-from apps.clients.models import Client
+from apps.cases.models import Case, CaseEvent, CaseStatus, CaseType
+from apps.clients.models import Client, PersonKind
 from apps.core.forms import BootstrapMixin, DateInput
 from apps.core.permissions import (
     can_view_all_office_data,
@@ -23,6 +23,8 @@ from apps.core.permissions import (
     filter_visible_clients,
     filter_visible_tasks,
 )
+from apps.core.text import tr_title
+from apps.office.models import TaskType
 from apps.tasks.models import OPEN_STATUSES, Task, TaskStatus
 
 from .base import Column, ReportResult
@@ -71,7 +73,8 @@ def build_statement(d, user):
     client = d["client"]
     if not filter_visible_clients(Client.objects.filter(pk=client.pk), user).exists():
         raise PermissionDenied
-    entries = client.ledger_entries.active().select_related("case").order_by("date", "pk")
+    # Müvekkile giden raporda iptal edilen ve hesap dışı bırakılan kayıtlar yer almaz.
+    entries = client.ledger_entries.counted().select_related("case").order_by("date", "pk")
     balance = ZERO
     if d.get("start"):
         balance = entries.filter(date__lt=d["start"]).balances()["balance"]
@@ -85,7 +88,7 @@ def build_statement(d, user):
             [
                 e.date,
                 e.get_kind_display(),
-                e.case.archive_reference if e.case else "",
+                tr_title(e.case.display_name) if e.case else "",
                 e.description,
                 e.amount,
                 balance,
@@ -97,7 +100,7 @@ def build_statement(d, user):
         columns=[
             Column("Tarih", "date", 0.8),
             Column("Hareket", "text", 1.3),
-            Column("Dosya", "text", 0.8),
+            Column("Dosya", "text", 1.6),
             Column("Açıklama", "text", 2.2),
             Column("Tutar", "money", 1),
             Column("Bakiye", "money", 1),
@@ -168,10 +171,18 @@ class TaskReportForm(PeriodForm):
         ("all", "Tümü"),
     ]
     status = forms.ChoiceField(label="Durum", choices=STATUS, initial="open", required=False)
+    task_type = forms.ModelChoiceField(
+        label="Görev türü", queryset=TaskType.objects.all(), required=False
+    )
+    assignee = forms.ModelChoiceField(label="Sorumlu", queryset=User.objects.all(), required=False)
+    reviewer = forms.ModelChoiceField(
+        label="Kontrolcü", queryset=User.objects.all(), required=False
+    )
+    client = forms.ModelChoiceField(label="Müvekkil", queryset=Client.objects.all(), required=False)
     user = forms.ModelChoiceField(
         label="Kişi (sorumlu veya kontrolcü)", queryset=User.objects.all(), required=False
     )
-    field_order = ["status", "user", "start", "end"]
+    field_order = ["status", "task_type", "assignee", "reviewer", "client", "user", "start", "end"]
 
 
 def build_tasks(d, user):
@@ -186,6 +197,14 @@ def build_tasks(d, user):
         qs = qs.filter(status__in=OPEN_STATUSES, due_date__lt=today)
     elif st in TaskStatus.values:
         qs = qs.filter(status=st)
+    if d.get("task_type"):
+        qs = qs.filter(task_type=d["task_type"])
+    if d.get("assignee"):
+        qs = qs.filter(assignee=d["assignee"])
+    if d.get("reviewer"):
+        qs = qs.filter(Q(reviewer=d["reviewer"]) | Q(second_reviewer=d["reviewer"]))
+    if d.get("client"):
+        qs = qs.filter(client=d["client"])
     if d.get("user"):
         qs = qs.filter(Q(assignee=d["user"]) | Q(reviewer=d["user"]))
     qs = _date_filter(qs, d, "due_date").order_by("due_date", "pk")
@@ -196,9 +215,13 @@ def build_tasks(d, user):
         for t in qs
     ]  # fmt: skip
     label = dict(TaskReportForm.STATUS)[st]
+    parts = [label, f"son gün: {_period(d)}"]
+    for key in ("task_type", "assignee", "reviewer", "client", "user"):
+        if d.get(key):
+            parts.append(str(d[key]))
     return ReportResult(
         title="Görev Raporu",
-        subtitle=f"{label} · son gün: {_period(d)}" + (f" · {d['user']}" if d.get("user") else ""),
+        subtitle=" · ".join(parts),
         columns=[
             Column("Son gün", "date", 0.8),
             Column("Görev", "text", 2),
@@ -214,8 +237,8 @@ def build_tasks(d, user):
     )
 
 
-# 4. Dosya listesi --------------------------------------------------------------------------
-class CaseListForm(BootstrapMixin, forms.Form):
+# 4. Dosya raporu ---------------------------------------------------------------------------
+class CaseReportForm(PeriodForm):
     case_type = forms.ChoiceField(
         label="Dosya türü", choices=[("", "Tümü"), *CaseType.choices], required=False
     )
@@ -230,11 +253,19 @@ class CaseListForm(BootstrapMixin, forms.Form):
         queryset=User.objects.filter(role__in=["admin", "senior", "lawyer"]),
         required=False,
     )
-
+    intern = forms.ModelChoiceField(
+        label="Yardımcı sorumlu",
+        queryset=User.objects.filter(role__in=["intern", "paralegal"]),
+        required=False,
+    )
+    client = forms.ModelChoiceField(label="Müvekkil", queryset=Client.objects.all(), required=False)
     stage = forms.ChoiceField(label="Aşama", required=False)
+    field_order = ["case_type", "status", "lawyer", "intern", "client", "stage", "start", "end"]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields["start"].label = "Kayıt tarihi: başlangıç"
+        self.fields["end"].label = "Kayıt tarihi: bitiş"
         self.fields["stage"].choices = [
             ("", "Tüm aşamalar"),
             *[
@@ -242,21 +273,6 @@ class CaseListForm(BootstrapMixin, forms.Form):
                 for kind, label in CaseType.choices
             ],
         ]
-
-
-def _seizure_summary(cases):
-    active = Seizure.objects.filter(
-        case_id=OuterRef("pk"), is_active=True, case__case_type=CaseType.ENFORCEMENT
-    ).filter(Q(kind="") | Q(state__in=seizure_types.SEIZED_STATES))
-    count = active.order_by().values("case_id").annotate(total=Count("pk")).values("total")
-    return cases.annotate(
-        active_seizures=Coalesce(Subquery(count, output_field=IntegerField()), Value(0)),
-        next_renewal=Subquery(
-            active.exclude(renewal_on__isnull=True)
-            .order_by("renewal_on", "pk")
-            .values("renewal_on")[:1]
-        ),
-    )
 
 
 def _linked_name(case) -> str:
@@ -270,6 +286,8 @@ def _linked_name(case) -> str:
 
 
 def build_cases(d, user):
+    from apps.cases.models import Hearing, HearingStatus
+
     qs = filter_visible_cases(
         Case.objects.select_related("client", "responsible_lawyer", "responsible_intern"), user
     )
@@ -282,46 +300,383 @@ def build_cases(d, user):
         qs = qs.filter(status=st)
     if d.get("lawyer"):
         qs = qs.filter(responsible_lawyer=d["lawyer"])
+    if d.get("intern"):
+        qs = qs.filter(responsible_intern=d["intern"])
+    if d.get("client"):
+        qs = qs.filter(Q(client=d["client"]) | Q(co_clients=d["client"])).distinct()
     if d.get("stage"):
         kind, key = d["stage"].split(":", 1)
         qs = qs.filter(case_type=kind, stage=key, status=CaseStatus.OPEN)
-    qs = _seizure_summary(qs)
-    qs = qs.annotate(open_tasks=Count("tasks", filter=Q(tasks__status__in=OPEN_STATUSES))).order_by(
-        "archive_no"
-    )
+    qs = _date_filter(qs, d, "created_at__date")
+    tasks_sq = (
+        Task.objects.filter(case=OuterRef("pk"), status__in=OPEN_STATUSES)
+        .order_by().values("case").annotate(n=Count("pk")).values("n")
+    )  # fmt: skip
+    last_sq = CaseEvent.objects.filter(case=OuterRef("pk")).order_by("-date", "-created_at")
+    next_sq = Hearing.objects.filter(
+        case=OuterRef("pk"), status=HearingStatus.PLANNED, starts_at__gte=timezone.now()
+    ).order_by("starts_at")
+    qs = qs.annotate(
+        open_tasks=Coalesce(Subquery(tasks_sq, output_field=IntegerField()), Value(0)),
+        last_date=Subquery(last_sq.values("date")[:1]),
+        last_title=Subquery(last_sq.values("title")[:1]),
+        upcoming_hearing=Subquery(next_sq.values("starts_at")[:1]),
+    ).order_by("archive_no", "pk")
     rows = [
-        [k.archive_reference, k.get_case_type_display(), _linked_name(k), k.client.name if k.client else "—", f"{k.authority} {k.official_no_display}".strip(),
-         k.get_status_display(), k.responsible_lawyer, k.open_tasks,
-         k.status_detail or k.uyap_stage, k.active_seizures, k.next_renewal]
+        [k.archive_reference, _linked_name(k), k.get_case_type_display(), k.client.name if k.client else "—",
+         f"{k.authority} {k.official_no_display}".strip(), k.get_status_display(),
+         k.status_detail or k.uyap_stage, k.responsible_lawyer, k.responsible_intern, k.open_tasks,
+         f"{k.last_date:%d.%m.%Y} {k.last_title}" if k.last_date else "",
+         timezone.localtime(k.upcoming_hearing).date() if k.upcoming_hearing else None]
         for k in cluster(qs)
     ]  # fmt: skip
+    parts = [
+        dict(CaseType.choices).get(d.get("case_type"), "Tüm türler"),
+        dict(CaseReportForm.base_fields["status"].choices)[st],
+    ]
+    for key in ("lawyer", "intern", "client"):
+        if d.get(key):
+            parts.append(str(d[key]))
+    if d.get("start") or d.get("end"):
+        parts.append(f"kayıt: {_period(d)}")
     return ReportResult(
-        title="Dosya Listesi",
-        subtitle=" · ".join(
-            x
-            for x in [
-                dict(CaseType.choices).get(d.get("case_type"), "Tüm türler"),
-                dict(CaseListForm.base_fields["status"].choices)[st],
-                str(d["lawyer"]) if d.get("lawyer") else "",
-            ]
-            if x
-        ),  # fmt: skip
+        title="Dosya Raporu",
+        subtitle=" · ".join(parts),
         columns=[
-            Column("Arşiv no", "text", 0.8),
-            Column("Tür", "text", 1),
+            Column("Arşiv yeri", "text", 0.9),
             Column("Dosya", "text", 2),
+            Column("Tür", "text", 1),
             Column("Müvekkil", "text", 1.6),
             Column("Merci / Resmi no", "text", 1.8),
-            Column("Durum", "text", 1),
-            Column("Avukat", "text", 1.2),
-            Column("Açık görev", "int", 0.6),
+            Column("Durum", "text", 0.8),
             Column("Aşama / Kapanma nedeni", "text", 1.4),
-            Column("Aktif haciz", "int", 0.6),
-            Column("Yenileme tarihi", "date", 0.8),
+            Column("Sorumlu avukat", "text", 1.2),
+            Column("Yardımcı sorumlu", "text", 1.2),
+            Column("Açık görev", "int", 0.6),
+            Column("Son gelişme", "text", 2),
+            Column("Sonraki duruşma", "date", 0.9),
         ],  # fmt: skip
         rows=rows,
         summary=[("Dosya sayısı", str(len(rows)))],
     )
+
+
+# 5. Müvekkil raporları ---------------------------------------------------------------------
+class ClientReportForm(BootstrapMixin, forms.Form):
+    kind = forms.ChoiceField(
+        label="Müvekkil türü", choices=[("", "Tümü"), *PersonKind.choices], required=False
+    )
+    lawyer = forms.ModelChoiceField(
+        label="Sorumlu avukat",
+        queryset=User.objects.filter(role__in=["admin", "senior", "lawyer"]),
+        required=False,
+    )
+    intern = forms.ModelChoiceField(
+        label="Yardımcı sorumlu",
+        queryset=User.objects.filter(role__in=["intern", "paralegal"]),
+        required=False,
+    )
+    poa = forms.ChoiceField(
+        label="Vekaletname",
+        choices=[("", "Tümü"), ("yes", "Vekaletnamesi var"), ("no", "Vekaletnamesi yok")],
+        required=False,
+    )
+    tasks = forms.ChoiceField(
+        label="Açık görev",
+        choices=[("", "Tümü"), ("yes", "Açık görevi olan"), ("no", "Açık görevi olmayan")],
+        required=False,
+    )
+
+
+def build_clients(d, user):
+    from apps.accounting.permissions import can_view_balances
+    from apps.clients.views import annotate_list_values
+
+    qs = annotate_list_values(
+        filter_visible_clients(
+            Client.objects.select_related(
+                "responsible_lawyer", "responsible_intern"
+            ).prefetch_related("contacts"),
+            user,
+        )
+    )
+    if d.get("kind"):
+        qs = qs.filter(kind=d["kind"])
+    if d.get("lawyer"):
+        qs = qs.filter(responsible_lawyer=d["lawyer"])
+    if d.get("intern"):
+        qs = qs.filter(responsible_intern=d["intern"])
+    if d.get("poa") == "yes":
+        qs = qs.filter(has_poa=True)
+    elif d.get("poa") == "no":
+        qs = qs.filter(has_poa=False)
+    if d.get("tasks") == "yes":
+        qs = qs.filter(open_task_count__gt=0)
+    elif d.get("tasks") == "no":
+        qs = qs.filter(open_task_count=0)
+    show_balance = can_view_balances(user)
+    rows = []
+    for c in qs.order_by("name"):
+        row = [
+            c.name, c.get_kind_display(), c.primary_phone or "", c.responsible_lawyer,
+            c.responsible_intern, c.case_count, c.open_task_count, "Var" if c.has_poa else "Yok",
+        ]  # fmt: skip
+        if show_balance:
+            row.append(c.balance)
+        rows.append(row)
+    columns = [
+        Column("Müvekkil", "text", 2.4),
+        Column("Tür", "text", 0.9),
+        Column("Telefon", "text", 1.2),
+        Column("Sorumlu avukat", "text", 1.3),
+        Column("Yardımcı sorumlu", "text", 1.3),
+        Column("Dosya", "int", 0.6),
+        Column("Açık görev", "int", 0.7),
+        Column("Vekaletname", "text", 0.8),
+    ]
+    if show_balance:
+        columns.append(Column("Bakiye", "money", 1.1))
+    return ReportResult(
+        title="Müvekkil Listesi",
+        subtitle=" · ".join(
+            x
+            for x in [
+                dict(PersonKind.choices).get(d.get("kind"), "Tüm türler"),
+                str(d["lawyer"]) if d.get("lawyer") else "",
+                str(d["intern"]) if d.get("intern") else "",
+            ]
+            if x
+        ),
+        columns=columns,
+        rows=rows,
+        summary=[("Müvekkil sayısı", str(len(rows)))],
+    )
+
+
+class ClientCasesForm(BootstrapMixin, forms.Form):
+    client = forms.ModelChoiceField(label="Müvekkil", queryset=Client.objects.all())
+    status = forms.ChoiceField(
+        label="Durum",
+        choices=[("open", "Açık dosyalar"), ("closed", "Kapalı dosyalar"), ("all", "Tümü")],
+        initial="open",
+        required=False,
+    )
+    case_type = forms.ChoiceField(
+        label="Dosya türü", choices=[("", "Tümü"), *CaseType.choices], required=False
+    )
+
+
+def _own_client(d, user):
+    client = d["client"]
+    if not filter_visible_clients(Client.objects.filter(pk=client.pk), user).exists():
+        raise PermissionDenied
+    return client
+
+
+def build_client_cases(d, user):
+    """Müvekkile gönderilecek dosya durum raporu: ofis içi bilgi (sorumlu, arşiv yeri, görev) yok.
+
+    Ortak dosyalarda diğer müvekkillerin adı yazılmaz.
+    """
+    from apps.cases.models import Hearing, HearingStatus
+
+    client = _own_client(d, user)
+    qs = (
+        filter_visible_cases(Case.objects.all(), user)
+        .filter(Q(client=client) | Q(co_clients=client))
+        .distinct()
+    )
+    if d.get("case_type"):
+        qs = qs.filter(case_type=d["case_type"])
+    st = d.get("status") or "open"
+    if st == "open":
+        qs = qs.exclude(status=CaseStatus.CLOSED)
+    elif st in CaseStatus.values:
+        qs = qs.filter(status=st)
+    # Zaman çizelgesindeki serbest notlar ofis içidir; müvekkile gösterilmez.
+    last_sq = (
+        CaseEvent.objects.filter(case=OuterRef("pk"))
+        .exclude(kind=CaseEvent.Kind.NOTE)
+        .order_by("-date", "-created_at")
+    )
+    next_sq = Hearing.objects.filter(
+        case=OuterRef("pk"), status=HearingStatus.PLANNED, starts_at__gte=timezone.now()
+    ).order_by("starts_at")
+    qs = qs.annotate(
+        last_date=Subquery(last_sq.values("date")[:1]),
+        last_title=Subquery(last_sq.values("title")[:1]),
+        upcoming_hearing=Subquery(next_sq.values("starts_at")[:1]),
+    ).order_by("case_type", "archive_no", "pk")
+    rows = [
+        [
+            tr_title(k.display_name), k.get_case_type_display(),
+            tr_title(f"{k.authority} {k.official_no_display}".strip()), k.get_status_display(),
+            k.status_detail or k.uyap_stage,
+            f"{k.last_date:%d.%m.%Y} {k.last_title}" if k.last_date else "",
+            timezone.localtime(k.upcoming_hearing).date() if k.upcoming_hearing else None,
+        ]
+        for k in qs
+    ]  # fmt: skip
+    return ReportResult(
+        title="Dosya Durum Raporu",
+        subtitle=f"{tr_title(client.name)} · {timezone.localdate():%d.%m.%Y} itibarıyla",
+        columns=[
+            Column("Dosya", "text", 2.2),
+            Column("Tür", "text", 1),
+            Column("Mahkeme / Esas no", "text", 2.2),
+            Column("Durum", "text", 0.8),
+            Column("Dosyanın durumu", "text", 1.4),
+            Column("Son gelişme", "text", 2.4),
+            Column("Sonraki duruşma", "date", 1),
+        ],
+        rows=rows,
+        summary=[("Dosya sayısı", str(len(rows)))],
+    )
+
+
+class ClientHearingsForm(PeriodForm):
+    client = forms.ModelChoiceField(label="Müvekkil", queryset=Client.objects.all())
+    field_order = ["client", "start", "end"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["start"].label = "Duruşma tarihi: başlangıç"
+        self.fields["end"].label = "Duruşma tarihi: bitiş"
+
+
+def build_client_hearings(d, user):
+    """Müvekkile gönderilecek duruşma raporu: katılma durumu, sorumlu ve iç sonuç notu yok."""
+    from apps.cases.hearing_list import base_hearings
+    from apps.cases.models import LIST_KINDS
+
+    client = _own_client(d, user)
+    qs = base_hearings(user).filter(kind__in=LIST_KINDS)
+    qs = qs.filter(
+        Q(client=client) | Q(case__client=client) | Q(case__co_clients=client)
+    ).distinct()
+    qs = _date_filter(qs, d, "starts_at__date").order_by("starts_at")
+    rows = []
+    for h in qs:
+        local = timezone.localtime(h.starts_at)
+        rows.append(
+            [
+                local.date(), local.strftime("%H:%M"), h.get_kind_display(),
+                tr_title(h.authority or (h.case.authority if h.case else "")),
+                tr_title(h.case.display_name) if h.case else "", h.client_note,
+            ]
+        )  # fmt: skip
+    return ReportResult(
+        title="Duruşma Raporu",
+        subtitle=f"{tr_title(client.name)} · {_period(d)}",
+        columns=[
+            Column("Tarih", "date", 0.8),
+            Column("Saat", "text", 0.5),
+            Column("Tür", "text", 0.9),
+            Column("Mahkeme", "text", 2),
+            Column("Dosya", "text", 2),
+            Column("Açıklama", "text", 2.4),
+        ],
+        rows=rows,
+        summary=[("Duruşma sayısı", str(len(rows)))],
+    )
+
+
+class ClientSummaryForm(PeriodForm):
+    client = forms.ModelChoiceField(label="Müvekkil", queryset=Client.objects.all())
+    field_order = ["client", "start", "end"]
+
+
+def build_client_summary(d, user):
+    """Müvekkile gönderilecek masraf ve tahsilat özeti: dosya bazında geçerli hareket toplamları."""
+    client = _own_client(d, user)
+    entries = _date_filter(
+        client.ledger_entries.counted().select_related("case").order_by("date", "pk"), d
+    )
+    kinds = [
+        EntryKind.FEE,
+        EntryKind.EXPENSE,
+        EntryKind.COLLECTION,
+        EntryKind.TRUST_IN,
+        EntryKind.TRUST_OUT,
+    ]
+    by_case: dict = {}
+    for e in entries:
+        label = tr_title(e.case.display_name) if e.case_id else "Dosyasız hareketler"
+        row = by_case.setdefault(label, {"sums": {k: ZERO for k in kinds}, "balance": ZERO})
+        row["sums"][e.kind] += e.amount
+        row["balance"] += e.balance_effect
+    rows, total = [], {k: ZERO for k in kinds}
+    total_balance = ZERO
+    for label in sorted(by_case):
+        data = by_case[label]
+        rows.append([label, *[data["sums"][k] for k in kinds], data["balance"]])
+        for k in kinds:
+            total[k] += data["sums"][k]
+        total_balance += data["balance"]
+    labels = dict(EntryKind.choices)
+    return ReportResult(
+        title="Masraf ve Tahsilat Özeti",
+        subtitle=f"{tr_title(client.name)} · {_period(d)}",
+        columns=[Column("Dosya", "text", 2.4)]
+        + [Column(labels[k], "money", 1) for k in kinds]
+        + [Column("Bakiye", "money", 1)],
+        rows=rows,
+        totals=["Toplam", *[total[k] for k in kinds], total_balance],
+        summary=[("Dönem sonu bakiye", _tl(total_balance))],
+    )
+
+
+class ClientNoticesForm(PeriodForm):
+    client = forms.ModelChoiceField(label="Müvekkil", queryset=Client.objects.all())
+    field_order = ["client", "start", "end"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["start"].label = "Geliş tarihi: başlangıç"
+        self.fields["end"].label = "Geliş tarihi: bitiş"
+
+
+def build_client_notices(d, user):
+    """Müvekkile gönderilecek tebligat listesi: ofis içi işlem notu ve kişi bilgisi yok."""
+    from apps.imports.models import PortalNotice
+
+    client = _own_client(d, user)
+    qs = PortalNotice.objects.filter(resolution_client=client).select_related("resolution_case")
+    qs = _date_filter(qs, d, "delivered_at__date").order_by("-delivered_at", "-pk")
+    rows = [
+        [
+            n.delivered_at.date() if n.delivered_at else None, n.sender, n.subject or "Tebligat",
+            tr_title(n.resolution_case.display_name) if n.resolution_case else "",
+        ]
+        for n in qs
+    ]  # fmt: skip
+    return ReportResult(
+        title="Tebligat Raporu",
+        subtitle=f"{tr_title(client.name)} · {_period(d)}",
+        columns=[
+            Column("Geliş tarihi", "date", 0.9),
+            Column("Gönderen", "text", 1.6),
+            Column("Konu", "text", 3.4),
+            Column("Dosya", "text", 2),
+        ],
+        rows=rows,
+        summary=[("Tebligat sayısı", str(len(rows)))],
+    )
+
+
+class ClientTasksForm(BootstrapMixin, forms.Form):
+    client = forms.ModelChoiceField(label="Müvekkil", queryset=Client.objects.all())
+    status = forms.ChoiceField(
+        label="Durum", choices=TaskReportForm.STATUS, initial="open", required=False
+    )
+
+
+def build_client_tasks(d, user):
+    """Seçilen müvekkilin görevleri (görev raporunun müvekkile özel hali)."""
+    _own_client(d, user)
+    result = build_tasks(d, user)
+    result.title = "Müvekkil Görev Raporu (ofis içi)"
+    return result
 
 
 # 5. Dönem muhasebe raporu ------------------------------------------------------------------
@@ -368,194 +723,327 @@ def _tl(v):
     return fmt(v, "money")
 
 
-# 6. Müvekkil bazlı dosya son durum raporu --------------------------------------------------
-class ClientCasesForm(BootstrapMixin, forms.Form):
-    client = forms.ModelChoiceField(label="Müvekkil", queryset=Client.objects.all(), required=False,
-                                    help_text="Boş bırakılırsa tüm müvekkiller")  # fmt: skip
-    include_closed = forms.BooleanField(label="Kapanmış dosyaları da göster", required=False)
-
-
-def build_client_cases(d, user):
-    cases = _seizure_summary(filter_visible_cases(Case.objects.select_related("client"), user))
-    if d.get("client"):
-        cases = cases.filter(client=d["client"])
-    if not d.get("include_closed"):
-        cases = cases.exclude(status=CaseStatus.CLOSED)
-    tasks_sq = (
-        Task.objects.filter(case=OuterRef("pk"), status__in=OPEN_STATUSES)
-        .order_by().values("case").annotate(n=Count("pk")).values("n")
-    )  # fmt: skip
-    last_sq = CaseEvent.objects.filter(case=OuterRef("pk")).order_by("-date", "-created_at")
-    cases = cases.annotate(
-        open_tasks=Coalesce(Subquery(tasks_sq, output_field=IntegerField()), Value(0)),
-        last_date=Subquery(last_sq.values("date")[:1]),
-        last_title=Subquery(last_sq.values("title")[:1]),
-    ).order_by("client__name", "archive_no")
-    rows = [
-        [k.client.name if k.client else "—", k.archive_reference, _linked_name(k), k.get_status_display(),
-         k.open_tasks, f"{k.last_date:%d.%m.%Y} {k.last_title}" if k.last_date else "",
-         k.status_detail or k.uyap_stage, k.active_seizures, k.next_renewal]
-        for k in cluster(cases)
-    ]  # fmt: skip
-    return ReportResult(
-        title="Dosyaların Son Durumu",
-        subtitle=(d["client"].name if d.get("client") else "Tüm müvekkiller")
-        + f" · {timezone.localdate():%d.%m.%Y}",
-        columns=[
-            Column("Müvekkil", "text", 1.5),
-            Column("Arşiv no", "text", 0.7),
-            Column("Dosya", "text", 1.7),
-            Column("Durum", "text", 1),
-            Column("Açık görev", "int", 0.6),
-            Column("Son gelişme", "text", 2.4),
-            Column("Aşama / Kapanma nedeni", "text", 1.4),
-            Column("Aktif haciz", "int", 0.6),
-            Column("Yenileme tarihi", "date", 0.8),
-        ],  # fmt: skip
-        rows=rows,
-        summary=[("Dosya sayısı", str(len(rows)))],
-    )
-
-
-class SeizureReportForm(PeriodForm):
+# 6. Muhasebe hareketleri -------------------------------------------------------------------
+class LedgerReportForm(PeriodForm):
     client = forms.ModelChoiceField(label="Müvekkil", queryset=Client.objects.all(), required=False)
-    lawyer = forms.ModelChoiceField(
-        label="Sorumlu avukat",
-        queryset=User.objects.filter(role__in=["admin", "senior", "lawyer"]),
-        required=False,
+    kind = forms.ChoiceField(
+        label="Hareket türü", choices=[("", "Tümü"), *EntryKind.choices], required=False
     )
     state = forms.ChoiceField(
-        label="Haciz durumu",
-        required=False,
+        label="Kayıt durumu",
+        choices=[
+            ("active", "Geçerli kayıtlar"),
+            ("cancelled", "İptal edilenler"),
+            ("excluded", "Hesap dışı bırakılanlar"),
+            ("all", "Tümü"),
+        ],
         initial="active",
-        choices=[("active", "Aktif"), ("inactive", "Pasif"), ("all", "Tümü")],
+        required=False,
     )
-    include_closed = forms.BooleanField(label="Kapalı dosyaları da göster", required=False)
-    field_order = ["client", "lawyer", "state", "start", "end", "include_closed"]
+    source = forms.ChoiceField(
+        label="Kaynak",
+        choices=[("", "Tümü"), ("office", "Büro kaydı"), ("uyap", "UYAP'tan gelen")],
+        required=False,
+    )
+    field_order = ["client", "kind", "state", "source", "start", "end"]
 
 
-def build_seizures(d, user):
-    items = (
-        Seizure.objects.filter(
-            case__case_type=CaseType.ENFORCEMENT,
-            case__in=filter_visible_cases(Case.objects.all(), user),
-        )
-        .select_related(
-            "case__client",
-            "case__responsible_intern",
-            "case__responsible_lawyer",
-            "debtor_party",
-            "debtor_client",
-        )
-        .prefetch_related("renewals__task__assignee", "renewals__task__reviewer")
-    )
-    if not d.get("include_closed"):
-        items = items.filter(case__status=CaseStatus.OPEN)
+def build_ledger(d, user):
+    qs = LedgerEntry.objects.select_related("client", "case")
+    if not can_view_all_office_data(user):
+        qs = qs.filter(client__in=filter_visible_clients(Client.objects.all(), user))
     if d.get("client"):
-        items = items.filter(
-            Q(case__client=d["client"]) | Q(case__co_clients=d["client"])
-        ).distinct()
-    if d.get("lawyer"):
-        items = items.filter(case__responsible_lawyer=d["lawyer"])
-    if d.get("state") != "all":
-        items = items.filter(is_active=d.get("state") != "inactive")
-    items = _date_filter(items, d, "renewal_on").order_by("renewal_on", "pk")
+        qs = qs.filter(client=d["client"])
+    if d.get("kind"):
+        qs = qs.filter(kind=d["kind"])
+    state = d.get("state") or "active"
+    if state == "active":
+        qs = qs.filter(is_cancelled=False, excluded_from_balance=False)
+    elif state == "cancelled":
+        qs = qs.filter(is_cancelled=True)
+    elif state == "excluded":
+        qs = qs.filter(excluded_from_balance=True, is_cancelled=False)
+    if d.get("source") == "uyap":
+        qs = qs.filter(portal_ref__isnull=False)
+    elif d.get("source") == "office":
+        qs = qs.filter(portal_ref__isnull=True)
+    qs = _date_filter(qs, d).order_by("date", "pk")
     rows = []
-    for item in items:
-        cycle = next(
-            (cycle for cycle in item.renewals.all() if cycle.due_date == item.renewal_on), None
+    for e in qs:
+        status = (
+            "İptal" if e.is_cancelled else ("Hesap dışı" if e.excluded_from_balance else "Geçerli")
         )
-        task = cycle.task if cycle else None
-        state = (
-            task.get_status_display()
-            if task
-            else ("Görev silinmiş" if cycle else "Görev günü bekleniyor")
-        )
-        if not task and not cycle:
-            if not item.is_active:
-                state = "Takip pasif"
-            elif not item.case.is_open:
-                state = "Dosya kapalı"
         rows.append(
             [
-                item.case.display_name,
-                item.case.client.name if item.case.client else "—",
-                item.debtor_display,
-                item.asset_label,
-                item.seized_on,
-                item.renewal_on,
-                "Aktif" if item.is_active else "Pasif",
-                task.assignee if task else item.case.responsible_intern,
-                task.reviewer if task else item.case.responsible_lawyer,
-                state,
-                item.state_label,
+                e.date, e.get_kind_display(), e.client.name, e.case.archive_reference if e.case else "",
+                e.description, e.amount, status, "UYAP" if e.portal_ref else "Büro",
             ]
-        )
+        )  # fmt: skip
+    counted = qs.filter(is_cancelled=False, excluded_from_balance=False)
+    totals = counted.totals_by_kind()
+    parts = [dict(LedgerReportForm.base_fields["state"].choices)[state], _period(d)]
+    if d.get("client"):
+        parts.append(str(d["client"]))
     return ReportResult(
-        title="Haciz ve Yenileme Takibi",
-        subtitle=f"Yenileme tarihi: {_period(d)}",
+        title="Muhasebe Hareketleri",
+        subtitle=" · ".join(parts),
         columns=[
-            Column("Dosya", "text", 2),
-            Column("Müvekkil", "text", 1.3),
-            Column("Borçlu", "text", 1.2),
-            Column("Haciz türü / ayrıntı", "text", 1.8),
-            Column("Haciz tarihi", "date", 0.8),
-            Column("Yenileme tarihi", "date", 0.8),
-            Column("Haciz durumu", "text", 0.7),
-            Column("Sorumlu", "text", 1),
-            Column("Kontrolcü", "text", 1),
-            Column("Görev durumu", "text", 1.1),
-            Column("Haciz aşaması", "text", 1.2),
-        ],
+            Column("Tarih", "date", 0.8),
+            Column("Hareket", "text", 1.3),
+            Column("Müvekkil", "text", 1.8),
+            Column("Dosya", "text", 0.9),
+            Column("Açıklama", "text", 2.4),
+            Column("Tutar", "money", 1),
+            Column("Durum", "text", 0.8),
+            Column("Kaynak", "text", 0.7),
+        ],  # fmt: skip
         rows=rows,
-        summary=[("Takip sayısı", str(len(rows)))],
+        summary=[("Kayıt sayısı", str(len(rows)))]
+        + [(label, _tl(totals[k])) for k, label in EntryKind.choices],
+    )
+
+
+# 7. Duruşma raporu -------------------------------------------------------------------------
+class HearingReportForm(PeriodForm):
+    lawyer = forms.ModelChoiceField(
+        label="Sorumlu avukat",
+        queryset=User.objects.filter(role__in=["admin", "senior", "lawyer", "intern"]),
+        required=False,
+    )
+    client = forms.ModelChoiceField(label="Müvekkil", queryset=Client.objects.all(), required=False)
+    attendance = forms.ChoiceField(
+        label="Katılma durumu",
+        choices=[
+            ("", "Tümü"),
+            ("attend", "Katılınacak"),
+            ("remote", "E-duruşma"),
+            ("excuse", "Mazeret"),
+        ],
+        required=False,
+    )
+    missing = forms.BooleanField(
+        label="Yalnızca eksik bilgisi olanlar (sonuç, bilgilendirme, sorumlu)", required=False
+    )
+    field_order = ["start", "end", "lawyer", "client", "attendance", "missing"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["start"].label = "Duruşma tarihi: başlangıç"
+        self.fields["end"].label = "Duruşma tarihi: bitiş"
+
+
+def build_hearings(d, user):
+    from apps.cases.hearing_list import base_hearings, missing_info_q, needs_action_q
+    from apps.cases.models import LIST_KINDS
+
+    qs = base_hearings(user).filter(kind__in=LIST_KINDS)
+    if d.get("lawyer"):
+        qs = qs.filter(assigned_to=d["lawyer"])
+    if d.get("client"):
+        qs = qs.filter(Q(client=d["client"]) | Q(case__client=d["client"]))
+    att = d.get("attendance")
+    if att == "excuse":
+        qs = qs.filter(excuse_submitted=True)
+    elif att == "remote":
+        qs = qs.filter(is_remote=True, excuse_submitted=False)
+    elif att == "attend":
+        qs = qs.filter(is_remote=False, excuse_submitted=False)
+    if d.get("missing"):
+        today = timezone.localdate()
+        qs = qs.filter(missing_info_q(today) | needs_action_q(today))
+    qs = _date_filter(qs, d, "starts_at__date").order_by("starts_at")
+    rows = []
+    for h in qs:
+        local = timezone.localtime(h.starts_at)
+        if not h.effective_client:
+            informed = "—"
+        elif h.client_informed_at or h.client_informed:
+            informed = "Bilgilendirildi"
+        else:
+            informed = "Bekliyor" if h.is_done else "—"
+        rows.append(
+            [
+                local.date(), local.strftime("%H:%M"), h.get_kind_display(),
+                h.authority or (h.case.authority if h.case else ""),
+                h.case.display_name if h.case else h.title_display, h.effective_client,
+                h.assigned_to or "Seçilmedi", h.attendance_label, h.result, informed,
+            ]
+        )  # fmt: skip
+    return ReportResult(
+        title="Duruşma Raporu",
+        subtitle=f"Duruşma tarihi: {_period(d)}" + (f" · {d['lawyer']}" if d.get("lawyer") else ""),
+        columns=[
+            Column("Tarih", "date", 0.8),
+            Column("Saat", "text", 0.5),
+            Column("Tür", "text", 0.9),
+            Column("Mahkeme", "text", 1.8),
+            Column("Dosya", "text", 1.8),
+            Column("Müvekkil", "text", 1.5),
+            Column("Sorumlu avukat", "text", 1.2),
+            Column("Katılma", "text", 0.9),
+            Column("Sonuç", "text", 2.2),
+            Column("Müvekkil bilgilendirme", "text", 1.1),
+        ],  # fmt: skip
+        rows=rows,
+        summary=[("Duruşma sayısı", str(len(rows)))],
+    )
+
+
+# 8. Tebligat raporu ------------------------------------------------------------------------
+class NoticeReportForm(PeriodForm):
+    state = forms.ChoiceField(
+        label="İşlem durumu",
+        choices=[
+            ("all", "Tümü"),
+            ("pending", "İşlem bekleyenler"),
+            ("task", "Görev oluşturulanlar"),
+            ("no_task", "Görev yok denilenler"),
+        ],
+        initial="all",
+        required=False,
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["start"].label = "Geliş tarihi: başlangıç"
+        self.fields["end"].label = "Geliş tarihi: bitiş"
+
+
+def build_notices(d, user):
+    from apps.imports.models import PortalNotice
+    from apps.imports.portal_matching import calculate_notice_due_date
+
+    qs = PortalNotice.objects.select_related("resolution_case", "resolution_task")
+    state = d.get("state") or "all"
+    if state == "pending":
+        qs = qs.filter(resolved_at__isnull=True)
+    elif state == "task":
+        qs = qs.filter(resolution_task__isnull=False)
+    elif state == "no_task":
+        qs = qs.filter(resolved_at__isnull=False, resolution_task__isnull=True)
+    qs = _date_filter(qs, d, "delivered_at__date").order_by("-delivered_at", "-pk")
+    rows = []
+    for n in qs:
+        status = (
+            "Görev oluşturuldu"
+            if n.resolution_task_id
+            else ("Görev yok" if n.resolved_at else "Bekliyor")
+        )
+        rows.append(
+            [
+                n.delivered_at.date() if n.delivered_at else None,
+                calculate_notice_due_date(n.delivered_at) if n.delivered_at else None,
+                n.sender, n.subject or "Tebligat",
+                n.resolution_case.display_name if n.resolution_case else "", status,
+            ]
+        )  # fmt: skip
+    return ReportResult(
+        title="Tebligat Raporu",
+        subtitle=f"{dict(NoticeReportForm.base_fields['state'].choices)[state]} · {_period(d)}",
+        columns=[
+            Column("Geliş tarihi", "date", 0.9),
+            Column("Olası son gün", "date", 0.9),
+            Column("Gönderen", "text", 1.6),
+            Column("Konu", "text", 3.4),
+            Column("Eşleşen dosya", "text", 2),
+            Column("Durum", "text", 1.1),
+        ],  # fmt: skip
+        rows=rows,
+        summary=[("Tebligat sayısı", str(len(rows)))],
     )
 
 
 REPORTS = {
+    # --- Müvekkile gönderilecek raporlar: ofis içi bilgi (sorumlu, arşiv yeri, görev) içermez.
+    "muvekkil-dosya-durumu": {
+        "title": "Dosya durum raporu", "icon": "bi-folder-symlink", "financial": False,
+        "audience": "client", "group": "cases", "form": ClientCasesForm, "build": build_client_cases,
+        "desc": "Müvekkilin dosyaları: durum, mahkeme, son gelişme ve sonraki duruşma.",
+    },
+    "muvekkil-durusmalari": {
+        "title": "Duruşma raporu", "icon": "bi-calendar-event", "financial": False,
+        "audience": "client", "group": "hearings", "form": ClientHearingsForm,
+        "build": build_client_hearings,
+        "desc": "Müvekkilin duruşma, ön inceleme ve keşifleri: tarih, saat, mahkeme, açıklama.",
+    },
     "cari-ekstre": {
-        "title": "Müvekkil hesap ekstresi", "icon": "bi-journal-text", "financial": True, "form": StatementForm,
-        "build": build_statement, "desc": "Bir müvekkilin dönem içindeki tüm hareketleri, devir ve bakiyeleri.",
+        "title": "Hesap ekstresi", "icon": "bi-journal-text", "financial": True,
+        "audience": "client", "group": "accounting", "form": StatementForm, "build": build_statement,
+        "desc": "Müvekkilin dönem içindeki geçerli hareketleri, devir ve bakiyesi.",
+    },
+    "muvekkil-masraf-ozeti": {
+        "title": "Masraf ve tahsilat özeti", "icon": "bi-cash-coin", "financial": True,
+        "audience": "client", "group": "accounting", "form": ClientSummaryForm,
+        "build": build_client_summary,
+        "desc": "Dosya bazında vekalet ücreti, masraf, tahsilat ve bakiye toplamları.",
+    },
+    "muvekkil-tebligatlari": {
+        "title": "Tebligat raporu", "icon": "bi-envelope-paper", "financial": False,
+        "audience": "client", "group": "notices", "form": ClientNoticesForm,
+        "build": build_client_notices,
+        "desc": "Müvekkilin dosyalarına gelen tebligatlar: geliş tarihi, gönderen, konu.",
+    },
+    # --- Ofis raporları (iç kullanım)
+    "dosya-raporu": {
+        "title": "Dosya raporu", "icon": "bi-folder2-open", "financial": False,
+        "audience": "office", "group": "cases", "form": CaseReportForm, "build": build_cases,
+        "desc": "Dosyalar türe, duruma, sorumluya, yardımcı sorumluya, müvekkile ve aşamaya göre.",
+    },
+    "muvekkil-listesi": {
+        "title": "Müvekkil listesi", "icon": "bi-people", "financial": False,
+        "audience": "office", "group": "clients", "form": ClientReportForm, "build": build_clients,
+        "desc": "Müvekkiller türe, sorumluya, vekaletname ve açık görev durumuna göre.",
+    },
+    "muvekkil-gorevleri": {
+        "title": "Müvekkil görev raporu", "icon": "bi-list-check", "financial": False,
+        "audience": "office", "group": "tasks", "form": ClientTasksForm, "build": build_client_tasks,
+        "desc": "Seçilen müvekkile bağlı görevler (ofis içi).",
+    },
+    "gorevler": {
+        "title": "Görev raporu", "icon": "bi-check2-square", "financial": False,
+        "audience": "office", "group": "tasks", "form": TaskReportForm, "build": build_tasks,
+        "desc": "Görevler duruma, türe, sorumluya, kontrolcüye, müvekkile ve son güne göre.",
     },
     "borclu-muvekkiller": {
         "title": "Borçlu müvekkiller / alacak listesi", "icon": "bi-cash-stack", "financial": True,
-        "form": DebtorsForm, "build": build_debtors, "desc": "Bakiyesi (müvekkilin ofise borcu) olan müvekkiller ve toplam alacak.",
+        "audience": "office", "group": "accounting", "form": DebtorsForm, "build": build_debtors,
+        "desc": "Bakiyesi (müvekkilin ofise borcu) olan müvekkiller ve toplam alacak.",
     },
-    "gorevler": {
-        "title": "Görev raporu", "icon": "bi-check2-square", "financial": False, "form": TaskReportForm,
-        "build": build_tasks, "desc": "Açık, gecikmiş veya tamamlanan görevler; kişi ve tarihe göre.",
-    },
-    "dosya-listesi": {
-        "title": "Dosya listesi", "icon": "bi-folder2-open", "financial": False, "form": CaseListForm,
-        "build": build_cases, "desc": "Dosyalar türe, duruma ve sorumluya göre.",
+    "muhasebe-hareketleri": {
+        "title": "Muhasebe hareketleri", "icon": "bi-receipt", "financial": False,
+        "audience": "office", "group": "accounting", "form": LedgerReportForm, "build": build_ledger,
+        "desc": "Hareketler müvekkile, türe, kayıt durumuna, kaynağa (büro/UYAP) ve tarihe göre.",
     },
     "donem-muhasebe": {
         "title": "Dönem muhasebe raporu", "icon": "bi-bar-chart-line", "financial": True,
-        "form": PeriodAccountingForm, "build": build_period_accounting,
+        "audience": "office", "group": "accounting", "form": PeriodAccountingForm,
+        "build": build_period_accounting,
         "desc": "Aylara göre vekalet ücreti, masraf, tahsilat ve ödeme toplamları.",
     },
-    "dosya-son-durum": {
-        "title": "Müvekkil bazlı dosya son durumu", "icon": "bi-clipboard-data", "financial": False,
-        "form": ClientCasesForm, "build": build_client_cases,
-        "desc": "Dosyaların durumu, aşaması, açık görevleri, hacizleri ve son gelişmesi.",
+    "durusma-raporu": {
+        "title": "Duruşma raporu (ofis)", "icon": "bi-calendar2-week", "financial": False,
+        "audience": "office", "group": "calendar", "form": HearingReportForm,
+        "build": build_hearings,
+        "desc": "Duruşma, ön inceleme ve keşifler tarihe, avukata, müvekkile ve katılma durumuna göre.",
+    },
+    "tebligat-raporu": {
+        "title": "Tebligat raporu", "icon": "bi-envelope-paper", "financial": False,
+        "audience": "office", "group": "calendar", "form": NoticeReportForm, "build": build_notices,
+        "desc": "Tebligatlar geliş tarihine ve işlem durumuna göre.",
     },
 }  # fmt: skip
 
-
-REPORTS["haciz-takibi"] = {
-    "title": "Haciz ve yenileme takibi",
-    "icon": "bi-calendar-check",
-    "financial": False,
-    "form": SeizureReportForm,
-    "build": build_seizures,
-    "desc": "Borçlu, mal varlığı, haciz tarihi, yenileme günü ve görev durumu.",
-}
-REPORT_GROUPS = [
-    ("cases", "Dosya raporları"),
-    ("tasks", "Görev raporları"),
-    ("financial", "Mali raporlar"),
+# Rapor kategorileri: müvekkil raporları 4, ofis raporları 5 kategoridir.
+CLIENT_GROUPS = [
+    ("cases", "Dosyalar"),
+    ("hearings", "Duruşmalar"),
+    ("accounting", "Hesap"),
+    ("notices", "Tebligatlar"),
 ]
-for key, spec in REPORTS.items():
-    spec["group"] = (
-        "financial" if spec["financial"] else ("tasks" if key == "gorevler" else "cases")
-    )
+REPORT_GROUPS = [
+    ("cases", "Dosya"),
+    ("clients", "Müvekkil"),
+    ("tasks", "Görev"),
+    ("accounting", "Muhasebe"),
+    ("calendar", "Duruşma ve tebligat"),
+]

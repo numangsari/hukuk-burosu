@@ -9,7 +9,7 @@ from apps.accounting.permissions import can_view_balances as can_view_accounting
 from apps.office.models import OfficeSettings
 
 from .base import fmt
-from .definitions import REPORT_GROUPS, REPORTS
+from .definitions import CLIENT_GROUPS, REPORT_GROUPS, REPORTS
 from .renderers import to_pdf, to_xlsx
 
 
@@ -21,11 +21,29 @@ def visible_reports(user):
 class ReportIndexView(View):
     def get(self, request):
         reports = visible_reports(request.user)
-        groups = [
-            {"label": label, "reports": {k: v for k, v in reports.items() if v["group"] == key}}
-            for key, label in REPORT_GROUPS
-        ]
-        return render(request, "reports/index.html", {"reports": reports, "report_groups": groups})
+
+        def grouped(audience, groups):
+            return [
+                {
+                    "label": label,
+                    "reports": {
+                        k: v
+                        for k, v in reports.items()
+                        if v["audience"] == audience and v["group"] == key
+                    },
+                }
+                for key, label in groups
+            ]
+
+        return render(
+            request,
+            "reports/index.html",
+            {
+                "reports": reports,
+                "client_groups": grouped("client", CLIENT_GROUPS),
+                "office_groups": grouped("office", REPORT_GROUPS),
+            },
+        )
 
 
 class ReportView(View):

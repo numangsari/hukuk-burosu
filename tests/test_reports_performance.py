@@ -9,7 +9,7 @@ pytestmark = pytest.mark.django_db
 BUILDERS = {
     "cases": (definitions.build_cases, {}),
     "debtors": (definitions.build_debtors, {"include_zero": True}),
-    "client_cases": (definitions.build_client_cases, {}),
+    "clients": (definitions.build_clients, {}),
 }
 
 

@@ -8,11 +8,7 @@
     <h1 class="page-title mb-0">Takvim / Duruşma</h1>
   </div>
   <div class="d-flex align-items-center gap-2">
-    {% if view == 'list' %}
-    <a href="{% url 'hearings:export' %}?{{ request.GET.urlencode }}" class="btn btn-light">
-      <i class="bi bi-file-earmark-excel me-1"></i>Excel Döküm
-    </a>
-    {% endif %}
+    {% if view == 'list' %}{% url 'hearings:export' as hearing_export_url %}{% include "partials/export_buttons.html" with export_base=hearing_export_url %}{% endif %}
     <a href="{% url 'hearings:create' %}?next={{ request.get_full_path|urlencode }}" class="btn btn-primary">
       <i class="bi bi-plus-lg me-1"></i>Yeni Etkinlik
     </a>
@@ -42,11 +38,12 @@
   <ul class="nav nav-underline-tabs nav-underline-tabs-flat">
     <li class="nav-item"><a class="nav-link {% if current_scope == 'upcoming' %}active{% endif %}" href="{% query_with view='list' scope='upcoming' page=None baslangic=None bitis=None %}">Yaklaşanlar{% if attention_counts.upcoming %} <span class="count count-warning" title="Eksik bilgisi olan duruşma">{{ attention_counts.upcoming }}</span>{% endif %}</a></li>
     <li class="nav-item"><a class="nav-link {% if current_scope == 'past' %}active{% endif %}" href="{% query_with view='list' scope='past' page=None baslangic=None bitis=None %}">Geçmiş{% if attention_counts.past %} <span class="count count-warning" title="Eksik bilgisi olan duruşma">{{ attention_counts.past }}</span>{% endif %}</a></li>
-    <li class="nav-item"><a class="nav-link {% if current_scope == 'all' %}active{% endif %}" href="{% query_with view='list' scope='all' page=None baslangic=None bitis=None %}">Tümü{% if attention_counts.all %} <span class="count count-warning" title="Eksik bilgisi olan duruşma">{{ attention_counts.all }}</span>{% endif %}</a></li>
   </ul>
+  {% if current_scope == 'upcoming' %}
   <div class="d-flex gap-1 flex-wrap" aria-label="Hızlı tarih filtreleri">
-    {% for r in quick_ranges %}<a class="btn btn-sm {% if r.active %}btn-primary{% else %}btn-light{% endif %}" href="{% query_with view='list' scope='all' page=None baslangic=r.start bitis=r.end %}">{{ r.label }}</a>{% endfor %}
+    {% for r in quick_ranges %}<a class="btn btn-sm {% if r.active %}btn-primary{% else %}btn-light{% endif %}" href="{% query_with view='list' scope='upcoming' page=None baslangic=r.start bitis=r.end %}">{{ r.label }}</a>{% endfor %}
   </div>
+  {% endif %}
 </div>
 
 <div class="card p-3 mb-3">
@@ -67,15 +64,6 @@
         <option value="">Tümü</option>
         {% for l in lawyers %}
         <option value="{{ l.pk }}" {% if request.GET.avukat == l.pk|stringformat:"s" %}selected{% endif %}>{{ l }}</option>
-        {% endfor %}
-      </select>
-    </div>
-    <div class="col-md-2">
-      <label class="form-label small text-body-secondary mb-1">Tür</label>
-      <select name="tur" class="form-select form-select-sm">
-        <option value="">Tüm Türler</option>
-        {% for val, label in kinds %}
-        <option value="{{ val }}" {% if request.GET.tur == val %}selected{% endif %}>{{ label }}</option>
         {% endfor %}
       </select>
     </div>

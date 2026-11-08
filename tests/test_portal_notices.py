@@ -364,3 +364,42 @@ def test_notice_due_date_uses_office_settings():
     office.notice_default_due_days = 7
     office.save(update_fields=["notice_default_due_days"])
     assert calculate_notice_due_date(delivered) == dt.date(2026, 11, 8)
+
+
+@pytest.mark.django_db
+def test_notice_task_team_comes_from_case(sample):
+    from apps.tasks.views import TaskCreateView
+
+    client, admin, worker, _, _, case, notice = sample
+    # Yardımcı sorumlu görevin sorumlusu, sorumlu avukat kontrolcüsü olur.
+    assert TaskCreateView.team_initial(case) == {"assignee": worker.pk, "reviewer": admin.pk}
+    page = client.get(
+        reverse("notice_task_create", args=[notice.pk]), HTTP_HX_REQUEST="true"
+    ).content.decode()
+    assert 'id="supervisor-map"' in page  # dosya seçilince ekibi doldurmak için
+
+
+@pytest.mark.django_db
+def test_no_task_can_be_undone_by_authorized_user_only(sample):
+    client, admin, worker, owner, other, case, notice = sample
+    url = reverse("notice_no_task", args=[notice.pk])
+    client.post(url, {"client": owner.pk, "case": case.pk, "reason": "Gerek yok"})
+    notice.refresh_from_db()
+    assert notice.resolved_at is not None
+    undo = reverse("notice_undo_no_task", args=[notice.pk])
+    page = client.get(reverse("portal_notice_detail", args=[notice.pk])).content.decode()
+    assert "Geri al" in page
+    # Yetkisiz kullanıcı (avukat; varsayılan yalnızca yönetici ve kıdemli) geri alamaz.
+    client.force_login(worker)
+    assert client.post(undo).status_code == 403
+    notice.refresh_from_db()
+    assert notice.resolved_at is not None
+    client.force_login(admin)
+    assert client.post(undo).status_code == 302
+    notice.refresh_from_db()
+    assert notice.resolved_at is None and notice.resolution_case is None
+    assert notice.no_task_reason == "" and notice.resolved_by is None
+    # Tekrar işlenebilir ve görev oluşturulmuş tebligat geri alınamaz.
+    client.post(undo)
+    notice.refresh_from_db()
+    assert notice.resolved_at is None

@@ -13,9 +13,11 @@ from django.views.generic import CreateView, ListView, View
 
 from apps.cases.models import Case
 from apps.clients.models import Client
+from apps.core.list_export import ListExportMixin
 from apps.core.pagination import page_size
 from apps.core.permissions import filter_visible_cases
-from apps.core.text import fold
+from apps.core.text import fold, tr_title
+from apps.reports.base import Column
 
 from .forms import LedgerEntryForm
 from .models import KIND_HELP, EntryKind, LedgerEntry
@@ -51,9 +53,38 @@ def statement(entries):
     return rows
 
 
-class EntryListView(ViewRequiredMixin, ListView):
+class EntryListView(ListExportMixin, ViewRequiredMixin, ListView):
     template_name = "accounting/list.html"
     context_object_name = "entries"
+    export_title = "Muhasebe Hareketleri"
+
+    def export_columns(self):
+        return [
+            Column("Tarih", "date", 0.9),
+            Column("Hareket", width=1.4),
+            Column("Müvekkil", width=2.0),
+            Column("Dosya", width=2.2),
+            Column("Açıklama", width=3.0),
+            Column("Tutar", "money", 1.2),
+            Column("Durum", width=1.0),
+        ]
+
+    def export_row(self, entry):
+        if entry.is_cancelled:
+            state = "İptal"
+        elif entry.excluded_from_balance:
+            state = "Hesap dışı"
+        else:
+            state = "Geçerli"
+        return [
+            entry.date,
+            entry.get_kind_display(),
+            tr_title(entry.client),
+            tr_title(entry.case.display_name) if entry.case_id else "",
+            entry.description,
+            entry.amount,
+            state,
+        ]
 
     def get_paginate_by(self, queryset):
         return page_size(self.request)

@@ -11,6 +11,7 @@ urlpatterns = [
     path("<int:pk>/duzenle/", vh.HearingEditView.as_view(), name="edit"),
     path("<int:pk>/sonuc/", vh.HearingResultView.as_view(), name="result"),
     path("<int:pk>/bilgilendirme/", vh.HearingInformView.as_view(), name="inform"),
+    path("<int:pk>/musteri-notu/", vh.HearingClientNoteView.as_view(), name="client_note"),
     path("<int:pk>/sil/", vh.HearingDeleteStandaloneView.as_view(), name="delete"),
     path("disa-aktar/", vh.HearingExportView.as_view(), name="export"),
 ]

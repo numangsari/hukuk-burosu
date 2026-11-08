@@ -45,6 +45,7 @@
       folder.replaceChildren(new Option("Klasörler yükleniyor…", ""));
       slots.replaceChildren(new Option("Önce klasör seçiniz…", ""));
       folder.setCustomValidity("Klasörlerin yüklenmesini bekleyin.");
+      folder.dispatchEvent(new Event("searchable:refresh"));
       const url = new URL(document.body.dataset.archiveFoldersUrl, location.origin);
       if (selectedClient) url.searchParams.set("client", selectedClient);
       try {
@@ -56,10 +57,12 @@
         result.folders.forEach(value => folder.add(new Option(value, value)));
         folder.setCustomValidity("");
         slots.setCustomValidity("");
+        folder.dispatchEvent(new Event("searchable:refresh"));
       } catch {
         if (client.value !== selectedClient) return;
         folder.replaceChildren(new Option("Klasörler alınamadı", ""));
         folder.setCustomValidity("Klasörler alınamadı; müvekkili yeniden seçin.");
+        folder.dispatchEvent(new Event("searchable:refresh"));
       }
       return;
     }

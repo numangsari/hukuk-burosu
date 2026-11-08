@@ -56,3 +56,43 @@ def test_other_kinds_ignore_attendance_and_keep_title_rule(admin_user):
     assert not hearing.excuse_submitted and not hearing.is_remote
     empty = HearingStandaloneForm(data(title=""), user=admin_user)
     assert not empty.is_valid()
+
+
+def test_kind_cannot_be_changed_when_editing(admin_user, case_factory):
+    case = case_factory()
+    form = HearingStandaloneForm(
+        data(
+            kind="hearing", title="", case=case.pk, assigned_to=admin_user.pk, attendance="attend"
+        ),
+        user=admin_user,
+    )
+    assert form.is_valid(), form.errors
+    hearing = form.save()
+    edit = HearingStandaloneForm(
+        data(kind="other", case=case.pk, assigned_to=admin_user.pk, attendance="attend"),
+        instance=hearing,
+        user=admin_user,
+    )
+    assert edit.fields["kind"].disabled
+    assert edit.is_valid(), edit.errors
+    assert edit.save().kind == "hearing"
+
+
+def test_listed_kinds_have_no_end_time(admin_user, case_factory):
+    case = case_factory()
+    form = HearingStandaloneForm(
+        data(
+            kind="hearing",
+            title="",
+            case=case.pk,
+            assigned_to=admin_user.pk,
+            attendance="attend",
+            ends_at="2026-12-01T11:00",
+        ),
+        user=admin_user,
+    )
+    assert form.is_valid(), form.errors
+    assert form.save().ends_at is None
+    meeting = HearingStandaloneForm(data(ends_at="2026-12-01T11:00"), user=admin_user)
+    assert meeting.is_valid(), meeting.errors
+    assert meeting.save().ends_at is not None

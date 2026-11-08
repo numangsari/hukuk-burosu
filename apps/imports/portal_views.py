@@ -16,7 +16,9 @@ from django.views.decorators.http import require_GET, require_POST
 from apps.cases.models import Case
 from apps.clients.models import Client
 from apps.core.forms import BootstrapMixin
+from apps.core.list_export import build_result, export_response, wants_export
 from apps.core.permission_registry import has_perm
+from apps.core.text import tr_title
 from apps.tasks.models import TaskDocument
 from apps.tasks.views import TaskCreateView
 
@@ -68,6 +70,7 @@ def notice_detail(request, pk):
             "recipient": details.get("recipient_name", ""),
             "source_subject": source.get("Konu", ""),
             "source_name": source.get("DosyaAdi", ""),
+            "can_undo_no_task": has_perm(request.user, "notices.undo_no_task"),
         },
     )
 
@@ -262,6 +265,44 @@ class NoTaskForm(BootstrapMixin, forms.Form):
         return data
 
 
+def _export_notices(notices, kind):
+    """Tebligat listesinin tamamı (sayfalara bölünmeden) Excel veya PDF olarak."""
+    from apps.reports.base import Column
+
+    rows = []
+    for n in notices:
+        due = calculate_notice_due_date(n.delivered_at)
+        if n.resolution_task_id:
+            state = "Görev oluşturuldu"
+        elif n.resolved_at:
+            state = "Görev yok"
+        else:
+            state = "Bekliyor"
+        case = n.resolution_case
+        rows.append(
+            [
+                timezone.localtime(n.delivered_at).strftime("%d.%m.%Y %H:%M")
+                if n.delivered_at
+                else "",
+                due if n.delivered_at else None,
+                n.sender,
+                n.subject or "Tebligat",
+                tr_title(case.display_name) if case else "",
+                state,
+            ]
+        )
+    columns = [
+        Column("Tarih", width=1.2),
+        Column("Olası son gün", "date", 1.0),
+        Column("Gönderen", width=1.8),
+        Column("Konu", width=3.6),
+        Column("Eşleşen dosya", width=2.2),
+        Column("Durum", width=1.2),
+    ]
+    result = build_result("Tebligat Listesi", f"{len(rows)} kayıt", columns, rows)
+    return export_response(result, kind)
+
+
 @login_required
 def notice_list(request):
     from apps.core.pagination import page_size
@@ -269,6 +310,8 @@ def notice_list(request):
     notices = PortalNotice.objects.select_related(
         "resolution_client", "resolution_case", "resolution_task", "resolved_by"
     ).order_by("-delivered_at", "-pk")
+    if kind := wants_export(request):
+        return _export_notices(notices, kind)
     page = Paginator(notices, page_size(request)).get_page(request.GET.get("page"))
     for n in page.object_list:
         if not n.resolution_case:
@@ -332,6 +375,9 @@ def notice_no_task(request, pk):
     return render(request, template_name, {"form": form, "notice": notice})
 
 
+NOTICE_TITLE_PREFIX = "[TEBLİGAT] "
+
+
 class NoticeTaskCreateView(TaskCreateView):
     def dispatch(self, request, *args, **kwargs):
         if not request.user.is_authenticated:
@@ -364,7 +410,8 @@ class NoticeTaskCreateView(TaskCreateView):
             initial["case"] = suggested
             if suggested.client:
                 initial["client"] = suggested.client
-        initial["title"] = f"Tebligat: {self.notice.subject[:100]}"
+            initial.update(self.team_initial(suggested))
+        initial["title"] = NOTICE_TITLE_PREFIX
         return initial
 
     def get_form(self, form_class=None):
@@ -434,3 +481,33 @@ class NoticeTaskCreateView(TaskCreateView):
             for storage, name in created_files:
                 storage.delete(name)
             raise
+
+
+@login_required
+@require_POST
+def notice_undo_no_task(request, pk):
+    """ "Görev yok" işlemini geri alır; tebligat yeniden işlenmemiş olur (yetkili kullanıcı)."""
+    if not has_perm(request.user, "notices.undo_no_task"):
+        raise PermissionDenied
+    suffix = "?pencere=1" if request.GET.get("pencere") else ""
+    with transaction.atomic():
+        notice = get_object_or_404(PortalNotice.objects.select_for_update(), pk=pk)
+        if not notice.resolved_at or notice.resolution_task_id:
+            messages.error(request, 'Geri alınacak bir "görev yok" işlemi bulunamadı.')
+        else:
+            notice.resolution_client = None
+            notice.resolution_case = None
+            notice.no_task_reason = ""
+            notice.resolved_by = None
+            notice.resolved_at = None
+            notice.save(
+                update_fields=[
+                    "resolution_client",
+                    "resolution_case",
+                    "no_task_reason",
+                    "resolved_by",
+                    "resolved_at",
+                ]
+            )
+            messages.success(request, "Görev yok işlemi geri alındı; tebligat yeniden işlenebilir.")
+    return redirect(reverse("portal_notice_detail", args=[pk]) + suffix)

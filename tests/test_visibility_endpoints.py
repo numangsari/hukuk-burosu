@@ -164,9 +164,8 @@ def report_html(user, key, **params):
 
 
 def test_reports_exclude_invisible_cases(restricted, task, enforcement, stranger, lawyer):
-    for key in ("dosya-listesi", "dosya-son-durum"):
-        assert task.case.subject.upper() not in report_html(stranger, key).upper(), key
-    assert task.case.archive_reference in report_html(lawyer, "dosya-listesi")
+    assert task.case.subject.upper() not in report_html(stranger, "dosya-raporu").upper()
+    assert task.case.archive_reference in report_html(lawyer, "dosya-raporu")
     assert "gizli görev".upper() not in report_html(stranger, "gorevler").upper()
     assert "GİZLİ GÖREV" in report_html(lawyer, "gorevler").upper()
 

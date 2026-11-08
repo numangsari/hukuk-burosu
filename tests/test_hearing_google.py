@@ -33,7 +33,7 @@ def test_hearing_type_is_hidden_from_general_task_form_and_settings(lawyer_clien
     assert task_type not in response.context["forms"]["gorev_turleri"].queryset
 
 
-def test_hearing_task_awards_two_points_even_if_type_has_other_points(case_factory):
+def test_hearing_linked_task_awards_its_task_type_points(case_factory):
     from apps.tasks.services import award_closed_task_points
 
     office = OfficeSettings.load()
@@ -53,7 +53,7 @@ def test_hearing_task_awards_two_points_even_if_type_has_other_points(case_facto
         completed_at=timezone.now(),
     )
     award_closed_task_points(task)
-    assert list(task.points_awarded.values_list("points", flat=True)) == [2]
+    assert list(task.points_awarded.values_list("points", flat=True)) == [10]
 
 
 def test_google_sync_disabled_by_default(case_factory):

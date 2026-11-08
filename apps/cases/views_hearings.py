@@ -18,9 +18,10 @@ from apps.core.permissions import (
     filter_visible_cases,
     filter_visible_hearings,
 )
+from apps.core.text import tr_title
 from apps.core.whatsapp import format_hearing_result_message
 
-from .forms import HearingResultForm, HearingStandaloneForm
+from .forms import HearingClientNoteForm, HearingResultForm, HearingStandaloneForm
 from .hearing_list import list_context
 from .models import Case, CaseEvent, Hearing, HearingInformMethod, HearingStatus
 
@@ -53,6 +54,20 @@ class HearingListView(View):
         return redirect(reverse("agenda:calendar") + "?" + query.urlencode())
 
 
+def _excuse_task_message(request, hearing):
+    """Katılma durumu mazeretse sorumluya mazeret dilekçesi görevi açılır."""
+    from apps.tasks.services import ensure_excuse_task
+
+    if not (hearing.excuse_submitted and hearing.uses_result_flow):
+        return
+    task = ensure_excuse_task(hearing, request.user)
+    if task:
+        messages.success(
+            request,
+            f"Mazeret dilekçesi görevi açıldı: {task.assignee}, son gün {task.due_date:%d.%m.%Y}.",
+        )
+
+
 @method_decorator(xframe_options_sameorigin, name="dispatch")
 class HearingCreateStandaloneView(View):
     def get(self, request):
@@ -62,7 +77,6 @@ class HearingCreateStandaloneView(View):
             try:
                 c = filter_visible_cases(Case.objects.all(), request.user).get(pk=initial_case_id)
                 form.fields["case"].initial = c
-                form.fields["authority"].initial = c.authority
             except (Case.DoesNotExist, ValueError):
                 pass
         return render(request, "cases/hearing_form.html", {"form": form, "title": "Yeni Etkinlik"})
@@ -75,6 +89,7 @@ class HearingCreateStandaloneView(View):
             h.save()
             queue_hearing_google_sync(h)
             messages.success(request, "Kayıt başarıyla eklendi.")
+            _excuse_task_message(request, h)
             if request.GET.get("pencere"):
                 return HttpResponse("<script>window.parent.location.reload()</script>")
             next_url = request.POST.get("next") or reverse("agenda:calendar")
@@ -96,8 +111,11 @@ class HearingDetailView(View):
         }
         if done:
             context["result_form"] = HearingResultForm(instance=hearing)
+            context["note_form"] = HearingClientNoteForm(instance=hearing)
             if hearing.result.strip() and hearing.effective_client:
-                context["wa_templates"] = {"Duruşma Sonucu": format_hearing_result_message(hearing)}
+                message = format_hearing_result_message(hearing)
+                context["wa_templates"] = {"Duruşma Sonucu": message}
+                context["wa_preview"] = message
         return render(request, "cases/hearing_detail.html", context)
 
 
@@ -136,6 +154,7 @@ class HearingEditView(View):
             h = form.save()
             queue_hearing_google_sync(h)
             messages.success(request, "Duruşma güncellendi.")
+            _excuse_task_message(request, h)
             if request.htmx:
                 return _detail_redirect(request, h)
             if request.GET.get("pencere"):
@@ -206,6 +225,23 @@ class HearingResultView(View):
         return _detail_redirect(request, h)
 
 
+class HearingClientNoteView(View):
+    """Müvekkile giden mesaja eklenen notu kaydeder; mesaj önizlemesi yenilenir."""
+
+    http_method_names = ["post"]
+
+    def post(self, request, pk):
+        hearing = _visible_hearing(request, pk)
+        if not (hearing.is_done and hearing.uses_result_flow):
+            raise PermissionDenied
+        form = HearingClientNoteForm(request.POST, instance=hearing)
+        if form.is_valid():
+            hearing.client_note = form.cleaned_data["client_note"].strip()
+            hearing.save(update_fields=["client_note", "updated_at"])
+        suffix = "?pencere=1" if request.GET.get("pencere") else ""
+        return redirect(reverse("hearings:detail", args=[hearing.pk]) + suffix)
+
+
 class HearingInformView(View):
     """Müvekkil bilgilendirme kaydı: WhatsApp açılınca veya başka yolla bildirilince işaretlenir."""
 
@@ -254,95 +290,41 @@ class HearingDeleteStandaloneView(PermissionRequiredMixin, View):
 
 
 class HearingExportView(View):
-    """Filtrelenmiş duruşma listesini Excel (.xlsx) olarak indirir."""
+    """Filtrelenmiş duruşma listesinin tamamını Excel (varsayılan) veya PDF olarak indirir."""
 
     def get(self, request):
-        import openpyxl
-        from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+        from apps.core.list_export import build_result, export_response, wants_export
+        from apps.reports.base import Column
 
-        qs = list_context(request)["queryset"]
-
-        wb = openpyxl.Workbook()
-        ws = wb.active
-        ws.title = "Duruşma Listesi"
-
-        headers = [
-            "Tarih",
-            "Saat",
-            "Tür",
-            "Mahkeme / Merci",
-            "Dosya No / Konu",
-            "Müvekkil",
-            "Sorumlu Avukat",
-            "Katılma durumu",
-            "Sonuç / Ara Karar",
-            "Notlar",
+        queryset = list_context(request)["queryset"]
+        rows = []
+        for h in queryset:
+            local = timezone.localtime(h.starts_at)
+            rows.append(
+                [
+                    local.date(),
+                    local.strftime("%H:%M"),
+                    h.get_kind_display(),
+                    tr_title(h.authority or (h.case.authority if h.case else "")),
+                    tr_title(h.case.display_name) if h.case else h.title_display,
+                    tr_title(h.effective_client or ""),
+                    tr_title(h.assigned_to or ""),
+                    h.attendance_label,
+                    h.result or "",
+                ]
+            )
+        columns = [
+            Column("Tarih", "date", 0.9),
+            Column("Saat", width=0.6),
+            Column("Tür", width=1.0),
+            Column("Mahkeme", width=2.2),
+            Column("Dosya", width=2.2),
+            Column("Müvekkil", width=1.8),
+            Column("Sorumlu avukat", width=1.4),
+            Column("Katılma durumu", width=1.1),
+            Column("Sonuç", width=2.6),
         ]
-
-        header_fill = PatternFill(start_color="1E3A8A", end_color="1E3A8A", fill_type="solid")
-        header_font = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
-        thin_border = Border(
-            left=Side(style="thin", color="D1D5DB"),
-            right=Side(style="thin", color="D1D5DB"),
-            top=Side(style="thin", color="D1D5DB"),
-            bottom=Side(style="thin", color="D1D5DB"),
+        result = build_result(
+            "Duruşma Listesi", f"{len(rows)} kayıt (süzgeçler uygulanmış)", columns, rows
         )
-
-        ws.append(headers)
-        for col_num in range(1, len(headers) + 1):
-            cell = ws.cell(row=1, column=col_num)
-            cell.fill = header_fill
-            cell.font = header_font
-            cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
-
-        for h in qs:
-            local_dt = timezone.localtime(h.starts_at)
-            lawyer = str(h.assigned_to or "")
-            client = str(h.effective_client or "")
-            row_data = [
-                local_dt.strftime("%d.%m.%Y"),
-                local_dt.strftime("%H:%M"),
-                h.get_kind_display(),
-                h.authority or (h.case.authority if h.case else ""),
-                (
-                    f"{h.case.official_no or ''} {h.case.subject or ''}".strip()
-                    if h.case
-                    else h.title_display
-                ),
-                client,
-                lawyer,
-                h.attendance_label,
-                h.result or "",
-                h.notes or "",
-            ]
-            ws.append(row_data)
-            row_idx = ws.max_row
-            for col_idx in range(1, len(headers) + 1):
-                cell = ws.cell(row=row_idx, column=col_idx)
-                cell.border = thin_border
-                cell.font = Font(name="Calibri", size=10)
-                if col_idx in (1, 2, 3, 8):
-                    cell.alignment = Alignment(horizontal="center", vertical="center")
-
-        col_widths = {
-            "A": 12,
-            "B": 8,
-            "C": 14,
-            "D": 32,
-            "E": 25,
-            "F": 25,
-            "G": 20,
-            "H": 14,
-            "I": 35,
-            "J": 20,
-        }
-        for col_letter, width in col_widths.items():
-            ws.column_dimensions[col_letter].width = width
-
-        response = HttpResponse(
-            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
-        today_str = timezone.localdate().strftime("%Y%m%d")
-        response["Content-Disposition"] = f'attachment; filename="durusma-listesi-{today_str}.xlsx"'
-        wb.save(response)
-        return response
+        return export_response(result, wants_export(request) or "xlsx")

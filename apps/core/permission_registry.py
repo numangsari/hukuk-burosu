@@ -113,6 +113,13 @@ PERMISSIONS = [
         tuple(ALL_ROLES),
     ),
     Permission(
+        "notices.undo_no_task",
+        "Tebligat",
+        "Tebligatta görev yok işlemini geri alma",
+        "Geri alınınca tebligat yeniden işlenmemiş olur; dosyaya kopyalanan belgeler silinmez.",
+        ("admin", "senior"),
+    ),
+    Permission(
         "hearings.create_manual",
         "Duruşma",
         "Duruşmayı elle ekleme (duruşma, ön inceleme, keşif)",

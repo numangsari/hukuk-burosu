@@ -24,7 +24,7 @@
               <div class="info-label">Müvekkil</div>
               <div class="info-value">
                 {% if case.client %}
-                  <a href="{{ case.client.get_absolute_url }}">{{ case.client|tr_title }}</a>{% for c in case.co_clients.all %}, <a href="{{ c.get_absolute_url }}">{{ c }}</a>{% endfor %}
+                  <a href="{{ case.client.get_absolute_url }}">{{ case.client|tr_title }}</a>{% for c in case.co_clients.all %}, <a href="{{ c.get_absolute_url }}">{{ c|tr_title }}</a>{% endfor %}
                   {% if case.client_role %} <span class="text-body-secondary fw-normal">· {{ case.get_client_role_display }}</span>{% else %} <span class="chip chip-warning no-dot ms-1">Sıfat eksik</span>{% endif %}
                 {% else %}
                   <span class="chip chip-warning no-dot">Müvekkil girilmeli</span>
@@ -164,7 +164,7 @@
     <div class="card mb-3"><div class="card-body">
       <h2 class="section-title">Dosya bilgileri</h2>
       <div class="info-grid">
-        <div class="info-item info-wide"><div class="info-label">Müvekkil</div><div class="info-value">{% if case.client %}<a href="{{ case.client.get_absolute_url }}">{{ case.client|tr_title }}</a>{% else %}<span class="chip chip-warning no-dot">Müvekkil seçilmedi</span>{% endif %}{% for c in case.co_clients.all %}, <a href="{{ c.get_absolute_url }}">{{ c }}</a>{% endfor %}{% if case.client_role %} <span class="text-body-secondary fw-normal">· {{ case.get_client_role_display }}</span>{% endif %}</div></div>
+        <div class="info-item info-wide"><div class="info-label">Müvekkil</div><div class="info-value">{% if case.client %}<a href="{{ case.client.get_absolute_url }}">{{ case.client|tr_title }}</a>{% else %}<span class="chip chip-warning no-dot">Müvekkil seçilmedi</span>{% endif %}{% for c in case.co_clients.all %}, <a href="{{ c.get_absolute_url }}">{{ c|tr_title }}</a>{% endfor %}{% if case.client_role %} <span class="text-body-secondary fw-normal">· {{ case.get_client_role_display }}</span>{% endif %}</div></div>
         <div class="info-item"><div class="info-label">Konu</div><div class="info-value">{{ case.subject|default:"—"|tr_title }}</div></div>
         {% if case.labels.authority %}<div class="info-item"><div class="info-label">{{ case.labels.authority }}</div><div class="info-value">{{ case.authority|default:"—"|tr_title }}</div></div>{% endif %}
         {% if case.labels.official_no %}<div class="info-item"><div class="info-label">{{ case.labels.official_no }}</div><div class="info-value tabular">{{ case.official_no_display|default:"—" }}</div></div>{% endif %}

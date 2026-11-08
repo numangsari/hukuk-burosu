@@ -9,7 +9,6 @@ from apps.cases.forms import SeizureForm
 from apps.cases.models import CaseCoClient, CaseParty, Seizure
 from apps.cases.seizures import create_due_tasks, save_seizure
 from apps.clients.models import Party
-from apps.reports.definitions import build_client_cases, build_seizures
 from apps.tasks.models import Task
 
 pytestmark = pytest.mark.django_db
@@ -189,11 +188,6 @@ def test_negative_seizure_states_do_not_count_as_existing_seizures(debtor_case, 
     assert form.is_valid(), form.errors
     save_seizure(case, form, lawyer)
     assert create_due_tasks(dt.date(2027, 1, 1)) == (0, 0)
-    result = build_client_cases({}, lawyer)
-    row = dict(zip([column.label for column in result.columns], result.rows[0], strict=True))
-    assert row["Aktif haciz"] == 0 and row["Yenileme tarihi"] is None
-    result = build_seizures({}, lawyer)
-    assert result.rows[0][-1] == "Araç Yok"
 
 
 def test_controller_keeps_banks_and_plates_as_separate_rows(debtor_case, lawyer_client):

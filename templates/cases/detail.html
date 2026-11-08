@@ -41,7 +41,7 @@
           {% else %}
             <span class="chip chip-warning no-dot">Müvekkil seçilmedi</span>
           {% endif %}
-          {% for c in case.co_clients.all %}, <a class="fw-medium" href="{{ c.get_absolute_url }}">{{ c }}</a>{% endfor %}
+          {% for c in case.co_clients.all %}, <a class="fw-medium" href="{{ c.get_absolute_url }}">{{ c|tr_title }}</a>{% endfor %}
         </span>
       </div>
     </div>
@@ -135,7 +135,7 @@
     <li><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-taraflar">Taraflar<span class="count">{{ party_links|length }}</span></button></li>
     <li><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-safahat">Safahat<span class="count">{{ flow_members|length|add:missing_related_cases|length }}</span></button></li>
     <li><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-gorevler">Görevler<span class="count">{{ tasks|length }}</span></button></li>
-    <li><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-durusmalar">Duruşmalar<span class="count">{{ hearings|length }}</span></button></li>
+    {% if case.is_litigation %}<li><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-durusmalar">Duruşmalar<span class="count">{{ hearings|length }}</span></button></li>{% endif %}
     {% if case.case_type == "enforcement" %}
     <li><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-haciz">İcra takibi<span class="count">{{ seizures|length }}</span></button></li>
     <li><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-hesap">Dosya Hesabı{% if portal_information.account %}<span class="count">{{ portal_information.account|length }}</span>{% endif %}</button></li>
@@ -162,7 +162,7 @@
   <div class="tab-pane fade" id="t-taraflar">{% include "cases/_parties.html" %}</div>
   <div class="tab-pane fade" id="t-safahat">{% include "cases/_safahat.html" %}</div>
   <div class="tab-pane fade" id="t-gorevler">{% include "cases/_tasks.html" %}</div>
-  <div class="tab-pane fade" id="t-durusmalar">{% include "cases/_hearings.html" %}</div>
+  {% if case.is_litigation %}<div class="tab-pane fade" id="t-durusmalar">{% include "cases/_hearings.html" %}</div>{% endif %}
   {% if case.case_type == "enforcement" %}
   <div class="tab-pane fade" id="t-haciz">{% include "cases/_seizures.html" %}</div>
   <div class="tab-pane fade" id="t-hesap">

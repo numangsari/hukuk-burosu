@@ -1,0 +1,7 @@
+{# Liste çıktı düğmeleri (Excel/PDF). Kullanım: include "partials/export_buttons.html" [with export_base=adres] #}
+{% with base=export_base|default:request.path %}
+<div class="btn-group export-buttons" role="group" aria-label="Listeyi dışa aktar">
+  <a class="btn btn-light" data-export-link="xlsx" data-export-base="{{ base }}" href="{{ base }}?{{ request.GET.urlencode }}{% if request.GET %}&{% endif %}export=xlsx" title="Listenin tamamını Excel olarak indir"><i class="bi bi-file-earmark-excel"></i>Excel</a>
+  <a class="btn btn-light" data-export-link="pdf" data-export-base="{{ base }}" href="{{ base }}?{{ request.GET.urlencode }}{% if request.GET %}&{% endif %}export=pdf" title="Listenin tamamını PDF olarak indir"><i class="bi bi-file-earmark-pdf"></i>PDF</a>
+</div>
+{% endwith %}

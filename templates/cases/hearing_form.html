@@ -3,10 +3,12 @@
 {% block title %}{{ title }} — {{ office.name }}{% endblock %}
 
 {% block content %}
+{% if not request.GET.pencere %}
 <div class="page-header mb-3">
   <div class="eyebrow"><a href="{% url 'agenda:calendar' %}?view=list"><i class="bi bi-chevron-left"></i> Takvim</a></div>
   <h1 class="page-title">{{ title }}</h1>
 </div>
+{% endif %}
 
 <div class="row justify-content-center">
   <div class="col-lg-8">

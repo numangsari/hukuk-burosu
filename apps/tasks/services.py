@@ -5,6 +5,7 @@ Kontrolcü zorunluluğu rol matrisindeki "tasks.close_without_review" yetkisine 
 sorumlunun rolü işaretliyse kontrolcü isteğe bağlıdır ve görev doğrudan kapatılabilir.
 """
 
+import datetime as dt
 from dataclasses import dataclass
 
 from django.core.exceptions import PermissionDenied, ValidationError
@@ -54,7 +55,7 @@ def award_closed_task_points(task):
             task=task,
             user_id=user_id,
             defaults={
-                "points": 2 if task.hearing_id else task.task_type.points,
+                "points": task.task_type.points,
                 "earned_at": task.completed_at,
             },
         )
@@ -322,3 +323,49 @@ def add_comment(task: Task, user, comment: str):
     if not comment:
         raise ValidationError("Yorum boş olamaz.")
     TaskEvent.objects.create(task=task, actor=user, kind=TaskEvent.Kind.COMMENT, comment=comment)
+
+
+EXCUSE_TASK_TYPE = "Mazeret Dilekçesi"
+
+
+def ensure_excuse_task(hearing, user):
+    """Katılma durumu "mazeret" olan duruşma için sorumluya mazeret dilekçesi görevi açar.
+
+    Son gün duruşmadan bir gün öncedir (geçmişe düşerse bugün), kontrolcü yoktur. Aynı duruşma
+    için görev bir kez açılır. Sorumlu bulunamazsa görev açılmaz ve None döner.
+    """
+    from apps.accounts.models import User
+    from apps.office.models import TaskType
+
+    if not hearing.case_id:
+        return None
+    task_type, _ = TaskType.objects.get_or_create(
+        name=EXCUSE_TASK_TYPE, defaults={"points": 1, "requires_document": False}
+    )
+    if Task.objects.filter(hearing=hearing, task_type=task_type).exists():
+        return None
+    case = hearing.case
+    # Sorumlu yönetici olamaz: duruşmanın sorumlu avukatı, yoksa dosyanın yardımcı/avukatı.
+    candidates = [hearing.assigned_to, case.responsible_intern, case.responsible_lawyer]
+    assignee = next(
+        (u for u in candidates if u and u.is_active and u.role != User.Role.ADMIN), None
+    )
+    if assignee is None:
+        return None
+    today = timezone.localdate()
+    due = max(timezone.localtime(hearing.starts_at).date() - dt.timedelta(days=1), today)
+    kind = hearing.get_kind_display().lower()
+    with transaction.atomic():
+        task = Task.objects.create(
+            task_type=task_type,
+            title=f"Mazeret dilekçesi gönderilecek ({kind})",
+            case=case,
+            client=hearing.effective_client or case.client,
+            assignee=assignee,
+            reviewer=None,
+            due_date=due,
+            hearing=hearing,
+            created_by=user,
+        )
+        on_created(task, user)
+    return task

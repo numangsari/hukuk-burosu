@@ -28,10 +28,12 @@ from apps.accounting.permissions import can_view_balances
 from apps.accounts.models import User
 from apps.cases.flows import cluster
 from apps.cases.models import Case
+from apps.core.list_export import ListExportMixin
 from apps.core.pagination import page_size
 from apps.core.permission_registry import has_perm
 from apps.core.permissions import PermissionRequiredMixin, filter_visible_clients
-from apps.core.text import fold
+from apps.core.text import fold, tr_title
+from apps.reports.base import Column
 
 from .forms import CLIENT_SUBRECORDS, DEFAULT_CONTACT_KINDS, ClientForm, client_formset
 from .models import Client, PersonKind, PowerOfAttorney
@@ -113,10 +115,40 @@ def annotate_list_values(qs):
     )
 
 
-class ClientListView(ListView):
+class ClientListView(ListExportMixin, ListView):
     model = Client
     template_name = "clients/list.html"
     context_object_name = "clients"
+
+    export_title = "Müvekkil Listesi"
+
+    def export_columns(self):
+        columns = [
+            Column("Müvekkil", width=2.6),
+            Column("Tür", width=1.0),
+            Column("Telefon", width=1.3),
+            Column("Sorumlu avukat", width=1.5),
+            Column("Yardımcı sorumlu", width=1.5),
+            Column("Dosya", "int", 0.7),
+            Column("Açık görev", "int", 0.8),
+        ]
+        if can_view_balances(self.request.user):
+            columns.append(Column("Bakiye", "money", 1.2))
+        return columns
+
+    def export_row(self, client):
+        row = [
+            tr_title(client.name),
+            client.get_kind_display(),
+            client.primary_phone or "",
+            tr_title(client.responsible_lawyer) if client.responsible_lawyer else "",
+            tr_title(client.responsible_intern) if client.responsible_intern else "",
+            client.case_count,
+            client.open_task_count,
+        ]
+        if can_view_balances(self.request.user):
+            row.append(client.balance)
+        return row
 
     def get_paginate_by(self, queryset):
         return page_size(self.request)
@@ -185,7 +217,8 @@ def client_reports(user, client) -> list[dict]:
 
     params = {
         "cari-ekstre": {"client": client.pk},
-        "dosya-son-durum": {"client": client.pk, "include_closed": "on"},
+        "muvekkil-dosya-durumu": {"client": client.pk, "status": "all"},
+        "muvekkil-durusmalari": {"client": client.pk},
     }
     reports = []
     for key, spec in visible_reports(user).items():
@@ -372,7 +405,14 @@ class ClientDetailView(DetailView):
         from apps.activity.views import history_for
 
         ctx["history"] = history_for(c)
-        from apps.tasks.models import TaskDocument
+        from apps.core.permissions import filter_visible_tasks
+        from apps.tasks.models import Task, TaskDocument
+
+        ctx["client_tasks"] = list(
+            filter_visible_tasks(Task.objects.filter(client=c), self.request.user)
+            .select_related("task_type", "case", "assignee", "reviewer")
+            .order_by("status", "due_date")
+        )
 
         ctx["task_documents"] = (
             TaskDocument.objects.filter(

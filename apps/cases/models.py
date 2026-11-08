@@ -719,6 +719,8 @@ class Hearing(TimeStampedModel):
     is_remote = models.BooleanField("e-duruşma", default=False)
     client_informed = models.BooleanField("müvekkile bilgi verildi", null=True, blank=True)
     client_not_informed_reason = models.TextField("müvekkile bilgi verilmeme sebebi", blank=True)
+    # Müvekkile gidecek mesaja eklenen ayrı not (karar/sonuç notundan bağımsızdır).
+    client_note = models.TextField("müvekkile not", blank=True)
     # Müvekkil bilgilendirme kaydı: WhatsApp açılınca veya başka yolla bildirilince işaretlenir.
     client_informed_at = models.DateTimeField(
         "müvekkil bilgilendirme zamanı", null=True, blank=True
@@ -794,6 +796,11 @@ class Hearing(TimeStampedModel):
             and not self.client_informed_at
             and not self.client_informed
         )
+
+    @property
+    def assignee_missing(self) -> bool:
+        """Yaklaşan duruşma, ön inceleme veya keşifte sorumlu avukat seçilmemişse eksik bilgidir."""
+        return not self.is_done and self.needs_result and not self.assigned_to_id
 
     @property
     def needs_attention(self) -> bool:

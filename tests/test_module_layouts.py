@@ -9,9 +9,8 @@ from openpyxl import load_workbook
 
 from apps.accounting.models import LedgerEntry
 from apps.accounting.services import cancel_entry
-from apps.cases.models import Seizure
 from apps.office.models import TaskType
-from apps.reports.definitions import build_cases, build_client_cases, build_seizures
+from apps.reports.definitions import build_cases
 from apps.tasks.models import Task, TaskEvent
 
 pytestmark = pytest.mark.django_db
@@ -122,32 +121,28 @@ def test_accounting_filters_never_expose_balances_to_intern(client, intern):
     assert "acc-summary" not in html and "Bakiye tutar" not in html
 
 
-def test_reports_have_groups_and_consistent_seizure_data(admin_client_logged, case_factory, lawyer):
-    case = case_factory(case_type="enforcement", stage="seizure")
-    today = timezone.localdate()
-    Seizure.objects.create(
-        case=case,
-        debtor="Örnek borçlu",
-        asset="Örnek araç",
-        seized_on=today,
-        renewal_on=today + dt.timedelta(days=10),
-        created_by=lawyer,
-    )
-    result = build_seizures({}, lawyer)
-    assert len(result.rows) == 1 and result.rows[0][2:4] == ["Örnek borçlu", "Örnek araç"]
-    for result in [build_cases({}, lawyer), build_client_cases({}, lawyer)]:
-        row = dict(zip([column.label for column in result.columns], result.rows[0], strict=True))
-        assert row["Aşama / Kapanma nedeni"] == "Haciz aşaması"
-        assert row["Aktif haciz"] == 1 and row["Yenileme tarihi"] == today + dt.timedelta(days=10)
+def test_reports_have_module_groups_and_no_seizure_columns(
+    admin_client_logged, case_factory, lawyer
+):
+    case_factory(case_type="enforcement", stage="seizure")
+    result = build_cases({}, lawyer)
+    labels = [column.label for column in result.columns]
+    assert not any("haciz" in label.lower() or "yenileme" in label.lower() for label in labels)
+    assert "Yardımcı sorumlu" in labels and "Sonraki duruşma" in labels
     html = admin_client_logged.get(reverse("reports:index")).content.decode()
     for label in [
-        "Dosya raporları",
-        "Görev raporları",
-        "Mali raporlar",
-        "Haciz ve yenileme takibi",
+        "Müvekkil raporları",
+        "Ofis raporları",
+        "Dosya durum raporu",
+        "Hesap ekstresi",
+        "Görev",
+        "Muhasebe",
+        "Duruşma",
+        "Tebligat",
     ]:
         assert label in html
-    url = reverse("reports:report", args=["haciz-takibi"])
+    assert "Haciz ve yenileme takibi" not in html
+    url = reverse("reports:report", args=["dosya-raporu"])
     preview = admin_client_logged.get(url, {"goster": "1"})
     columns = [column.label for column in preview.context["result"].columns]
     exported = admin_client_logged.get(url, {"format": "xlsx"})
@@ -155,7 +150,6 @@ def test_reports_have_groups_and_consistent_seizure_data(admin_client_logged, ca
     header = next(row for row in sheet.iter_rows(values_only=True) if row[0] == columns[0])
     assert list(header) == columns
     assert admin_client_logged.get(url, {"format": "pdf"}).content.startswith(b"%PDF")
-    assert "Örnek araç" in preview.content.decode()
     invalid = admin_client_logged.get(
         url, {"goster": "1", "start": "2026-11-03", "end": "2026-11-01"}
     )
@@ -192,7 +186,7 @@ def test_forms_task_tabs_and_report_pages_have_balanced_layout(lawyer_client, ca
         reverse("accounting:create"),
         reverse("accounting:list"),
         reverse("reports:index"),
-        reverse("reports:report", args=["haciz-takibi"]) + "?goster=1",
+        reverse("reports:report", args=["dosya-raporu"]) + "?goster=1",
     ]
     for url in urls:
         response = lawyer_client.get(url)
