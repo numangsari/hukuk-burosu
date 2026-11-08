@@ -46,12 +46,13 @@ Source: "{#BuildDir}\python\*"; DestDir: "{app}\python"; Flags: recursesubdirs i
 Source: "{#BuildDir}\pgsql\*"; DestDir: "{app}\pgsql"; Flags: recursesubdirs ignoreversion
 Source: "{#BuildDir}\app\*"; DestDir: "{app}\app"; Excludes: ".env"; Flags: recursesubdirs ignoreversion
 Source: "{#BuildDir}\tools\*"; DestDir: "{app}\tools"; Flags: recursesubdirs ignoreversion
+Source: "{#BuildDir}\redist\vc_redist.x64.exe"; DestDir: "{tmp}"; Flags: deleteafterinstall
 
+; Visual C++ kütüphanesi ve postinstall.ps1 [Code] içindeki CurStepChanged ile çalışır;
+; böylece çıkış kodları denetlenir ve hata kullanıcıya gösterilir.
 [Run]
-Filename: "powershell.exe"; \
-  Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\tools\postinstall.ps1"" -InstallDir ""{app}"" -Pin ""{code:GetPin}"""; \
-  StatusMsg: "Veritabanı ve servisler hazırlanıyor (birkaç dakika sürebilir)..."; Flags: runhidden waituntilterminated
-Filename: "http://localhost/"; Description: "Sistemi tarayıcıda aç"; Flags: postinstall shellexec nowait skipifsilent
+Filename: "http://localhost/"; Description: "Sistemi tarayıcıda aç"; Flags: postinstall shellexec nowait skipifsilent; \
+  Check: PostInstallSucceeded
 
 [UninstallRun]
 Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\tools\uninstall.ps1"" -InstallDir ""{app}"""; \
@@ -60,6 +61,8 @@ Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Fil
 [Code]
 var
   PinPage: TInputQueryWizardPage;
+  PostInstallFailed: Boolean;
+  VcRestartNeeded: Boolean;
 
 function IsFirstInstall(): Boolean;
 begin
@@ -97,6 +100,51 @@ end;
 function GetPin(Param: String): String;
 begin
   if IsFirstInstall() then Result := PinPage.Values[0] else Result := '';
+end;
+
+function PostInstallSucceeded(): Boolean;
+begin
+  Result := not PostInstallFailed;
+end;
+
+function NeedRestart(): Boolean;
+begin
+  Result := VcRestartNeeded;
+end;
+
+procedure ReportPostInstallError(Msg: String);
+begin
+  PostInstallFailed := True;
+  Log(Msg);
+  if not WizardSilent() then
+    MsgBox(Msg + #13#10#13#10 + 'Ayrıntı: ' + ExpandConstant('{app}\logs\kurulum.log'), mbCriticalError, MB_OK);
+end;
+
+procedure CurStepChanged(CurStep: TSetupStep);
+var
+  Code: Integer;
+begin
+  if CurStep <> ssPostInstall then exit;
+
+  // 0: kuruldu, 1638: aynı/yeni sürüm zaten yüklü, 3010: yeniden başlatma gerekiyor
+  WizardForm.StatusLabel.Caption := 'Visual C++ çalışma kütüphanesi kuruluyor...';
+  if not Exec(ExpandConstant('{tmp}\vc_redist.x64.exe'), '/install /quiet /norestart', '',
+              SW_HIDE, ewWaitUntilTerminated, Code) then begin
+    ReportPostInstallError('Visual C++ çalışma kütüphanesi kurulumu başlatılamadı.');
+    exit;
+  end;
+  if Code = 3010 then VcRestartNeeded := True
+  else if (Code <> 0) and (Code <> 1638) then begin
+    ReportPostInstallError('Visual C++ çalışma kütüphanesi kurulamadı (kod ' + IntToStr(Code) + ').');
+    exit;
+  end;
+
+  WizardForm.StatusLabel.Caption := 'Veritabanı ve servisler hazırlanıyor (birkaç dakika sürebilir)...';
+  if not Exec('powershell.exe',
+              '-NoProfile -ExecutionPolicy Bypass -File "' + ExpandConstant('{app}\tools\postinstall.ps1') +
+              '" -InstallDir "' + ExpandConstant('{app}') + '" -Pin "' + GetPin('') + '"',
+              '', SW_HIDE, ewWaitUntilTerminated, Code) or (Code <> 0) then
+    ReportPostInstallError('Veritabanı ve servisler hazırlanamadı; sistem çalışmıyor.');
 end;
 
 function PrepareToInstall(var NeedsRestart: Boolean): String;

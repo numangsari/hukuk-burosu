@@ -5,7 +5,7 @@
 .DESCRIPTION
   1. Gömülü Python'u indirir ve bağımlılıkları kurar.
   2. PostgreSQL Windows binary'lerini indirir (yalnızca sunucu için gerekenler).
-  3. WinSW servis sarmalayıcısını indirir.
+  3. WinSW servis sarmalayıcısını ve Visual C++ çalışma kütüphanesini (vc_redist.x64) indirir.
   4. Uygulama kodunu kopyalar, statik dosyaları toplar.
   5. Inno Setup (ISCC.exe) ile installer\dist\HukukBurosuOtomasyonu-Kurulum-<sürüm>.exe üretir.
      Sürüm verilmezse pyproject.toml içindeki version kullanılır (tek kaynak).
@@ -85,6 +85,13 @@ $winsw = Get-Cached "https://github.com/winsw/winsw/releases/download/$WinSWVers
 Copy-Item $winsw (Join-Path $tools "HukukBuroApp.exe")
 Copy-Item $winsw (Join-Path $tools "OzkurtHukukApp.exe")
 Copy-Item (Join-Path $PSScriptRoot "scripts\*") $tools
+
+# 3b) Visual C++ çalışma kütüphanesi: PostgreSQL programları VCRUNTIME140/MSVCP140 ister,
+# temiz Windows'ta bunlar yoktur. Kurulum bu paketi postinstall'dan önce sessizce kurar.
+$redist = Join-Path $Build "redist"
+New-Item -ItemType Directory -Force $redist | Out-Null
+$vcRedist = Get-Cached "https://aka.ms/vs/17/release/vc_redist.x64.exe" "vc_redist.x64.exe"
+Copy-Item $vcRedist (Join-Path $redist "vc_redist.x64.exe")
 
 # 4) Uygulama kodu
 $app = Join-Path $Build "app"

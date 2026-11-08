@@ -14,12 +14,14 @@ Diğer PC'lere kurulum yapılmaz; sunucunun masaüstündeki `Hukuk Bürosu Otoma
 3. Çıktı: `installer\dist\HukukBurosuOtomasyonu-Kurulum-<sürüm>.exe`
 
 `build.ps1`; gömülü Python'u (python.org), PostgreSQL Windows binary'lerini (EDB), WinSW'yi (GitHub)
+ve Visual C++ çalışma kütüphanesini (`vc_redist.x64.exe`, Microsoft; PostgreSQL temiz Windows'ta bunsuz açılmaz)
 indirir, `installer\cache\` altında saklar ve SHA256 değerlerini `build\indirilenler.txt`'ye yazar.
 `HukukBurosu.iss` UTF-8 (BOM'lu) kalmalıdır; aksi halde Türkçe karakterler bozulur.
 
 ## Kurulum (ofis sunucusu)
 
 - Yönetici olarak `HukukBurosuOtomasyonu-Kurulum-*.exe` çalıştırılır, ilk kurulumda varsayılan PIN sorulur.
+- Dosyalar kopyalandıktan sonra kurulum önce Visual C++ çalışma kütüphanesini sessizce kurar, ardından `tools\postinstall.ps1`'i çalıştırır. İkisinden biri başarısız olursa hata penceresi çıkar ve "Sistemi tarayıcıda aç" seçeneği gösterilmez; ayrıntı `logs\kurulum.log` içindedir.
 - Kurulum `C:\HukukBurosu` altına yapılır (güncellemede mevcut klasör kullanılır):
   - `app\` uygulama, `.env` (gizli anahtarlar; yalnızca yöneticiler okuyabilir)
   - `python\`, `pgsql\` gömülü çalışma ortamı

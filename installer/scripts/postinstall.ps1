@@ -56,7 +56,7 @@ if ($firstInstall) {
         Where-Object { $_.IPAddress -notlike "127.*" -and $_.IPAddress -notlike "169.254.*" } |
         ForEach-Object { $_.IPAddress })
     $allowedHosts = ($hostNames | Select-Object -Unique) -join ","
-    @(
+    $envLines = @(
         "DJANGO_SETTINGS_MODULE=config.settings.prod"
         "DJANGO_SECRET_KEY=$(New-Secret 60)"
         "DJANGO_ALLOWED_HOSTS=$allowedHosts"
@@ -67,7 +67,9 @@ if ($firstInstall) {
         "BACKUP_DIR=$Data\backups"
         "PG_DUMP=$Pg\pg_dump.exe"
         "PG_RESTORE=$Pg\pg_restore.exe"
-    ) | Set-Content -Encoding utf8 $Env
+    )
+    # BOM'suz UTF-8: PowerShell 5.1'in "-Encoding utf8"i BOM ekler, .env okuyucusu ilk satırı geçersiz sayar
+    [System.IO.File]::WriteAllLines($Env, [string[]]$envLines, (New-Object System.Text.UTF8Encoding $false))
     # .env yalnızca Administrators ve SYSTEM tarafından okunabilir
     icacls $Env /inheritance:r /grant:r "*S-1-5-32-544:F" "*S-1-5-18:F" | Out-Null
 
@@ -81,7 +83,9 @@ if ($firstInstall) {
 # 2) PostgreSQL veri klasörü ve servisi
 if (-not (Test-Path (Join-Path $PgData "PG_VERSION"))) {
     $pw = Join-Path $env:TEMP "db-pw.txt"
-    Set-Content -Encoding ascii -NoNewline $pw $dbPass
+    # Parametreler adlı verilmeli: PowerShell 5.1'de -NoNewline ile konumsal kullanımda
+    # yol ve değer yer değiştirir (dosya adı parola olur, db-pw.txt oluşmaz).
+    Set-Content -Encoding ascii -NoNewline -Path $pw -Value $dbPass
     try {
         Invoke-Checked "$Pg\initdb.exe" @("-D", $PgData, "-U", $dbUser, "--pwfile=$pw", "-E", "UTF8",
             "--auth=scram-sha-256", "--locale-provider=icu", "--icu-locale=tr-TR", "--locale=C")
@@ -119,9 +123,15 @@ if (-not (Get-Service $appSvcName -ErrorAction SilentlyContinue)) { Invoke-Check
 & $svc restart | Out-Null
 
 # 5) Güvenlik duvarı: yalnızca özel (ofis) ağdan 80 numaralı port
+# Kural eklenemezse (ör. Windows Sandbox'ta güvenlik duvarı arayüzü yok) kurulum durmaz; yalnızca
+# diğer bilgisayarlardan erişim için kuralın elle eklenmesi gerekir.
 $fwName = "Hukuk Buro Yonetimi"
-if (-not (Get-NetFirewallRule -DisplayName $fwName -ErrorAction SilentlyContinue)) {
-    New-NetFirewallRule -DisplayName $fwName -Direction Inbound -Protocol TCP -LocalPort 80 -Action Allow -Profile Private, Domain | Out-Null
+try {
+    if (-not (Get-NetFirewallRule -DisplayName $fwName -ErrorAction SilentlyContinue)) {
+        New-NetFirewallRule -DisplayName $fwName -Direction Inbound -Protocol TCP -LocalPort 80 -Action Allow -Profile Private, Domain | Out-Null
+    }
+} catch {
+    Write-Warning "Guvenlik duvari kurali eklenemedi (port 80): $($_.Exception.Message)"
 }
 
 # 6) Yedek görevi: 30 dakikada bir kontrol eder, ayarlanan saatte (veya PC açılınca) günde bir kez yedekler
