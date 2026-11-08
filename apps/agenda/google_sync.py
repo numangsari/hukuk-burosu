@@ -67,6 +67,8 @@ def hearing_to_google_payload(hearing: Hearing) -> dict:
         prefix = "[Arabuluculuk] "
     elif hearing.kind == HearingKind.CLIENT_MEETING:
         prefix = "[Görüşme] "
+    elif hearing.kind == HearingKind.CLIENT_MEETING_OFFSITE:
+        prefix = "[Görüşme - ofis dışı] "
     elif hearing.kind == HearingKind.OFFICE_MEETING:
         prefix = "[Toplantı] "
     elif hearing.kind == HearingKind.EXPERT:
@@ -145,7 +147,11 @@ def hearing_to_google_payload(hearing: Hearing) -> dict:
         color_id = getattr(office, "google_color_hearing", "9") or "9"
     elif hearing.kind == HearingKind.DISCOVERY:
         color_id = getattr(office, "google_color_discovery", "2") or "2"
-    elif hearing.kind in (HearingKind.CLIENT_MEETING, HearingKind.OFFICE_MEETING):
+    elif hearing.kind in (
+        HearingKind.CLIENT_MEETING,
+        HearingKind.CLIENT_MEETING_OFFSITE,
+        HearingKind.OFFICE_MEETING,
+    ):
         color_id = getattr(office, "google_color_meeting", "5") or "5"
     elif hearing.kind == HearingKind.MEDIATION:
         color_id = getattr(office, "google_color_mediation", "11") or "11"

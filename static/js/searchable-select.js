@@ -10,11 +10,16 @@
     const search = document.createElement("input");
     search.type = "search";
     search.className = "form-control searchable-select-input";
-    search.placeholder = select.dataset.searchable;
+    // data-searchable değeri yer tutucu metindir; "true" ise data-placeholder (yoksa genel metin) kullanılır.
+    const hint =
+      select.dataset.searchable === "true"
+        ? select.dataset.placeholder || "Ara…"
+        : select.dataset.searchable;
+    search.placeholder = hint;
     search.id = select.id + "_search";
     search.autocomplete = "off";
     search.setAttribute("role", "combobox");
-    search.setAttribute("aria-label", select.dataset.searchable);
+    search.setAttribute("aria-label", hint);
     search.setAttribute("aria-autocomplete", "list");
     search.setAttribute("aria-expanded", "false");
     if (select.required) search.setAttribute("aria-required", "true");

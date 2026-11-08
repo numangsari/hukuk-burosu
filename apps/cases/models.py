@@ -659,6 +659,7 @@ class HearingKind(models.TextChoices):
     EXPERT = "expert", "Bilirkişi incelemesi"
     MEDIATION = "mediation", "Arabuluculuk toplantısı"
     CLIENT_MEETING = "client_meeting", "Müvekkil görüşmesi"
+    CLIENT_MEETING_OFFSITE = "client_offsite", "Müvekkil görüşmesi (ofis dışı)"
     OFFICE_MEETING = "office_meeting", "Ofis içi toplantı"
     OTHER = "other", "Diğer"
 

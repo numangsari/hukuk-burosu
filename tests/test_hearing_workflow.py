@@ -454,7 +454,7 @@ def test_manual_hearing_kinds_need_permission_events_do_not(admin_user, lawyer, 
 def test_uyap_hearing_core_fields_are_locked_in_edit_form(admin_user, case, lawyer):
     h = make_hearing(case, 6, assigned_to=lawyer, portal_ref="9001", authority="UYAP Mahkemesi")
     form = login(admin_user).get(reverse("hearings:edit", args=[h.pk])).context["form"]
-    for name in ("kind", "case", "starts_at", "authority"):
+    for name in ("kind", "case", "starts_at"):
         assert form.fields[name].disabled
     assert not form.fields["assigned_to"].disabled and not form.fields["attendance"].disabled
     other_day = form_data(case, lawyer, days=20, attendance="remote", authority="Değiştirilmiş")

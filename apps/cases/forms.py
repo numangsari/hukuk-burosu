@@ -25,6 +25,7 @@ from .models import (
     CaseStatus,
     Document,
     Hearing,
+    HearingKind,
     PartyRole,
     Seizure,
 )
@@ -540,20 +541,17 @@ class HearingStandaloneForm(BootstrapMixin, forms.ModelForm):
         label="Dosya",
         queryset=Case.objects.none(),
         required=False,
-        widget=forms.Select(
-            attrs={"data-searchable": "true", "data-placeholder": "Dosya seçin (isteğe bağlı)..."}
-        ),
+        widget=forms.Select(attrs={"data-searchable": "Dosya ara…"}),
     )
     client = forms.ModelChoiceField(
         label="Müvekkil",
         queryset=Client.objects.all(),
         required=False,
-        widget=forms.Select(
-            attrs={"data-searchable": "true", "data-placeholder": "Müvekkil seçin..."}
-        ),
+        widget=forms.Select(attrs={"data-searchable": "Müvekkil ara…"}),
     )
+    # Yalnızca duruşma, ön inceleme ve keşifte sorulur (clean ve şablondaki betik bunu uygular).
     attendance = forms.ChoiceField(
-        label="Katılma durumu", choices=ATTENDANCE_CHOICES, initial="attend"
+        label="Katılma durumu", choices=ATTENDANCE_CHOICES, initial="attend", required=False
     )
 
     class Meta:
@@ -566,10 +564,9 @@ class HearingStandaloneForm(BootstrapMixin, forms.ModelForm):
             "assigned_to",
             "starts_at",
             "ends_at",
-            "authority",
             "notes",
         ]
-        labels = {"assigned_to": "Sorumlu avukat", "authority": "Mahkeme / yer"}
+        labels = {"assigned_to": "Sorumlu avukat"}
         widgets = {
             "starts_at": DateTimeInput(),
             "ends_at": DateTimeInput(),
@@ -605,6 +602,10 @@ class HearingStandaloneForm(BootstrapMixin, forms.ModelForm):
         self.fields["assigned_to"].empty_label = "Seçiniz…"
         if self.instance.pk:
             self.initial["attendance"] = self.instance.attendance
+        else:
+            # Yeni kayıtta tarih alanı bugünün tarihi ve içinde bulunulan saatle gelir.
+            now = timezone.localtime().replace(minute=0, second=0, microsecond=0)
+            self.initial.setdefault("starts_at", now)
         # Duruşma, ön inceleme ve keşif UYAP'tan gelir; elle eklemek ayrı bir yetkidir.
         from apps.core.permission_registry import has_perm
 
@@ -613,9 +614,14 @@ class HearingStandaloneForm(BootstrapMixin, forms.ModelForm):
             self.fields["kind"].choices = [
                 choice for choice in self.fields["kind"].choices if choice[0] not in LIST_KINDS
             ]
+        # Bilirkişi incelemesi yeni etkinlik türü olarak seçilemez (eski kayıt türünü korur).
+        if not (self.instance.pk and self.instance.kind == HearingKind.EXPERT):
+            self.fields["kind"].choices = [
+                choice for choice in self.fields["kind"].choices if choice[0] != HearingKind.EXPERT
+            ]
         # UYAP kaydının tarih, saat, mahkeme ve dosya bilgisi değiştirilemez; UYAP'tan güncellenir.
         if self.instance.pk and self.instance.portal_ref:
-            for name in ("kind", "case", "client", "starts_at", "ends_at", "authority"):
+            for name in ("kind", "case", "client", "starts_at", "ends_at"):
                 self.fields[name].disabled = True
                 self.fields[name].help_text = "UYAP kaydı; UYAP'tan gelir, değiştirilemez."
 
@@ -628,19 +634,33 @@ class HearingStandaloneForm(BootstrapMixin, forms.ModelForm):
         if case and not client:
             cleaned_data["client"] = case.client
 
-        if not case and not client and not title:
+        kind = cleaned_data.get("kind")
+        if kind in LIST_KINDS:
+            # Duruşma, ön inceleme ve keşifte dosya ve müvekkil zorunlu (eski dosyasız kayıt hariç).
+            legacy = bool(self.instance.pk and not self.instance.case_id)
+            if not case and not legacy:
+                self.add_error("case", "Duruşma, ön inceleme ve keşifte dosya seçilmelidir.")
+            elif not cleaned_data.get("client") and not legacy:
+                self.add_error("client", "Dosyanın müvekkili yok; müvekkil seçin.")
+            if not cleaned_data.get("attendance"):
+                self.add_error("attendance", "Katılma durumunu seçin.")
+        elif not case and not client and not title:
             raise forms.ValidationError(
                 "Lütfen bir dosya, müvekkil veya etkinlik başlığı belirtiniz."
             )
-        if cleaned_data.get("kind") in RESULT_KINDS and not cleaned_data.get("assigned_to"):
+        if kind in RESULT_KINDS and not cleaned_data.get("assigned_to"):
             self.add_error("assigned_to", "Duruşmaya girecek sorumlu avukatı seçin.")
         return cleaned_data
 
     def save(self, commit=True):
         hearing = super().save(commit=False)
-        attendance = self.cleaned_data.get("attendance")
+        # Katılma durumu yalnızca duruşma, ön inceleme ve keşifte vardır.
+        attendance = self.cleaned_data.get("attendance") if hearing.kind in LIST_KINDS else ""
         hearing.excuse_submitted = attendance == "excuse"
         hearing.is_remote = attendance == "remote"
+        # Mahkeme dosyadan otomatik gelir.
+        if hearing.case_id and hearing.kind in LIST_KINDS and not hearing.authority:
+            hearing.authority = hearing.case.authority
         if commit:
             hearing.save()
         return hearing

@@ -289,7 +289,7 @@ def task_events(start: dt.date, end: dt.date) -> list[Event]:
 
 def hearing_events(start: dt.date, end: dt.date, user=None) -> list[Event]:
     """[start, end) aralığındaki duruşmaları takvim etkinliği olarak gösterir."""
-    from apps.cases.models import Hearing
+    from apps.cases.models import Hearing, HearingKind
 
     start_dt = timezone.make_aware(dt.datetime.combine(start, dt.time.min))
     end_dt = timezone.make_aware(dt.datetime.combine(end, dt.time.min))
@@ -310,7 +310,12 @@ def hearing_events(start: dt.date, end: dt.date, user=None) -> list[Event]:
     events = []
     for h in hearings:
         local_s = timezone.localtime(h.starts_at)
-        title = f"{h.get_kind_display()}: {h.title_display}"
+        # Duruşma için ön ek yok (takvimde ve listede tür zaten "Duruşma" olarak görünür).
+        title = (
+            h.title_display
+            if h.kind == HearingKind.HEARING
+            else f"{h.get_kind_display()}: {h.title_display}"
+        )
         if h.is_remote:
             title = f"E-duruşma · {title}"
         location = h.authority or (h.case.authority if h.case else "")
