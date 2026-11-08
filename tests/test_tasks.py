@@ -580,3 +580,34 @@ def test_home_review_panels_follow_role(task_factory, admin_user, lawyer, intern
     assert not ctx["show_review"] and ctx["show_submitted"]
     assert [t.pk for t in ctx["submitted_tasks"]] == [task.pk]
     assert "Kontrolde olanlar" in login(intern).get(reverse("core:home")).content.decode()
+
+
+def test_admin_cannot_be_assignee_and_intern_cannot_be_reviewer(
+    admin_user, lawyer, intern, case_factory
+):
+    from apps.cases.forms import HearingTaskCreateForm
+    from apps.tasks.forms import TaskForm
+
+    form = TaskForm(user=admin_user)
+    assignees = set(form.fields["assignee"].queryset)
+    reviewers = set(form.fields["reviewer"].queryset)
+    assert admin_user not in assignees and lawyer in assignees and intern in assignees
+    assert intern not in reviewers and intern not in set(form.fields["second_reviewer"].queryset)
+    assert admin_user in reviewers and lawyer in reviewers
+    hearing_form = HearingTaskCreateForm()
+    assert admin_user not in set(hearing_form.fields["assignee"].queryset)
+    assert intern not in set(hearing_form.fields["reviewer"].queryset)
+    # Sunucu tarafı: elle gönderilen yönetici sorumlu / stajyer kontrolcü reddedilir.
+    data = {
+        "task_type": TaskType.objects.first().pk,
+        "title": "Rol denemesi",
+        "case": case_factory().pk,
+        "assignee": admin_user.pk,
+        "reviewer": intern.pk,
+        "due_date": (timezone.localdate() + dt.timedelta(days=3)).isoformat(),
+        "requires_accounting": "no",
+    }
+    r = login(admin_user).post(reverse("tasks:create"), data)
+    errors = r.context["form"].errors
+    assert "assignee" in errors and "reviewer" in errors
+    assert not Task.objects.exists()

@@ -9,6 +9,7 @@ from apps.core.uploads import validate_upload
 from apps.office.models import HEARING_TASK_TYPE_NAME, OfficeSettings, TaskType
 
 from .models import Task
+from .people import assignee_choices, reviewer_choices
 
 
 class CaseChoiceField(forms.ModelChoiceField):
@@ -94,7 +95,6 @@ class TaskForm(BootstrapMixin, forms.ModelForm):
             self.initial["requires_document"] = "yes" if self.instance.needs_document else "no"
         types = TaskType.objects.filter(is_active=True).exclude(name__iexact=HEARING_TASK_TYPE_NAME)
         cases = Case.objects.exclude(status=CaseStatus.CLOSED)
-        users = User.objects.filter(is_active=True)
         if self.instance.pk:
             if not self.keep_notes_and_documents:
                 self.fields.pop("notes")
@@ -102,8 +102,6 @@ class TaskForm(BootstrapMixin, forms.ModelForm):
             # Pasife alınmış tür/kapanmış dosya/pasif kullanıcı mevcut görevde seçili kalabilsin.
             types = types | TaskType.objects.filter(pk=self.instance.task_type_id)
             cases = cases | Case.objects.filter(pk=self.instance.case_id)
-            pks = [pk for pk in (self.instance.assignee_id, self.instance.reviewer_id) if pk]
-            users = users | User.objects.filter(pk__in=pks)
             self.fields["client"].initial = self.instance.client_id
         self.fields["task_type"].queryset = types
         categories = (
@@ -132,17 +130,15 @@ class TaskForm(BootstrapMixin, forms.ModelForm):
             cases = filter_visible_cases(cases, user)
             self.fields["client"].queryset = filter_visible_clients(Client.objects.all(), user)
         self.fields["case"].queryset = cases.select_related("client").order_by("-created_at")
-        reviewers = User.objects.filter(
-            is_active=True, role__in=[User.Role.ADMIN, User.Role.SENIOR, User.Role.LAWYER]
+        kept = (
+            (self.instance.assignee_id, self.instance.reviewer_id, self.instance.second_reviewer_id)
+            if self.instance.pk
+            else ()
         )
-        if self.instance.pk and self.instance.reviewer_id:
-            reviewers = reviewers | User.objects.filter(pk=self.instance.reviewer_id)
-        self.fields["assignee"].queryset = users.distinct()
-        self.fields["reviewer"].queryset = reviewers.distinct()
-        second = reviewers
-        if self.instance.pk and self.instance.second_reviewer_id:
-            second = second | User.objects.filter(pk=self.instance.second_reviewer_id)
-        self.fields["second_reviewer"].queryset = second.distinct()
+        # Sorumlu yönetici, kontrolcü stajyer olamaz; mevcut kayıttaki kişiler seçili kalır.
+        self.fields["assignee"].queryset = assignee_choices(kept)
+        self.fields["reviewer"].queryset = reviewer_choices(kept)
+        self.fields["second_reviewer"].queryset = reviewer_choices(kept)
         self.fields["second_reviewer"].required = False
         self.fields["second_reviewer"].empty_label = "2. kontrolcü yok"
         self.fields["client"].widget.attrs["x-ref"] = "client"

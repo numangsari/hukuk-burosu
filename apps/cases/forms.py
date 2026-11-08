@@ -653,6 +653,10 @@ class HearingTaskCreateForm(BootstrapMixin, forms.ModelForm):
     def __init__(self, *args, hearing=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.hearing = hearing
+        from apps.tasks.people import assignee_choices, reviewer_choices
+
+        self.fields["assignee"].queryset = assignee_choices()
+        self.fields["reviewer"].queryset = reviewer_choices()
         self.fields["assignee"].required = True
         self.fields["reviewer"].required = False
         self.fields["reviewer"].empty_label = "Kontrolcü yok (Doğrudan kapanır)"
