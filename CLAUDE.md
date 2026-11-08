@@ -43,6 +43,8 @@ uv run ruff format --check .                         # Format denetimi
 
 ## 3. Mimari ve Modül Yapısı
 
+**Görsel proje haritası:** `docs/obsidian/` klasörü Obsidian'da ayrı kasa olarak açılır; `Proje Haritası.canvas` ana ilişkileri, bağlantılı notlar grafik görünümünü sağlar. Harita koddan otomatik üretilmez; ilgili yapı değiştiğinde notlar ve çizim birlikte güncellenir. İş kurallarının asıl kaynağı bu belge ve koddur.
+
 ### `apps/core`
 - Ortak model altyapısı (`TimeStampedModel`), TCKN / VKN / IBAN doğrulayıcıları.
 - Türkçe metin yardımcıları (`fold`, `tr_lower`, `tr_upper`, `tr_capitalize_words`).
