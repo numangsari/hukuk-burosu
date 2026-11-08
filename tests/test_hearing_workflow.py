@@ -64,12 +64,18 @@ def form_data(case, lawyer, days=3, **kw):
 # ---- gün kuralı ----------------------------------------------------------------------
 
 
-def test_today_and_past_hearings_are_done_regardless_of_time(case):
-    now = timezone.localtime()
-    later_today = make_hearing(case, 0, starts_at=now.replace(hour=23, minute=59))
-    assert later_today.is_done  # bugünün duruşması saatten bağımsız yapılmış sayılır
+def test_hearing_is_done_once_its_time_has_come(case):
+    now = timezone.now()
+    assert not make_hearing(case, 0, starts_at=now + dt.timedelta(hours=1)).is_done
+    assert make_hearing(case, 0, starts_at=now - dt.timedelta(minutes=1)).is_done
     assert make_hearing(case, -3).is_done
     assert not make_hearing(case, 1).is_done
+
+
+def test_later_today_hearing_is_not_flagged_missing(admin_user, case):
+    make_hearing(case, 0, starts_at=timezone.now() + dt.timedelta(hours=2), assigned_to=admin_user)
+    r = login(admin_user).get(reverse("agenda:calendar"), {"view": "list"})
+    assert r.context["attention_counts"]["upcoming"] == 0
 
 
 def test_attendance_maps_to_flags(case):

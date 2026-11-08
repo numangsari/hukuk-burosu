@@ -125,10 +125,7 @@ def hearing_to_google_payload(hearing: Hearing) -> dict:
     if hearing.excuse_submitted:
         lines.append("\n[SİSTEM BİLGİSİ: Bu duruşmaya mazeret sunulması kararlaştırılmıştır.]")
 
-    if hearing.notes:
-        lines.append(f"\nNotlar:\n{hearing.notes}")
-    if hearing.result:
-        lines.append(f"\nSonuç / Kararlar:\n{hearing.result}")
+    # Serbest not ve duruşma sonucu büro dışına (Google) gönderilmez.
     if hearing.portal_ref:
         lines.append(f"\nUYAP Ref: {hearing.portal_ref}")
 

@@ -195,3 +195,18 @@ def test_hearing_events_show_information_regardless_of_connected_task(case_facto
         event.url == f"/durusmalar/{h.pk}/" and event.client_name
         for event, h in zip(events, Hearing.objects.order_by("starts_at"), strict=True)
     )
+
+
+def test_google_payload_omits_notes_and_result(case_factory):
+    from apps.agenda.google_sync import hearing_to_google_payload
+
+    hearing = Hearing.objects.create(
+        case=case_factory(),
+        kind=HearingKind.HEARING,
+        starts_at=timezone.now() + dt.timedelta(days=2),
+        notes="Gizli iç not",
+        result="Gizli ara karar",
+    )
+    description = hearing_to_google_payload(hearing)["description"]
+    assert "Gizli iç not" not in description
+    assert "Gizli ara karar" not in description

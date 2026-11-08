@@ -770,8 +770,8 @@ class Hearing(TimeStampedModel):
 
     @property
     def is_done(self) -> bool:
-        """İçinde bulunulan gün dahil geçmiş duruşmalar yapılmış sayılır (saatten bağımsız)."""
-        return timezone.localtime(self.starts_at).date() <= timezone.localdate()
+        """Saati gelmiş (başlangıcı geçmiş) duruşma yapılmış sayılır."""
+        return self.starts_at <= timezone.now()
 
     @property
     def uses_result_flow(self) -> bool:

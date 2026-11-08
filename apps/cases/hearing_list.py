@@ -22,20 +22,23 @@ def base_hearings(user):
 
 
 def needs_action_q(today: dt.date) -> Q:
-    """Yapılmış sayılan (bugün ve öncesi) duruşmalarda sonuç veya bilgilendirme eksik olanlar."""
+    """Yapılmış sayılan (saati geçmiş) duruşmalarda sonuç veya bilgilendirme eksik olanlar.
+
+    `today` geriye dönük uyumluluk için alınır; sınır şu andır (`Hearing.is_done`).
+    """
     has_client = Q(client__isnull=False) | Q(case__client__isnull=False)
     inform_missing = has_client & Q(client_informed_at__isnull=True) & ~Q(client_informed=True)
     return (
-        Q(starts_at__date__lte=today, kind__in=RESULT_KINDS)
+        Q(starts_at__lte=timezone.now(), kind__in=RESULT_KINDS)
         & ~Q(status=HearingStatus.CANCELLED)
         & (Q(result="") | inform_missing)
     )
 
 
 def missing_info_q(today: dt.date) -> Q:
-    """Yaklaşanlarda eksik bilgi: bugün sonuç ve bilgilendirme, ilerideki duruşmada sorumlu."""
+    """Yaklaşanlarda eksik bilgi: saati geçmişte sonuç ve bilgilendirme, gelmemişte sorumlu."""
     upcoming_no_lawyer = Q(
-        starts_at__date__gt=today, kind__in=RESULT_KINDS, assigned_to__isnull=True
+        starts_at__gt=timezone.now(), kind__in=RESULT_KINDS, assigned_to__isnull=True
     ) & ~Q(status=HearingStatus.CANCELLED)
     return needs_action_q(today) | upcoming_no_lawyer
 
