@@ -195,7 +195,7 @@
         <div class="info-item"><div class="info-label">Tahsil / ödeme</div><div class="info-value tabular">{{ case.closing_amount|tl }}{% if case.closing_amount_date %} · {{ case.closing_amount_date|date:"d.m.Y" }}{% endif %}</div></div>
         <div class="info-item"><div class="info-label">Muhasebe</div><div class="info-value">
           {% if case.closing_accounted %}<span class="chip chip-success no-dot">Muhasebeye kaydedildi</span>
-          {% else %}<span class="chip chip-warning no-dot">Muhasebe kaydı bekliyor</span> <a class="small ms-1" href="{% url 'accounting:create' %}?dosya={{ case.pk }}">Kayıt ekle</a>{% endif %}</div></div>
+          {% else %}<span class="chip chip-warning no-dot">Muhasebe kaydı bekliyor</span> <a class="small ms-1" href="{% url 'accounting:create' %}?dosya={{ case.pk|stringformat:"d" }}">Kayıt ekle</a>{% endif %}</div></div>
         {% endif %}
         {% if case.closing_note %}<div class="info-item info-wide"><div class="info-label">Kapanış notu</div><div class="info-value">{{ case.closing_note|linebreaksbr }}</div></div>{% endif %}
       </div>

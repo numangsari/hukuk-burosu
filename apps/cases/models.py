@@ -32,6 +32,9 @@ class CaseType(models.TextChoices):
 
 LITIGATION_TYPES = {CaseType.CIVIL, CaseType.CRIMINAL, CaseType.ADMINISTRATIVE}
 
+# UYAP'ta karşılığı olmayan dosya türleri: UYAP bölümleri (taraf, muhasebe) gösterilmez.
+NO_PORTAL_TYPES = {CaseType.CONSULTANCY, CaseType.NOTICE, CaseType.OTHER}
+
 # Türe göre form etiketleri. Boş değer alanın o türde gizleneceğini belirtir.
 TYPE_LABELS = {
     kind: {
@@ -466,6 +469,11 @@ class Case(TimeStampedModel):
     @property
     def labels(self) -> dict:
         return TYPE_LABELS[CaseType(self.case_type)]
+
+    @property
+    def has_portal(self) -> bool:
+        """Dosya türü UYAP'ta izlenebilir mi (sözleşme, ihtarname ve diğer değil)."""
+        return self.case_type not in NO_PORTAL_TYPES
 
     @property
     def is_litigation(self) -> bool:

@@ -25,7 +25,7 @@
       <button type="button" class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#whatsappModal" data-wa-phone="{{ client.primary_phone }}" data-wa-name="{{ client.name }}" data-wa-templates="{{ cl_templates|json_attr }}"><i class="bi bi-whatsapp"></i>WhatsApp</button>
       {% endif %}
       <a class="btn btn-light" href="{% url 'clients:update' client.pk %}"><i class="bi bi-pencil"></i>Düzenle</a>
-      <a class="btn btn-primary" href="{% url 'cases:create' %}?client={{ client.pk }}"><i class="bi bi-folder-plus"></i>Yeni dosya</a>
+      <a class="btn btn-primary" href="{% url 'cases:create' %}?client={{ client.pk|stringformat:"d" }}"><i class="bi bi-folder-plus"></i>Yeni dosya</a>
     </div>
   </div>
   <ul class="nav nav-underline-tabs" role="tablist">
@@ -164,7 +164,7 @@
   <div class="tab-pane fade" id="t-dosyalar">
     <div class="card table-card">
       <div class="card-header"><h2 class="card-title">Dosyalar</h2>
-        <a class="btn btn-sm btn-light ms-auto" href="{% url 'cases:create' %}?client={{ client.pk }}"><i class="bi bi-plus-lg"></i>Yeni dosya</a></div>
+        <a class="btn btn-sm btn-light ms-auto" href="{% url 'cases:create' %}?client={{ client.pk|stringformat:"d" }}"><i class="bi bi-plus-lg"></i>Yeni dosya</a></div>
       <form class="filter-bar" hx-get="{% url 'clients:cases' client.pk %}" hx-target="#client-cases"
             hx-trigger="input changed delay:300ms from:input[name=q], change">
         <div class="grow"><i class="bi bi-search"></i><input class="form-control" type="search" name="q" placeholder="Arşiv no, konu, merci veya resmi no ara"></div>
@@ -198,7 +198,7 @@
   <div class="tab-pane fade" id="t-muhasebe">
     <div class="card table-card">
       <div class="card-header"><h2 class="card-title">{% if can_view_balances %}Hesap ekstresi{% else %}Muhasebe hareketleri{% endif %}</h2>
-        {% if can_edit_accounting %}<a class="btn btn-sm btn-primary ms-auto" href="{% url 'accounting:create' %}?musteri={{ client.pk }}&next={{ client.get_absolute_url|urlencode }}%23muhasebe"><i class="bi bi-plus-lg"></i>Yeni gelir / gider</a>{% endif %}</div>
+        {% if can_edit_accounting %}<a class="btn btn-sm btn-primary ms-auto" href="{% url 'accounting:create' %}?musteri={{ client.pk|stringformat:"d" }}&next={{ client.get_absolute_url|urlencode }}%23muhasebe"><i class="bi bi-plus-lg"></i>Yeni gelir / gider</a>{% endif %}</div>
       {% if can_view_balances %}{% include "accounting/_balances.html" with b=ledger_balances %}{% endif %}
       {% include "accounting/_statement.html" with rows=ledger_rows show_case=True next=client.get_absolute_url|add:'#muhasebe' %}
     </div>

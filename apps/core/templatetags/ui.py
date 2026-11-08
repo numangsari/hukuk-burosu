@@ -19,6 +19,14 @@ from apps.core.whatsapp import (
 register = template.Library()
 
 
+@register.simple_tag(takes_context=True)
+def perm(context, key, obj=None):
+    """Rol matrisi yetkisi (nesne verilirse sorumlu/yardımcı sorumlu ilişkisi de sayılır)."""
+    from apps.core.permission_registry import has_perm
+
+    return has_perm(context["request"].user, key, obj)
+
+
 @register.simple_tag
 def office_links():
     return OFFICE_LINKS

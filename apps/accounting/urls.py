@@ -7,4 +7,5 @@ urlpatterns = [
     path("", views.EntryListView.as_view(), name="list"),
     path("yeni/", views.EntryCreateView.as_view(), name="create"),
     path("<int:pk>/iptal/", views.EntryCancelView.as_view(), name="cancel"),
+    path("<int:pk>/hesap-disi/", views.EntryExcludeView.as_view(), name="exclude"),
 ]

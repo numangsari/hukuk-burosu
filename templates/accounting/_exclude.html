@@ -1,0 +1,18 @@
+{# UYAP hareketini hesap dışı bırak / geri al: e = hareket, next = dönüş adresi #}
+<div class="cancel-pop" x-data="{ open: false }" @click.outside="open = false">
+  {% if e.excluded_from_balance %}
+  <button type="button" class="btn btn-sm btn-light" title="Hesaba kat" @click="open = !open"><i class="bi bi-arrow-counterclockwise"></i></button>
+  <form method="post" action="{% url 'accounting:exclude' e.pk %}" class="cancel-panel" x-show="open" x-cloak x-transition>{% csrf_token %}
+    <input type="hidden" name="next" value="{{ next }}"><input type="hidden" name="action" value="include">
+    <button class="btn btn-sm btn-primary w-100">Hesaba kat</button>
+  </form>
+  {% else %}
+  <button type="button" class="btn-ghost-danger" title="Hesap dışı bırak" @click="open = !open"><i class="bi bi-slash-circle"></i></button>
+  <form method="post" action="{% url 'accounting:exclude' e.pk %}" class="cancel-panel" x-show="open" x-cloak x-transition>{% csrf_token %}
+    <input type="hidden" name="next" value="{{ next }}"><input type="hidden" name="action" value="exclude">
+    <label class="form-label">Hesap dışı bırakma nedeni</label>
+    <input class="form-control form-control-sm mb-2" name="reason" required maxlength="300" x-ref="r" x-effect="open && $nextTick(() => $refs.r.focus())">
+    <button class="btn btn-sm btn-outline-danger w-100">Hesap dışı bırak</button>
+  </form>
+  {% endif %}
+</div>

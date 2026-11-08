@@ -2,7 +2,7 @@
 <div id="hearings" class="card table-card">
   <div class="card-header d-flex align-items-center">
     <h2 class="card-title">Duruşmalar</h2>
-    {% if can_create_hearing %}<a class="btn btn-primary btn-sm ms-auto" href="{% url 'hearings:create' %}?dosya={{ case.pk }}"><i class="bi bi-plus-lg"></i>Duruşma ekle (elle)</a>{% endif %}
+    {% if can_create_hearing %}<a class="btn btn-primary btn-sm ms-auto" href="{% url 'hearings:create' %}?dosya={{ case.pk|stringformat:"d" }}"><i class="bi bi-plus-lg"></i>Duruşma ekle (elle)</a>{% endif %}
   </div>
   <div class="table-responsive">
   <table class="table">

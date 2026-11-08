@@ -457,6 +457,7 @@ a.stat-card:hover { box-shadow: var(--shadow); border-color: color-mix(in srgb, 
 .table > tbody tr:last-child td { border-bottom: 0; }
 .table-hover tbody tr[data-href] { cursor: pointer; }
 .table .cell-main { font-weight: 600; color: var(--ink); }
+.table tr[data-href] .cell-main, .table tr[data-href] .cell-main:hover { text-decoration: none; }
 .table .cell-sub { font-size: .78rem; color: var(--muted); }
 /* Uzun içerik tek satırda "…" ile kısalır; tam metin başlıkta (title) görünür. */
 .clip { display: block; max-width: var(--clip-w, 26rem); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -535,6 +536,12 @@ select[data-searchable-ready="1"] { display: none; }
 .detail-hero .meta { display: flex; flex-wrap: wrap; gap: .4rem 1.25rem; font-size: .84rem; color: var(--muted); margin-top: .5rem; }
 .detail-hero .meta i { margin-right: .3rem; }
 .detail-hero .meta strong { color: var(--ink-2); font-weight: 550; }
+.task-hero .task-hero-main { flex: 1 1 0; min-width: 0; }
+.task-hero .page-actions { flex: 0 0 auto; }
+.hero-notes { flex: 1 1 100%; display: flex; flex-direction: column; gap: .75rem; border-top: 1px solid var(--line); padding-top: 1rem; }
+.hero-notes .stage-note { padding: .6rem .85rem; border-left: 3px solid var(--brand); background: var(--brand-soft); border-radius: 8px; }
+.hero-notes .stage-note-revision { border-left-color: #d97706; }
+.hero-notes .submit-note-form textarea { width: 100%; }
 .hero-icon { width: 56px; height: 56px; border-radius: 14px; display: grid; place-items: center; font-size: 1.5rem; background: var(--brand-soft); color: var(--brand); flex-shrink: 0; }
 
 .nav-underline-tabs { display: flex; gap: 1.5rem; padding: 0 1.5rem; border-top: 1px solid var(--line); overflow-x: auto; }
@@ -558,7 +565,7 @@ select[data-searchable-ready="1"] { display: none; }
 .alert-danger { --bs-alert-bg: var(--danger-soft); --bs-alert-color: var(--danger-ink); --bs-alert-border-color: color-mix(in srgb, var(--danger-ink) 25%, transparent); }
 .alert-success { --bs-alert-bg: var(--success-soft); --bs-alert-color: var(--success-ink); --bs-alert-border-color: color-mix(in srgb, var(--success-ink) 25%, transparent); }
 
-.toast-stack { position: fixed; right: 1.5rem; bottom: 1.5rem; z-index: 1090; display: flex; flex-direction: column; gap: .5rem; }
+.toast-stack { position: fixed; right: 1.5rem; top: 1rem; z-index: 1090; display: flex; flex-direction: column; gap: .5rem; }
 .toast-stack .alert { box-shadow: var(--shadow-lg); min-width: 280px; margin: 0; }
 
 .dropdown-menu { --bs-dropdown-border-color: var(--line); --bs-dropdown-border-radius: var(--radius); --bs-dropdown-bg: var(--surface); box-shadow: var(--shadow-lg); padding: .4rem; font-size: .875rem; }
@@ -1195,3 +1202,13 @@ form.is-dragover { outline: 2px dashed var(--brand); outline-offset: -2px; backg
 .perm-matrix th, .perm-matrix td { white-space: nowrap; }
 .perm-matrix td:first-child { white-space: normal; min-width: 18rem; }
 .perm-matrix .perm-group th { background: var(--brand-soft); color: var(--brand); font-size: .8rem; letter-spacing: .02em; text-transform: uppercase; }
+
+/* Muhasebe: UYAP hesap dışı satır ve iki sütunlu dosya muhasebesi */
+.row-excluded td { opacity: .6; }
+.row-excluded td .fw-semibold { text-decoration: line-through; }
+.ledger-split .ledger-lane + .ledger-lane { border-left: 1px solid var(--line); }
+@media (max-width: 1199.98px) { .ledger-split .ledger-lane + .ledger-lane { border-left: 0; border-top: 1px solid var(--line); } }
+
+/* Yetki matrisi: sorumlu / yardımcı sorumlu sütunları */
+.perm-matrix .perm-relation { border-left: 1px solid var(--line); background: color-mix(in srgb, var(--brand) 4%, transparent); }
+.perm-matrix th.perm-relation + th.perm-relation, .perm-matrix td.perm-relation + td.perm-relation { border-left: 0; }

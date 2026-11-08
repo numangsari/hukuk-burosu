@@ -28,7 +28,7 @@
       <div class="card-header"><h2 class="card-title">Randevular</h2></div>
       <div class="table-responsive"><table class="table"><thead><tr><th>Tarih</th><th>Konu / Yer</th><th>Durum</th><th></th></tr></thead><tbody>
         {% for item in appointments %}<tr><td class="tabular">{{ item.starts_at|date:"d.m.Y H:i" }}</td><td>{{ item.title }}<div class="cell-sub">{{ item.location }}</div></td><td>{{ item.get_status_display }}</td><td class="text-end text-nowrap">
-          <a class="btn btn-light btn-sm" href="?appointment={{ item.pk }}#appointment-form">Düzenle</a>
+          <a class="btn btn-light btn-sm" href="?appointment={{ item.pk|stringformat:"d" }}#appointment-form">Düzenle</a>
           {% if item.status == "planned" %}<form method="post" class="d-inline" action="{% url 'clients:messaging:appointment_cancel' client.pk item.pk %}">{% csrf_token %}<button class="btn btn-light btn-sm">İptal et</button></form>{% endif %}
         </td></tr>{% empty %}<tr><td colspan="4" class="text-body-secondary p-3">Henüz randevu yok.</td></tr>{% endfor %}
       </tbody></table></div>

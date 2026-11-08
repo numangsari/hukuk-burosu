@@ -69,7 +69,7 @@
       <div class="col-md-4">{% include "partials/field.html" with field=form.closing_amount_date %}</div>
       <div class="col-md-4">{% include "partials/field.html" with field=form.closing_accounted %}</div>
     </div>
-    <div class="alert alert-warning small mb-0">Bu tutar dosyaya yalnızca bilgi olarak yazılır, muhasebeye kendiliğinden işlenmez. Muhasebe hareketini ayrıca <a href="{% url 'accounting:create' %}?dosya={{ case.pk }}">Muhasebe &rsaquo; Yeni gelir / gider</a> ekranından girmeyi unutmayın.</div>
+    <div class="alert alert-warning small mb-0">Bu tutar dosyaya yalnızca bilgi olarak yazılır, muhasebeye kendiliğinden işlenmez. Muhasebe hareketini ayrıca <a href="{% url 'accounting:create' %}?dosya={{ case.pk|stringformat:"d" }}">Muhasebe &rsaquo; Yeni gelir / gider</a> ekranından girmeyi unutmayın.</div>
   </div>
   {% endif %}
   <div class="form-section">

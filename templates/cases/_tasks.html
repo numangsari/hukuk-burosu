@@ -12,7 +12,7 @@
         <option value="created">Yeni eklenen önce</option>
       </select>
       {% if case.client_id %}
-      <a class="btn btn-sm btn-light" href="{% url 'tasks:create' %}?dosya={{ case.pk }}"><i class="bi bi-plus-lg"></i>Yeni görev</a>
+      <a class="btn btn-sm btn-light" href="{% url 'tasks:create' %}?dosya={{ case.pk|stringformat:"d" }}"><i class="bi bi-plus-lg"></i>Yeni görev</a>
       {% else %}
       <a class="btn btn-sm btn-warning" href="{% url 'cases:update' case.pk %}" title="Görev eklemek için önce dosyanın müvekkilini seçin"><i class="bi bi-person-exclamation"></i>Önce müvekkil seçin</a>
       {% endif %}

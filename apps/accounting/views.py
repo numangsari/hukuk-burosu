@@ -1,7 +1,7 @@
 import datetime as dt
 
 from django.contrib import messages
-from django.core.exceptions import ValidationError
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.db.models import Q
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect
@@ -14,12 +14,13 @@ from django.views.generic import CreateView, ListView, View
 from apps.cases.models import Case
 from apps.clients.models import Client
 from apps.core.pagination import page_size
+from apps.core.permissions import filter_visible_cases
 from apps.core.text import fold
 
 from .forms import LedgerEntryForm
 from .models import KIND_HELP, EntryKind, LedgerEntry
-from .permissions import EditRequiredMixin, ViewRequiredMixin
-from .services import cancel_entry, create_entry
+from .permissions import EditRequiredMixin, ViewRequiredMixin, can_exclude_portal
+from .services import cancel_entry, create_entry, set_portal_exclusion
 
 SORT_OPTIONS = [
     ("-date", "Tarih: yeniden eskiye"),
@@ -126,6 +127,17 @@ class EntryCreateView(EditRequiredMixin, CreateView):
     form_class = LedgerEntryForm
     template_name = "accounting/form.html"
 
+    def permission_object(self, request):
+        data = request.POST if request.method == "POST" else request.GET
+        case_id, client_id = data.get("case") or data.get("dosya"), data.get("client")
+        if request.method != "POST":
+            client_id = data.get("musteri")
+        if str(case_id or "").isdecimal() and len(str(case_id)) <= 18:
+            return Case.objects.select_related("client").filter(pk=case_id).first()
+        if str(client_id or "").isdecimal() and len(str(client_id)) <= 18:
+            return Client.objects.filter(pk=client_id).first()
+        return None
+
     def get_initial(self):
         g = self.request.GET
         initial = {"date": timezone.localdate(), "kind": g.get("tur") or EntryKind.FEE}
@@ -166,6 +178,13 @@ class EntryCreateView(EditRequiredMixin, CreateView):
 
 
 class EntryCancelView(EditRequiredMixin, View):
+    def permission_object(self, request):
+        return (
+            LedgerEntry.objects.select_related("case__client", "client")
+            .filter(pk=self.kwargs.get("pk"))
+            .first()
+        )
+
     def post(self, request, pk):
         entry = get_object_or_404(LedgerEntry, pk=pk, is_cancelled=False)
         reason = request.POST.get("reason", "").strip()
@@ -175,6 +194,38 @@ class EntryCancelView(EditRequiredMixin, View):
             messages.error(request, " ".join(e.messages))
         else:
             messages.success(request, "Hareket iptal edildi.")
+        nxt = request.POST.get("next", "")
+        return redirect(
+            nxt
+            if nxt.startswith("/") and url_has_allowed_host_and_scheme(nxt, allowed_hosts=set())
+            else "accounting:list"
+        )
+
+
+class EntryExcludeView(View):
+    """UYAP'tan gelen hareketi bakiye dışında bırakır / geri alır (rol matrisinde yetki)."""
+
+    def post(self, request, pk):
+        visible = filter_visible_cases(Case.objects.all(), request.user)
+        entry = get_object_or_404(
+            LedgerEntry.objects.select_related("case__client", "client").filter(
+                Q(case__isnull=True) | Q(case__in=visible)
+            ),
+            pk=pk,
+            is_cancelled=False,
+            portal_ref__isnull=False,
+        )
+        if not can_exclude_portal(request.user, entry):
+            raise PermissionDenied
+        exclude = request.POST.get("action") != "include"
+        try:
+            set_portal_exclusion(entry, request.user, exclude, request.POST.get("reason", ""))
+        except ValidationError as e:
+            messages.error(request, " ".join(e.messages))
+        else:
+            messages.success(
+                request, "Hareket hesap dışı bırakıldı." if exclude else "Hareket hesaba katıldı."
+            )
         nxt = request.POST.get("next", "")
         return redirect(
             nxt

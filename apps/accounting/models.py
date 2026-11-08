@@ -80,10 +80,14 @@ class LedgerQuerySet(models.QuerySet):
     def active(self):
         return self.filter(is_cancelled=False)
 
+    def counted(self):
+        """Bakiyeye giren hareketler: iptal edilmemiş ve hesap dışı bırakılmamış."""
+        return self.filter(is_cancelled=False, excluded_from_balance=False)
+
     def balances(self) -> dict:
         """debt: müvekkilin ofise borcu, credit: müvekkilin ofisten alacağı, balance: bakiye;
         collection (müvekkilden tahsilat) ve payout (müvekkile ödeme) bakiyenin kalemleridir."""
-        return self.active().aggregate(
+        return self.counted().aggregate(
             debt=Coalesce(Sum(DEBT_EXPR), Value(ZERO), output_field=_MONEY),
             credit=Coalesce(Sum(CREDIT_EXPR), Value(ZERO), output_field=_MONEY),
             collection=Coalesce(
@@ -94,7 +98,7 @@ class LedgerQuerySet(models.QuerySet):
         )
 
     def totals_by_kind(self) -> dict:
-        rows = self.active().values("kind").annotate(total=Sum("amount"))
+        rows = self.counted().values("kind").annotate(total=Sum("amount"))
         totals = {k: ZERO for k in EntryKind.values}
         totals.update({r["kind"]: r["total"] for r in rows})
         return totals
@@ -139,6 +143,13 @@ class LedgerEntry(TimeStampedModel):
         settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True, related_name="+"
     )
     cancel_reason = models.CharField("iptal nedeni", max_length=300, blank=True)
+    # UYAP'tan hatalı gelen kaydı silmeden bakiyeden çıkarmak için (yalnızca portal_ref dolu).
+    excluded_from_balance = models.BooleanField("hesap dışı", default=False)
+    excluded_at = models.DateTimeField(null=True, blank=True)
+    excluded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True, related_name="+"
+    )
+    exclude_reason = models.CharField("hesap dışı bırakma nedeni", max_length=300, blank=True)
 
     objects = LedgerQuerySet.as_manager()
 
@@ -162,6 +173,8 @@ class LedgerEntry(TimeStampedModel):
 
     @property
     def balance_effect(self) -> Decimal:
+        if self.excluded_from_balance:
+            return ZERO
         return self.amount * EFFECTS[EntryKind(self.kind)]
 
 

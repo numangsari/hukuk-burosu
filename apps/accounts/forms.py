@@ -141,10 +141,16 @@ class RolePermissionsForm(forms.Form):
         self.roles = [(key, label) for key, label in registry.ROLES if key != "admin"]
         for perm in registry.PERMISSIONS:
             chosen = registry.allowed_roles(saved, perm.key)
+            relations = registry.allowed_relations(saved, perm.key)
             for role, _label in self.roles:
                 name = self.field_name(perm.key, role)
                 self.fields[name] = forms.BooleanField(required=False)
                 self.initial[name] = role in chosen
+            if perm.scoped:
+                for relation, _label in registry.RELATIONS:
+                    name = self.field_name(perm.key, relation)
+                    self.fields[name] = forms.BooleanField(required=False)
+                    self.initial[name] = relation in relations
 
     @staticmethod
     def field_name(key: str, role: str) -> str:
@@ -161,6 +167,9 @@ class RolePermissionsForm(forms.Form):
                 for role, label in self.roles:
                     bound = self[self.field_name(perm.key, role)]
                     cells.append({"role": role, "label": label, "field": bound})
+                for relation, label in self.registry.RELATIONS:
+                    field = self[self.field_name(perm.key, relation)] if perm.scoped else None
+                    cells.append({"role": relation, "label": label, "field": field})
                 rows.append((perm, cells))
             result.append((group, rows))
         return result
@@ -174,7 +183,12 @@ class RolePermissionsForm(forms.Form):
                 for role, _label in self.roles
                 if self.cleaned_data.get(self.field_name(perm.key, role))
             ]
-            saved[perm.key] = ["admin", *roles]
+            relations = [
+                relation
+                for relation, _label in self.registry.RELATIONS
+                if perm.scoped and self.cleaned_data.get(self.field_name(perm.key, relation))
+            ]
+            saved[perm.key] = ["admin", *roles, *relations]
         office.role_permissions = saved
         office.save(update_fields=["role_permissions"])
 

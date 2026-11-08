@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load ui %}
 {% block title %}{% if object %}{{ object.archive_reference }} — düzenle{% else %}Yeni dosya{% endif %}{% endblock %}
 {% block content %}
 <div class="page-header page-header-sticky">
@@ -7,7 +8,7 @@
     <h1 class="page-title">{% if object %}Dosyayı düzenle{% else %}Yeni dosya{% endif %}</h1>
   </div>
   <div class="page-actions">
-    {% if object and request.user.is_office_admin %}<button type="submit" form="case-delete-form" class="btn btn-outline-danger" onclick="return confirm('Dosya ve belgeleri silinsin mi?')"><i class="bi bi-trash"></i>Sil</button>{% endif %}
+    {% if object %}{% perm "cases.delete" object as can_delete_case %}{% endif %}{% if object and can_delete_case %}<button type="submit" form="case-delete-form" class="btn btn-outline-danger" onclick="return confirm('Dosya ve belgeleri silinsin mi?')"><i class="bi bi-trash"></i>Sil</button>{% endif %}
     <a class="btn btn-light" href="{% if object %}{{ object.get_absolute_url }}{% else %}{% url 'cases:list' %}{% endif %}">Vazgeç</a>
     <button type="submit" form="case-form" class="btn btn-primary"><i class="bi bi-check2"></i>Kaydet</button>
   </div>
@@ -172,7 +173,7 @@
     </div>
   </div>
 </form>
-{% if object and request.user.is_office_admin %}<form id="case-delete-form" method="post" action="{% url 'cases:delete' object.pk %}">{% csrf_token %}</form>{% endif %}
+{% if object and can_delete_case %}<form id="case-delete-form" method="post" action="{% url 'cases:delete' object.pk %}">{% csrf_token %}</form>{% endif %}
 <script>
   function caseForm(initial) {
     const all = JSON.parse(document.getElementById("type-labels").textContent);

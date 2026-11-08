@@ -129,7 +129,7 @@
                 <td><div class="d-flex align-items-center gap-2"><span class="avatar avatar-sm" style="--h: {{ u.avatar_hue }}">{{ u.initials }}</span><span class="fw-medium">{{ u }}</span></div></td>
                 <td>{{ u.display_title }}<div class="cell-sub">{{ u.get_role_display }}</div></td>
                 <td>{% if u.is_active %}<span class="chip chip-success">Aktif</span>{% else %}<span class="chip">Pasif</span>{% endif %}</td>
-                <td class="text-end"><a class="btn btn-light btn-sm" href="?bolum=kullanicilar&id={{ u.pk }}"><i class="bi bi-pencil"></i>Düzenle</a></td>
+                <td class="text-end"><a class="btn btn-light btn-sm" href="?bolum=kullanicilar&id={{ u.pk|stringformat:"d" }}"><i class="bi bi-pencil"></i>Düzenle</a></td>
               </tr>
             {% endfor %}
             </tbody>
@@ -313,7 +313,7 @@
       <div class="form-section">
         <div class="form-section-head">
           <h2>Roller ve yetkiler</h2>
-          <p>İşaretli rol o yetkiye sahiptir. Yönetici her yetkide her zaman yetkilidir (kilitli). İşaretsiz roller yalnızca kendi sorumlu olduğu kayıtlarla çalışır.</p>
+          <p>İşaretli rol o yetkiye sahiptir. Yönetici her yetkide her zaman yetkilidir (kilitli). İşaretsiz roller yalnızca kendi sorumlu olduğu kayıtlarla çalışır. "Sorumlu" ve "Yardımcı sorumlu" sütunları (yalnızca dosya, müvekkil ve muhasebe yetkilerinde) rolü yetkisiz olsa bile kişiye, sorumlu olduğu dosya veya müvekkilde o yetkiyi verir.</p>
         </div>
         <div class="table-responsive">
           <table class="table table-sm align-middle perm-matrix">
@@ -322,17 +322,19 @@
                 <th>Yetki</th>
                 <th class="text-center">Yönetici</th>
                 {% for role, label in form.roles %}<th class="text-center">{{ label }}</th>{% endfor %}
+                <th class="text-center perm-relation" title="Rolü yetkisiz olsa bile, yalnızca sorumlu olduğu dosya veya müvekkilde">Sorumlu</th>
+                <th class="text-center perm-relation" title="Rolü yetkisiz olsa bile, yalnızca yardımcı sorumlu olduğu dosya veya müvekkilde">Yardımcı sorumlu</th>
               </tr>
             </thead>
             <tbody>
             {% for group, rows in form.groups %}
-              <tr class="perm-group"><th colspan="{{ form.roles|length|add:2 }}">{{ group }}</th></tr>
+              <tr class="perm-group"><th colspan="{{ form.roles|length|add:4 }}">{{ group }}</th></tr>
               {% for perm, cells in rows %}
               <tr>
                 <td><div class="fw-medium">{{ perm.label }}</div>{% if perm.help %}<div class="small text-body-secondary">{{ perm.help }}</div>{% endif %}</td>
                 <td class="text-center"><input type="checkbox" class="form-check-input" checked disabled aria-label="Yönetici: {{ perm.label }}"></td>
                 {% for cell in cells %}
-                <td class="text-center"><input type="checkbox" class="form-check-input" name="{{ cell.field.html_name }}" {% if cell.field.value %}checked{% endif %} aria-label="{{ cell.label }}: {{ perm.label }}"></td>
+                <td class="text-center{% if cell.role == 'responsible' or cell.role == 'assistant' %} perm-relation{% endif %}">{% if cell.field %}<input type="checkbox" class="form-check-input" name="{{ cell.field.html_name }}" {% if cell.field.value %}checked{% endif %} aria-label="{{ cell.label }}: {{ perm.label }}">{% else %}<span class="text-body-secondary" title="Bu yetki dosya bazlı değildir">—</span>{% endif %}</td>
                 {% endfor %}
               </tr>
               {% endfor %}
@@ -751,13 +753,13 @@
               </td>
               <td class="text-end tabular">
                 {% if u.open_task_count %}
-                  <a href="{% url 'tasks:list' %}?kapsam=all&amp;sorumlu={{ u.pk }}">{{ u.open_task_count }}</a>
+                  <a href="{% url 'tasks:list' %}?kapsam=all&amp;sorumlu={{ u.pk|stringformat:"d" }}">{{ u.open_task_count }}</a>
                   {% if u.overdue_task_count %}<span class="chip chip-danger no-dot ms-1" title="Gecikmiş görev">{{ u.overdue_task_count }} gecikmiş</span>{% endif %}
                 {% else %}0{% endif %}
               </td>
               <td class="text-end tabular">
                 {% if u.review_waiting_count %}
-                  <a href="{% url 'tasks:list' %}?kapsam=all&amp;sekme=waiting&amp;kontrolcu={{ u.pk }}" class="chip chip-warning no-dot">{{ u.review_waiting_count }}</a>
+                  <a href="{% url 'tasks:list' %}?kapsam=all&amp;sekme=waiting&amp;kontrolcu={{ u.pk|stringformat:"d" }}" class="chip chip-warning no-dot">{{ u.review_waiting_count }}</a>
                 {% else %}0{% endif %}
               </td>
               <td class="text-end tabular">{{ u.closed_task_count }}</td>
@@ -765,7 +767,7 @@
                 <span class="fw-semibold">{{ u.month_points|default_if_none:0 }}</span> / {{ u.total_points|default_if_none:0 }}
               </td>
               <td class="text-end">
-                <a class="btn btn-light btn-sm text-nowrap" href="{% url 'activity:list' %}?kullanici={{ u.pk }}"><i class="bi bi-list-ul"></i>İşlemleri</a>
+                <a class="btn btn-light btn-sm text-nowrap" href="{% url 'activity:list' %}?kullanici={{ u.pk|stringformat:"d" }}"><i class="bi bi-list-ul"></i>İşlemleri</a>
               </td>
             </tr>
             {% endfor %}

@@ -1,9 +1,13 @@
 """Rol bazlı yetki matrisi: hangi rolün hangi işi yapabileceği.
 
 Ayarlar > "Yetkiler ve çalışma düzeni" ekranındaki tek liste bu kayıt defterinden çizilir.
-Seçimler `OfficeSettings.role_permissions` içinde saklanır ({yetki: [roller]}); kaydı olmayan
-yetki için buradaki varsayılan roller geçerlidir. Yönetici her yetkide her zaman yetkilidir
-ve ekranda kilitlidir.
+Seçimler `OfficeSettings.role_permissions` içinde saklanır ({yetki: [roller ve ilişkiler]});
+kaydı olmayan yetki için buradaki varsayılan roller geçerlidir. Yönetici her yetkide her zaman
+yetkilidir ve ekranda kilitlidir.
+
+Dosya/müvekkil/muhasebe yetkilerinde (`scoped`) rolün yanında ilişki de seçilebilir: "responsible"
+(sorumlu) ve "assistant" (yardımcı sorumlu) işaretliyse, rolü yetkisiz olsa bile kişi yalnızca
+sorumlu olduğu dosya veya müvekkilde bu yetkiyi kullanır (`has_perm(user, anahtar, nesne)`).
 """
 
 from dataclasses import dataclass
@@ -20,6 +24,9 @@ ROLES = [
 ALL_ROLES = [key for key, _ in ROLES]
 LAWYERS = ["admin", "senior", "lawyer"]
 ADMIN_ONLY = ["admin"]
+# Nesne bazlı ilişkiler: kaydedilen anahtar, ekran etiketi.
+RELATIONS = [("responsible", "Sorumlu"), ("assistant", "Yardımcı sorumlu")]
+RELATION_KEYS = [key for key, _ in RELATIONS]
 
 
 @dataclass(frozen=True)
@@ -29,6 +36,7 @@ class Permission:
     label: str
     help: str
     default: tuple
+    scoped: bool = False  # Sorumlu / yardımcı sorumlu seçeneği olan (dosya bazlı) yetki
 
 
 PERMISSIONS = [
@@ -45,12 +53,22 @@ PERMISSIONS = [
         "Kapalı dosyayı yeniden açma",
         "",
         tuple(ADMIN_ONLY),
+        scoped=True,
     ),
     Permission(
-        "cases.remove_party", "Dosya ve müvekkil", "Dosyadan taraf çıkarma", "", tuple(ADMIN_ONLY)
+        "cases.remove_party",
+        "Dosya ve müvekkil",
+        "Dosyadan taraf çıkarma",
+        "",
+        tuple(ADMIN_ONLY),
+        scoped=True,
     ),
-    Permission("cases.delete", "Dosya ve müvekkil", "Dosya silme", "", tuple(ADMIN_ONLY)),
-    Permission("clients.delete", "Dosya ve müvekkil", "Müvekkil silme", "", tuple(ADMIN_ONLY)),
+    Permission(
+        "cases.delete", "Dosya ve müvekkil", "Dosya silme", "", tuple(ADMIN_ONLY), scoped=True
+    ),
+    Permission(
+        "clients.delete", "Dosya ve müvekkil", "Müvekkil silme", "", tuple(ADMIN_ONLY), scoped=True
+    ),
     Permission(
         "tasks.close_without_review",
         "Görev",
@@ -109,6 +127,7 @@ PERMISSIONS = [
         "Muhasebe kaydı ekleme ve iptal etme",
         "Tahsilat, masraf ve vekalet ücreti hareketleri.",
         tuple(ALL_ROLES),
+        scoped=True,
     ),
     Permission(
         "accounting.balances",
@@ -116,6 +135,15 @@ PERMISSIONS = [
         "Bakiye, cari hesap ve finansal raporları görme",
         "Müvekkil bakiyesi, borçlu süzgeci, cari hesap ekstresi ve mali raporlar.",
         ("admin", "accountant"),
+        scoped=True,
+    ),
+    Permission(
+        "accounting.exclude_portal",
+        "Muhasebe",
+        "UYAP kaynaklı muhasebe kaydını hesap dışı bırakma",
+        "Hatalı aktarılan UYAP kaydı silinmeden bakiyeden çıkarılır; yetkili geri alabilir.",
+        ("admin", "senior"),
+        scoped=True,
     ),
     Permission(
         "petition_pool.delete_any",
@@ -145,15 +173,56 @@ def allowed_roles(saved: dict | None, key: str) -> set:
     return chosen & set(ALL_ROLES)
 
 
-def has_perm(user, key: str) -> bool:
-    """Kullanıcının rolü bu yetkiye sahip mi (yönetici ve süper kullanıcı her zaman)."""
+def allowed_relations(saved: dict | None, key: str) -> set:
+    """Yetkiyi nesne bazlı kullanabilen ilişkiler (sorumlu, yardımcı sorumlu); varsayılan yok."""
+    if not BY_KEY[key].scoped:
+        return set()
+    return set((saved or {}).get(key) or []) & set(RELATION_KEYS)
+
+
+def relations_to(user, obj) -> set:
+    """Kullanıcının dosya, müvekkil veya hareketle ilişkisi ({"responsible", "assistant"}).
+
+    Dosyada dosyanın ve müvekkilinin sorumlusu/yardımcısı sayılır; müvekkilde müvekkilin.
+    """
+    if obj is None:
+        return set()
+    from apps.accounting.models import LedgerEntry
+
+    if isinstance(obj, LedgerEntry):
+        # Muhasebe hareketi: dosyası varsa dosya, yoksa müvekkil.
+        obj = obj.case if obj.case_id else obj.client
+    holders = [obj]
+    client = getattr(obj, "client", None)
+    if client is not None and client is not obj:
+        holders.append(client)
+    found = set()
+    for holder in holders:
+        if getattr(holder, "responsible_lawyer_id", None) == user.pk:
+            found.add("responsible")
+        if getattr(holder, "responsible_intern_id", None) == user.pk:
+            found.add("assistant")
+    return found
+
+
+def has_perm(user, key: str, obj=None) -> bool:
+    """Kullanıcının rolü bu yetkiye sahip mi (yönetici ve süper kullanıcı her zaman).
+
+    `obj` (dosya, müvekkil veya muhasebe hareketi) verilirse ve yetki `scoped` ise, rolü yetkisiz
+    olsa bile o nesnede işaretli ilişkiye (sorumlu / yardımcı sorumlu) sahip kişi yetkilidir.
+    """
     if not (user and getattr(user, "is_authenticated", False) and user.is_active):
         return False
     if user.is_superuser or user.role == "admin":
         return True
     from apps.office.models import OfficeSettings
 
-    return user.role in allowed_roles(OfficeSettings.load().role_permissions, key)
+    saved = OfficeSettings.load().role_permissions
+    if user.role in allowed_roles(saved, key):
+        return True
+    if obj is not None:
+        return bool(allowed_relations(saved, key) & relations_to(user, obj))
+    return False
 
 
 def role_has_perm(role: str, key: str) -> bool:

@@ -51,7 +51,7 @@
       {% endif %}
       <a class="btn btn-light" href="{% url 'cases:update' case.pk %}"><i class="bi bi-pencil"></i>Düzenle</a>
       {% if case.client_id %}
-      <a class="btn btn-primary" href="{% url 'tasks:create' %}?dosya={{ case.pk }}"><i class="bi bi-plus-lg"></i>Yeni görev</a>
+      <a class="btn btn-primary" href="{% url 'tasks:create' %}?dosya={{ case.pk|stringformat:"d" }}"><i class="bi bi-plus-lg"></i>Yeni görev</a>
       {% else %}
       <a class="btn btn-warning" href="{% url 'cases:update' case.pk %}" title="Görev eklemek için önce dosyanın müvekkilini seçin"><i class="bi bi-person-exclamation"></i>Önce müvekkil seçin</a>
       {% endif %}
@@ -105,11 +105,11 @@
         {% if case.decision_date or case.decision_no %}<div class="case-closing-date tabular">{% if case.decision_date %}Karar Tarihi: {{ case.decision_date|date:"d.m.Y" }}{% endif %}{% if case.decision_date and case.decision_no %} - {% endif %}{% if case.decision_no %}Karar No: {{ case.decision_no_display }}{% endif %}</div>{% endif %}
         {% if case.closed_on %}<div class="case-closing-date tabular">Kapanma Tarihi: {{ case.closed_on|date:"d.m.Y" }}</div>{% endif %}
       </div>
-      {% if request.user.is_office_admin %}
+      {% perm "cases.reopen" case as can_reopen %}{% if can_reopen %}
       <button type="button" class="btn btn-light text-nowrap" @click="reopen()"><i class="bi bi-arrow-counterclockwise"></i>Yeniden aç</button>
       {% endif %}
     </div>
-    {% if request.user.is_office_admin %}
+    {% if can_reopen %}
     <div class="modal fade" x-ref="reopen" tabindex="-1" aria-hidden="true">
       <div class="modal-dialog modal-dialog-centered">
         <form method="post" action="{% url 'cases:reopen' case.pk %}" class="modal-content">{% csrf_token %}
@@ -129,7 +129,7 @@
 </div>
 <div id="case-hero-sentinel"></div>
 <div class="case-tabbar">
-  <div class="case-tabbar-id"><span class="fw-semibold clip">{{ case.display_name }}</span>{% if case.client_id %}<a class="btn btn-sm btn-primary" href="{% url 'tasks:create' %}?dosya={{ case.pk }}">Yeni görev</a>{% endif %}</div>
+  <div class="case-tabbar-id"><span class="fw-semibold clip">{{ case.display_name }}</span>{% if case.client_id %}<a class="btn btn-sm btn-primary" href="{% url 'tasks:create' %}?dosya={{ case.pk|stringformat:"d" }}">Yeni görev</a>{% endif %}</div>
   <ul class="nav nav-underline-tabs">
     <li><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#t-ozet">Özet</button></li>
     <li><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-taraflar">Taraflar<span class="count">{{ party_links|length }}</span></button></li>
@@ -219,13 +219,26 @@
       <div class="card-header"><h2 class="card-title">Dosya hareketleri</h2>
         {% if can_edit_accounting %}
           {% if case.client_id %}
-          <a class="btn btn-sm btn-primary ms-auto" href="{% url 'accounting:create' %}?dosya={{ case.pk }}&next={{ case.get_absolute_url|urlencode }}%23t-muhasebe"><i class="bi bi-plus-lg"></i>Yeni gelir / gider</a>
+          <a class="btn btn-sm btn-primary ms-auto" href="{% url 'accounting:create' %}?dosya={{ case.pk|stringformat:"d" }}&next={{ case.get_absolute_url|urlencode }}%23t-muhasebe"><i class="bi bi-plus-lg"></i>Yeni gelir / gider</a>
           {% else %}
           <a class="btn btn-sm btn-warning ms-auto" href="{% url 'cases:update' case.pk %}" title="Muhasebe kaydı eklemek için önce dosyanın müvekkilini seçin"><i class="bi bi-person-exclamation"></i>Önce müvekkil seçin</a>
           {% endif %}
         {% endif %}</div>
-      {% if can_view_balances %}{% include "accounting/_balances.html" with b=ledger_balances %}{% endif %}
+      {% if can_view_balances %}{% include "accounting/_balances.html" with b=ledger_balances %}{% if ledger_excluded_total %}<div class="alert alert-warning small rounded-0 mb-0 py-2"><i class="bi bi-exclamation-triangle me-1"></i>UYAP'tan gelen <strong class="tabular">{{ ledger_excluded_total|tl }}</strong> tutarında hareket hesap dışı bırakıldı; bakiyeye dahil değil.</div>{% endif %}{% endif %}
+      {% if ledger_split %}
+      <div class="row g-0 ledger-split">
+        <div class="col-xl-6 ledger-lane">
+          <div class="party-lane-head px-3 pt-3">Büro kaydı</div>
+          {% include "accounting/_statement.html" with rows=ledger_office_rows show_case=flow_members|length|add:'-1' show_client=multi_client show_running=False next=case.get_absolute_url|add:'#t-muhasebe' %}
+        </div>
+        <div class="col-xl-6 ledger-lane ledger-lane-uyap">
+          <div class="party-lane-head px-3 pt-3"><span class="badge-source badge-source-uyap me-1" role="img" aria-label="UYAP kaydı" title="UYAP kaydı (salt okunur)"><i class="bi bi-bank2" aria-hidden="true"></i></span>UYAP (salt okunur)</div>
+          {% include "accounting/_statement.html" with rows=ledger_portal_rows show_case=flow_members|length|add:'-1' show_client=multi_client show_running=False portal_lane=True empty_text="UYAP'tan muhasebe hareketi gelmedi." next=case.get_absolute_url|add:'#t-muhasebe' %}
+        </div>
+      </div>
+      {% else %}
       {% include "accounting/_statement.html" with rows=ledger_rows show_case=flow_members|length|add:'-1' show_client=multi_client next=case.get_absolute_url|add:'#t-muhasebe' %}
+      {% endif %}
     </div>
   </div>
   {% endif %}

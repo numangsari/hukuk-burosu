@@ -85,7 +85,8 @@ def annotate_list_values(qs):
         .values("n")
     )
     balance = (
-        LedgerEntry.objects.filter(client=OuterRef("pk"), is_cancelled=False)
+        LedgerEntry.objects.counted()
+        .filter(client=OuterRef("pk"))
         .order_by()
         .values("client")
         .annotate(b=Sum(BALANCE_EXPR))
@@ -215,7 +216,7 @@ class ClientFormMixin:
     def get_formsets(self):
         data = (self.request.POST, self.request.FILES) if self.request.method == "POST" else ()
         instance = self.object or Client()
-        can_delete = has_perm(self.request.user, "clients.delete")
+        can_delete = has_perm(self.request.user, "clients.delete", self.object)
         formsets = {}
         for prefix in CLIENT_SUBRECORDS:
             extra, initial = (0 if prefix == "sozlesme" else 1), None
@@ -388,7 +389,11 @@ class ClientDetailView(DetailView):
         # İptal edilen hareketler Muhasebe sekmesinde değil, Geçmiş sekmesinde görünür.
         ctx["ledger_rows"] = statement(entries.filter(is_cancelled=False))
         ctx["cancelled_entries"] = entries.filter(is_cancelled=True).order_by("-cancelled_at")
-        if can_view_balances(self.request.user):
+        from apps.accounting import permissions as acc
+
+        ctx["can_edit_accounting"] = acc.can_edit(self.request.user, c)
+        ctx["can_view_balances"] = can_view_balances(self.request.user, c)
+        if ctx["can_view_balances"]:
             ctx["ledger_balances"] = entries.balances()
         ctx["open_case_count"] = sum(1 for k in ctx["cases"] if k.is_open)
         ctx["closed_case_count"] = len(ctx["cases"]) - ctx["open_case_count"]
@@ -465,6 +470,9 @@ class ClientCasesView(View):
 
 class ClientDeleteView(PermissionRequiredMixin, View):
     required_permission = "clients.delete"
+
+    def permission_object(self):
+        return Client.objects.filter(pk=self.kwargs.get("pk")).first()
 
     """Onay sayfası: birlikte silinecek kayıtlar sayılarıyla gösterilir, onay kutusu istenir."""
 

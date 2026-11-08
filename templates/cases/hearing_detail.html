@@ -93,7 +93,7 @@
     <div class="card mb-3"><div class="card-header"><h2 class="card-title">3. Görev</h2></div><div class="card-body">
       {% for t in tasks %}<div class="mb-2"><a href="{{ t.get_absolute_url }}{% if request.GET.pencere %}?pencere=1{% endif %}">{{ t.title|tr_title }}</a> <span class="text-body-secondary">({{ t.assignee }})</span></div>{% endfor %}
       {% if hearing.case %}
-        <a class="btn btn-primary" href="{% url 'tasks:create' %}?dosya={{ hearing.case_id }}&amp;durusma={{ hearing.pk }}{% if request.GET.pencere %}&amp;pencere=1{% endif %}"><i class="bi bi-plus-lg"></i>Görev oluştur</a>
+        <a class="btn btn-primary" href="{% url 'tasks:create' %}?dosya={{ hearing.case_id|stringformat:"d" }}&amp;durusma={{ hearing.pk|stringformat:"d" }}{% if request.GET.pencere %}&amp;pencere=1{% endif %}"><i class="bi bi-plus-lg"></i>Görev oluştur</a>
       {% else %}
         <span class="text-body-secondary">Görev oluşturmak için duruşmanın dosyası olmalı.</span>
       {% endif %}

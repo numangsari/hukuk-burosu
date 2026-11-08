@@ -133,7 +133,7 @@ def build_debtors(d, user):
         qs = qs.filter(balance__gt=0)
     rows, total = [], ZERO
     credit_sq = (
-        LedgerEntry.objects.filter(client=OuterRef("pk"), is_cancelled=False)
+        LedgerEntry.objects.counted().filter(client=OuterRef("pk"))
         .order_by().values("client").annotate(t=Sum(CREDIT_EXPR)).values("t")
     )  # fmt: skip
     qs = qs.annotate(

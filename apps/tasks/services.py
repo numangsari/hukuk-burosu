@@ -21,6 +21,9 @@ from .models import Task, TaskEvent, TaskPoint, TaskStatus
 
 S = TaskStatus
 
+# Görev kapanırken yazılan gelir/gider kaydı notunun başlangıcı (ekranda üstte gösterilir).
+LEDGER_NOTE_PREFIX = "Gelir/gider kaydı:"
+
 
 def requires_review(task: Task) -> bool:
     """Bu görevin kapatılmadan önce kontrolcü onayından geçmesinin zorunlu olup olmadığını döner.
@@ -87,7 +90,7 @@ ACTIONS = {
             needs_comment=True,
         ),
         Action("reopen", "Yeniden aç", (S.DONE,), S.ACTIVE, "manager", "reopened"),
-        Action("close", "Görevi kapat", (S.ACTIVE,), S.DONE, "assignee", "closed", "primary"),
+        Action("close", "Görevi tamamla", (S.ACTIVE,), S.DONE, "assignee", "closed", "primary"),
     ]
 }
 
@@ -252,7 +255,7 @@ def perform(
                 task=task,
                 actor=user,
                 kind=TaskEvent.Kind.NOTE,
-                comment=f"Gelir/gider kaydı: {entry.pk} — {entry}",
+                comment=f"{LEDGER_NOTE_PREFIX} {entry.pk} — {entry}",
             )
         if was_unapproved:
             docs, task.warnings = publish_task_documents(task, user)

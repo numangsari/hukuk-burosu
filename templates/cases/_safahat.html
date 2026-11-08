@@ -4,7 +4,7 @@
   <div class="card-header">
     <h2 class="card-title">Safahat</h2>
     <div class="ms-auto d-flex gap-2">
-      <a class="btn btn-sm btn-primary" href="{% url 'cases:create' %}?iliskili={{ case.pk }}"><i class="bi bi-folder-plus"></i>İlgili dosya oluştur</a>
+      <a class="btn btn-sm btn-primary" href="{% url 'cases:create' %}?iliskili={{ case.pk|stringformat:"d" }}"><i class="bi bi-folder-plus"></i>İlgili dosya oluştur</a>
       <button type="button" class="btn btn-sm btn-light"
               hx-get="{% url 'cases:link_add' case.pk %}" hx-target="#flow-modal-dialog" hx-swap="innerHTML"
               hx-on::after-request="bootstrap.Modal.getOrCreateInstance(document.getElementById('flow-modal')).show()">
@@ -81,7 +81,7 @@
                 <button type="submit" class="btn btn-sm btn-primary"><i class="bi bi-link-45deg"></i>Dosyayı bağla</button>
               </form>
               {% else %}
-              <a class="btn btn-sm btn-primary" href="{% url 'cases:create' %}?iliskili={{ case.pk }}&kurum={{ rel.authority|urlencode }}&yil={{ rel.year }}&numara={{ rel.sequence }}&tur={{ rel.case_type }}">
+              <a class="btn btn-sm btn-primary" href="{% url 'cases:create' %}?iliskili={{ case.pk|stringformat:"d" }}&kurum={{ rel.authority|urlencode }}&yil={{ rel.year }}&numara={{ rel.sequence }}&tur={{ rel.case_type }}">
                 <i class="bi bi-folder-plus"></i>Dosya oluştur
               </a>
               {% endif %}

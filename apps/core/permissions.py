@@ -32,8 +32,12 @@ class PermissionRequiredMixin(UserPassesTestMixin):
 
     required_permission = ""
 
+    def permission_object(self):
+        """Yetkinin sorumlu/yardımcı sorumlu ilişkisiyle denetleneceği kayıt (yoksa None)."""
+        return None
+
     def test_func(self):
-        return has_perm(self.request.user, self.required_permission)
+        return has_perm(self.request.user, self.required_permission, self.permission_object())
 
 
 def can_view_all_office_data(user) -> bool:

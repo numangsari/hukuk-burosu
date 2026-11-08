@@ -3,7 +3,7 @@
   <div class="card-header"><h2 class="card-title">Taraflar</h2></div>
   <div class="card-body">
     <div class="row g-4">
-      <div class="col-lg-6">
+      <div class="{% if case.has_portal %}col-lg-6{% else %}col-12{% endif %}">
         <div class="party-lane h-100">
           <div class="party-lane-head">Büro kaydı</div>
           {% for item in party_columns.office %}
@@ -17,14 +17,14 @@
                 {% if item.address %}<span>{{ item.address }}</span>{% endif %}
               </div>
             </div>
-            {% if item.link_pk and request.user.is_office_admin %}
+            {% perm "cases.remove_party" case as can_remove_party %}{% if item.link_pk and can_remove_party %}
             <button class="btn-ghost-danger" title="Dosyadan çıkar" hx-post="{% url 'cases:party_remove' case.pk item.link_pk %}" hx-target="#parties" hx-swap="outerHTML" hx-confirm="Taraf dosyadan çıkarılsın mı?"><i class="bi bi-x-lg"></i></button>
             {% endif %}
           </div>
           {% empty %}<div class="small text-body-secondary">Henüz taraf girilmedi.</div>{% endfor %}
         </div>
       </div>
-      <div class="col-lg-6">
+      {% if case.has_portal %}<div class="col-lg-6">
         <div class="party-lane h-100">
           <div class="party-lane-head"><span class="badge-source badge-source-uyap me-1" role="img" aria-label="UYAP kaydı" title="UYAP kaydı (salt okunur)"><i class="bi bi-bank2" aria-hidden="true"></i></span>UYAP (salt okunur)</div>
           {% for item in party_columns.uyap %}
@@ -41,7 +41,7 @@
           </div>
           {% empty %}<div class="small text-body-secondary">UYAP'tan taraf bilgisi gelmedi.</div>{% endfor %}
         </div>
-      </div>
+      </div>{% endif %}
     </div>
   </div>
   <form class="inline-form row g-2 align-items-start" hx-post="{% url 'cases:party_add' case.pk %}" hx-target="#parties" hx-swap="outerHTML">
@@ -52,6 +52,6 @@
     <div class="col-md-3">{% include "partials/field.html" with field=party_form.lawyer wrap_class="" %}</div>
     <div class="col-md-10">{% include "partials/field.html" with field=party_form.address wrap_class="" %}</div>
     <div class="col-md-2"><label class="form-label d-block" aria-hidden="true">&nbsp;</label><button class="btn btn-primary w-100"><i class="bi bi-plus-lg"></i>Ekle</button></div>
-    <div class="col-12 form-text">Aynı TCKN/VKN ile daha önce kaydedilmiş karşı taraf varsa mevcut kayıt kullanılır. Sağdaki UYAP listesi eklentiden gelir ve salt okunurdur.</div>
+    <div class="col-12 form-text">Aynı TCKN/VKN ile daha önce kaydedilmiş karşı taraf varsa mevcut kayıt kullanılır.{% if case.has_portal %} Sağdaki UYAP listesi eklentiden gelir ve salt okunurdur.{% endif %}</div>
   </form>
 </div>

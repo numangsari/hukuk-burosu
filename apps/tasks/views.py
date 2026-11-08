@@ -23,6 +23,7 @@ from apps.office.models import HEARING_TASK_TYPE_NAME, TaskType
 from . import services
 from .forms import CommentForm, TaskForm
 from .models import OPEN_STATUSES, Task, TaskDocument, TaskEvent, TaskStatus
+from .services import LEDGER_NOTE_PREFIX
 
 SCOPES = {
     "bana": "Bana atanmış",
@@ -366,9 +367,26 @@ class TaskDetailView(DetailView):
             can_delete=services.can_delete(t, u),
             **documents_context(t, u),
             events=t.events.exclude(kind=TaskEvent.Kind.COMMENT).select_related("actor"),
+            # Aşama notları (kontrole gönderme, revize) görev başlığında gösterilir.
+            stage_notes=t.events.filter(
+                kind__in=[TaskEvent.Kind.SUBMITTED, TaskEvent.Kind.REVISION, TaskEvent.Kind.CLOSED]
+            )
+            .exclude(comment="")
+            .select_related("actor")
+            .order_by("-created_at")[:3],
+            ledger_note=t.events.filter(
+                kind=TaskEvent.Kind.NOTE, comment__startswith=LEDGER_NOTE_PREFIX
+            )
+            .select_related("actor")
+            .order_by("-created_at")
+            .first()
+            if t.status == TaskStatus.DONE
+            else None,
             comments=t.events.filter(kind=TaskEvent.Kind.COMMENT).select_related("actor"),
             comment_form=CommentForm(),
-            notes=t.events.filter(kind=TaskEvent.Kind.NOTE).select_related("actor"),
+            notes=t.events.filter(kind=TaskEvent.Kind.NOTE)
+            .exclude(comment__startswith=LEDGER_NOTE_PREFIX)
+            .select_related("actor"),
         )
         return ctx
 
@@ -405,6 +423,23 @@ class TaskNoteView(View):
             TaskEvent.objects.create(
                 task=task, actor=request.user, kind=TaskEvent.Kind.NOTE, comment=content
             )
+        return redirect(
+            task.get_absolute_url() + ("?pencere=1" if request.GET.get("pencere") else "")
+        )
+
+
+class TaskNoteDeleteView(View):
+    """Elle yazılan görev notunu yalnızca yazan veya yönetici siler."""
+
+    def post(self, request, pk, note_pk):
+        task = visible_task_or_404(request, pk)
+        note = get_object_or_404(TaskEvent, pk=note_pk, task=task, kind=TaskEvent.Kind.NOTE)
+        if (
+            note.actor_id == request.user.pk or is_admin(request.user)
+        ) and not note.comment.startswith(LEDGER_NOTE_PREFIX):
+            note.delete()
+        else:
+            raise PermissionDenied
         return redirect(
             task.get_absolute_url() + ("?pencere=1" if request.GET.get("pencere") else "")
         )

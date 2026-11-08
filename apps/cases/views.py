@@ -1,4 +1,5 @@
 import datetime
+from decimal import Decimal
 
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied, ValidationError
@@ -245,7 +246,9 @@ class CaseFormMixin:
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
-        kwargs["can_remove_parties"] = has_perm(self.request.user, "cases.remove_party")
+        kwargs["can_remove_parties"] = has_perm(
+            self.request.user, "cases.remove_party", getattr(self, "object", None)
+        )
         kwargs["related_case"] = self._related_case_for_save() or self._related_case()
         kwargs["user"] = self.request.user
         return kwargs
@@ -525,6 +528,12 @@ class CaseDetailView(DetailView):
         from apps.activity.views import history_for
 
         ctx["history"] = history_for(case)
+        from apps.accounting import permissions as acc
+
+        # Rol yetkisizse dosyanın sorumlusu/yardımcı sorumlusu için matristeki seçenek geçerli.
+        ctx["can_edit_accounting"] = acc.can_edit(self.request.user, case)
+        ctx["can_exclude_portal"] = acc.can_exclude_portal(self.request.user, case)
+        ctx["can_view_balances"] = acc.can_view_balances(self.request.user, case)
         if can_view_accounting(self.request.user):
             # Bağlı dosyalarda muhasebe ortaktır: gruptaki tüm dosyaların hareketleri görünür.
             entries = LedgerEntry.objects.filter(
@@ -535,12 +544,34 @@ class CaseDetailView(DetailView):
                 len({cid for m in ctx["flow_members"] for cid in m.client_ids()}) > 1
             )
             ctx["ledger_rows"] = statement(entries.filter(is_cancelled=False))
+            # UYAP'ı olan dosyada hareketler iki sütunda gösterilir (büro / UYAP); bakiye ortaktır.
+            ctx["ledger_split"] = case.has_portal
+            if case.has_portal:
+                ctx["ledger_office_rows"] = [
+                    r for r in ctx["ledger_rows"] if not r["entry"].portal_ref
+                ]
+                ctx["ledger_portal_rows"] = [r for r in ctx["ledger_rows"] if r["entry"].portal_ref]
+                ctx["ledger_excluded_total"] = sum(
+                    (
+                        r["entry"].amount
+                        for r in ctx["ledger_portal_rows"]
+                        if r["entry"].excluded_from_balance
+                    ),
+                    Decimal("0.00"),
+                )
             ctx["cancelled_entries"] = entries.filter(is_cancelled=True).order_by("-cancelled_at")
             ctx["ledger_balances"] = entries.balances()
         return ctx
 
 
-class CaseDeleteView(PermissionRequiredMixin, View):
+class CaseObjectPermissionMixin(PermissionRequiredMixin):
+    """Dosya yetkisi: rol yetkisizse dosyanın sorumlusu/yardımcı sorumlusu da kullanabilir."""
+
+    def permission_object(self):
+        return Case.objects.select_related("client").filter(pk=self.kwargs.get("pk")).first()
+
+
+class CaseDeleteView(CaseObjectPermissionMixin, View):
     required_permission = "cases.delete"
 
     def post(self, request, pk):
@@ -590,7 +621,7 @@ class CasePartyAddView(View):
         return _parties_partial(request, case)
 
 
-class CasePartyRemoveView(PermissionRequiredMixin, View):
+class CasePartyRemoveView(CaseObjectPermissionMixin, View):
     required_permission = "cases.remove_party"
 
     def post(self, request, pk, link_pk):
@@ -819,7 +850,7 @@ class CaseCloseView(View):
         return redirect(closed)
 
 
-class CaseReopenView(PermissionRequiredMixin, View):
+class CaseReopenView(CaseObjectPermissionMixin, View):
     required_permission = "cases.reopen"
 
     def post(self, request, pk):

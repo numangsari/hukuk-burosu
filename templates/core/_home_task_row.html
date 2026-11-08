@@ -5,7 +5,7 @@
       <div class="task-title">{{ t.title|tr_title }}</div>
       <div class="task-meta task-meta-dotted">
         {% if not t.task_type|same_text:t.title %}<span>{{ t.task_type }}</span>{% endif %}
-        {% if not t.case_id %}<span>Ofis içi</span>{% else %}<span>{% if t.case.authority %}{{ t.case.authority }} {% endif %}<span class="tabular">{{ t.case.official_no_display|default:t.case.archive_no }}</span></span>
+        {% if not t.case_id %}<span>Ofis içi</span>{% else %}{% if t.case.archive_folder_no %}<span class="tabular">{{ t.case.archive_reference }}</span>{% endif %}<span>{{ t.case.display_name|tr_title }}</span>
         <span>{{ t.client|tr_title }}</span>{% endif %}
       </div>
       {% if t.revision_requested and t.revision_note and not review and not approved %}
