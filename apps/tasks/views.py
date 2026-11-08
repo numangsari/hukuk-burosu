@@ -333,9 +333,7 @@ class TaskDetailView(DetailView):
         t, u = self.object, self.request.user
         from apps.accounting.models import LedgerEntry
 
-        requires_accounting = bool(t.case_id) and (
-            t.requires_accounting or bool(t.task_type and t.task_type.requires_accounting)
-        )
+        requires_accounting = bool(t.case_id) and t.needs_accounting
         ledger_entries = (
             LedgerEntry.objects.active()
             .filter(client_id=t.client_id)

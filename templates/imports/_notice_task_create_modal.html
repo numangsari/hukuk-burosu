@@ -41,6 +41,7 @@
       </div>
       <div class="col-12">
         <div class="accounting-choice"><div class="accounting-choice-head"><span class="form-label fw-semibold mb-0">Gelir/gider kaydı</span><div class="segmented-control">{% for radio in form.requires_accounting %}{% if radio.data.value %}<label class="segment-choice">{{ radio.tag }}<span>{{ radio.choice_label }}</span></label>{% endif %}{% endfor %}</div></div><div class="form-text">{{ form.requires_accounting.help_text }}</div>{% for error in form.requires_accounting.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}</div>
+        <div class="accounting-choice"><div class="accounting-choice-head"><span class="form-label fw-semibold mb-0">Dilekçe zorunluluğu</span><div class="segmented-control">{% for radio in form.requires_document %}{% if radio.data.value %}<label class="segment-choice">{{ radio.tag }}<span>{{ radio.choice_label }}</span></label>{% endif %}{% endfor %}</div></div><div class="form-text">{{ form.requires_document.help_text }}</div>{% for error in form.requires_document.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}</div>
       </div>
       <div class="col-12">
         {% include "partials/field.html" with field=form.notes wrap_class="mb-0" %}

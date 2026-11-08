@@ -84,6 +84,7 @@ def create_due_hearing_tasks(reference_date: dt.date | None = None) -> list[Task
                 notes=notes,
                 hearing=h,
                 requires_accounting=False,
+                requires_document=False,
             )
             task.save()
             created_tasks.append(task)

@@ -499,3 +499,52 @@ def test_task_notes_are_separate_and_record_author(task_factory, lawyer, intern)
     assert [note.actor for note in response.context["notes"]] == [intern, lawyer]
     task.refresh_from_db()
     assert task.notes == "Önceki not"
+
+
+def test_document_and_accounting_follow_type_unless_task_overrides(task_factory):
+    doc_type = TaskType.objects.filter(requires_document=True, is_active=True).first()
+    t = task_factory(task_type=doc_type)
+    assert t.needs_document is True  # seçim yoksa türün varsayılanı
+    t.requires_document = False
+    assert t.needs_document is False  # oluşturan görev başına değiştirebilir
+    t.requires_document = True
+    t.task_type = TaskType.objects.get(name="Müvekkil Görüşmesi")
+    assert t.needs_document is True
+    t.requires_accounting = None
+    assert t.needs_accounting is False
+    t.requires_accounting = True
+    assert t.needs_accounting is True
+
+
+def test_submit_respects_task_level_document_choice(task_factory, intern):
+    doc_type = TaskType.objects.filter(requires_document=True, is_active=True).first()
+    required = task_factory(task_type=doc_type, requires_document=None)
+    with pytest.raises(ValidationError):
+        services.perform(required, "submit", intern)
+    waived = task_factory(task_type=doc_type, requires_document=False)
+    services.perform(waived, "submit", intern)  # oluşturan dilekçeyi zorunlu tutmadı
+    assert waived.status == TaskStatus.REVIEW
+
+
+def test_task_form_has_document_choice_and_keeps_creator_override(
+    admin_user, lawyer, intern, case_factory
+):
+    doc_type = TaskType.objects.filter(requires_document=True, is_active=True).first()
+    case = case_factory()
+    data = {
+        "task_type": doc_type.pk,
+        "title": "Deneme",
+        "case": case.pk,
+        "assignee": intern.pk,
+        "reviewer": lawyer.pk,
+        "due_date": (timezone.localdate() + dt.timedelta(days=3)).isoformat(),
+        "requires_accounting": "no",
+        "requires_document": "no",
+    }
+    page = login(admin_user).get(reverse("tasks:create")).content.decode()
+    assert 'name="requires_document"' in page and "Dilekçe zorunluluğu" in page
+    r = login(admin_user).post(reverse("tasks:create"), data)
+    assert r.status_code == 302
+    task = Task.objects.get(title="DENEME")
+    assert task.requires_document is False and task.requires_accounting is False
+    assert task.needs_document is False

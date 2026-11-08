@@ -10,11 +10,10 @@ from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.views.generic import CreateView, ListView, UpdateView, View
 
 from apps.core.permissions import RoutineManagerMixin
-from apps.office.models import TaskType
 
 from .forms import TaskForm
 from .models import RoutineDocument, RoutineTask
-from .routines import ROUTINE_TYPE_NAME
+from .routines import routine_task_type
 
 
 class RoutineForm(TaskForm):
@@ -32,6 +31,7 @@ class RoutineForm(TaskForm):
             "reviewer",
             "second_reviewer",
             "requires_accounting",
+            "requires_document",
             "notes",
             "frequency",
             "weekday",
@@ -60,16 +60,21 @@ class RoutineForm(TaskForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["task_type"].required = True
+        # Rutin görevin türü her zaman "Rutin Görev"dir ve değiştirilemez.
+        routine_type = routine_task_type()
+        self.fields["task_type"].disabled = True
+        self.fields["task_type"].required = False
+        self.initial["task_type"] = routine_type.pk
+        if not self.instance.pk:
+            self.initial["requires_accounting"] = (
+                "yes" if routine_type.requires_accounting else "no"
+            )
+            self.initial["requires_document"] = "yes" if routine_type.requires_document else "no"
         if self.instance.pk:
             self.initial["weekday"] = (
                 "" if self.instance.weekday is None else str(self.instance.weekday)
             )
             self.fields["remove_documents"].queryset = self.instance.documents.all()
-        else:
-            routine_type = TaskType.objects.filter(name=ROUTINE_TYPE_NAME, is_active=True).first()
-            if routine_type:
-                self.initial.setdefault("task_type", routine_type.pk)
 
     def clean(self):
         data = super().clean()
@@ -84,6 +89,7 @@ class RoutineForm(TaskForm):
         return data
 
     def save(self, commit=True):
+        self.instance.task_type = routine_task_type()
         routine = super().save(commit=commit)
         if commit:
             self.save_documents(routine)

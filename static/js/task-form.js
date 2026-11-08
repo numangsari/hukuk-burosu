@@ -51,18 +51,30 @@
         // Müvekkil seçimi temizlenince sunucunun çizdiği tam liste geri konur.
         this.allOptions = this.$refs.case.innerHTML;
         const typeId = Number(document.getElementById("id_task_type").value);
-        this.requiresDocument = JSON.parse(document.getElementById("document-types").textContent).includes(typeId);
-        this.requiresAccounting = JSON.parse(document.getElementById("accounting-types").textContent).includes(typeId);
+        const checked = name => document.querySelector(`input[name="${name}"]:checked`);
+        const doc = checked("requires_document"), acc = checked("requires_accounting");
+        this.requiresDocument = doc ? doc.value === "yes" : this.typeIds("document-types", typeId);
+        this.requiresAccounting = acc ? acc.value === "yes" : this.typeIds("accounting-types", typeId);
+        document.querySelectorAll('input[name="requires_document"]').forEach(radio =>
+          radio.addEventListener("change", () => { this.requiresDocument = radio.value === "yes"; }));
+        document.querySelectorAll('input[name="requires_accounting"]').forEach(radio =>
+          radio.addEventListener("change", () => { this.requiresAccounting = radio.value === "yes"; }));
+      },
+      typeIds(id, typeId) {
+        return JSON.parse(document.getElementById(id).textContent).includes(typeId);
+      },
+      setRadio(name, value) {
+        const radio = document.querySelector(`input[name="${name}"][value="${value ? "yes" : "no"}"]`);
+        if (radio) radio.checked = true;
       },
       taskTypeChanged(event) {
         const selected = event.target.selectedOptions[0];
         const typeId = Number(event.target.value);
-        this.requiresDocument = JSON.parse(document.getElementById("document-types").textContent).includes(typeId);
-        this.requiresAccounting = JSON.parse(document.getElementById("accounting-types").textContent).includes(typeId);
-        if (this.requiresAccounting) {
-          const yesRadio = document.querySelector('input[name="requires_accounting"][value="yes"]');
-          if (yesRadio) yesRadio.checked = true;
-        }
+        // Görev türünün varsayılanları seçilir; oluşturan bunları değiştirebilir.
+        this.requiresDocument = this.typeIds("document-types", typeId);
+        this.requiresAccounting = this.typeIds("accounting-types", typeId);
+        this.setRadio("requires_document", this.requiresDocument);
+        this.setRadio("requires_accounting", this.requiresAccounting);
         const title = document.getElementById("id_title");
         title.value = selected && selected.value && selected.text.trim().toLocaleLowerCase('tr-TR') !== 'diğer'
           ? selected.text.trim() : '';

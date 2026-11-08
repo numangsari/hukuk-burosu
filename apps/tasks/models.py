@@ -81,6 +81,7 @@ class RoutineTask(TimeStampedModel):
         limit_choices_to={"is_active": True},
     )
     requires_accounting = models.BooleanField("gelir/gider kaydı", null=True, blank=True)
+    requires_document = models.BooleanField("dilekçe zorunluluğu", null=True, blank=True)
     notes = models.TextField("not", blank=True)
     frequency = models.CharField(
         "sıklık", max_length=10, choices=Frequency.choices, default=Frequency.WEEKLY
@@ -109,6 +110,18 @@ class RoutineTask(TimeStampedModel):
     def client_id(self):
         """Müvekkil her zaman dosyanın müvekkilidir (görev formuyla aynı arayüz)."""
         return self.case.client_id if self.case_id else None
+
+    @property
+    def needs_accounting(self) -> bool:
+        if self.requires_accounting is not None:
+            return self.requires_accounting
+        return bool(self.task_type_id and self.task_type.requires_accounting)
+
+    @property
+    def needs_document(self) -> bool:
+        if self.requires_document is not None:
+            return self.requires_document
+        return bool(self.task_type_id and self.task_type.requires_document)
 
     @property
     def schedule_label(self) -> str:
@@ -191,6 +204,8 @@ class Task(TimeStampedModel):
     work_order_no = models.CharField("iş emri no", max_length=60, blank=True)
     notes = models.TextField("notlar", blank=True)
     requires_accounting = models.BooleanField("gelir/gider kaydı", null=True, blank=True)
+    # Boşsa görev türünün varsayılanı geçerlidir; oluşturan görev başına değiştirebilir.
+    requires_document = models.BooleanField("dilekçe zorunluluğu", null=True, blank=True)
     hearing = models.ForeignKey(
         "cases.Hearing",
         verbose_name="bağlı duruşma / etkinlik",
@@ -256,6 +271,20 @@ class Task(TimeStampedModel):
 
     def get_absolute_url(self):
         return reverse("tasks:detail", args=[self.pk])
+
+    @property
+    def needs_accounting(self) -> bool:
+        """Gelir/gider kaydı gerekli mi: görevdeki seçim, yoksa görev türünün varsayılanı."""
+        if self.requires_accounting is not None:
+            return self.requires_accounting
+        return bool(self.task_type_id and self.task_type.requires_accounting)
+
+    @property
+    def needs_document(self) -> bool:
+        """Kontrole göndermek için dilekçe gerekli mi: görevdeki seçim, yoksa türün varsayılanı."""
+        if self.requires_document is not None:
+            return self.requires_document
+        return bool(self.task_type_id and self.task_type.requires_document)
 
     @property
     def active_reviewer_id(self):

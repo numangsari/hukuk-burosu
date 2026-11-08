@@ -49,6 +49,16 @@ class TaskForm(BootstrapMixin, forms.ModelForm):
         widget=forms.RadioSelect,
     )
 
+    requires_document = forms.TypedChoiceField(
+        label="Dilekçe zorunluluğu",
+        help_text="Kontrole göndermek için dilekçe yüklenmesi gerekiyorsa seçiniz.",
+        choices=[("", "Seçiniz…"), ("yes", "Var"), ("no", "Yok")],
+        coerce=lambda value: value == "yes",
+        empty_value=None,
+        required=False,
+        widget=forms.RadioSelect,
+    )
+
     class Meta:
         model = Task
         fields = [
@@ -62,6 +72,7 @@ class TaskForm(BootstrapMixin, forms.ModelForm):
             "work_order_no",
             "notes",
             "requires_accounting",
+            "requires_document",
         ]
         widgets = {"due_date": DateInput()}
         labels = {"work_order_no": "İş emri no"}
@@ -79,10 +90,10 @@ class TaskForm(BootstrapMixin, forms.ModelForm):
         else:
             self.fields["reviewer"].required = True
 
-        if self.instance.pk and self.instance.requires_accounting is not None:
-            self.initial["requires_accounting"] = (
-                "yes" if self.instance.requires_accounting else "no"
-            )
+        if self.instance.pk:
+            # Kayıtlı görevde seçim yoksa görev türünün varsayılanı gösterilir.
+            self.initial["requires_accounting"] = "yes" if self.instance.needs_accounting else "no"
+            self.initial["requires_document"] = "yes" if self.instance.needs_document else "no"
         types = TaskType.objects.filter(is_active=True).exclude(name__iexact=HEARING_TASK_TYPE_NAME)
         cases = Case.objects.exclude(status=CaseStatus.CLOSED)
         users = User.objects.filter(is_active=True)
@@ -192,12 +203,13 @@ class TaskForm(BootstrapMixin, forms.ModelForm):
             self.add_error(
                 "reviewer", "Yardımcı personel görevlerinde kontrolcü seçimi zorunludur."
             )
-        if data.get("task_type") and data["task_type"].requires_accounting:
-            data["requires_accounting"] = True
         if not case:
             data["requires_accounting"] = False  # ofis içi görevde müvekkil gelir/gideri olmaz
-        # İş emri numarası yalnızca dilekçe (belge zorunlu) görev türlerinde tutulur.
-        if not (data.get("task_type") and data["task_type"].requires_document):
+        # İş emri numarası yalnızca dilekçe zorunlu görevlerde tutulur.
+        needs_document = data.get("requires_document")
+        if needs_document is None:
+            needs_document = bool(data.get("task_type") and data["task_type"].requires_document)
+        if not needs_document:
             data["work_order_no"] = ""
         return data
 

@@ -234,9 +234,7 @@ def perform(
             if not comment:
                 raise ValidationError("Görevi kapatmak için sonuç notu yazmalısınız.")
 
-        if task.case_id and (
-            task.requires_accounting or (task.task_type and task.task_type.requires_accounting)
-        ):
+        if task.case_id and task.needs_accounting:
             entry = (
                 LedgerEntry.objects.filter(
                     pk=ledger_id if str(ledger_id).isdigit() else 0,
@@ -252,7 +250,7 @@ def perform(
         raise ValidationError("Revizyon isterken açıklama yazmalısınız.")
     if (
         key in ("submit", "approve", "close")
-        and task.task_type.requires_document
+        and task.needs_document
         and not task.hearing_id
         and not task.documents.filter(is_current=True, kind="petition").exists()
     ):
@@ -325,9 +323,7 @@ def perform(
                 from apps.agenda.google_sync import queue_hearing_google_sync
 
                 transaction.on_commit(lambda: queue_hearing_google_sync(next_hearing))
-        if task.case_id and (
-            task.requires_accounting or (task.task_type and task.task_type.requires_accounting)
-        ):
+        if task.case_id and task.needs_accounting:
             TaskEvent.objects.create(
                 task=task,
                 actor=user,

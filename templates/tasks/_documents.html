@@ -3,7 +3,7 @@
   {% if doc_error %}<div class="alert alert-danger small mb-0">{{ doc_error }}</div>{% endif %}
   {% if doc_warning %}<div class="alert alert-warning small mb-0">{{ doc_warning }}</div>{% endif %}
   <section class="card">
-    <div class="card-header"><div><h2 class="card-title">Dilekçeler</h2><div class="small text-body-secondary mt-1">Görev sırasında hazırlanan belgeler</div></div>{% if task.task_type.requires_document %}<span class="chip chip-warning no-dot">Kontrol için dilekçe zorunlu</span>{% endif %}{% if task.task_type.petition_template %}<a class="btn btn-light btn-sm ms-auto" href="{% url 'tasks:petition_template' task.pk %}" download><i class="bi bi-download"></i>Şablon dilekçe indir</a>{% endif %}</div>
+    <div class="card-header"><div><h2 class="card-title">Dilekçeler</h2><div class="small text-body-secondary mt-1">Görev sırasında hazırlanan belgeler</div></div>{% if task.needs_document %}<span class="chip chip-warning no-dot">Kontrol için dilekçe zorunlu</span>{% endif %}{% if task.task_type.petition_template %}<a class="btn btn-light btn-sm ms-auto" href="{% url 'tasks:petition_template' task.pk %}" download><i class="bi bi-download"></i>Şablon dilekçe indir</a>{% endif %}</div>
     {% if task.status == "review" %}<div class="alert alert-info small m-3 mb-0 py-2">Kontroldeki dilekçeler değiştirilemez. Değişiklik gerekiyorsa önce revizyon istenmelidir.</div>{% endif %}
     {% if petition_docs %}<ul class="doc-list">{% for d in petition_docs %}{% include "tasks/_document_row.html" %}{% endfor %}</ul>
     {% else %}<div class="empty-state py-3"><i class="bi bi-file-earmark-text"></i><strong>Henüz dilekçe yüklenmedi</strong></div>{% endif %}

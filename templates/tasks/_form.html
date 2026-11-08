@@ -12,8 +12,8 @@
       <div class="col-md-8">{% include "partials/field.html" with field=form.title %}</div>
     </div>
     {% if form.work_order_no %}<div class="row" x-show="requiresDocument" x-cloak><div class="col-md-4">{% include "partials/field.html" with field=form.work_order_no %}</div></div>{% endif %}
-    <p class="text-body-secondary small mb-0" x-show="requiresDocument" x-cloak><i class="bi bi-file-earmark-text text-primary me-1"></i>Bu görev türünde dilekçe / belge oluşturmak gerekmektedir.</p>
-    <p class="text-body-secondary small mb-0 text-primary" x-show="requiresAccounting" x-cloak><i class="bi bi-wallet2 me-1"></i>Bu görev türünde gelir / gider kaydı işlemek zorunludur.</p>
+    <p class="text-body-secondary small mb-0" x-show="requiresDocument" x-cloak><i class="bi bi-file-earmark-text text-primary me-1"></i>Bu görevde dilekçe / belge oluşturmak gerekmektedir.</p>
+    <p class="text-body-secondary small mb-0 text-primary" x-show="requiresAccounting" x-cloak><i class="bi bi-wallet2 me-1"></i>Bu görevde gelir / gider kaydı işlemek zorunludur.</p>
   </div>
   <div class="form-section card">
     <div class="form-section-head"><h2>İlgili dosya</h2><p>Müvekkil seçerseniz dosya listesi o müvekkile göre filtrelenir; dosya seçilince müvekkil otomatik gelir.</p></div>
@@ -30,7 +30,10 @@
       <div class="col-md-3">{% include "partials/field.html" with field=form.second_reviewer %}</div>
       {% if form.due_date %}<div class="col-md-3">{% include "partials/field.html" with field=form.due_date %}</div>{% endif %}
     </div>
+    <div class="d-flex flex-wrap gap-4">
     <div class="mb-3 accounting-choice"><div class="accounting-choice-head"><label class="form-label fw-semibold mb-0">Gelir/gider kaydı</label><div class="segmented-control">{% for radio in form.requires_accounting %}{% if radio.data.value %}<label class="segment-choice">{{ radio.tag }}<span>{{ radio.choice_label }}</span></label>{% endif %}{% endfor %}</div></div><div class="form-text">{{ form.requires_accounting.help_text }}</div>{% for error in form.requires_accounting.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}</div>
+    <div class="mb-3 accounting-choice"><div class="accounting-choice-head"><label class="form-label fw-semibold mb-0">Dilekçe zorunluluğu</label><div class="segmented-control">{% for radio in form.requires_document %}{% if radio.data.value %}<label class="segment-choice">{{ radio.tag }}<span>{{ radio.choice_label }}</span></label>{% endif %}{% endfor %}</div></div><div class="form-text">{{ form.requires_document.help_text }}</div>{% for error in form.requires_document.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}</div>
+    </div>
     {% if form.notes %}{% include "partials/field.html" with field=form.notes wrap_class="" %}{% endif %}
     {% if form.document %}{% include "partials/field.html" with field=form.document %}<ul class="small list-unstyled" id="selected-documents" aria-label="Seçilen belgeler"></ul>{% endif %}
     {% if form.remove_documents and form.remove_documents.field.queryset %}<div class="mb-3"><label class="form-label fw-semibold">Eklenmiş belgeler <span class="fw-normal text-body-secondary">(işaretlenenler kaldırılır)</span></label>{{ form.remove_documents }}</div>{% endif %}

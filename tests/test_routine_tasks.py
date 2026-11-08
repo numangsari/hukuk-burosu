@@ -6,6 +6,7 @@ from django.test import Client as HttpClient
 from django.urls import reverse
 
 from apps.accounts.models import User
+from apps.office.models import TaskType
 from apps.tasks import routines
 from apps.tasks.models import RoutineTask, Task
 
@@ -282,3 +283,31 @@ def test_routine_second_reviewer_needs_first(admin_user, intern, lawyer):
     )
     assert "second_reviewer" in r.context["form"].errors
     assert not RoutineTask.objects.exists()
+
+
+def test_routine_type_is_fixed_and_title_is_free(admin_user, intern, lawyer):
+    other = TaskType.objects.create(name="Başka tür")
+    r = login(admin_user).post(
+        reverse("tasks:routine_create"),
+        {
+            "task_type": other.pk,  # değiştirilmeye çalışılsa da yok sayılır
+            "requires_accounting": "no",
+            "requires_document": "yes",
+            "title": "Serbest ad",
+            "assignee": intern.pk,
+            "reviewer": lawyer.pk,
+            "frequency": "weekly",
+            "weekday": "0",
+            "due_days": "0",
+            "is_active": "on",
+        },
+    )
+    assert r.status_code == 302
+    obj = RoutineTask.objects.get()
+    assert obj.task_type == routines.routine_task_type() and obj.requires_document is True
+    routines.create_due_tasks(MONDAY)
+    task = Task.objects.get()
+    assert task.task_type == routines.routine_task_type()
+    assert task.requires_document is True and task.title == "SERBEST AD"
+    page = login(admin_user).get(reverse("tasks:routine_create")).content.decode()
+    assert 'name="requires_document"' in page
