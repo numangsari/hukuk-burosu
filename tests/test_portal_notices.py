@@ -229,7 +229,7 @@ def test_case_badges_and_portal_parties_are_read_only(client):
     page = client.get(case.get_absolute_url()).content.decode()
     assert "badge-source-uyap" in page
     assert 'aria-label="UYAP kaydı"' in page
-    assert "KAYNAK TARAF" in page and "UYAP taraf bilgileri" in page
+    assert "Kaynak Taraf" in page and "UYAP (salt okunur)" in page
     assert record.case.client_id == office_client.pk
     listing = client.get(reverse("cases:list")).content.decode()
     assert "badge-source-uyap" in listing

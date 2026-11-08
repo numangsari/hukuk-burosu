@@ -23,7 +23,7 @@ def greeting(hour: int) -> str:
 def _home_tasks(**filters):
     return (
         Task.objects.filter(**filters)
-        .select_related("task_type", "case", "client", "assignee", "reviewer")
+        .select_related("task_type", "case", "client", "assignee", "reviewer", "second_reviewer")
         .order_by("due_date", "pk")
     )
 
@@ -55,6 +55,11 @@ def review_tasks_for(user):
     )
 
 
+def submitted_tasks_for(user):
+    """Kontrole gönderdiğim, hâlâ kontrolde olan görevler. En acil üstte."""
+    return _home_tasks(status=TaskStatus.REVIEW).filter(assignee=user)
+
+
 class HomeView(TemplateView):
     template_name = "core/home.html"
 
@@ -71,14 +76,24 @@ class HomeView(TemplateView):
         result = calendar_events(today, today + dt.timedelta(days=AGENDA_DAYS), user=user)
         by_day = group_by_day(result.events)
         own = own_tasks_for(user)
-        # Yalnızca kontrolcü olabilen rollerde (yönetici, kıdemli avukat, avukat) gösterilir.
-        show_review = user.role in (user.Role.ADMIN, user.Role.SENIOR, user.Role.LAWYER)
+        # Yönetici: kontrolümü bekleyenler. Kıdemli ve avukat: bekleyenler + kontrolde olanlar.
+        # Stajyer: yalnızca kontrolde olanlar.
+        Role = user.Role
+        show_review = user.role in (Role.ADMIN, Role.SENIOR, Role.LAWYER)
+        show_submitted = user.role in (Role.SENIOR, Role.LAWYER, Role.INTERN)
         if show_review:
             review = review_tasks_for(user)
             ctx.update(review_tasks=review[:HOME_TASK_LIMIT], review_task_count=review.count())
+        if show_submitted:
+            submitted = submitted_tasks_for(user)
+            ctx.update(
+                submitted_tasks=submitted[:HOME_TASK_LIMIT], submitted_task_count=submitted.count()
+            )
         ctx.update(
             greeting=greeting(now.hour),
             show_review=show_review,
+            show_submitted=show_submitted,
+            show_side=show_review or show_submitted,
             approved_tasks=approved_unseen_for(user)[:HOME_TASK_LIMIT],
             own_tasks=own[:HOME_TASK_LIMIT],
             own_task_count=own.count() + approved_unseen_for(user).count(),

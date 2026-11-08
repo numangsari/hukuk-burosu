@@ -75,6 +75,78 @@ def party_groups(case, party_links, include_empty=False):
     return [g for i, g in enumerate(groups) if g["items"] or (include_empty and i < 2)]
 
 
+def _portal_parties(case):
+    """UYAP kaydındaki taraf listesi (kayıtlı `CaseParty` yoksa ham eklenti verisi)."""
+    portal = getattr(case, "portalcase", None)
+    data = portal.data if portal and isinstance(portal.data, dict) else {}
+    lists = data.get("taraf_listeleri")
+    last = lists[-1] if isinstance(lists, list) and lists else []
+    items = []
+    for party in last if isinstance(last, list) else []:
+        if not isinstance(party, dict):
+            continue
+        items.append(
+            {
+                "role": str(party.get("rol") or ""),
+                "name": str(party.get("adi") or ""),
+                "identity": "",
+                "lawyer": str(party.get("vekil") or ""),
+                "address": "",
+                "is_client": False,
+                "url": "",
+                "link_pk": None,
+            }
+        )
+    return items
+
+
+def party_columns(case, party_links):
+    """Taraflar iki sütundur: solda büronun girdikleri (müvekkil + elle taraf), sağda UYAP'tan
+    gelen salt okunur liste. Her satır sıfat + isim olarak alt alta sıralanır."""
+    office, uyap = [], []
+    if case.client_id and case.client_role:
+        office.append(
+            {
+                "role": case.get_client_role_display(),
+                "name": case.client.name,
+                "identity": "",
+                "lawyer": "",
+                "address": "",
+                "is_client": True,
+                "url": case.client.get_absolute_url(),
+                "link_pk": None,
+            }
+        )
+    for extra in case.co_client_links.select_related("client"):
+        office.append(
+            {
+                "role": extra.role_label,
+                "name": extra.client.name,
+                "identity": "",
+                "lawyer": "",
+                "address": "",
+                "is_client": True,
+                "url": extra.client.get_absolute_url(),
+                "link_pk": None,
+            }
+        )
+    for link in party_links:
+        item = {
+            "role": link.get_role_display(),
+            "name": link.party.name,
+            "identity": link.party.identity_no,
+            "lawyer": link.party.lawyer,
+            "address": link.party.address,
+            "is_client": False,
+            "url": "",
+            "link_pk": None if link.from_uyap else link.pk,
+        }
+        (uyap if link.from_uyap else office).append(item)
+    if not uyap:
+        uyap = _portal_parties(case)
+    return {"office": office, "uyap": uyap}
+
+
 def build_summary(case, tasks, flow_members, documents, today):
     """Sayaçlar ve yaklaşan işler. Girdiler ayrıca sorgulanmaması için hazır listelerdir."""
     open_tasks = [t for t in tasks if t.status in OPEN_STATUSES]

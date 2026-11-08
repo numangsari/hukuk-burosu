@@ -68,13 +68,11 @@ class TaskForm(BootstrapMixin, forms.ModelForm):
             "reviewer",
             "second_reviewer",
             "due_date",
-            "work_order_no",
             "notes",
             "requires_accounting",
             "requires_document",
         ]
         widgets = {"due_date": DateInput()}
-        labels = {"work_order_no": "İş emri no"}
 
     def __init__(self, *args, user=None, **kwargs):
         super().__init__(*args, **kwargs)
@@ -205,12 +203,6 @@ class TaskForm(BootstrapMixin, forms.ModelForm):
             )
         if not case:
             data["requires_accounting"] = False  # ofis içi görevde müvekkil gelir/gideri olmaz
-        # İş emri numarası yalnızca dilekçe zorunlu görevlerde tutulur.
-        needs_document = data.get("requires_document")
-        if needs_document is None:
-            needs_document = bool(data.get("task_type") and data["task_type"].requires_document)
-        if not needs_document:
-            data["work_order_no"] = ""
         return data
 
 

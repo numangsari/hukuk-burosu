@@ -78,80 +78,89 @@ def test_entry_form_offers_receipt_number_field(admin_user):
     assert 'name="receipt_no"' in html and "Makbuz no" in html
 
 
-# ---- dilekçe görevi: iş emri no -------------------------------------------------------
+# ---- görev kapatılırken iş emri no ve makbuz no (zorunlu değil) -------------------------
 
 
-def petition_type():
-    return TaskType.objects.filter(requires_document=True, is_active=True).first()
+def make_task(case, lawyer, intern, **kw):
+    from django.utils import timezone
 
-
-def plain_type():
-    return (
-        TaskType.objects.filter(requires_document=False, is_active=True)
-        .exclude(name__iexact="Duruşma")
-        .first()
-    )
-
-
-def task_data(case, lawyer, intern, task_type, **values):
-    data = {
-        "task_type": task_type.pk,
+    defaults = {
+        "task_type": TaskType.objects.get(name="Müvekkil Görüşmesi"),
         "title": "Örnek görev",
-        "client": case.client_id,
-        "case": case.pk,
-        "assignee": intern.pk,
-        "reviewer": lawyer.pk,
-        "due_date": "2026-11-10",
-        "requires_accounting": "no",
-        "work_order_no": "İE-2026/44",
+        "case": case,
+        "assignee": intern,
+        "reviewer": None,
+        "due_date": timezone.localdate(),
+        "created_by": lawyer,
     }
-    data.update(values)
-    return data
+    defaults.update(kw)
+    return Task.objects.create(**defaults)
 
 
-def test_petition_task_keeps_work_order_number(case_factory, lawyer, intern):
-    case = case_factory()
-    response = login(lawyer).post(
-        reverse("tasks:create"), task_data(case, lawyer, intern, petition_type())
+def add_petition(task, user):
+    from django.core.files.base import ContentFile
+
+    from apps.tasks.models import TaskDocument
+
+    doc = TaskDocument(task=task, kind="petition", original_name="d.pdf", size=9, uploaded_by=user)
+    doc.file.save("d.pdf", ContentFile(b"%PDF-1.4 x"), save=False)
+    doc.save()
+
+
+def close(client, task, **extra):
+    return client.post(
+        reverse("tasks:action", args=[task.pk]), {"action": "close", "comment": "Bitti", **extra}
     )
-    assert response.status_code == 302
-    assert Task.objects.get().work_order_no == "İE-2026/44"
 
 
-def test_work_order_number_is_dropped_for_non_petition_task_types(case_factory, lawyer, intern):
-    case = case_factory()
-    response = login(lawyer).post(
-        reverse("tasks:create"), task_data(case, lawyer, intern, plain_type())
-    )
-    assert response.status_code == 302
-    assert Task.objects.get().work_order_no == ""
-
-
-def test_work_order_number_is_optional_and_limited(case_factory, lawyer, intern):
-    case = case_factory()
-    data = task_data(case, lawyer, intern, petition_type())
-    data["work_order_no"] = "x" * 61
-    response = login(lawyer).post(reverse("tasks:create"), data)
-    assert "work_order_no" in response.context["form"].errors
-    data.pop("work_order_no")
-    assert login(lawyer).post(reverse("tasks:create"), data).status_code == 302
-    assert Task.objects.get().work_order_no == ""
-
-
-def test_work_order_number_can_be_edited_and_is_shown_on_detail(case_factory, lawyer, intern):
-    case = case_factory()
-    client = login(lawyer)
-    client.post(reverse("tasks:create"), task_data(case, lawyer, intern, petition_type()))
-    task = Task.objects.get()
-    detail = client.get(task.get_absolute_url()).content.decode()
-    assert "İş emri no" in detail and "İE-2026/44" in detail
-    data = task_data(case, lawyer, intern, task.task_type, work_order_no="İE-2026/99")
-    data.pop("document", None)
-    assert client.post(reverse("tasks:update", args=[task.pk]), data).status_code == 302
-    task.refresh_from_db()
-    assert task.work_order_no == "İE-2026/99"
-
-
-def test_task_form_offers_work_order_field(lawyer):
+def test_task_form_no_longer_asks_work_order_number(lawyer):
     html = login(lawyer).get(reverse("tasks:create")).content.decode()
-    assert 'name="work_order_no"' in html and "İş emri no" in html
+    assert 'name="work_order_no"' not in html
+
+
+def test_work_order_number_saved_at_close_for_petition_tasks(case_factory, lawyer, intern):
+    task = make_task(case_factory(), lawyer, intern, requires_document=True)
+    add_petition(task, lawyer)
+    detail = login(intern).get(task.get_absolute_url()).content.decode()
+    assert 'name="work_order_no"' in detail and 'name="receipt_no"' not in detail
+    close(login(intern), task, work_order_no=" İE-2026/44 ")
+    task.refresh_from_db()
+    assert task.work_order_no == "İE-2026/44"
+    assert "İş emri no" in login(intern).get(task.get_absolute_url()).content.decode()
+
+
+def test_work_order_number_is_optional_and_dropped_without_petition(case_factory, lawyer, intern):
+    petition = make_task(case_factory(), lawyer, intern, requires_document=True)
+    add_petition(petition, lawyer)
+    assert close(login(intern), petition).status_code == 302
+    petition.refresh_from_db()
+    assert petition.status == "done" and petition.work_order_no == ""
+    plain = make_task(case_factory(), lawyer, intern, requires_document=False)
+    close(login(intern), plain, work_order_no="İE-1")
+    plain.refresh_from_db()
+    assert plain.work_order_no == ""
+
+
+def test_receipt_number_saved_at_close_for_accounting_tasks(case_factory, lawyer, intern):
+    case = case_factory()
+    entry = LedgerEntry.objects.create(
+        client=case.client, case=case, kind="expense", amount=10, date="2026-11-01"
+    )
+    task = make_task(case, lawyer, intern, requires_accounting=True)
+    detail = login(intern).get(task.get_absolute_url()).content.decode()
+    assert 'name="receipt_no"' in detail
+    close(login(intern), task, ledger_id=entry.pk, receipt_no="MKB-9")
+    task.refresh_from_db()
+    assert task.receipt_no == "MKB-9" and task.status == "done"
+    other = make_task(case, lawyer, intern, requires_accounting=False)
+    close(login(intern), other, receipt_no="MKB-1")
+    other.refresh_from_db()
+    assert other.receipt_no == ""
+
+
+def test_numbers_have_a_length_limit(case_factory, lawyer, intern):
+    task = make_task(case_factory(), lawyer, intern, requires_document=True)
+    add_petition(task, lawyer)
+    close(login(intern), task, work_order_no="x" * 61)
+    task.refresh_from_db()
+    assert task.status == "active"

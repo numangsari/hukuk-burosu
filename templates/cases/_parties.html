@@ -1,47 +1,49 @@
 {% load ui %}
 <div id="parties" class="card">
   <div class="card-header"><h2 class="card-title">Taraflar</h2></div>
-  {% with groups=party_tab_groups|default:party_groups %}
   <div class="card-body">
-    <div class="row g-3">
-      {% for group in groups %}
-      <div class="{% if groups|length == 1 %}col-12{% else %}col-lg-6{% endif %}">
+    <div class="row g-4">
+      <div class="col-lg-6">
         <div class="party-lane h-100">
-          <div class="party-lane-head">{{ group.label }}</div>
-          {% for item in group.items %}
+          <div class="party-lane-head">Büro kaydı</div>
+          {% for item in party_columns.office %}
           <div class="party-detail">
             <span class="avatar avatar-sm party-avatar"><i class="bi {% if item.is_client %}bi-person-check{% else %}bi-person{% endif %}"></i></span>
             <div class="min-w-0 flex-grow-1">
-              <div class="fw-medium">
-                {% if item.from_uyap %}<span class="badge-source badge-source-uyap me-1" role="img" aria-label="UYAP kaydı" title="UYAP kaydı (salt okunur)"><i class="bi bi-bank2" aria-hidden="true"></i></span>{% endif %}
-                {% if item.url %}<a href="{{ item.url }}">{{ item.name|tr_title }}</a>{% else %}{{ item.name|tr_title }}{% endif %}{% if item.is_client %} <span class="text-body-secondary fw-normal">(müvekkil)</span>{% endif %} <span class="chip no-dot ms-1">{{ item.role }}</span>
-              </div>
+              <div class="fw-medium"><span class="chip no-dot me-1">{{ item.role }}</span>{% if item.url %}<a href="{{ item.url }}">{{ item.name|tr_title }}</a>{% else %}{{ item.name|tr_title }}{% endif %}{% if item.is_client %} <span class="text-body-secondary fw-normal">(müvekkil)</span>{% endif %}</div>
               <div class="small text-body-secondary">
                 {% if item.identity %}<span class="me-3">TCKN / VKN <span class="tabular">{{ item.identity }}</span></span>{% endif %}
                 {% if item.lawyer %}<span class="me-3">Vekili {{ item.lawyer|tr_title }}</span>{% endif %}
                 {% if item.address %}<span>{{ item.address }}</span>{% endif %}
               </div>
             </div>
-            {% if item.link_pk and not item.from_uyap and request.user.is_office_admin %}
+            {% if item.link_pk and request.user.is_office_admin %}
             <button class="btn-ghost-danger" title="Dosyadan çıkar" hx-post="{% url 'cases:party_remove' case.pk item.link_pk %}" hx-target="#parties" hx-swap="outerHTML" hx-confirm="Taraf dosyadan çıkarılsın mı?"><i class="bi bi-x-lg"></i></button>
             {% endif %}
           </div>
-          {% empty %}<div class="small text-body-secondary">Bu tarafta kayıt yok.</div>{% endfor %}
+          {% empty %}<div class="small text-body-secondary">Henüz taraf girilmedi.</div>{% endfor %}
         </div>
       </div>
-      {% endfor %}
+      <div class="col-lg-6">
+        <div class="party-lane h-100">
+          <div class="party-lane-head"><span class="badge-source badge-source-uyap me-1" role="img" aria-label="UYAP kaydı" title="UYAP kaydı (salt okunur)"><i class="bi bi-bank2" aria-hidden="true"></i></span>UYAP (salt okunur)</div>
+          {% for item in party_columns.uyap %}
+          <div class="party-detail">
+            <span class="avatar avatar-sm party-avatar"><i class="bi bi-person"></i></span>
+            <div class="min-w-0 flex-grow-1">
+              <div class="fw-medium">{% if item.role %}<span class="chip no-dot me-1">{{ item.role }}</span>{% endif %}{{ item.name|tr_title }}</div>
+              <div class="small text-body-secondary">
+                {% if item.identity %}<span class="me-3">TCKN / VKN <span class="tabular">{{ item.identity }}</span></span>{% endif %}
+                {% if item.lawyer %}<span class="me-3">Vekili {{ item.lawyer|tr_title }}</span>{% endif %}
+                {% if item.address %}<span>{{ item.address }}</span>{% endif %}
+              </div>
+            </div>
+          </div>
+          {% empty %}<div class="small text-body-secondary">UYAP'tan taraf bilgisi gelmedi.</div>{% endfor %}
+        </div>
+      </div>
     </div>
   </div>
-  {% endwith %}
-  {% if case.portalcase.data.taraf_listeleri and not party_links %}
-  <div class="card-body border-top">
-    <h3 class="h6"><span class="badge-source badge-source-uyap me-1" role="img" aria-label="UYAP kaydı" title="UYAP kaydı"><i class="bi bi-bank2" aria-hidden="true"></i></span>UYAP taraf bilgileri</h3>
-    <p class="small text-body-secondary">Bu bilgiler UYAP kaydından gelir.</p>
-    {% with source_parties=case.portalcase.data.taraf_listeleri|last %}
-    {% for party in source_parties %}<div class="mb-2"><strong>{{ party.adi|default:"—" }}</strong> · {{ party.rol|default:"—" }}{% if party.vekil %}<span class="text-body-secondary"> · Vekil: {{ party.vekil }}</span>{% endif %}</div>{% endfor %}
-    {% endwith %}
-  </div>
-  {% endif %}
   <form class="inline-form row g-2 align-items-start" hx-post="{% url 'cases:party_add' case.pk %}" hx-target="#parties" hx-swap="outerHTML">
     <div class="col-md-2">{% include "partials/field.html" with field=party_form.role wrap_class="" %}</div>
     <div class="col-md-2">{% include "partials/field.html" with field=party_form.kind wrap_class="" %}</div>
@@ -50,6 +52,6 @@
     <div class="col-md-3">{% include "partials/field.html" with field=party_form.lawyer wrap_class="" %}</div>
     <div class="col-md-10">{% include "partials/field.html" with field=party_form.address wrap_class="" %}</div>
     <div class="col-md-2"><label class="form-label d-block" aria-hidden="true">&nbsp;</label><button class="btn btn-primary w-100"><i class="bi bi-plus-lg"></i>Ekle</button></div>
-    <div class="col-12 form-text">Aynı TCKN/VKN ile daha önce kaydedilmiş karşı taraf varsa mevcut kayıt kullanılır. UYAP'tan gelen taraflar salt okunurdur.</div>
+    <div class="col-12 form-text">Aynı TCKN/VKN ile daha önce kaydedilmiş karşı taraf varsa mevcut kayıt kullanılır. Sağdaki UYAP listesi eklentiden gelir ve salt okunurdur.</div>
   </form>
 </div>

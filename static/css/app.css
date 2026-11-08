@@ -1175,3 +1175,14 @@ form.is-dragover { outline: 2px dashed var(--brand); outline-offset: -2px; backg
   --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 8px 22px -10px rgba(0, 0, 0, .65);
   --sb-border: 1px solid #1c2940;
 }
+
+/* Görev ekip sırası: kimde olduğu belirgin */
+.team-flow { position: relative; display: grid; gap: .5rem; }
+.team-step { display: flex; align-items: center; gap: .6rem; padding: .5rem .6rem; border-radius: 10px; border: 1px solid transparent; position: relative; }
+.team-step + .team-step::before { content: ""; position: absolute; left: 1.45rem; top: -.55rem; height: .55rem; border-left: 2px solid var(--line); }
+.team-step.is-waiting { opacity: .55; }
+.team-step.is-done .avatar { background: var(--bs-success, #198754); color: #fff; }
+.team-step.is-current { border-color: var(--brand); background: var(--brand-soft); box-shadow: 0 0 0 2px color-mix(in srgb, var(--brand) 25%, transparent); }
+.team-step.is-current .fw-medium { font-weight: 700 !important; }
+.team-step.is-current .avatar { box-shadow: 0 0 0 3px var(--brand); }
+.team-now { background: var(--brand-solid); color: #fff; }

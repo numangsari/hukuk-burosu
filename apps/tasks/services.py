@@ -162,6 +162,8 @@ def perform(
     client_informed: bool | None = None,
     client_not_informed_reason: str = "",
     next_hearing_at: str = "",
+    work_order_no: str = "",
+    receipt_no: str = "",
 ) -> Task:
     action = ACTIONS.get(key)
     if action is None:
@@ -172,7 +174,16 @@ def perform(
     if not can_do(action, task, user):
         raise PermissionDenied("Bu işlemi yapma yetkiniz yok.")
     comment = (comment or "").strip()
+    if key == "submit" and not comment:
+        raise ValidationError("Kontrole gönderirken görev notu yazmalısınız.")
     if key == "close":
+        work_order_no = (work_order_no or "").strip()
+        receipt_no = (receipt_no or "").strip()
+        if len(work_order_no) > 60 or len(receipt_no) > 60:
+            raise ValidationError("İş emri ve makbuz numarası en çok 60 karakter olabilir.")
+        # İş emri no dilekçeli, makbuz no gelir/gider kayıtlı görevlerde tutulur (zorunlu değil).
+        task.work_order_no = work_order_no if task.needs_document else ""
+        task.receipt_no = receipt_no if task.needs_accounting else ""
         if task.hearing_id:
             next_start = None
             if next_hearing_at:
@@ -272,7 +283,10 @@ def perform(
         return task
     was_unapproved = task.approval_seen
     task.status = action.target
-    if key in ("submit", "revise", "reopen"):
+    if key == "submit":
+        # 2. kontrolcü revize verdiyse görev yeniden doğrudan ona gider; yoksa 1. kontrolcüye.
+        task.review_step = 2 if (task.second_reviewer_id and task.review_step == 2) else 1
+    elif key == "reopen":
         task.review_step = 1
     task.completed_at = timezone.now() if action.target == S.DONE else None
     if key == "revise":
@@ -291,6 +305,8 @@ def perform(
             "approval_seen",
             "assignee_seen",
             "review_step",
+            "work_order_no",
+            "receipt_no",
             "hearing_outcome",
             "hearing_decisions",
             "client_informed",

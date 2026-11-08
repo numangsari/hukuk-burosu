@@ -6,7 +6,7 @@
 </div>
 
 <div class="row g-4 home-panels">
-  <div class="{% if show_review %}col-xl-4{% else %}col-xl-5{% endif %} order-xl-3">
+  <div class="{% if show_side %}col-xl-4{% else %}col-xl-5{% endif %} order-xl-3">
     <div class="card">
       <div class="card-header">
         <i class="bi bi-calendar3 text-body-secondary"></i>
@@ -35,7 +35,7 @@
     </div>
   </div>
 
-  <div class="{% if show_review %}col-xl-4{% else %}col-xl-7{% endif %}">
+  <div class="{% if show_side %}col-xl-4{% else %}col-xl-7{% endif %}">
     <div class="card task-panel">
       <div class="card-header">
         <i class="bi bi-person-check panel-icon-own"></i>
@@ -57,8 +57,9 @@
     </div>
   </div>
 
-  {% if show_review %}
-  <div class="col-xl-4">
+  {% if show_side %}
+  <div class="col-xl-4 d-flex flex-column gap-4">
+    {% if show_review %}
     <div class="card task-panel review-panel">
       <div class="card-header">
         <i class="bi bi-clipboard-check panel-icon-review"></i>
@@ -77,9 +78,29 @@
         {% endif %}
       </div>
     </div>
+    {% endif %}
+    {% if show_submitted %}
+    <div class="card task-panel review-panel">
+      <div class="card-header">
+        <i class="bi bi-hourglass-split panel-icon-review"></i>
+        <h2 class="card-title">Kontrolde olanlar</h2>
+        <span class="count-pill">{{ submitted_task_count }}</span>
+        <a class="ms-auto small" href="{% url 'tasks:list' %}?kapsam=bana&amp;sekme=kontrolde">Tümü <i class="bi bi-arrow-right"></i></a>
+      </div>
+      <div class="panel-scroll">
+        {% if submitted_tasks %}
+        <ul class="task-list">
+          {% for t in submitted_tasks %}{% include "core/_home_task_row.html" with review=True waiting=True approved=False %}{% endfor %}
+        </ul>
+        {% if submitted_task_count > submitted_tasks|length %}<a class="d-block text-center small py-2 border-top" href="{% url 'tasks:list' %}?kapsam=bana&amp;sekme=kontrolde">{{ submitted_task_count }} görevin tamamını gör</a>{% endif %}
+        {% else %}
+        <div class="empty-state my-auto"><i class="bi bi-hourglass-split"></i><strong>Kontrolde görev yok</strong>Kontrole gönderdiğiniz görevler burada görünür.</div>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
   </div>
   {% endif %}
-
 
 </div>
 {% endblock %}

@@ -27,6 +27,7 @@
         <span><i class="bi bi-person"></i><a href="{{ task.client.get_absolute_url }}"{% if request.GET.pencere %} target="_top"{% endif %}>{{ task.client|tr_title }}</a></span>{% endif %}
         <span><i class="bi bi-calendar-event"></i>Son gün <strong class="tabular">{{ task.due_date|date:"d.m.Y" }}</strong></span>
         {% if task.work_order_no %}<span><i class="bi bi-hash"></i>İş emri no <strong class="tabular">{{ task.work_order_no }}</strong></span>{% endif %}
+        {% if task.receipt_no %}<span><i class="bi bi-receipt"></i>Makbuz no <strong class="tabular">{{ task.receipt_no }}</strong></span>{% endif %}
         <span>Kayıt: {{ task.created_at|date:"d.m.Y H:i" }} · {{ task.created_by|default:"—" }}</span>
       </div>
       {% if task.hearing %}
@@ -45,6 +46,7 @@
       {% if can_edit %}<button type="button" class="btn btn-light" hx-get="{% url 'tasks:update' task.pk %}{% if request.GET.pencere %}?pencere=1{% endif %}" hx-target="#task-edit-slot" hx-swap="innerHTML" @click="$dispatch('task-edit-open')"><i class="bi bi-pencil"></i>Düzenle</button>{% endif %}
       {% for a in actions %}
         {% if a.key == 'close' %}<button type="button" class="btn btn-{{ a.style }}" @click="close = !close">{% if task.hearing %}Görevi Tamamla{% else %}{{ a.label }}{% endif %}</button>
+        {% elif a.key == 'submit' %}<form method="post" class="d-flex gap-2 align-items-start" action="{% url 'tasks:action' task.pk %}{% if request.GET.pencere %}?pencere=1{% endif %}">{% csrf_token %}<input type="hidden" name="action" value="submit"><textarea class="form-control" name="comment" rows="1" required style="min-width: 18rem" placeholder="Görev notu (zorunlu): ne yapıldı, kontrolcü neye bakmalı?" aria-label="Görev notu"></textarea><button class="btn btn-{{ a.style }} text-nowrap">{{ a.label }}</button></form>
         {% elif a.needs_comment %}<button type="button" class="btn btn-{{ a.style }}" @click="revise = !revise">{{ a.label }}</button>
         {% else %}<form method="post" action="{% url 'tasks:action' task.pk %}{% if request.GET.pencere %}?pencere=1{% endif %}">{% csrf_token %}<input type="hidden" name="action" value="{{ a.key }}"><button class="btn btn-{{ a.style }}">{{ a.label }}</button></form>{% endif %}
       {% endfor %}
@@ -147,6 +149,12 @@
     </select>
     <p class="small text-body-secondary">UYAP gelir/giderleri dosyaya otomatik aktarılır.</p>
     {% endif %}
+    {% if task.needs_document or task.needs_accounting %}
+    <div class="row g-2 mb-3">
+      {% if task.needs_document %}<div class="col-md-6"><label class="form-label" for="work-order-no">İş emri no <span class="text-body-secondary">(isteğe bağlı)</span></label><input class="form-control" id="work-order-no" name="work_order_no" maxlength="60" value="{{ task.work_order_no }}"></div>{% endif %}
+      {% if task.needs_accounting and task.case_id %}<div class="col-md-6"><label class="form-label" for="receipt-no">Makbuz no <span class="text-body-secondary">(isteğe bağlı)</span></label><input class="form-control" id="receipt-no" name="receipt_no" maxlength="60" value="{{ task.receipt_no }}"></div>{% endif %}
+    </div>
+    {% endif %}
     <button class="btn btn-primary"><i class="bi bi-check2"></i> {% if task.hearing %}Görevi Tamamla{% else %}Görevi kapat{% endif %}</button>
   </form>{% endif %}{% endfor %}
 </div>
@@ -163,24 +171,16 @@
   <div class="{% if task.hearing %}col-12{% else %}col-lg-4{% endif %}">
     <div class="card"><div class="card-body">
       <h2 class="section-title">Ekip</h2>
-      <div class="d-flex align-items-center gap-2 mb-3">
-        <span class="avatar avatar-sm" style="--h: {{ task.assignee.avatar_hue }}">{{ task.assignee.initials }}</span>
-        <div><div class="fw-medium">{{ task.assignee }}</div><div class="small text-body-secondary">Sorumlu</div></div>
-      </div>
-      {% if task.reviewer %}
-      <div class="d-flex align-items-center gap-2 mb-3">
-        <span class="avatar avatar-sm" style="--h: {{ task.reviewer.avatar_hue }}">{{ task.reviewer.initials }}</span>
-        <div><div class="fw-medium">{{ task.reviewer }}</div><div class="small text-body-secondary">{% if task.second_reviewer %}1. Kontrolcü{% else %}Kontrolcü{% endif %}</div></div>
-      </div>
-      {% if task.second_reviewer %}
-      <div class="d-flex align-items-center gap-2 mb-3">
-        <span class="avatar avatar-sm" style="--h: {{ task.second_reviewer.avatar_hue }}">{{ task.second_reviewer.initials }}</span>
-        <div><div class="fw-medium">{{ task.second_reviewer }}</div><div class="small text-body-secondary">2. Kontrolcü</div></div>
-      </div>
-      {% endif %}
-      {% else %}
-      <div class="small text-body-secondary mb-3">Kontrolcü yok (doğrudan kapanır)</div>
-      {% endif %}
+      <ol class="team-flow list-unstyled mb-3">
+        {% for step in task.team_stages %}
+        <li class="team-step is-{{ step.state }}"{% if step.state == 'current' %} aria-current="step"{% endif %}>
+          <span class="avatar avatar-sm" style="--h: {{ step.user.avatar_hue }}">{% if step.state == 'done' %}<i class="bi bi-check-lg"></i>{% else %}{{ step.user.initials }}{% endif %}</span>
+          <div class="min-w-0"><div class="fw-medium">{{ step.user }}</div><div class="small text-body-secondary">{{ step.label }}</div></div>
+          {% if step.state == 'current' %}<span class="badge team-now ms-auto">{% if step.key == 'assignee' %}{% if task.revision_requested %}Revize bekliyor{% else %}Sırada{% endif %}{% else %}Kontrol bekliyor{% endif %}</span>{% elif step.state == 'done' %}<span class="small text-body-secondary ms-auto">Tamam</span>{% endif %}
+        </li>
+        {% endfor %}
+      </ol>
+      {% if not task.reviewer %}<div class="small text-body-secondary mb-3">Kontrolcü yok (doğrudan kapanır)</div>{% endif %}
       {% if task.hearing_outcome %}
       <h2 class="section-title mt-4">Duruşma Sonucu</h2>
       <div class="mb-3 p-2 bg-body-tertiary rounded border">
@@ -225,7 +225,7 @@
       </div>
       {% endif %}
       <h2 class="section-title mt-4">Notlar</h2>
-      {% for event in events %}{% if event.kind == 'closed' %}<div class="mb-3"><div class="small text-body-secondary">Sonuç · {{ event.actor }} · {{ event.created_at|date:"d.m.Y H:i" }}</div><div>{{ event.comment|linebreaksbr }}</div></div>{% endif %}{% endfor %}
+      {% for event in events %}{% if event.kind == 'submitted' and event.comment %}<div class="mb-3"><div class="small text-body-secondary">Kontrole gönderme notu · {{ event.actor }} · {{ event.created_at|date:"d.m.Y H:i" }}</div><div>{{ event.comment|linebreaksbr }}</div></div>{% elif event.kind == 'revision' and event.comment %}<div class="mb-3"><div class="small text-body-secondary">Revize notu · {{ event.actor }} · {{ event.created_at|date:"d.m.Y H:i" }}</div><div>{{ event.comment|linebreaksbr }}</div></div>{% endif %}{% if event.kind == 'closed' %}<div class="mb-3"><div class="small text-body-secondary">Sonuç · {{ event.actor }} · {{ event.created_at|date:"d.m.Y H:i" }}</div><div>{{ event.comment|linebreaksbr }}</div></div>{% endif %}{% endfor %}
       {% if task.notes and not task.hearing %}<div class="mb-3"><div class="small text-body-secondary">Önceki not · Oluşturulma bilgisi bilinmiyor</div><div>{{ task.notes|linebreaksbr }}</div></div>{% endif %}
       {% for note in notes %}<div class="mb-3"><div class="small text-body-secondary">{{ note.actor }} · {{ note.created_at|date:"d.m.Y H:i" }}</div><div>{{ note.comment|linebreaksbr }}</div></div>{% empty %}{% if not task.notes %}<div class="small text-body-secondary">Henüz not yok.</div>{% endif %}{% endfor %}
       <form method="post" action="{% url 'tasks:note' task.pk %}{% if request.GET.pencere %}?pencere=1{% endif %}" class="mt-3">{% csrf_token %}

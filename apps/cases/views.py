@@ -522,9 +522,7 @@ class CaseDetailView(DetailView):
             dates.append(ctx["summary"]["last_document_at"])
         ctx["summary"]["last_document_at"] = max(dates, default=None)
         ctx["party_groups"] = summary.party_groups(case, list(ctx["party_links"]))
-        ctx["party_tab_groups"] = summary.party_groups(
-            case, list(ctx["party_links"]), include_empty=True
-        )
+        ctx["party_columns"] = summary.party_columns(case, list(ctx["party_links"]))
         from apps.activity.views import history_for
 
         ctx["history"] = history_for(case)
@@ -566,8 +564,8 @@ def _parties_partial(request, case, form=None):
             "case": case,
             "party_form": form or CasePartyForm(case_type=case.case_type),
             "party_links": case.party_links.select_related("party"),
-            "party_groups": summary.party_groups(
-                case, list(case.party_links.select_related("party", "case")), include_empty=True
+            "party_columns": summary.party_columns(
+                case, list(case.party_links.select_related("party", "case"))
             ),
         },
     )

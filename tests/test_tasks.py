@@ -127,7 +127,7 @@ def test_form_rejects_same_assignee_reviewer_and_wrong_client(lawyer, case_facto
 def test_full_approval_cycle(task_factory, lawyer, intern):
     t = task_factory()
     assert t.status == TaskStatus.ACTIVE  # oluşturulunca doğrudan aktif
-    services.perform(t, "submit", intern)
+    services.perform(t, "submit", intern, "Not")
     assert t.status == TaskStatus.REVIEW
     assert t.stage_label == "Kontrolde"
 
@@ -137,7 +137,7 @@ def test_full_approval_cycle(task_factory, lawyer, intern):
     assert t.status == TaskStatus.ACTIVE and t.revision_requested
     assert t.stage_label == "Revize İstendi"
 
-    services.perform(t, "submit", intern)
+    services.perform(t, "submit", intern, "Not")
     assert t.stage_label == "Revize Edildi"
     services.perform(t, "approve", lawyer)
     t.refresh_from_db()
@@ -148,14 +148,14 @@ def test_full_approval_cycle(task_factory, lawyer, intern):
     assert kinds == ["submitted", "revision", "submitted", "approved"]
 
     with pytest.raises(PermissionDenied):
-        services.perform(t, "submit", intern)
+        services.perform(t, "submit", intern, "Not")
 
 
 def test_permissions(task_factory, lawyer, intern, admin_user):
     t = task_factory()
     with pytest.raises(PermissionDenied):
-        services.perform(t, "submit", lawyer)  # kontrolcü kontrole gönderemez
-    services.perform(t, "submit", intern)
+        services.perform(t, "submit", lawyer, "Not")  # kontrolcü kontrole gönderemez
+    services.perform(t, "submit", intern, "Not")
     with pytest.raises(PermissionDenied):
         services.perform(t, "approve", intern)  # sorumlu kendi işini onaylayamaz
     with pytest.raises(ValidationError):
@@ -172,7 +172,7 @@ def test_close_reopen_and_points(task_factory, lawyer, intern, admin_user):
     task = task_factory()
     with pytest.raises(PermissionDenied):
         services.perform(task, "close", intern, "Bitti")
-    services.perform(task, "submit", intern)
+    services.perform(task, "submit", intern, "Not")
     services.perform(task, "approve", lawyer)
     with pytest.raises(ValidationError):
         services.perform(task, "close", intern)
@@ -185,7 +185,7 @@ def test_close_reopen_and_points(task_factory, lawyer, intern, admin_user):
     services.perform(task, "reopen", lawyer)
     assert task.status == TaskStatus.ACTIVE
     assert not task.points_awarded.exists()
-    services.perform(task, "submit", intern)
+    services.perform(task, "submit", intern, "Not")
     services.perform(task, "approve", lawyer)
     services.perform(task, "close", intern, "Yeniden tamamlandı")
     assert task.points_awarded.count() == 2
@@ -204,7 +204,7 @@ def test_close_requires_related_accounting_entry(task_factory, intern, lawyer, c
     entry = LedgerEntry.objects.create(
         client=task.client, case=task.case, kind="expense", amount=20, date=timezone.localdate()
     )
-    services.perform(task, "submit", intern)
+    services.perform(task, "submit", intern, "Not")
     services.perform(task, "approve", lawyer)
     for value in ("", str(unrelated.pk)):
         with pytest.raises(ValidationError):
@@ -216,7 +216,7 @@ def test_close_requires_related_accounting_entry(task_factory, intern, lawyer, c
 
 def test_close_requires_petition_and_shows_result(task_factory, intern, lawyer):
     task = task_factory()
-    services.perform(task, "submit", intern)
+    services.perform(task, "submit", intern, "Not")
     services.perform(task, "approve", lawyer)
     task.task_type.requires_document = True
     task.task_type.save(update_fields=["requires_document"])
@@ -244,9 +244,14 @@ def test_action_endpoint_and_detail(task_factory, intern):
     r = c.get(t.get_absolute_url())
     assert [a.key for a in r.context["actions"]] == ["submit"]
     assert "İşe başla" not in r.content.decode()
+    # Görev notu olmadan kontrole gönderilemez.
     c.post(reverse("tasks:action", args=[t.pk]), {"action": "submit"})
     t.refresh_from_db()
+    assert t.status == TaskStatus.ACTIVE
+    c.post(reverse("tasks:action", args=[t.pk]), {"action": "submit", "comment": "Hazır"})
+    t.refresh_from_db()
     assert t.status == TaskStatus.REVIEW
+    assert t.events.get(kind="submitted").comment == "Hazır"
     r = c.post(reverse("tasks:action", args=[t.pk]), {"action": "approve"})
     assert r.status_code == 403
 
@@ -260,7 +265,7 @@ def test_comment_is_recorded(task_factory, intern):
 def test_task_list_scopes(task_factory, intern, lawyer):
     task_factory(title="A")
     t2 = task_factory(title="B")
-    services.perform(t2, "submit", intern)
+    services.perform(t2, "submit", intern, "Not")
     c = login(lawyer)
     titles = lambda r: [t.title for t in r.context["tasks"]]  # noqa: E731
     assert titles(c.get(reverse("tasks:list"), {"sekme": "bekleyen"})) == ["B"]
@@ -321,7 +326,7 @@ def test_points_for_closed_task_are_recorded_once(task_factory, lawyer, intern, 
 def test_tab_counts_follow_scope_and_filters(task_factory, lawyer, intern):
     task_factory(title="Aranan aktif")
     review = task_factory(title="Aranan kontrol")
-    services.perform(review, "submit", intern)
+    services.perform(review, "submit", intern, "Not")
     task_factory(title="Başka görev", status=TaskStatus.DONE)
     url = reverse("tasks:list")
     response = login(intern).get(url, {"q": "Aranan"}, HTTP_HX_REQUEST="true")
@@ -338,7 +343,7 @@ def test_home_active_tasks_sorted_by_urgency(task_factory, intern, lawyer):
     task_factory(title="Sonra", due_date=today + dt.timedelta(days=10))
     task_factory(title="Gecikmiş", due_date=today - dt.timedelta(days=2))
     review = task_factory(title="Kontrolde", due_date=today)
-    services.perform(review, "submit", intern)
+    services.perform(review, "submit", intern, "Not")
     r = login(intern).get(reverse("core:home"))
     # Kontrole gönderilen görev sorumlunun listesinden çıkar.
     assert [t.title for t in r.context["own_tasks"]] == ["GECİKMİŞ", "SONRA"]
@@ -354,7 +359,7 @@ def test_home_active_tasks_sorted_by_urgency(task_factory, intern, lawyer):
 
 def test_home_shows_revision_note_and_approval_until_seen(task_factory, intern, lawyer):
     t = task_factory(title="Dilekçe")
-    services.perform(t, "submit", intern)
+    services.perform(t, "submit", intern, "Not")
     services.perform(t, "revise", lawyer, comment="Ek delilleri ekleyin")
     c = login(intern)
     r = c.get(reverse("core:home"))
@@ -362,7 +367,7 @@ def test_home_shows_revision_note_and_approval_until_seen(task_factory, intern, 
     assert row.revision_note == "Ek delilleri ekleyin"
     assert "Ek delilleri ekleyin" in r.content.decode()
 
-    services.perform(t, "submit", intern)
+    services.perform(t, "submit", intern, "Not")
     services.perform(t, "approve", lawyer)
     r = c.get(reverse("core:home"))
     # Onaylanan görev sorumluya "Onaylandı" olarak döner.
@@ -397,7 +402,7 @@ def test_reassigned_task_is_new_not_revision(task_factory, intern, lawyer):
     from tests.conftest import make_user
 
     t = task_factory(title="Devir")
-    services.perform(t, "submit", intern)
+    services.perform(t, "submit", intern, "Not")
     services.perform(t, "revise", lawyer, comment="Düzeltin")
     other = make_user("stajyer2", "intern")
     old = t.assignee_id
@@ -520,9 +525,9 @@ def test_submit_respects_task_level_document_choice(task_factory, intern):
     doc_type = TaskType.objects.filter(requires_document=True, is_active=True).first()
     required = task_factory(task_type=doc_type, requires_document=None)
     with pytest.raises(ValidationError):
-        services.perform(required, "submit", intern)
+        services.perform(required, "submit", intern, "Not")
     waived = task_factory(task_type=doc_type, requires_document=False)
-    services.perform(waived, "submit", intern)  # oluşturan dilekçeyi zorunlu tutmadı
+    services.perform(waived, "submit", intern, "Not")  # oluşturan dilekçeyi zorunlu tutmadı
     assert waived.status == TaskStatus.REVIEW
 
 
@@ -548,3 +553,30 @@ def test_task_form_has_document_choice_and_keeps_creator_override(
     task = Task.objects.get(title="DENEME")
     assert task.requires_document is False and task.requires_accounting is False
     assert task.needs_document is False
+
+
+def test_home_review_panels_follow_role(task_factory, admin_user, lawyer, intern):
+    from .conftest import make_user
+
+    senior = make_user("kidemli4", User.Role.SENIOR)
+    task = task_factory(assignee=intern, reviewer=lawyer)
+    services.perform(task, "submit", intern, "Hazır")
+    own = task_factory(assignee=lawyer, reviewer=senior, title="Avukatın görevi")
+    services.perform(own, "submit", lawyer, "Hazır")
+
+    def home(user):
+        return login(user).get(reverse("core:home")).context
+
+    ctx = home(lawyer)
+    assert ctx["show_review"] and ctx["show_submitted"]
+    assert [t.pk for t in ctx["review_tasks"]] == [task.pk]  # kontrolümü bekleyen
+    assert [t.pk for t in ctx["submitted_tasks"]] == [own.pk]  # kontrolde olan
+    ctx = home(senior)
+    assert ctx["show_review"] and ctx["show_submitted"]
+    assert [t.pk for t in ctx["review_tasks"]] == [own.pk]
+    ctx = home(admin_user)
+    assert ctx["show_review"] and not ctx["show_submitted"]
+    ctx = home(intern)
+    assert not ctx["show_review"] and ctx["show_submitted"]
+    assert [t.pk for t in ctx["submitted_tasks"]] == [task.pk]
+    assert "Kontrolde olanlar" in login(intern).get(reverse("core:home")).content.decode()

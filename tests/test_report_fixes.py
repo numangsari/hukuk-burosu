@@ -121,7 +121,7 @@ def test_stale_approval_does_not_publish_twice(task, intern, lawyer, settings, t
         kind=TaskDocument.Kind.PETITION,
         uploaded_by=intern,
     )
-    services.perform(task, "submit", intern)
+    services.perform(task, "submit", intern, "Not")
     stale_task = Task.objects.get(pk=task.pk)
     services.perform(task, "approve", lawyer)
     with pytest.raises(ValidationError):

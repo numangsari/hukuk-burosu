@@ -46,7 +46,7 @@ def keys(task, user):
 
 
 def test_sequential_approval_flow(task, intern, lawyer, second):
-    services.perform(task, "submit", intern)
+    services.perform(task, "submit", intern, "Not")
     assert task.review_step == 1
     assert "approve" in keys(task, lawyer) and keys(task, second) == set()
     with pytest.raises(PermissionDenied):
@@ -66,18 +66,53 @@ def test_sequential_approval_flow(task, intern, lawyer, second):
     assert kinds == ["submitted", "approved", "approved"]
 
 
-def test_second_reviewer_revision_restarts_from_first(task, intern, lawyer, second):
-    services.perform(task, "submit", intern)
+def test_first_reviewer_revision_returns_to_assignee_then_first_again(task, intern, lawyer, second):
+    services.perform(task, "submit", intern, "Not")
+    services.perform(task, "revise", lawyer, "Düzelt")
+    task.refresh_from_db()
+    assert task.status == TaskStatus.ACTIVE and task.review_step == 1
+    services.perform(task, "submit", intern, "Düzeltildi")
+    task.refresh_from_db()
+    assert task.review_step == 1 and keys(task, lawyer) >= {"approve"}
+
+
+def test_second_reviewer_revision_goes_back_and_resubmit_skips_first(task, intern, lawyer, second):
+    services.perform(task, "submit", intern, "Not")
     services.perform(task, "approve", lawyer)
     services.perform(task, "revise", second, "Eksik var")
     task.refresh_from_db()
-    assert task.status == TaskStatus.ACTIVE and task.review_step == 1 and task.revision_requested
-    services.perform(task, "submit", intern)
-    assert keys(task, lawyer) >= {"approve"} and keys(task, second) == set()
+    assert task.status == TaskStatus.ACTIVE and task.review_step == 2 and task.revision_requested
+    services.perform(task, "submit", intern, "Eksik giderildi")
+    task.refresh_from_db()
+    # Sorumlu yeniden gönderince doğrudan 2. kontrolcüye gider.
+    assert task.status == TaskStatus.REVIEW and task.review_step == 2
+    assert keys(task, second) >= {"approve"} and keys(task, lawyer) == set()
+
+
+def test_second_reviewer_approval_returns_to_assignee_to_close(task, intern, lawyer, second):
+    services.perform(task, "submit", intern, "Not")
+    services.perform(task, "approve", lawyer)
+    services.perform(task, "approve", second)
+    task.refresh_from_db()
+    assert task.status == TaskStatus.ACTIVE and not task.approval_seen
+    assert "close" in keys(task, intern)
+
+
+def test_team_stages_show_who_holds_the_task(task, intern, lawyer, second):
+    def states():
+        return {s["key"]: s["state"] for s in task.team_stages}
+
+    assert states() == {"assignee": "current", "reviewer": "waiting", "second": "waiting"}
+    services.perform(task, "submit", intern, "Not")
+    assert states() == {"assignee": "done", "reviewer": "current", "second": "waiting"}
+    services.perform(task, "approve", lawyer)
+    assert states() == {"assignee": "done", "reviewer": "done", "second": "current"}
+    services.perform(task, "revise", second, "Eksik")
+    assert states() == {"assignee": "current", "reviewer": "done", "second": "waiting"}
 
 
 def test_admin_cannot_act_on_review_steps(task, intern, admin_user):
-    services.perform(task, "submit", intern)
+    services.perform(task, "submit", intern, "Not")
     with pytest.raises(PermissionDenied):
         services.perform(task, "approve", admin_user)
 
@@ -85,14 +120,14 @@ def test_admin_cannot_act_on_review_steps(task, intern, admin_user):
 def test_single_reviewer_task_is_unchanged(task, intern, lawyer):
     task.second_reviewer = None
     task.save()
-    services.perform(task, "submit", intern)
+    services.perform(task, "submit", intern, "Not")
     services.perform(task, "approve", lawyer)
     task.refresh_from_db()
     assert task.status == TaskStatus.ACTIVE and not task.approval_seen
 
 
 def test_waiting_lists_follow_active_reviewer(task, intern, lawyer, second):
-    services.perform(task, "submit", intern)
+    services.perform(task, "submit", intern, "Not")
     assert list(review_tasks_for(lawyer)) == [task] and not review_tasks_for(second).exists()
     url = reverse("tasks:list") + "?sekme=bekleyen"
     assert "KONTROLLÜ GÖREV" in login(lawyer).get(url).content.decode().upper()
@@ -117,7 +152,7 @@ def test_points_go_to_both_reviewers(task, intern, lawyer, second):
     office.save()
     task.task_type.points = 3
     task.task_type.save()
-    services.perform(task, "submit", intern)
+    services.perform(task, "submit", intern, "Not")
     services.perform(task, "approve", lawyer)
     services.perform(task, "approve", second)
     services.perform(task, "close", intern, "Bitti")

@@ -75,9 +75,9 @@ def test_unknown_kind_falls_back_to_petition(task, intern, office_root):
 def test_attachment_alone_does_not_satisfy_petition_requirement(task, intern, office_root):
     upload(login(intern), task, "ek-1.pdf", kind="attachment")
     with pytest.raises(ValidationError):
-        services.perform(task, "submit", intern)
+        services.perform(task, "submit", intern, "Not")
     upload(login(intern), task, "dilekce.docx")
-    services.perform(task, "submit", intern)
+    services.perform(task, "submit", intern, "Not")
     assert task.status == "review"
 
 
@@ -128,7 +128,7 @@ def test_approval_publishes_petition_and_attachments_to_case(task, intern, lawye
     upload(client, task, "dilekce.docx", b"son hal")
     upload(client, task, "ek-1.pdf", b"ek bir", kind="attachment")
     upload(client, task, "ek-2.pdf", b"ek iki", kind="attachment")
-    services.perform(task, "submit", intern)
+    services.perform(task, "submit", intern, "Not")
     services.perform(task, "approve", lawyer)
     assert task.warnings == []
     documents = Document.objects.filter(case=task.case).order_by("title")
@@ -149,6 +149,6 @@ def test_older_attachment_versions_are_not_published(task, intern, lawyer, offic
     upload(client, task, "dilekce.docx")
     upload(client, task, "ek-1.pdf", kind="attachment")
     TaskDocument.objects.filter(kind="attachment").update(is_current=False)
-    services.perform(task, "submit", intern)
+    services.perform(task, "submit", intern, "Not")
     services.perform(task, "approve", lawyer)
     assert Document.objects.filter(case=task.case).count() == 1

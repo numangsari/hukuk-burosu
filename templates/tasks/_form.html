@@ -11,7 +11,6 @@
       <div class="col-md-4">{% include "partials/field.html" with field=form.task_type %}</div>
       <div class="col-md-8">{% include "partials/field.html" with field=form.title %}</div>
     </div>
-    {% if form.work_order_no %}<div class="row" x-show="requiresDocument" x-cloak><div class="col-md-4">{% include "partials/field.html" with field=form.work_order_no %}</div></div>{% endif %}
     <p class="text-body-secondary small mb-0" x-show="requiresDocument" x-cloak><i class="bi bi-file-earmark-text text-primary me-1"></i>Bu görevde dilekçe / belge oluşturmak gerekmektedir.</p>
     <p class="text-body-secondary small mb-0 text-primary" x-show="requiresAccounting" x-cloak><i class="bi bi-wallet2 me-1"></i>Bu görevde gelir / gider kaydı işlemek zorunludur.</p>
   </div>

@@ -92,7 +92,7 @@ def test_office_task_listed_only_for_involved_users(lawyer, intern, admin_user):
 
 def test_office_task_full_cycle_without_case(lawyer, intern):
     t = office_task(intern, reviewer=lawyer)
-    services.perform(t, "submit", intern)
+    services.perform(t, "submit", intern, "Not")
     services.perform(t, "approve", lawyer)
     services.perform(t, "close", intern, "Tamamlandı")
     t.refresh_from_db()

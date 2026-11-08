@@ -216,7 +216,7 @@ class Command(BaseCommand):
                                     notes="Örnek görev." if rnd.random() < 0.3 else "")  # fmt: skip
             task_services.on_created(t, reviewer)
             if closed_count < 5:
-                task_services.perform(t, "submit", assignee)
+                task_services.perform(t, "submit", assignee, "Hazır, kontrole gönderildi.")
                 task_services.perform(t, "approve", reviewer)
                 t.status = "done"
                 t.completed_at = timezone.now() - dt.timedelta(days=(1, 3, 8, 20, 40)[closed_count])
@@ -227,18 +227,18 @@ class Command(BaseCommand):
                 continue
             r = rnd.random()
             if r < 0.25:
-                task_services.perform(t, "submit", assignee)
+                task_services.perform(t, "submit", assignee, "Hazır, kontrole gönderildi.")
             elif r < 0.35:
-                task_services.perform(t, "submit", assignee)
+                task_services.perform(t, "submit", assignee, "Hazır, kontrole gönderildi.")
                 task_services.perform(
                     t, "revise", reviewer, "Eksik noktaları tamamlayın (örnek revizyon)."
                 )
             elif r < 0.45:
-                task_services.perform(t, "submit", assignee)
+                task_services.perform(t, "submit", assignee, "Hazır, kontrole gönderildi.")
                 task_services.perform(t, "revise", reviewer, "Eksik bilgileri tamamlayın (örnek).")
-                task_services.perform(t, "submit", assignee)
+                task_services.perform(t, "submit", assignee, "Hazır, kontrole gönderildi.")
             elif r < 0.60:
-                task_services.perform(t, "submit", assignee)
+                task_services.perform(t, "submit", assignee, "Hazır, kontrole gönderildi.")
                 task_services.perform(t, "approve", reviewer)
             counts["görev"] += 1
 

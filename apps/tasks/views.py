@@ -381,6 +381,8 @@ class TaskActionView(View):
                 client_informed=client_informed,
                 client_not_informed_reason=request.POST.get("client_not_informed_reason", ""),
                 next_hearing_at=request.POST.get("next_hearing_at", ""),
+                work_order_no=request.POST.get("work_order_no", ""),
+                receipt_no=request.POST.get("receipt_no", ""),
             )
         except ValidationError as e:
             messages.error(request, " ".join(e.messages))

@@ -543,3 +543,20 @@ def test_party_role_validation_on_administrative_case_with_disabled_case_type(
     assert response.status_code == 302
     link.refresh_from_db()
     assert link.role == "plaintiff"
+
+
+def test_parties_tab_splits_office_entries_and_uyap_list(admin_user, case_factory):
+    from django.test import Client as HttpClient
+
+    case = case_factory()
+    own = Party.objects.create(name="Elle Girilen")
+    uyap = Party.objects.create(name="Uyaptan Gelen")
+    CaseParty.objects.create(case=case, party=own, role="defendant")
+    CaseParty.objects.create(case=case, party=uyap, role="defendant", from_uyap=True)
+    c = HttpClient()
+    c.force_login(admin_user)
+    ctx = c.get(case.get_absolute_url()).context
+    cols = ctx["party_columns"]
+    assert [i["name"] for i in cols["office"] if not i["is_client"]] == ["Elle Girilen"]
+    assert [i["name"] for i in cols["uyap"]] == ["Uyaptan Gelen"]
+    assert cols["office"][-1]["link_pk"] and cols["uyap"][0]["link_pk"] is None  # UYAP salt okunur

@@ -201,7 +201,9 @@ class Task(TimeStampedModel):
     )
     review_step = models.PositiveSmallIntegerField("kontrol sırası", default=1)
     due_date = models.DateField("son gün")
+    # İş emri ve makbuz numarası görev kapatılırken (isteğe bağlı) girilir.
     work_order_no = models.CharField("iş emri no", max_length=60, blank=True)
+    receipt_no = models.CharField("makbuz no", max_length=60, blank=True)
     notes = models.TextField("notlar", blank=True)
     requires_accounting = models.BooleanField("gelir/gider kaydı", null=True, blank=True)
     # Boşsa görev türünün varsayılanı geçerlidir; oluşturan görev başına değiştirebilir.
@@ -273,6 +275,37 @@ class Task(TimeStampedModel):
         return reverse("tasks:detail", args=[self.pk])
 
     @property
+    def team_stages(self) -> list[dict]:
+        """Ekip sırası: sorumlu → 1. kontrolcü → 2. kontrolcü; kimde olduğu `state` ile işaretli."""
+        people = [("assignee", "Sorumlu", self.assignee)]
+        if self.reviewer_id:
+            label = "1. Kontrolcü" if self.second_reviewer_id else "Kontrolcü"
+            people.append(("reviewer", label, self.reviewer))
+        if self.second_reviewer_id:
+            people.append(("second", "2. Kontrolcü", self.second_reviewer))
+        second = bool(self.second_reviewer_id)
+        step = self.review_step if second else 1
+        if self.status == TaskStatus.DONE:
+            states = {"assignee": "done", "reviewer": "done", "second": "done"}
+        elif self.status == TaskStatus.REVIEW:
+            states = {
+                "assignee": "done",
+                "reviewer": "current" if step == 1 else "done",
+                "second": "current" if step == 2 else "waiting",
+            }
+        else:
+            # Aktif: iş sorumluda. 2. kontrolcü revize verdiyse 1. kontrol zaten geçilmiştir.
+            reviewed = {
+                "reviewer": "done" if (not self.approval_seen or step == 2) else "waiting",
+                "second": "done" if not self.approval_seen else "waiting",
+            }
+            states = {"assignee": "current", **reviewed}
+        return [
+            {"key": key, "label": label, "user": user, "state": states[key]}
+            for key, label, user in people
+        ]
+
+    @property
     def needs_accounting(self) -> bool:
         """Gelir/gider kaydı gerekli mi: görevdeki seçim, yoksa görev türünün varsayılanı."""
         if self.requires_accounting is not None:
@@ -292,6 +325,13 @@ class Task(TimeStampedModel):
         if self.second_reviewer_id and self.review_step == 2:
             return self.second_reviewer_id
         return self.reviewer_id
+
+    @property
+    def active_reviewer(self):
+        """Şu an onay sırası kimdeyse o kullanıcı (tek kontrolcülü görevde `reviewer`)."""
+        if self.second_reviewer_id and self.review_step == 2:
+            return self.second_reviewer
+        return self.reviewer
 
     @property
     def is_office_task(self) -> bool:

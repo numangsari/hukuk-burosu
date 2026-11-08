@@ -17,7 +17,10 @@
         <span class="chip chip-solid-success no-dot"><i class="bi bi-check-circle-fill"></i> Onaylandı</span>
         <span class="due due-closed">{{ t.reviewer.first_name }} onayladı</span>
       {% else %}
-        {% if review %}
+        {% if waiting %}
+          <span class="chip chip-info" title="Kontrol sırası"><i class="bi bi-person-check"></i> {{ t.active_reviewer.first_name }}</span>
+          {% if t.second_reviewer_id and t.review_step == 2 %}<span class="chip no-dot">2. kontrol</span>{% endif %}
+        {% elif review %}
           <span class="chip chip-info"><i class="bi bi-person"></i> {{ t.assignee.first_name }}</span>
           {% if t.revision_requested %}<span class="chip chip-warning">Revize Edildi</span>{% endif %}
         {% elif t.revision_requested %}

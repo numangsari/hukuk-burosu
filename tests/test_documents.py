@@ -67,9 +67,9 @@ def test_sanitize():
 
 def test_requires_document_before_submit(task, intern, office_root):
     with pytest.raises(ValidationError):
-        services.perform(task, "submit", intern)
+        services.perform(task, "submit", intern, "Not")
     upload(login(intern), task)
-    services.perform(task, "submit", intern)
+    services.perform(task, "submit", intern, "Not")
     assert task.status == "review"
 
 
@@ -94,7 +94,7 @@ def test_versions_and_permissions(task, intern, lawyer, client_factory, office_r
 
 def test_approve_publishes_to_case_and_folder(task, intern, lawyer, office_root):
     upload(login(intern), task, "dilekce.docx", b"son hal")
-    services.perform(task, "submit", intern)
+    services.perform(task, "submit", intern, "Not")
     services.perform(task, "approve", lawyer)
     assert task.warnings == []
     doc = Document.objects.get(case=task.case)
@@ -199,7 +199,7 @@ def test_poa_pdf_goes_to_vekaletler(client_factory, lawyer_client, office_root):
 def test_no_root_gives_warning_but_still_saves(task, intern, lawyer, settings, tmp_path):
     settings.MEDIA_ROOT = tmp_path / "media"
     upload(login(intern), task)
-    services.perform(task, "submit", intern)
+    services.perform(task, "submit", intern, "Not")
     services.perform(task, "approve", lawyer)
     assert Document.objects.filter(case=task.case).exists()
     assert "Ofis klasörü ayarlanmadığı" in task.warnings[0]
@@ -260,7 +260,7 @@ def test_source_document_is_protected_and_does_not_satisfy_petition_requirement(
     assert client.post(reverse("tasks:doc_delete", args=[task.pk, document.pk])).status_code == 403
     assert upload(client, task, replaces=document.pk).status_code == 403
     with pytest.raises(ValidationError):
-        services.perform(task, "submit", intern)
+        services.perform(task, "submit", intern, "Not")
     assert TaskDocument.objects.filter(pk=document.pk).exists()
     response = client.get(task.case.client.get_absolute_url())
     assert "kaynak.pdf" in response.content.decode()
