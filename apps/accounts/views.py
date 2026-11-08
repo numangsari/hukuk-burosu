@@ -288,6 +288,7 @@ class SettingsView(View):
         from apps.cases.models import Case, CaseStatus, Document, Seizure
         from apps.clients.models import Client, Party
         from apps.core.office_lists import office_lists_status
+        from apps.core.version import PRODUCT_NAME, app_version
         from apps.imports.models import PortalCapture, PortalCase, PortalConnection, PortalNotice
         from apps.tasks.models import OPEN_STATUSES, Task, TaskStatus
 
@@ -319,6 +320,8 @@ class SettingsView(View):
 
         return {
             "db_size": db_size,
+            "app_version": app_version(),
+            "product_name": PRODUCT_NAME,
             "media_size": media_size,
             "media_files": media_files,
             "last_backup": last_success(),

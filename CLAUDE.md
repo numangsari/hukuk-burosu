@@ -12,7 +12,8 @@ Hukuk büroları için dava/icra takibi, müvekkil portföyü, görev/onay iş a
 
 - **Çalışma Ortamı:** Ofis içi yerel ağda (LAN) 5–15 kullanıcının tarayıcı üzerinden eriştiği yerel Windows sunucu.
 - **İnternetsiz Çalışabilirlik:** CDN veya harici bulut bağımlılığı yoktur. Tüm kütüphaneler (`static/vendor/`) repoda yereldir.
-- **Production Dağıtımı:** Git/Docker gerektirmez. Inno Setup ile derlenen `Setup.exe` ile kurulur; arka planda WinSW servisleri (`HukukBuroApp` ve `HukukBuroDB`) ile Waitress WSGI sunucusu üzerinden port 80'de çalışır.
+- **Ürün adı ve sürüm:** Görünen ad "Hukuk Bürosu Otomasyonu" (`apps/core/version.py`). Sürümün tek kaynağı `pyproject.toml` `version`; paket derlenince `VERSION` dosyası yazılır, Ayarlar > Sistem monitöründe görünür. Her yeni pakette sürüm artırılır. Eski kurulumların güncellenmesi için AppId, kurulum klasörü, servis ve zamanlanmış görev adları değiştirilmez (`installer/README.md`).
+- **Production Dağıtımı:** Git/Docker gerektirmez. Inno Setup ile derlenen `HukukBurosuOtomasyonu-Kurulum-<sürüm>.exe` ile kurulur; arka planda WinSW servisleri (`HukukBuroApp` ve `HukukBuroDB`) ile Waitress WSGI sunucusu üzerinden port 80'de çalışır.
 
 ---
 

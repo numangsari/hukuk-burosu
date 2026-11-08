@@ -1,22 +1,23 @@
 <#
 .SYNOPSIS
-  Özkurt Hukuk kurulum paketini (Setup.exe) üretir. Geliştirici makinesinde çalıştırılır.
+  Hukuk Bürosu Otomasyonu kurulum paketini (Setup.exe) üretir. Geliştirici makinesinde çalıştırılır.
 
 .DESCRIPTION
   1. Gömülü Python'u indirir ve bağımlılıkları kurar.
   2. PostgreSQL Windows binary'lerini indirir (yalnızca sunucu için gerekenler).
   3. WinSW servis sarmalayıcısını indirir.
   4. Uygulama kodunu kopyalar, statik dosyaları toplar.
-  5. Inno Setup (ISCC.exe) ile installer\dist\OzkurtHukuk-Kurulum-<sürüm>.exe üretir.
+  5. Inno Setup (ISCC.exe) ile installer\dist\HukukBurosuOtomasyonu-Kurulum-<sürüm>.exe üretir.
+     Sürüm verilmezse pyproject.toml içindeki version kullanılır (tek kaynak).
 
   Gereken: Inno Setup 6 (winget install JRSoftware.InnoSetup), uv, internet bağlantısı.
   İndirilen dosyaların SHA256 değerleri build\indirilenler.txt dosyasına yazılır.
 
 .EXAMPLE
-  powershell -ExecutionPolicy Bypass -File installer\build.ps1 -Version 1.0.0
+  powershell -ExecutionPolicy Bypass -File installer\build.ps1
 #>
 param(
-    [string]$Version = "1.0.0",
+    [string]$Version = "",
     [string]$PythonVersion = "3.13.15",
     [string]$PostgresVersion = "17.6-1",
     [string]$WinSWVersion = "v2.12.0"
@@ -26,6 +27,12 @@ $ProgressPreference = "SilentlyContinue"  # Invoke-WebRequest/Expand-Archive ile
 $Root = Split-Path -Parent $PSScriptRoot
 $Build = Join-Path $PSScriptRoot "build"
 $Cache = Join-Path $PSScriptRoot "cache"
+if (-not $Version) {
+    $m = Select-String -Path (Join-Path $Root "pyproject.toml") -Pattern '^version\s*=\s*"([^"]+)"' | Select-Object -First 1
+    if (-not $m) { throw "pyproject.toml içinde version bulunamadı." }
+    $Version = $m.Matches[0].Groups[1].Value
+}
+Write-Host "Sürüm: $Version"
 New-Item -ItemType Directory -Force $Cache | Out-Null
 if (Test-Path $Build) { Remove-Item -Recurse -Force $Build }
 New-Item -ItemType Directory -Force $Build | Out-Null
@@ -105,4 +112,4 @@ $iscc = @("${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe", "$env:ProgramFiles\I
 if (-not $iscc) { throw "Inno Setup 6 bulunamadı. Kurmak için: winget install JRSoftware.InnoSetup" }
 & $iscc "/DAppVersion=$Version" "/DBuildDir=$Build" (Join-Path $PSScriptRoot "HukukBurosu.iss")
 if ($LASTEXITCODE -ne 0) { throw "Inno Setup derlemesi başarısız." }
-Write-Host "Hazır: $(Join-Path $PSScriptRoot "dist\HukukBuro-Kurulum-$Version.exe")"
+Write-Host "Hazır: $(Join-Path $PSScriptRoot "dist\HukukBurosuOtomasyonu-Kurulum-$Version.exe")"

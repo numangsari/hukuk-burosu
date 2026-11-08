@@ -170,8 +170,15 @@ Unregister-ScheduledTask -TaskName "Ozkurt Hukuk Listeler" -Confirm:$false -Erro
 # 7) İstemci kısayolu (diğer PC'lerin masaüstüne kopyalanacak)
 $url = "http://$($env:COMPUTERNAME)/"
 $shortcut = "[InternetShortcut]`r`nURL=$url`r`n"
-Set-Content -Encoding ascii (Join-Path $InstallDir "Hukuk Buro Yonetimi.url") $shortcut
-Set-Content -Encoding ascii (Join-Path ([Environment]::GetFolderPath("CommonDesktopDirectory")) "Hukuk Buro Yonetimi.url") $shortcut
+# Ad "Hukuk Bürosu Otomasyonu"; betik BOM'suz UTF-8 olduğundan Türkçe harfler kodla yazılır.
+$shortcutName = "Hukuk B$([char]0x00FC)ro$([char]0x015F)u Otomasyonu.url"
+$desktop = [Environment]::GetFolderPath("CommonDesktopDirectory")
+foreach ($old in @("Hukuk Buro Yonetimi.url", "Ozkurt Hukuk.url")) {
+    Remove-Item (Join-Path $InstallDir $old) -ErrorAction SilentlyContinue
+    Remove-Item (Join-Path $desktop $old) -ErrorAction SilentlyContinue
+}
+Set-Content -Encoding ascii (Join-Path $InstallDir $shortcutName) $shortcut
+Set-Content -Encoding ascii (Join-Path $desktop $shortcutName) $shortcut
 
 # 8) Sağlık kontrolü
 $ok = $false

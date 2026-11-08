@@ -1,4 +1,6 @@
-; Hukuk Büro Yönetim Sistemi — Inno Setup betiği
+﻿; Hukuk Bürosu Otomasyonu — Inno Setup betiği
+; Dosya UTF-8 (BOM'lu) kalmalı; Türkçe karakterler aksi halde bozulur.
+; AppId, kurulum klasörü, servis ve görev adları eski kurulumların güncellenmesi için değişmez.
 ; Derleme: installer\build.ps1 (BuildDir ve AppVersion parametrelerini verir)
 
 #ifndef AppVersion
@@ -10,9 +12,9 @@
 
 [Setup]
 AppId={{8C1D2B5E-3F4A-4E7B-9A61-0D2C5B7E4F10}
-AppName=Hukuk Büro Yönetimi
+AppName=Hukuk Bürosu Otomasyonu
 AppVersion={#AppVersion}
-AppPublisher=Hukuk Büro Yönetimi
+AppPublisher=Hukuk Bürosu Otomasyonu
 DefaultDirName=C:\HukukBurosu
 DisableDirPage=yes
 DisableProgramGroupPage=yes
@@ -20,11 +22,13 @@ PrivilegesRequired=admin
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 OutputDir=dist
-OutputBaseFilename=HukukBuro-Kurulum-{#AppVersion}
+OutputBaseFilename=HukukBurosuOtomasyonu-Kurulum-{#AppVersion}
 Compression=lzma2/max
 SolidCompression=yes
 WizardStyle=modern
-UninstallDisplayName=Hukuk Büro Yönetimi
+UninstallDisplayName=Hukuk Bürosu Otomasyonu
+VersionInfoVersion={#AppVersion}
+VersionInfoProductName=Hukuk Bürosu Otomasyonu
 SetupLogging=yes
 
 [Languages]
