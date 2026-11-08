@@ -29,11 +29,11 @@ from apps.office.models import HEARING_TASK_TYPE_NAME, OfficeSettings, TaskType
 
 from . import throttle
 from .forms import (
-    BalanceViewersForm,
     InitialSetupForm,
     PinChangeForm,
     PinLoginForm,
     ProfileForm,
+    RolePermissionsForm,
     UserAdminForm,
 )
 from .models import User
@@ -144,7 +144,7 @@ class SettingsView(View):
             )
             forms["ofis"] = OfficeForm(*bound("ofis"), instance=office)
             forms["takvim"] = CalendarForm(*bound("takvim"), instance=office)
-            forms["yetkiler"] = BalanceViewersForm(*bound("yetkiler"))
+            forms["yetkiler"] = RolePermissionsForm(*bound("yetkiler"))
             forms["klasor"] = DocumentsRootForm(*bound("klasor"), instance=office)
             forms["erisim"] = AllowedHostsForm(*bound("erisim"), instance=office)
             edit = User.objects.filter(

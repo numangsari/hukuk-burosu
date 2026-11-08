@@ -244,7 +244,7 @@ def test_slots_respect_occupied_places_even_when_case_is_hidden(
     lawyer_client, admin_user, client_factory, case_factory
 ):
     office = OfficeSettings.load()
-    office.case_visibility_mode = OfficeSettings.CaseVisibilityMode.RESTRICTED
+    office.role_permissions = {"cases.view_all": ["admin", "senior", "secretary", "accountant"]}
     office.save()
     client = client_factory(responsible_lawyer=admin_user, responsible_intern=None)
     folder = ArchiveFolder.objects.create(name="Açık gizli", kind="open", capacity=2)

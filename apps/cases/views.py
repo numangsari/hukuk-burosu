@@ -29,7 +29,8 @@ from apps.accounting.views import statement
 from apps.accounts.models import User
 from apps.clients.models import Client, Party
 from apps.core.pagination import page_size
-from apps.core.permissions import AdminRequiredMixin, filter_visible_cases, is_admin
+from apps.core.permission_registry import has_perm
+from apps.core.permissions import PermissionRequiredMixin, filter_visible_cases, is_admin
 from apps.core.text import fold
 from apps.office.models import Court
 
@@ -46,7 +47,6 @@ from .forms import (
     CoClientFormSet,
     CollectionFormSet,
     DocumentForm,
-    HearingForm,
     PartyFormSet,
 )
 from .models import (
@@ -245,7 +245,7 @@ class CaseFormMixin:
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
-        kwargs["can_remove_parties"] = self.request.user.is_office_admin
+        kwargs["can_remove_parties"] = has_perm(self.request.user, "cases.remove_party")
         kwargs["related_case"] = self._related_case_for_save() or self._related_case()
         kwargs["user"] = self.request.user
         return kwargs
@@ -504,7 +504,6 @@ class CaseDetailView(DetailView):
                 "status", "due_date"
             ),
             hearings=list(case.hearings.prefetch_related("tasks").order_by("-starts_at")),
-            hearing_form=HearingForm(initial={"authority": case.authority}),
             now=timezone.now(),
             today=timezone.localdate(),
         )
@@ -541,7 +540,9 @@ class CaseDetailView(DetailView):
         return ctx
 
 
-class CaseDeleteView(AdminRequiredMixin, View):
+class CaseDeleteView(PermissionRequiredMixin, View):
+    required_permission = "cases.delete"
+
     def post(self, request, pk):
         case = get_object_or_404(Case, pk=pk)
         client = case.client
@@ -589,7 +590,9 @@ class CasePartyAddView(View):
         return _parties_partial(request, case)
 
 
-class CasePartyRemoveView(AdminRequiredMixin, View):
+class CasePartyRemoveView(PermissionRequiredMixin, View):
+    required_permission = "cases.remove_party"
+
     def post(self, request, pk, link_pk):
         case = get_object_or_404(Case, pk=pk)
         link = get_object_or_404(CaseParty, pk=link_pk, case=case)
@@ -816,7 +819,9 @@ class CaseCloseView(View):
         return redirect(closed)
 
 
-class CaseReopenView(AdminRequiredMixin, View):
+class CaseReopenView(PermissionRequiredMixin, View):
+    required_permission = "cases.reopen"
+
     def post(self, request, pk):
         case = get_object_or_404(Case, pk=pk)
         form = CaseStageForm(request.POST, case=case)

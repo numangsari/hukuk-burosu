@@ -1,14 +1,12 @@
 """Muhasebe yetkisi.
 
-Herkes muhasebe kaydı görür. Muhasebe kaydı ekleme/iptal etme yetkisi ofis ayarına göre
-herkese açık veya yalnızca yönetici, muhasebe ve seçilen kişilere açık olabilir.
-Müvekkil bakiyesi, borçlu süzgeci, cari hesap ekstresi, muhasebe toplamları ve finansal
-raporlar yalnızca yöneticiye, muhasebe rolüne ve yöneticinin seçtiği kişilere görünür.
+Herkes muhasebe kaydı görür. Kaydı ekleme/iptal etme ve bakiye/cari/finansal rapor görme
+yetkileri Ayarlar > Yetkiler'deki rol matrisinden gelir.
 """
 
 from django.core.exceptions import PermissionDenied
 
-from apps.core.permissions import is_admin
+from apps.core.permission_registry import has_perm
 
 
 def _active(user) -> bool:
@@ -21,26 +19,13 @@ def can_view(user) -> bool:
 
 
 def can_edit(user) -> bool:
-    """Muhasebe kaydı girme ve iptal etme."""
-    if not _active(user):
-        return False
-    if (
-        is_admin(user)
-        or getattr(user, "role", None) == "accountant"
-        or getattr(user, "can_manage_accounting", False)
-    ):
-        return True
-    from apps.office.models import OfficeSettings
-
-    office = OfficeSettings.load()
-    return office.accounting_edit_mode == OfficeSettings.AccountingEditMode.EVERYONE
+    """Muhasebe kaydı girme ve iptal etme (rol matrisindeki "accounting.edit")."""
+    return _active(user) and has_perm(user, "accounting.edit")
 
 
 def can_view_balances(user) -> bool:
-    """Müvekkil bakiyesi, borçluluk, cari hesap ve finansal raporlar."""
-    return _active(user) and (
-        is_admin(user) or user.can_view_balances or getattr(user, "role", None) == "accountant"
-    )
+    """Müvekkil bakiyesi, borçluluk, cari hesap ve finansal raporlar ("accounting.balances")."""
+    return _active(user) and has_perm(user, "accounting.balances")
 
 
 class ViewRequiredMixin:

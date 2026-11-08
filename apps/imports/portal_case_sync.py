@@ -734,16 +734,20 @@ def sync_record_hearings(case: Case, record: PortalCase, default_user=None):
     """UYAP duruşmalarını Hearing kayıtlarına eşitler."""
     data = record.data if isinstance(record.data, dict) else {}
     durusmalar = data.get("durusmalar") or []
+    from apps.office.models import OfficeSettings
+
+    installed_on = OfficeSettings.load().installed_on
     for item in durusmalar:
         if not isinstance(item, dict):
             continue
         dt_val = parse_hearing_datetime(item.get("tarihSaat") or item.get("durusmaTarihi"))
         if not dt_val:
             continue
+        if timezone.localtime(dt_val).date() < installed_on:
+            continue  # program kurulmadan önceki duruşmalar aktarılmaz
         portal_ref = str(item.get("kayitId") or item.get("durusmaId") or "").strip()
         auth = str(item.get("yerelBirimAd") or case.authority or "")[:200]
         kind = map_hearing_kind(item.get("islemTuruAciklama") or item.get("tur"))
-        room = str(item.get("salon") or item.get("durusmaSalonu") or "")[:100]
         result_desc = str(item.get("islemSonucuAciklama") or "").strip()
         status = map_hearing_status(result_desc)
         notes = str(item.get("talepDurumu") or "")
@@ -762,9 +766,12 @@ def sync_record_hearings(case: Case, record: PortalCase, default_user=None):
             if auth and hearing.authority != auth:
                 hearing.authority = auth
                 updates.append("authority")
-            if room and hearing.room != room:
-                hearing.room = room
-                updates.append("room")
+            if portal_ref and hearing.portal_ref == portal_ref and hearing.starts_at != dt_val:
+                hearing.starts_at = dt_val  # UYAP'ta tarih/saat değiştiyse kayıt onu izler
+                updates.append("starts_at")
+            if status == HearingStatus.CANCELLED and hearing.status != HearingStatus.CANCELLED:
+                hearing.status = HearingStatus.CANCELLED  # UYAP'ta iptal edilen duruşma
+                updates.append("status")
             if updates:
                 hearing.save(update_fields=updates)
         else:
@@ -773,7 +780,6 @@ def sync_record_hearings(case: Case, record: PortalCase, default_user=None):
                 kind=kind,
                 starts_at=dt_val,
                 authority=auth,
-                room=room,
                 notes=notes,
                 status=status,
                 portal_ref=portal_ref,

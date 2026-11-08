@@ -662,6 +662,17 @@ class HearingStatus(models.TextChoices):
     CANCELLED = "cancelled", "İptal"
 
 
+class HearingInformMethod(models.TextChoices):
+    WHATSAPP = "whatsapp", "WhatsApp"
+    OTHER = "other", "Başka yolla"
+
+
+# Duruşma listesinde yalnızca bu türler görünür; sonuç ve müvekkil bilgilendirme de yalnızca
+# bunlarda beklenir. Diğer türler (toplantı, görüşme, bilirkişi vb.) takvimde etkinlik olarak kalır.
+RESULT_KINDS = ("hearing", "preliminary", "discovery")
+LIST_KINDS = RESULT_KINDS
+
+
 class Hearing(TimeStampedModel):
     case = models.ForeignKey(
         Case, on_delete=models.CASCADE, related_name="hearings", null=True, blank=True
@@ -689,7 +700,6 @@ class Hearing(TimeStampedModel):
     starts_at = models.DateTimeField("tarih ve saat")
     ends_at = models.DateTimeField("bitiş tarihi ve saat", null=True, blank=True)
     authority = models.CharField("mahkeme / yer", max_length=200, blank=True)
-    room = models.CharField("salon", max_length=100, blank=True)
     notes = models.TextField("notlar", blank=True)
     status = models.CharField(
         "durum", max_length=20, choices=HearingStatus.choices, default=HearingStatus.PLANNED
@@ -700,6 +710,21 @@ class Hearing(TimeStampedModel):
     is_remote = models.BooleanField("e-duruşma", default=False)
     client_informed = models.BooleanField("müvekkile bilgi verildi", null=True, blank=True)
     client_not_informed_reason = models.TextField("müvekkile bilgi verilmeme sebebi", blank=True)
+    # Müvekkil bilgilendirme kaydı: WhatsApp açılınca veya başka yolla bildirilince işaretlenir.
+    client_informed_at = models.DateTimeField(
+        "müvekkil bilgilendirme zamanı", null=True, blank=True
+    )
+    client_informed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+        verbose_name="bilgilendiren",
+    )
+    inform_method = models.CharField(
+        "bilgilendirme yolu", max_length=20, blank=True, choices=HearingInformMethod.choices
+    )
     portal_ref = models.CharField(
         "UYAP duruşma referansı", max_length=100, blank=True, db_index=True
     )
@@ -718,6 +743,52 @@ class Hearing(TimeStampedModel):
 
     def __str__(self):
         return f"{self.title_display} — {self.starts_at:%d.%m.%Y %H:%M}"
+
+    @property
+    def attendance(self) -> str:
+        """Katılma durumu: mazeret, e-duruşma veya katılınacak (iki işaretin tek seçimi)."""
+        if self.excuse_submitted:
+            return "excuse"
+        return "remote" if self.is_remote else "attend"
+
+    @property
+    def attendance_label(self) -> str:
+        return {"excuse": "Mazeret", "remote": "E-duruşma", "attend": "Katılınacak"}[
+            self.attendance
+        ]
+
+    @property
+    def is_done(self) -> bool:
+        """İçinde bulunulan gün dahil geçmiş duruşmalar yapılmış sayılır (saatten bağımsız)."""
+        return timezone.localtime(self.starts_at).date() <= timezone.localdate()
+
+    @property
+    def uses_result_flow(self) -> bool:
+        """Yalnızca duruşma, ön inceleme ve keşifte sonuç ve müvekkil bilgilendirme akışı vardır."""
+        return self.kind in RESULT_KINDS
+
+    @property
+    def needs_result(self) -> bool:
+        return self.uses_result_flow and self.status != HearingStatus.CANCELLED
+
+    @property
+    def result_missing(self) -> bool:
+        return self.is_done and self.needs_result and not self.result.strip()
+
+    @property
+    def inform_missing(self) -> bool:
+        """Müvekkili olan, yapılmış duruşmada bilgilendirme yapılmadıysa uyarı verilir."""
+        return (
+            self.is_done
+            and self.needs_result
+            and bool(self.effective_client)
+            and not self.client_informed_at
+            and not self.client_informed
+        )
+
+    @property
+    def needs_attention(self) -> bool:
+        return self.result_missing or self.inform_missing
 
     @property
     def title_display(self):

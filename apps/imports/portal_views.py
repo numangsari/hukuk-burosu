@@ -1,6 +1,7 @@
 from django import forms
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
+from django.core.exceptions import PermissionDenied
 from django.core.files.base import ContentFile
 from django.core.paginator import Paginator
 from django.db import IntegrityError, transaction
@@ -15,6 +16,7 @@ from django.views.decorators.http import require_GET, require_POST
 from apps.cases.models import Case
 from apps.clients.models import Client
 from apps.core.forms import BootstrapMixin
+from apps.core.permission_registry import has_perm
 from apps.tasks.models import TaskDocument
 from apps.tasks.views import TaskCreateView
 
@@ -283,6 +285,8 @@ def notice_list(request):
 
 @login_required
 def notice_no_task(request, pk):
+    if not has_perm(request.user, "notices.no_task"):
+        raise PermissionDenied
     notice = get_object_or_404(PortalNotice, pk=pk)
     initial = {}
     auth, num = parse_notice_subject(notice.subject)
@@ -334,6 +338,8 @@ class NoticeTaskCreateView(TaskCreateView):
             from django.contrib.auth.views import redirect_to_login
 
             return redirect_to_login(request.get_full_path())
+        if not has_perm(request.user, "notices.create_task"):
+            raise PermissionDenied
         self.notice = get_object_or_404(PortalNotice, pk=kwargs["pk"])
         if self.notice.resolved_at:
             messages.error(request, "Bu tebligat daha önce işlendi.")

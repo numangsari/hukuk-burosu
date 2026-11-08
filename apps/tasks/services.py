@@ -1,23 +1,20 @@
 """Görev onay döngüsü.
 
 Aktif → Kontrolde → Onaylandı (aktif) → Kapalı.
-Ofis ayarına göre (`OfficeSettings.task_review_mode`):
-- `required`: Her zaman kontrolcü onayı zorunludur.
-- `assistants_only`: Yalnızca yardımcı personel için kontrolcü onayı zorunludur; avukatlar
-  veya kontrolcüsü boş bırakılan görevler doğrudan kapatılabilir.
-- `optional`: Kontrolcü boş bırakılabilir; boş bırakılan görevler doğrudan kapatılabilir.
+Kontrolcü zorunluluğu rol matrisindeki "tasks.close_without_review" yetkisine bağlıdır:
+sorumlunun rolü işaretliyse kontrolcü isteğe bağlıdır ve görev doğrudan kapatılabilir.
 """
 
 from dataclasses import dataclass
 
-from django import forms
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import models, transaction
 from django.utils import timezone
 
 from apps.accounting.models import LedgerEntry
 from apps.cases.documents import publish_task_documents
-from apps.cases.models import Case, CaseEvent, Hearing, HearingStatus
+from apps.cases.models import CaseEvent
+from apps.core.permission_registry import has_perm
 from apps.core.permissions import is_admin
 
 from .models import Task, TaskEvent, TaskPoint, TaskStatus
@@ -26,16 +23,16 @@ S = TaskStatus
 
 
 def requires_review(task: Task) -> bool:
-    """Bu görevin kapatılmadan önce kontrolcü onayından geçmesinin zorunlu olup olmadığını döner."""
+    """Bu görevin kapatılmadan önce kontrolcü onayından geçmesinin zorunlu olup olmadığını döner.
+
+    Sorumlunun rolü "kontrolcü onayı olmadan kapatma" yetkisine sahipse onay zorunlu değildir.
+    """
     if not task.reviewer_id:
         return False
-    from apps.office.models import OfficeSettings
+    from apps.core.permission_registry import role_has_perm
 
-    mode = OfficeSettings.load().task_review_mode
     return not (
-        mode == OfficeSettings.TaskReviewMode.ASSISTANTS_ONLY
-        and task.assignee_id
-        and task.assignee.is_lawyer_or_above
+        task.assignee_id and role_has_perm(task.assignee.role, "tasks.close_without_review")
     )
 
 
@@ -135,17 +132,15 @@ def can_upload(task: Task, user) -> bool:
 
 
 def can_delete(task: Task, user) -> bool:
-    return is_admin(user) or user.pk == task.created_by_id
+    return has_perm(user, "tasks.delete_any") or user.pk == task.created_by_id
 
 
 def can_edit(task: Task, user) -> bool:
-    """Aktif görevi yalnızca oluşturan, yönetici ve kıdemli avukat düzenler."""
+    """Aktif görevi oluşturan ve "tasks.edit_any" yetkisi olan roller düzenler."""
     if task.status != S.ACTIVE or not task.approval_seen:
         return False
     return bool(
-        is_admin(user)
-        or user.role == user.Role.SENIOR
-        or (task.created_by_id and user.pk == task.created_by_id)
+        has_perm(user, "tasks.edit_any") or (task.created_by_id and user.pk == task.created_by_id)
     )
 
 
@@ -157,11 +152,6 @@ def perform(
     comment: str = "",
     ledger_id: str = "",
     *,
-    hearing_outcome: str = "",
-    hearing_decisions: str = "",
-    client_informed: bool | None = None,
-    client_not_informed_reason: str = "",
-    next_hearing_at: str = "",
     work_order_no: str = "",
     receipt_no: str = "",
 ) -> Task:
@@ -184,66 +174,8 @@ def perform(
         # İş emri no dilekçeli, makbuz no gelir/gider kayıtlı görevlerde tutulur (zorunlu değil).
         task.work_order_no = work_order_no if task.needs_document else ""
         task.receipt_no = receipt_no if task.needs_accounting else ""
-        if task.hearing_id:
-            next_start = None
-            if next_hearing_at:
-                try:
-                    next_start = forms.DateTimeField().clean(next_hearing_at)
-                except ValidationError as exc:
-                    raise ValidationError("Yeni duruşma için geçerli tarih ve saat girin.") from exc
-                if not task.case_id:
-                    raise ValidationError("Yeni duruşma eklemek için dosya gerekli.")
-            raw_outcome = hearing_outcome or task.hearing_outcome or "attended"
-            hearing_outcome = raw_outcome.strip().lower()
-            if hearing_outcome == "excused":
-                task.hearing_outcome = "excused"
-                task.hearing.excuse_submitted = True
-                task.hearing.status = HearingStatus.POSTPONED
-                excuse_note = comment or "Duruşmaya mazeret sunuldu."
-                if excuse_note:
-                    existing_notes = task.hearing.notes.strip()
-                    task.hearing.notes = f"{existing_notes}\n[Mazeret]: {excuse_note}".strip()
-                task.hearing.save(
-                    update_fields=["excuse_submitted", "status", "notes", "updated_at"]
-                )
-                if not comment:
-                    comment = "Mazeret gönderildi."
-            else:
-                hearing_outcome = "attended"
-                decisions = (hearing_decisions or "").strip()
-                if not decisions:
-                    raise ValidationError("Duruşmada verilen kararları girmelisiniz.")
-                if client_informed is None:
-                    raise ValidationError("Müvekkile bilgi verilip verilmediğini belirtiniz.")
-                reason = (client_not_informed_reason or "").strip()
-                if not client_informed and not reason:
-                    raise ValidationError("Müvekkile bilgi verilmeme sebebini yazmalısınız.")
-
-                task.hearing_outcome = "attended"
-                task.hearing_decisions = decisions
-                task.client_informed = client_informed
-                task.client_not_informed_reason = reason if not client_informed else ""
-
-                task.hearing.status = HearingStatus.HELD
-                task.hearing.decisions = decisions
-                task.hearing.result = decisions
-                task.hearing.client_informed = client_informed
-                task.hearing.client_not_informed_reason = reason if not client_informed else ""
-                task.hearing.save(
-                    update_fields=[
-                        "status",
-                        "decisions",
-                        "result",
-                        "client_informed",
-                        "client_not_informed_reason",
-                        "updated_at",
-                    ]
-                )
-                if not comment:
-                    comment = f"Duruşma yapıldı. Kararlar: {decisions}"
-        else:
-            if not comment:
-                raise ValidationError("Görevi kapatmak için sonuç notu yazmalısınız.")
+        if not comment:
+            raise ValidationError("Görevi kapatmak için sonuç notu yazmalısınız.")
 
         if task.case_id and task.needs_accounting:
             entry = (
@@ -262,7 +194,6 @@ def perform(
     if (
         key in ("submit", "approve", "close")
         and task.needs_document
-        and not task.hearing_id
         and not task.documents.filter(is_current=True, kind="petition").exists()
     ):
         raise ValidationError(
@@ -307,10 +238,6 @@ def perform(
             "review_step",
             "work_order_no",
             "receipt_no",
-            "hearing_outcome",
-            "hearing_decisions",
-            "client_informed",
-            "client_not_informed_reason",
             "updated_at",
         ]
     )
@@ -320,25 +247,6 @@ def perform(
     )  # fmt: skip
 
     if key == "close":
-        if task.hearing_id and next_start:
-            Case.objects.select_for_update().get(pk=task.case_id)
-            next_hearing = Hearing.objects.filter(
-                case_id=task.case_id, starts_at=next_start
-            ).first()
-            if next_hearing is None:
-                next_hearing = Hearing.objects.create(
-                    case_id=task.case_id,
-                    starts_at=next_start,
-                    client_id=task.client_id,
-                    assigned_to_id=task.hearing.assigned_to_id,
-                    kind=task.hearing.kind,
-                    authority=task.hearing.authority,
-                    room=task.hearing.room,
-                    created_by=user,
-                )
-                from apps.agenda.google_sync import queue_hearing_google_sync
-
-                transaction.on_commit(lambda: queue_hearing_google_sync(next_hearing))
         if task.case_id and task.needs_accounting:
             TaskEvent.objects.create(
                 task=task,
@@ -356,30 +264,6 @@ def perform(
                     kind=CaseEvent.Kind.TASK,
                     title=f"Görev tamamlandı: {task.title}",
                     description=f"{task.assignee}" + (f" · belgeler: {names}" if names else ""),
-                    created_by=user,
-                )
-        if task.hearing_id and task.case_id:
-            if task.hearing_outcome == "excused":
-                CaseEvent.objects.create(
-                    case=task.case,
-                    date=timezone.localdate(),
-                    kind=CaseEvent.Kind.HEARING,
-                    title=f"Mazeret bildirildi: {task.hearing.title_display}",
-                    description=comment or "Duruşmaya mazeret sunuldu.",
-                    created_by=user,
-                )
-            else:
-                info_msg = (
-                    "Müvekkile bilgi verildi."
-                    if task.client_informed
-                    else f"Müvekkile bilgi verilmedi (Sebep: {task.client_not_informed_reason})"
-                )
-                CaseEvent.objects.create(
-                    case=task.case,
-                    date=timezone.localdate(),
-                    kind=CaseEvent.Kind.HEARING,
-                    title=f"Duruşma yapıldı: {task.hearing.title_display}",
-                    description=f"Kararlar:\n{task.hearing_decisions}\n\n{info_msg}",
                     created_by=user,
                 )
         award_closed_task_points(task)

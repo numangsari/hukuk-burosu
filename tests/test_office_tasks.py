@@ -57,7 +57,12 @@ def test_task_form_requires_case(lawyer, intern):
 @pytest.mark.parametrize("mode", ["public", "restricted"])
 def test_office_task_visible_only_to_assignee_reviewer_and_admin(mode, lawyer, intern, admin_user):
     office = OfficeSettings.load()
-    office.case_visibility_mode = mode
+    roles = ["admin", "senior", "lawyer", "intern", "paralegal", "secretary", "accountant"]
+    office.role_permissions = {
+        "cases.view_all": roles
+        if mode == "public"
+        else ["admin", "senior", "secretary", "accountant"]
+    }
     office.save()
     other = make_user("baska", "lawyer")
     secretary = make_user("sekreter", "secretary")

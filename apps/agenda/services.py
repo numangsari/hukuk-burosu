@@ -314,8 +314,6 @@ def hearing_events(start: dt.date, end: dt.date, user=None) -> list[Event]:
         if h.is_remote:
             title = f"E-duruşma · {title}"
         location = h.authority or (h.case.authority if h.case else "")
-        if h.room:
-            location += f" (Salon: {h.room})" if location else f"Salon: {h.room}"
         end_time = timezone.localtime(h.ends_at) if h.ends_at else None
         client = h.client or (h.case.client if h.case else None)
         responsible = h.assigned_to or (h.case.responsible_lawyer if h.case else None)

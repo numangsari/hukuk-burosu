@@ -69,10 +69,6 @@ class HomeView(TemplateView):
         now = timezone.localtime()
         today = now.date()
 
-        from apps.cases.hearing_tasks import create_due_hearing_tasks
-
-        create_due_hearing_tasks(today)
-
         result = calendar_events(today, today + dt.timedelta(days=AGENDA_DAYS), user=user)
         by_day = group_by_day(result.events)
         own = own_tasks_for(user)

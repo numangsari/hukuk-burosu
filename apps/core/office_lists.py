@@ -281,7 +281,9 @@ def _value(instance, field):
     if instance._meta.label == "tasks.Task" and field.name == "status":
         return instance.stage_label or instance.get_status_display()
     if instance._meta.label == "accounts.User" and field.name == "can_view_balances":
-        allowed = instance.is_active and (instance.is_office_admin or instance.can_view_balances)
+        from apps.core.permission_registry import has_perm
+
+        allowed = has_perm(instance, "accounting.balances")
         return "Evet" if allowed else "Hayır"
     value = getattr(instance, field.name)
     if value is None:

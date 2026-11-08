@@ -585,7 +585,6 @@ def test_home_review_panels_follow_role(task_factory, admin_user, lawyer, intern
 def test_admin_cannot_be_assignee_and_intern_cannot_be_reviewer(
     admin_user, lawyer, intern, case_factory
 ):
-    from apps.cases.forms import HearingTaskCreateForm
     from apps.tasks.forms import TaskForm
 
     form = TaskForm(user=admin_user)
@@ -594,9 +593,6 @@ def test_admin_cannot_be_assignee_and_intern_cannot_be_reviewer(
     assert admin_user not in assignees and lawyer in assignees and intern in assignees
     assert intern not in reviewers and intern not in set(form.fields["second_reviewer"].queryset)
     assert admin_user in reviewers and lawyer in reviewers
-    hearing_form = HearingTaskCreateForm()
-    assert admin_user not in set(hearing_form.fields["assignee"].queryset)
-    assert intern not in set(hearing_form.fields["reviewer"].queryset)
     # Sunucu tarafı: elle gönderilen yönetici sorumlu / stajyer kontrolcü reddedilir.
     data = {
         "task_type": TaskType.objects.first().pk,

@@ -3,7 +3,6 @@ import datetime as dt
 from collections import defaultdict
 
 from django.core.paginator import Paginator
-from django.db.models import Q
 from django.http import HttpResponse
 from django.shortcuts import render
 from django.utils import timezone
@@ -11,9 +10,9 @@ from django.views import View
 from django.views.generic import TemplateView
 
 from apps.accounts.models import User
-from apps.cases.models import Case, Hearing, HearingKind, HearingStatus
+from apps.cases.forms import ATTENDANCE_CHOICES
+from apps.cases.models import LIST_KINDS, HearingKind
 from apps.core.pagination import page_size
-from apps.core.permissions import filter_visible_cases
 
 from .services import calendar_events
 
@@ -110,91 +109,20 @@ class AgendaView(TemplateView):
         )
 
         if view == "list":
-            user = self.request.user
-            visible_cases = filter_visible_cases(Case.objects.all(), user)
-            base_qs = (
-                Hearing.objects.filter(Q(case__in=visible_cases) | Q(case__isnull=True))
-                .select_related(
-                    "case", "case__client", "case__responsible_lawyer", "client", "assigned_to"
-                )
-                .prefetch_related(
-                    "tasks",
-                    "case__client__contacts",
-                    "client__contacts",
-                )
-            )
-            now = timezone.now()
-            scope = self.request.GET.get("scope", "upcoming")
-            qs = base_qs
+            from apps.cases.hearing_list import list_context
 
-            if scope == "upcoming":
-                qs = qs.filter(starts_at__gte=now).order_by("starts_at")
-            elif scope == "today":
-                qs = qs.filter(starts_at__date=today).order_by("starts_at")
-            elif scope == "pending_result":
-                qs = qs.filter(starts_at__lt=now, status=HearingStatus.PLANNED).order_by(
-                    "starts_at"
-                )
-            elif scope == "past":
-                qs = qs.filter(Q(starts_at__lt=now) & ~Q(status=HearingStatus.PLANNED)).order_by(
-                    "-starts_at"
-                )
-            elif scope == "all":
-                qs = qs.order_by("-starts_at")
-
-            q = self.request.GET.get("q", "").strip()
-            if q:
-                qs = qs.filter(
-                    Q(title__icontains=q)
-                    | Q(case__official_no__icontains=q)
-                    | Q(case__subject__icontains=q)
-                    | Q(case__authority__icontains=q)
-                    | Q(authority__icontains=q)
-                    | Q(case__client__name__icontains=q)
-                    | Q(client__name__icontains=q)
-                    | Q(notes__icontains=q)
-                    | Q(result__icontains=q)
-                    | Q(room__icontains=q)
-                )
-
-            lawyer_id = self.request.GET.get("avukat")
-            if lawyer_id:
-                qs = qs.filter(
-                    Q(case__responsible_lawyer_id=lawyer_id) | Q(assigned_to_id=lawyer_id)
-                )
-
-            kind = self.request.GET.get("tur")
-            if kind:
-                qs = qs.filter(kind=kind)
-
-            status = self.request.GET.get("durum")
-            if status:
-                qs = qs.filter(status=status)
-
-            paginator = Paginator(qs, page_size(self.request, 25))
+            info = list_context(self.request)
+            paginator = Paginator(info.pop("queryset"), page_size(self.request, 25))
             page_obj = paginator.get_page(self.request.GET.get("page", 1))
-
-            today_count = base_qs.filter(starts_at__date=today).count()
-            upcoming_count = base_qs.filter(starts_at__gte=now).count()
-            pending_result_count = base_qs.filter(
-                starts_at__lt=now, status=HearingStatus.PLANNED
-            ).count()
-            total_count = base_qs.count()
-
-            lawyers = User.objects.filter(is_active=True).order_by("first_name", "last_name")
-
             ctx.update(
+                info,
                 hearings=page_obj,
                 page_obj=page_obj,
-                current_scope=scope,
-                today_count=today_count,
-                upcoming_count=upcoming_count,
-                pending_result_count=pending_result_count,
-                total_count=total_count,
-                lawyers=lawyers,
-                kinds=HearingKind.choices,
-                statuses=HearingStatus.choices,
-                now=now,
+                lawyers=User.objects.filter(is_active=True)
+                .exclude(role__in=[User.Role.PARALEGAL, User.Role.SECRETARY, User.Role.ACCOUNTANT])
+                .order_by("first_name", "last_name"),
+                kinds=[(v, label) for v, label in HearingKind.choices if v in LIST_KINDS],
+                attendance_choices=ATTENDANCE_CHOICES,
             )
 
         return ctx

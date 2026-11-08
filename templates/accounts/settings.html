@@ -308,77 +308,37 @@
 
   {% elif active == "yetkiler" %}
     {% with form=forms.yetkiler %}
-    <form method="post" class="card" style="max-width: 780px" x-data="{ visMode: '{{ form.case_visibility_mode.value|default:'public'|escapejs }}', accMode: '{{ form.accounting_edit_mode.value|default:'everyone'|escapejs }}' }">
+    <form method="post" class="card" style="max-width: 1100px">
       {% csrf_token %}<input type="hidden" name="section" value="yetkiler">
       <div class="form-section">
         <div class="form-section-head">
-          <h2>Dosya ve müvekkil görünürlüğü</h2>
-          <p>Yönetici, Kıdemli Avukat, Sekreter ve Muhasebe rolleri her zaman tüm dosya ve müvekkilleri görür. Diğer roller için görünürlük kapsamını seçin.</p>
+          <h2>Roller ve yetkiler</h2>
+          <p>İşaretli rol o yetkiye sahiptir. Yönetici her yetkide her zaman yetkilidir (kilitli). İşaretsiz roller yalnızca kendi sorumlu olduğu kayıtlarla çalışır.</p>
         </div>
-        <div class="d-flex flex-column gap-2">
-          {% for radio in form.case_visibility_mode %}
-            <label class="form-check">
-              <input type="radio" name="{{ form.case_visibility_mode.html_name }}" value="{{ radio.data.value }}" class="form-check-input" x-model="visMode" {% if radio.data.selected %}checked{% endif %}>
-              <span class="form-check-label">{{ radio.choice_label }}</span>
-            </label>
-          {% endfor %}
-        </div>
-        <div class="mt-3 pt-3 border-top" x-show="visMode === 'restricted'" x-cloak>
-          <div class="fw-medium small mb-2">Sorumlu bazlı modda tüm dosyaları görebilen ek kişiler (Avukat / Stajyer / Katip):</div>
-          <div class="balance-viewers">
-            {% for cb in form.all_cases_viewers %}
-              <label class="form-check">{{ cb.tag }}<span class="form-check-label">{{ cb.choice_label }}</span></label>
-            {% empty %}
-              <div class="small text-body-secondary">Bu grupta aktif kullanıcı yok.</div>
+        <div class="table-responsive">
+          <table class="table table-sm align-middle perm-matrix">
+            <thead>
+              <tr>
+                <th>Yetki</th>
+                <th class="text-center">Yönetici</th>
+                {% for role, label in form.roles %}<th class="text-center">{{ label }}</th>{% endfor %}
+              </tr>
+            </thead>
+            <tbody>
+            {% for group, rows in form.groups %}
+              <tr class="perm-group"><th colspan="{{ form.roles|length|add:2 }}">{{ group }}</th></tr>
+              {% for perm, cells in rows %}
+              <tr>
+                <td><div class="fw-medium">{{ perm.label }}</div>{% if perm.help %}<div class="small text-body-secondary">{{ perm.help }}</div>{% endif %}</td>
+                <td class="text-center"><input type="checkbox" class="form-check-input" checked disabled aria-label="Yönetici: {{ perm.label }}"></td>
+                {% for cell in cells %}
+                <td class="text-center"><input type="checkbox" class="form-check-input" name="{{ cell.field.html_name }}" {% if cell.field.value %}checked{% endif %} aria-label="{{ cell.label }}: {{ perm.label }}"></td>
+                {% endfor %}
+              </tr>
+              {% endfor %}
             {% endfor %}
-          </div>
-        </div>
-      </div>
-
-      <div class="form-section">
-        <div class="form-section-head">
-          <h2>Görevlerde kontrolcü onayı</h2>
-          <p>Görevlerin kapatılmadan önce kontrolcü onayına gidip gitmeyeceğini belirleyin.</p>
-        </div>
-        <div class="d-flex flex-column gap-2">
-          {% for radio in form.task_review_mode %}
-            <label class="form-check">
-              {{ radio.tag }}
-              <span class="form-check-label">{{ radio.choice_label }}</span>
-            </label>
-          {% endfor %}
-        </div>
-      </div>
-
-      <div class="form-section">
-        <div class="form-section-head">
-          <h2>Muhasebe kaydı ekleme ve iptal etme yetkisi</h2>
-          <p>Tahsilat, masraf ve vekalet ücreti hareketlerini kimlerin ekleyip iptal edebileceğini belirleyin. Yöneticiler ve Muhasebe rolü her zaman yetkilidir.</p>
-        </div>
-        <div class="d-flex flex-column gap-2">
-          {% for radio in form.accounting_edit_mode %}
-            <label class="form-check">
-              <input type="radio" name="{{ form.accounting_edit_mode.html_name }}" value="{{ radio.data.value }}" class="form-check-input" x-model="accMode" {% if radio.data.selected %}checked{% endif %}>
-              <span class="form-check-label">{{ radio.choice_label }}</span>
-            </label>
-          {% endfor %}
-        </div>
-        <div class="mt-3 pt-3 border-top" x-show="accMode === 'restricted'" x-cloak>
-          <div class="fw-medium small mb-2">Muhasebe kaydı ekleyebilen / iptal edebilen ek kişiler:</div>
-          <div class="balance-viewers">
-            {% for cb in form.accounting_editors %}
-              <label class="form-check">{{ cb.tag }}<span class="form-check-label">{{ cb.choice_label }}</span></label>
-            {% empty %}
-              <div class="small text-body-secondary">Seçilebilecek aktif kullanıcı yok.</div>
-            {% endfor %}
-          </div>
-        </div>
-      </div>
-
-      <div class="form-section">
-        <div class="form-section-head"><h2>Bakiye görme yetkisi</h2><p>Müvekkil bakiyesi, borçlu filtresi, cari hesap ve finansal raporlar yalnızca yöneticilere, muhasebe rolüne ve aşağıda işaretlenen kişilere görünür.</p></div>
-        <div class="balance-viewers">
-          {% for cb in form.viewers %}<label class="form-check">{{ cb.tag }}<span class="form-check-label">{{ cb.choice_label }}</span></label>{% endfor %}
+            </tbody>
+          </table>
         </div>
       </div>
       <div class="form-footer"><button class="btn btn-primary"><i class="bi bi-check2"></i>Kaydet</button></div>

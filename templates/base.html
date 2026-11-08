@@ -44,7 +44,7 @@
       <div class="nav-section">Genel</div>
       <a class="side-link {% if ns == 'core' %}active{% endif %}" href="{% url 'core:home' %}"><i class="bi bi-grid-1x2"></i>Ana sayfa</a>
       <a class="side-link {% if ns == 'tasks' and request.resolver_match.url_name != 'pool' and request.resolver_match.url_name != 'pool_create' %}active{% endif %}" href="{% url 'tasks:list' %}"><i class="bi bi-check2-square"></i>Görevler</a>
-      <a class="side-link {% if ns == 'agenda' or ns == 'hearings' %}active{% endif %}" href="{% url 'agenda:calendar' %}"><i class="bi bi-calendar3"></i>Takvim</a>
+      <a class="side-link {% if ns == 'agenda' or ns == 'hearings' %}active{% endif %}" href="{% url 'agenda:calendar' %}"><i class="bi bi-calendar3"></i>Takvim / Duruşma</a>
       <a class="side-link" href="{% url 'notice_list' %}"><i class="bi bi-envelope"></i>Tebligatlar</a>
       <div class="nav-section">Kayıtlar</div>
       <a class="side-link {% if ns == 'cases' %}active{% endif %}" href="{% url 'cases:list' %}"><i class="bi bi-folder2-open"></i>Dosyalar</a>
@@ -89,7 +89,7 @@
             <li><a class="dropdown-item" href="{% url 'cases:create' %}">Dosya</a></li>
             <li><a class="dropdown-item" href="{% url 'clients:create' %}">Müvekkil</a></li>
             {% if can_edit_accounting %}<li><a class="dropdown-item" href="{% url 'accounting:create' %}">Gelir / gider</a></li>{% endif %}
-            <li><a class="dropdown-item" href="{% url 'hearings:create' %}">Duruşma / etkinlik</a></li>
+            <li><a class="dropdown-item" href="{% url 'hearings:create' %}">Etkinlik</a></li>
             <li><a class="dropdown-item" href="{% url 'archive:create' %}">Fiziki klasör</a></li>
           </ul>
         </div>
@@ -166,7 +166,7 @@
     '{% url "cases:create" %}': 'Yeni dosya',
     '{% url "clients:create" %}': 'Yeni müvekkil',
     '{% url "accounting:create" %}': 'Yeni gelir / gider',
-    '{% url "hearings:create" %}': 'Yeni duruşma / etkinlik',
+    '{% url "hearings:create" %}': 'Yeni etkinlik',
     '{% url "archive:create" %}': 'Yeni fiziki klasör',
     '{% url "archive:category_create" %}': 'Yeni klasör türü',
   };
@@ -181,12 +181,12 @@
     const url = new URL(link.href, location.href);
     const isTask = /^\/gorevler\/\d+\/$/.test(url.pathname);
     const isNotice = /^\/portal-inceleme\/tebligat\/\d+\/$/.test(url.pathname);
-    const isHearing = /^\/durusmalar\/\d+\/$/.test(url.pathname);
+    const isHearing = /^\/durusmalar\/\d+\/(duzenle\/)?$/.test(url.pathname);
     const isRoutine = /^\/gorevler\/rutin\/\d+\/$/.test(url.pathname);
     if (url.origin !== location.origin || (!Object.hasOwn(paths, url.pathname) && !isTask && !isNotice && !isHearing && !isRoutine)) return;
     event.preventDefault();
     url.searchParams.set('pencere', '1');
-    document.getElementById('create-window-title').textContent = isTask ? 'Görev' : isNotice ? 'Tebligat' : isHearing ? 'Duruşma / etkinlik' : isRoutine ? 'Rutin görev' : paths[url.pathname];
+    document.getElementById('create-window-title').textContent = isTask ? 'Görev' : isNotice ? 'Tebligat' : isHearing ? (url.pathname.endsWith('/duzenle/') ? 'Duruşmayı düzenle' : 'Duruşma / etkinlik') : isRoutine ? 'Rutin görev' : paths[url.pathname];
     active = true;
     clientSaved = false;
     frameLoads = 0;

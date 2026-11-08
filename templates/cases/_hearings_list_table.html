@@ -4,167 +4,63 @@
     <table class="table mb-0 align-middle">
       <thead>
         <tr>
-          <th style="width: 140px;">Tarih / Saat</th>
+          <th style="width: 130px;">Tarih / Saat</th>
           <th style="width: 130px;" class="hide-lg">Tür</th>
-          <th>Mahkeme / Yer</th>
+          <th>Mahkeme / Esas</th>
           <th>Dosya / Müvekkil</th>
-          <th>Sorumlu</th>
-          <th style="width: 130px;">Durum</th>
-          <th>Sonuç / Ara Karar</th>
-          <th style="width: 110px;" class="text-end">İşlemler</th>
+          <th>Sorumlu avukat</th>
+          <th style="width: 140px;">Katılma durumu</th>
+          <th style="width: 130px;" class="text-end">İşlemler</th>
         </tr>
       </thead>
       <tbody>
         {% for h in hearings %}
         <tr>
           <td class="tabular">
-            <div class="fw-semibold {% if h.starts_at|date:'Y-m-d' == today|date:'Y-m-d' %}text-primary{% endif %}">
-              <a class="text-reset" href="{% url 'hearings:detail' h.pk %}" title="Duruşma ayrıntısı">{{ h.starts_at|date:"d.m.Y" }}</a>
-            </div>
+            <div class="fw-semibold {% if h.starts_at|date:'Y-m-d' == today|date:'Y-m-d' %}text-primary{% endif %}">{{ h.starts_at|date:"d.m.Y" }}</div>
             <div class="small text-body-secondary d-flex align-items-center gap-1">
               <i class="bi bi-clock"></i>{{ h.starts_at|date:"H:i" }}
-              {% if h.starts_at|date:'Y-m-d' == today|date:'Y-m-d' %}
-              <span class="badge bg-primary-subtle text-primary ms-1" style="font-size: 0.65rem;">BUGÜN</span>
-              {% endif %}
+              {% if h.starts_at|date:'Y-m-d' == today|date:'Y-m-d' %}<span class="badge bg-primary-subtle text-primary ms-1" style="font-size: 0.65rem;">BUGÜN</span>{% endif %}
             </div>
           </td>
-          <td class="hide-lg">
-            <span class="badge bg-body-secondary text-body border" style="font-size: 0.8rem;">
-              {{ h.get_kind_display }}
-            </span>
-          </td>
+          <td class="hide-lg"><span class="badge bg-body-secondary text-body border" style="font-size: 0.8rem;">{{ h.get_kind_display }}</span></td>
           <td>
             <div class="cell-main fw-medium">{{ h.authority|default:h.case.authority|default:"—"|tr_title }}</div>
-            {% if h.room %}
-            <div class="cell-sub text-body-secondary small"><i class="bi bi-geo-alt me-1"></i>Salon: {{ h.room }}</div>
-            {% endif %}
-            {% if h.notes %}
-            <div class="cell-sub text-body-tertiary small fst-italic">{{ h.notes|truncatechars:60 }}</div>
-            {% endif %}
+            <div class="cell-sub text-body-secondary small tabular">{% if h.case %}{{ h.case.official_no_display|default:"—" }}{% endif %}</div>
           </td>
           <td>
             <div class="cell-main">
               {% if h.case %}
-                <a href="{{ h.case.get_absolute_url }}#t-durusmalar" class="fw-semibold">
-                  {{ h.case.display_name|tr_title }}
-                </a>
-                {% if h.case.archive_reference %}
-                <span class="chip chip-accent no-dot ms-1 py-0 px-1" style="font-size: 0.7rem;">{{ h.case.archive_reference }}</span>
-                {% endif %}
+                <a href="{{ h.case.get_absolute_url }}#t-durusmalar" class="fw-semibold">{{ h.case.display_name|tr_title }}</a>
+                {% if h.case.archive_reference %}<span class="chip chip-accent no-dot ms-1 py-0 px-1" style="font-size: 0.7rem;">{{ h.case.archive_reference }}</span>{% endif %}
               {% else %}
                 <span class="fw-semibold text-body-emphasis">{{ h.title_display }}</span>
                 <span class="badge bg-secondary-subtle text-secondary ms-1" style="font-size: 0.7rem;">Dosyasız</span>
               {% endif %}
             </div>
             <div class="cell-sub text-body-secondary small">
-              {% if h.case and h.case.client %}
-                <i class="bi bi-person me-1"></i><a href="{{ h.case.client.get_absolute_url }}" class="text-body-secondary">{{ h.case.client|tr_title }}</a>
-              {% elif h.client %}
-                <i class="bi bi-person me-1"></i><a href="{{ h.client.get_absolute_url }}" class="text-body-secondary">{{ h.client|tr_title }}</a>
-              {% else %}
-                <span class="text-body-tertiary">Müvekkilsiz</span>
-              {% endif %}
+              {% with c=h.effective_client %}{% if c %}<i class="bi bi-person me-1"></i><a href="{{ c.get_absolute_url }}" class="text-body-secondary">{{ c|tr_title }}</a>{% else %}<span class="text-body-tertiary">Müvekkilsiz</span>{% endif %}{% endwith %}
             </div>
           </td>
+          <td class="small text-nowrap">{% if h.assigned_to %}<i class="bi bi-person-badge me-1"></i>{{ h.assigned_to|tr_title }}{% else %}<span class="chip chip-warning no-dot">Seçilmedi</span>{% endif %}</td>
           <td>
-            <div class="small text-nowrap">
-              {% if h.assigned_to %}
-                <i class="bi bi-person-badge me-1"></i>{{ h.assigned_to|tr_title }}
-              {% elif h.case and h.case.responsible_lawyer %}
-                <i class="bi bi-person-badge me-1"></i>{{ h.case.responsible_lawyer|tr_title }}
-              {% else %}
-                <span class="text-body-tertiary">—</span>
-              {% endif %}
-            </div>
+            {% if h.excuse_submitted %}<span class="chip chip-warning">Mazeret</span>
+            {% elif h.is_remote %}<span class="chip chip-info">E-duruşma</span>
+            {% else %}<span class="chip chip-primary">Katılınacak</span>{% endif %}
           </td>
-          <td>
-            {% if h.is_remote %}<span class="chip chip-info">E-duruşma</span>{% endif %}
-            {% if h.excuse_submitted %}
-              <span class="chip chip-warning">Mazeret Sunuldu</span>
-            {% elif h.status == "planned" %}
-              {% if h.starts_at < now %}
-              <span class="chip chip-warning">Sonuç bekliyor</span>
-              {% else %}
-              <span class="chip chip-primary">{{ h.get_status_display }}</span>
-              {% endif %}
-            {% elif h.status == "held" %}
-              <span class="chip chip-success">{{ h.get_status_display }}</span>
-            {% elif h.status == "postponed" %}
-              <span class="chip chip-info">{{ h.get_status_display }}</span>
-            {% elif h.status == "cancelled" %}
-              <span class="chip chip-danger">{{ h.get_status_display }}</span>
+          <td class="text-end">
+            {% if h.is_done %}
+              <a class="btn btn-sm {% if h.needs_attention %}btn-warning{% else %}btn-light{% endif %}" href="{% url 'hearings:detail' h.pk %}"><i class="bi bi-journal-check me-1"></i>İşlemler</a>
+              {% if h.needs_attention %}<div class="small text-warning-emphasis mt-1"><i class="bi bi-exclamation-triangle me-1"></i>Eksik: {% if h.result_missing %}sonuç{% endif %}{% if h.result_missing and h.inform_missing %}, {% endif %}{% if h.inform_missing %}bilgilendirme{% endif %}</div>{% endif %}
             {% else %}
-              <span class="chip no-dot">{{ h.get_status_display }}</span>
-            {% endif %}
-          </td>
-          <td class="small" style="max-width: 250px;">
-            {% if h.result %}
-            <div class="text-truncate-2" title="{{ h.result }}">{{ h.result }}</div>
-            {% else %}
-            <span class="text-body-tertiary">—</span>
-            {% endif %}
-            {% if h.client_informed is not None %}
-            <div class="mt-1">
-              {% if h.client_informed %}
-              <span class="badge bg-success-subtle text-success py-0 px-1" style="font-size: 0.65rem;"><i class="bi bi-check me-1"></i>Müvekkil Bilgilendirildi</span>
-              {% else %}
-              <span class="badge bg-danger-subtle text-danger py-0 px-1" style="font-size: 0.65rem;" title="{{ h.client_not_informed_reason }}"><i class="bi bi-exclamation me-1"></i>Müvekkil Bilgilendirilmedi</span>
-              {% endif %}
-            </div>
-            {% endif %}
-          </td>
-          <td class="text-end text-nowrap">
-            {% if h.tasks.all %}
-              {% with task=h.tasks.first %}
-              <a class="btn btn-sm btn-light" href="{{ task.get_absolute_url }}" title="Bağlantılı görevi aç">
-                <i class="bi bi-check2-circle me-1 text-success"></i>Görev
-              </a>
-              {% endwith %}
-            {% else %}
-              <button type="button" class="btn btn-sm btn-primary"
-                      title="Bu duruşma için bağlantılı görev oluştur"
-                      hx-get="{% url 'hearings:task_create' h.pk %}"
-                      hx-target="#hearing-task-modal-dialog"
-                      hx-swap="innerHTML"
-                      hx-on::after-request="bootstrap.Modal.getOrCreateInstance(document.getElementById('hearingTaskModal')).show()">
-                <i class="bi bi-plus-lg me-1"></i>Görev oluştur
-              </button>
-            {% endif %}
-            <button class="btn btn-sm btn-light" title="Sonuç / Ara Karar Gir"
-                    hx-get="{% url 'hearings:result' h.pk %}"
-                    hx-target="#result-modal"
-                    hx-swap="innerHTML"
-                    onclick="bootstrap.Modal.getOrCreateInstance(document.getElementById('result-modal')).show()">
-              <i class="bi bi-journal-check"></i>
-            </button>
-            {% hearing_wa_templates h as h_templates %}
-            <button type="button" class="btn btn-sm btn-light text-success" title="Müvekkile WhatsApp Mesajı Gönder"
-                    data-bs-toggle="modal" data-bs-target="#whatsappModal"
-                    data-wa-phone="{{ h.client_phone }}"
-                    data-wa-name="{{ h.effective_client.name|default:'' }}"
-                    data-wa-templates="{{ h_templates|json_attr }}">
-              <i class="bi bi-whatsapp"></i>
-            </button>
-            <a href="{% url 'hearings:edit' h.pk %}?next={{ request.get_full_path|urlencode }}" class="btn btn-sm btn-light" title="Düzenle">
-              <i class="bi bi-pencil"></i>
-            </a>
-            {% if request.user.is_office_admin %}
-            <button class="btn btn-sm btn-ghost-danger" title="Sil"
-                    hx-post="{% url 'hearings:delete' h.pk %}"
-                    hx-confirm="Duruşma kaydı silinsin mi?">
-              <i class="bi bi-trash"></i>
-            </button>
+              <a class="btn btn-sm btn-light" href="{% url 'hearings:edit' h.pk %}"><i class="bi bi-pencil me-1"></i>Düzenle</a>
             {% endif %}
           </td>
         </tr>
         {% empty %}
         <tr>
-          <td colspan="8">
-            <div class="empty-state py-4 text-center">
-              <i class="bi bi-calendar-x fs-2 text-body-tertiary d-block mb-2"></i>
-              <strong>Duruşma kaydı bulunamadı</strong>
-              <div class="text-body-secondary small">Seçili filtrelere uygun duruşma kaydı bulunmuyor.</div>
-            </div>
+          <td colspan="7">
+            <div class="empty-state py-4 text-center"><i class="bi bi-calendar-x fs-2 text-body-tertiary d-block mb-2"></i><strong>Duruşma kaydı bulunamadı</strong><div class="text-body-secondary small">Seçili filtrelere uygun duruşma kaydı bulunmuyor.</div></div>
           </td>
         </tr>
         {% endfor %}
@@ -173,9 +69,3 @@
   </div>
   {% include "partials/pagination.html" with page_obj=page_obj %}
 </div>
-
-{# Pop-up Modal Konteynerleri #}
-<div class="modal fade" id="hearingTaskModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-lg" id="hearing-task-modal-dialog"></div>
-</div>
-<div class="modal fade" id="result-modal" tabindex="-1" aria-hidden="true"></div>

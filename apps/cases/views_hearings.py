@@ -1,12 +1,9 @@
-"""Duruşmalar modülü view'ları (merkezi duruşma listesi, sonuç girme, takvim ve dışa aktarım)."""
-
-import datetime as dt
+"""Duruşmalar: oluşturma, ayrıntı penceresi (yaklaşan: düzenle; yapılmış: sonuç, bilgilendirme,
+görev oluşturma), silme ve dışa aktarım."""
 
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
-from django.core.paginator import Paginator
 from django.db import transaction
-from django.db.models import Q
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -14,142 +11,46 @@ from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.decorators.clickjacking import xframe_options_sameorigin
-from django.views.generic import ListView
 
-from apps.accounts.models import User
 from apps.agenda.google_sync import delete_hearing_from_google, queue_hearing_google_sync
-from apps.core.pagination import page_size
 from apps.core.permissions import (
-    AdminRequiredMixin,
+    PermissionRequiredMixin,
     filter_visible_cases,
     filter_visible_hearings,
-    is_admin,
 )
+from apps.core.whatsapp import format_hearing_result_message
 
-from .forms import (
-    HearingForm,
-    HearingResultForm,
-    HearingStandaloneForm,
-    HearingTaskCreateForm,
-)
-from .models import Case, CaseEvent, Hearing, HearingKind, HearingStatus
+from .forms import HearingResultForm, HearingStandaloneForm
+from .hearing_list import list_context
+from .models import Case, CaseEvent, Hearing, HearingInformMethod, HearingStatus
 
 
-class HearingListView(ListView):
-    template_name = "cases/hearings_list.html"
-    context_object_name = "hearings"
+def _visible_hearing(request, pk):
+    return get_object_or_404(
+        filter_visible_hearings(
+            Hearing.objects.select_related("case", "case__client", "client", "assigned_to"),
+            request.user,
+        ),
+        pk=pk,
+    )
 
-    def get_queryset(self):
-        user = self.request.user
-        visible_cases = filter_visible_cases(Case.objects.all(), user)
-        qs = (
-            Hearing.objects.filter(Q(case__in=visible_cases) | Q(case__isnull=True))
-            .select_related(
-                "case", "case__client", "case__responsible_lawyer", "client", "assigned_to"
-            )
-            .prefetch_related("tasks")
-            .order_by("starts_at")
-        )
 
-        now = timezone.now()
-        today = timezone.localdate()
-        scope = self.request.GET.get("scope", "upcoming")
+def _detail_redirect(request, hearing):
+    """Pencere içinde HTMX işlemi bitince ayrıntı sayfası yeniden yüklenir."""
+    suffix = "?pencere=1" if request.GET.get("pencere") else ""
+    return HttpResponse(
+        status=204,
+        headers={"HX-Redirect": reverse("hearings:detail", args=[hearing.pk]) + suffix},
+    )
 
-        if scope == "upcoming":
-            qs = qs.filter(starts_at__gte=now).order_by("starts_at")
-        elif scope == "today":
-            qs = qs.filter(starts_at__date=today).order_by("starts_at")
-        elif scope == "pending_result":
-            qs = qs.filter(starts_at__lt=now, status=HearingStatus.PLANNED).order_by("starts_at")
-        elif scope == "past":
-            qs = qs.filter(Q(starts_at__lt=now) & ~Q(status=HearingStatus.PLANNED)).order_by(
-                "-starts_at"
-            )
-        elif scope == "all":
-            qs = qs.order_by("-starts_at")
 
-        q = self.request.GET.get("q", "").strip()
-        if q:
-            qs = qs.filter(
-                Q(title__icontains=q)
-                | Q(case__official_no__icontains=q)
-                | Q(case__subject__icontains=q)
-                | Q(case__authority__icontains=q)
-                | Q(authority__icontains=q)
-                | Q(case__client__name__icontains=q)
-                | Q(client__name__icontains=q)
-                | Q(notes__icontains=q)
-                | Q(result__icontains=q)
-                | Q(room__icontains=q)
-            )
+class HearingListView(View):
+    """Duruşma listesi takvimin "Liste" görünümüdür."""
 
-        lawyer_id = self.request.GET.get("avukat")
-        if lawyer_id:
-            qs = qs.filter(Q(case__responsible_lawyer_id=lawyer_id) | Q(assigned_to_id=lawyer_id))
-
-        kind = self.request.GET.get("tur")
-        if kind:
-            qs = qs.filter(kind=kind)
-
-        status = self.request.GET.get("durum")
-        if status:
-            qs = qs.filter(status=status)
-
-        start_date = self.request.GET.get("baslangic")
-        if start_date:
-            try:
-                parsed_start = dt.date.fromisoformat(start_date)
-                qs = qs.filter(starts_at__date__gte=parsed_start)
-            except ValueError:
-                pass
-
-        end_date = self.request.GET.get("bitis")
-        if end_date:
-            try:
-                parsed_end = dt.date.fromisoformat(end_date)
-                qs = qs.filter(starts_at__date__lte=parsed_end)
-            except ValueError:
-                pass
-
-        return qs
-
-    def get_context_data(self, **kwargs):
-        ctx = super().get_context_data(**kwargs)
-        user = self.request.user
-        now = timezone.now()
-        today = timezone.localdate()
-
-        visible_cases = filter_visible_cases(Case.objects.all(), user)
-        base_qs = Hearing.objects.filter(case__in=visible_cases)
-
-        ctx["today_count"] = base_qs.filter(starts_at__date=today).count()
-        ctx["upcoming_count"] = base_qs.filter(starts_at__gte=now).count()
-        ctx["pending_result_count"] = base_qs.filter(
-            starts_at__lt=now, status=HearingStatus.PLANNED
-        ).count()
-        ctx["total_count"] = base_qs.count()
-
-        ctx["lawyers"] = User.objects.filter(
-            is_active=True,
-            role__in=[User.Role.ADMIN, User.Role.SENIOR, User.Role.LAWYER],
-        ).order_by("first_name", "last_name")
-        ctx["hearing_kinds"] = HearingKind.choices
-        ctx["hearing_statuses"] = HearingStatus.choices
-        ctx["current_scope"] = self.request.GET.get("scope", "upcoming")
-        ctx["now"] = now
-        ctx["today"] = today
-
-        # Sayfalama
-        paginator = Paginator(ctx["hearings"], page_size(self.request))
-        page_obj = paginator.get_page(self.request.GET.get("page"))
-        ctx["page_obj"] = page_obj
-        ctx["hearings"] = page_obj.object_list
-        return ctx
-
-    def render_to_response(self, context, **response_kwargs):
-        if self.request.headers.get("HX-Request") and not self.request.headers.get("HX-Boosted"):
-            return render(self.request, "cases/_hearings_list_table.html", context)
-        return super().render_to_response(context, **response_kwargs)
+    def get(self, request):
+        query = request.GET.copy()
+        query["view"] = "list"
+        return redirect(reverse("agenda:calendar") + "?" + query.urlencode())
 
 
 @method_decorator(xframe_options_sameorigin, name="dispatch")
@@ -164,7 +65,7 @@ class HearingCreateStandaloneView(View):
                 form.fields["authority"].initial = c.authority
             except (Case.DoesNotExist, ValueError):
                 pass
-        return render(request, "cases/hearing_form.html", {"form": form, "title": "Yeni Duruşma"})
+        return render(request, "cases/hearing_form.html", {"form": form, "title": "Yeni Etkinlik"})
 
     def post(self, request):
         form = HearingStandaloneForm(request.POST, user=request.user)
@@ -173,210 +74,43 @@ class HearingCreateStandaloneView(View):
             h.created_by = request.user
             h.save()
             queue_hearing_google_sync(h)
-            messages.success(request, "Duruşma / etkinlik kaydı başarıyla eklendi.")
+            messages.success(request, "Kayıt başarıyla eklendi.")
             if request.GET.get("pencere"):
                 return HttpResponse("<script>window.parent.location.reload()</script>")
             next_url = request.POST.get("next") or reverse("agenda:calendar")
             return redirect(next_url)
-        return render(
-            request, "cases/hearing_form.html", {"form": form, "title": "Yeni Duruşma / Etkinlik"}
-        )
-
-
-class HearingResultModalView(View):
-    """Duruşma sonucu / ara karar girme ekranı ve işlemi."""
-
-    def get(self, request, pk):
-        hearing = get_object_or_404(
-            filter_visible_hearings(Hearing.objects.select_related("case"), request.user), pk=pk
-        )
-        form = HearingResultForm(instance=hearing)
-        return render(
-            request,
-            "cases/_hearing_result_modal.html",
-            {"hearing": hearing, "form": form},
-        )
-
-    def post(self, request, pk):
-        hearing = get_object_or_404(
-            filter_visible_hearings(Hearing.objects.select_related("case"), request.user), pk=pk
-        )
-        form = HearingResultForm(request.POST, instance=hearing)
-        if form.is_valid():
-            h = form.save()
-            queue_hearing_google_sync(h)
-            if h.status != HearingStatus.PLANNED and h.result and h.case:
-                text = f"{h.get_kind_display()} {h.get_status_display().lower()}"
-                CaseEvent.objects.create(
-                    case=h.case,
-                    date=timezone.localtime(h.starts_at).date(),
-                    kind=CaseEvent.Kind.HEARING,
-                    title=text,
-                    description=h.result,
-                    created_by=request.user,
-                )
-            messages.success(request, "Duruşma sonucu kaydedildi.")
-            if request.headers.get("HX-Request"):
-                response = HttpResponse(status=200)
-                response["HX-Refresh"] = "true"
-                return response
-            return redirect(reverse("agenda:calendar") + "?view=list")
-        return render(
-            request,
-            "cases/_hearing_result_modal.html",
-            {"hearing": hearing, "form": form},
-        )
-
-
-class HearingTaskCreateView(View):
-    """Duruşma için sorumlu, mazeret, dosya/müvekkil içeren bağlantılı görev oluşturur."""
-
-    def get_hearing(self, request, pk):
-        visible_cases = filter_visible_cases(Case.objects.all(), request.user)
-        return get_object_or_404(
-            Hearing.objects.filter(Q(case__in=visible_cases) | Q(case__isnull=True)).select_related(
-                "case", "case__client", "client", "assigned_to"
-            ),
-            pk=pk,
-        )
-
-    def get(self, request, pk):
-        hearing = self.get_hearing(request, pk)
-        existing_task = hearing.tasks.first()
-        if existing_task:
-            messages.info(request, "Bu duruşma için zaten bir görev oluşturulmuş.")
-            if request.headers.get("HX-Request"):
-                response = HttpResponse(status=200)
-                response["HX-Redirect"] = existing_task.get_absolute_url()
-                return response
-            return redirect(existing_task.get_absolute_url())
-
-        from .hearing_tasks import get_or_create_hearing_task_type
-
-        task_type = get_or_create_hearing_task_type()
-        case = hearing.case
-        client = hearing.client or (case.client if case else None)
-        assignee = hearing.assigned_to or (case.responsible_lawyer if case else None)
-
-        title = (
-            f"{case.display_name} Duruşması ve Müvekkil Bilgilendirme"
-            if case
-            else f"{hearing.title_display} Takip Görevi"
-        )
-        local_dt = timezone.localtime(hearing.starts_at)
-        initial = {
-            "task_type": task_type,
-            "title": title,
-            "case": case,
-            "client": client,
-            "assignee": assignee,
-            "due_date": local_dt.date(),
-            "excuse_submitted": hearing.excuse_submitted,
-            "is_remote": hearing.is_remote,
-            "notes": hearing.notes,
-        }
-        form = HearingTaskCreateForm(initial=initial, hearing=hearing)
-        return render(
-            request,
-            "cases/_hearing_task_create_modal.html",
-            {"hearing": hearing, "form": form},
-        )
-
-    def post(self, request, pk):
-        hearing = self.get_hearing(request, pk)
-        existing_task = hearing.tasks.first()
-        if existing_task:
-            messages.info(request, "Bu duruşma için zaten bir görev oluşturulmuş.")
-            return redirect(existing_task.get_absolute_url())
-
-        form = HearingTaskCreateForm(request.POST, hearing=hearing)
-        if form.is_valid():
-            from .hearing_tasks import get_or_create_hearing_task_type
-
-            with transaction.atomic():
-                task = form.save(commit=False)
-                task.task_type = get_or_create_hearing_task_type()
-                task.hearing = hearing
-                client = form.cleaned_data.get("client") or (
-                    task.case.client if task.case else None
-                )
-                task.client = client
-                task.save()
-
-                # Duruşmayı güncelle (sorumlu, mazeret, dosya, müvekkil):
-                hearing.assigned_to = task.assignee
-                hearing.excuse_submitted = form.cleaned_data.get("excuse_submitted", False)
-                hearing.is_remote = form.cleaned_data.get("is_remote", False)
-                if task.case and not hearing.case:
-                    hearing.case = task.case
-                if task.client and not hearing.client:
-                    hearing.client = task.client
-                hearing.save(
-                    update_fields=[
-                        "assigned_to",
-                        "excuse_submitted",
-                        "is_remote",
-                        "case",
-                        "client",
-                        "updated_at",
-                    ]
-                )
-
-            # Google Takvim senkronizasyonu
-            queue_hearing_google_sync(hearing)
-
-            messages.success(request, f"{hearing.title_display} için görev oluşturuldu.")
-            if request.headers.get("HX-Request"):
-                response = HttpResponse(status=200)
-                response["HX-Refresh"] = "true"
-                return response
-            return redirect(reverse("agenda:calendar") + "?view=list")
-
-        return render(
-            request,
-            "cases/_hearing_task_create_modal.html",
-            {"hearing": hearing, "form": form},
-        )
-
-
-def can_edit_hearing(hearing, user) -> bool:
-    """Duruşmayı yalnızca oluşturan, yönetici ve kıdemli avukat düzenler."""
-    return bool(
-        is_admin(user)
-        or user.role == user.Role.SENIOR
-        or (hearing.created_by_id and hearing.created_by_id == user.pk)
-    )
-
-
-def _visible_hearing(request, pk):
-    return get_object_or_404(
-        filter_visible_hearings(
-            Hearing.objects.select_related("case", "case__client", "client", "assigned_to"),
-            request.user,
-        ),
-        pk=pk,
-    )
+        return render(request, "cases/hearing_form.html", {"form": form, "title": "Yeni Etkinlik"})
 
 
 @method_decorator(xframe_options_sameorigin, name="dispatch")
 class HearingDetailView(View):
-    """Duruşma ayrıntısı; düzenleme yetkisi olanlar aynı pencerede düzenler."""
+    """Yarın ve sonrası: bilgi ve düzenleme. Bugün ve öncesi: sonuç, bilgilendirme, görev."""
 
     def get(self, request, pk):
         hearing = _visible_hearing(request, pk)
-        return render(
-            request,
-            "cases/hearing_detail.html",
-            {
-                "hearing": hearing,
-                "can_edit": can_edit_hearing(hearing, request.user),
-                "tasks": hearing.tasks.select_related("assignee"),
-            },
-        )
+        done = hearing.is_done and hearing.uses_result_flow
+        context = {
+            "hearing": hearing,
+            "done": done,
+            "tasks": hearing.tasks.select_related("assignee"),
+        }
+        if done:
+            context["result_form"] = HearingResultForm(instance=hearing)
+            if hearing.result.strip() and hearing.effective_client:
+                context["wa_templates"] = {"Duruşma Sonucu": format_hearing_result_message(hearing)}
+        return render(request, "cases/hearing_detail.html", context)
 
 
 @method_decorator(xframe_options_sameorigin, name="dispatch")
 class HearingEditView(View):
+    """Henüz yapılmamış (yarın ve sonrası) duruşmanın düzenlenmesi."""
+
+    def _hearing(self, request, pk):
+        hearing = _visible_hearing(request, pk)
+        if hearing.is_done and hearing.uses_result_flow:
+            raise PermissionDenied  # yapılmış duruşmada sonuç girilir, bilgi düzenlenmez
+        return hearing
+
     def _render(self, request, form, hearing):
         inline = bool(request.htmx)
         return render(
@@ -391,32 +125,122 @@ class HearingEditView(View):
         )
 
     def get(self, request, pk):
-        hearing = _visible_hearing(request, pk)
-        if not can_edit_hearing(hearing, request.user):
-            raise PermissionDenied
-        return self._render(request, HearingForm(instance=hearing), hearing)
+        hearing = self._hearing(request, pk)
+        form = HearingStandaloneForm(instance=hearing, user=request.user)
+        return self._render(request, form, hearing)
 
     def post(self, request, pk):
-        hearing = _visible_hearing(request, pk)
-        if not can_edit_hearing(hearing, request.user):
-            raise PermissionDenied
-        form = HearingForm(request.POST, instance=hearing)
+        hearing = self._hearing(request, pk)
+        form = HearingStandaloneForm(request.POST, instance=hearing, user=request.user)
         if form.is_valid():
             h = form.save()
             queue_hearing_google_sync(h)
             messages.success(request, "Duruşma güncellendi.")
             if request.htmx:
-                suffix = "?pencere=1" if request.GET.get("pencere") else ""
-                return HttpResponse(
-                    status=204,
-                    headers={"HX-Redirect": reverse("hearings:detail", args=[h.pk]) + suffix},
-                )
+                return _detail_redirect(request, h)
+            if request.GET.get("pencere"):
+                return HttpResponse("<script>window.parent.location.reload()</script>")
             next_url = request.POST.get("next") or (reverse("agenda:calendar") + "?view=list")
             return redirect(next_url)
         return self._render(request, form, hearing)
 
 
-class HearingDeleteStandaloneView(AdminRequiredMixin, View):
+@method_decorator(xframe_options_sameorigin, name="dispatch")
+class HearingResultView(View):
+    """Yapılmış duruşmanın sonucu (verilen karar) ve isteğe bağlı sonraki duruşma tarihi."""
+
+    def _hearing(self, request, pk):
+        hearing = _visible_hearing(request, pk)
+        if not (hearing.is_done and hearing.uses_result_flow):
+            raise PermissionDenied
+        return hearing
+
+    def get(self, request, pk):
+        hearing = self._hearing(request, pk)
+        return render(
+            request,
+            "cases/_hearing_result_form.html",
+            {"hearing": hearing, "result_form": HearingResultForm(instance=hearing)},
+        )
+
+    def post(self, request, pk):
+        hearing = self._hearing(request, pk)
+        form = HearingResultForm(request.POST, instance=hearing)
+        if not form.is_valid():
+            return render(
+                request,
+                "cases/_hearing_result_form.html",
+                {"hearing": hearing, "result_form": form},
+            )
+        with transaction.atomic():
+            h = form.save(commit=False)
+            h.decisions = h.result
+            h.status = HearingStatus.POSTPONED if h.excuse_submitted else HearingStatus.HELD
+            h.save()
+            if h.case_id:
+                CaseEvent.objects.update_or_create(
+                    case=h.case,
+                    kind=CaseEvent.Kind.HEARING,
+                    date=timezone.localtime(h.starts_at).date(),
+                    title=f"{h.get_kind_display()} yapıldı",
+                    defaults={"description": h.result, "created_by": request.user},
+                )
+            next_at = form.cleaned_data.get("next_hearing_at")
+            next_hearing = None
+            if next_at and h.case_id:
+                next_hearing = Hearing.objects.filter(case_id=h.case_id, starts_at=next_at).first()
+                if next_hearing is None:
+                    next_hearing = Hearing.objects.create(
+                        case_id=h.case_id,
+                        client_id=h.client_id,
+                        assigned_to_id=h.assigned_to_id,
+                        kind=h.kind,
+                        starts_at=next_at,
+                        authority=h.authority,
+                        created_by=request.user,
+                    )
+        queue_hearing_google_sync(h)
+        if next_hearing:
+            queue_hearing_google_sync(next_hearing)
+        messages.success(request, "Duruşma sonucu kaydedildi.")
+        return _detail_redirect(request, h)
+
+
+class HearingInformView(View):
+    """Müvekkil bilgilendirme kaydı: WhatsApp açılınca veya başka yolla bildirilince işaretlenir."""
+
+    http_method_names = ["post"]
+
+    def post(self, request, pk):
+        hearing = _visible_hearing(request, pk)
+        method = request.POST.get("method")
+        if method not in HearingInformMethod.values:
+            return HttpResponse("Geçersiz bilgilendirme yolu.", status=400)
+        if not (hearing.is_done and hearing.uses_result_flow) or not hearing.effective_client:
+            raise PermissionDenied
+        if not hearing.result.strip():
+            return HttpResponse("Önce duruşma sonucunu girin.", status=400)
+        hearing.client_informed = True
+        hearing.client_informed_at = timezone.now()
+        hearing.client_informed_by = request.user
+        hearing.inform_method = method
+        hearing.save(
+            update_fields=[
+                "client_informed",
+                "client_informed_at",
+                "client_informed_by",
+                "inform_method",
+                "updated_at",
+            ]
+        )
+        if method == HearingInformMethod.OTHER:
+            return _detail_redirect(request, hearing)
+        return HttpResponse(status=204)  # WhatsApp penceresi açık kalır; kapanınca sayfa yenilenir
+
+
+class HearingDeleteStandaloneView(PermissionRequiredMixin, View):
+    required_permission = "hearings.delete"
+
     def post(self, request, pk):
         hearing = get_object_or_404(Hearing, pk=pk)
         delete_hearing_from_google(hearing)
@@ -436,9 +260,7 @@ class HearingExportView(View):
         import openpyxl
         from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 
-        view = HearingListView()
-        view.request = request
-        qs = view.get_queryset()
+        qs = list_context(request)["queryset"]
 
         wb = openpyxl.Workbook()
         ws = wb.active
@@ -449,11 +271,10 @@ class HearingExportView(View):
             "Saat",
             "Tür",
             "Mahkeme / Merci",
-            "Salon",
             "Dosya No / Konu",
             "Müvekkil",
             "Sorumlu Avukat",
-            "Durum",
+            "Katılma durumu",
             "Sonuç / Ara Karar",
             "Notlar",
         ]
@@ -476,18 +297,21 @@ class HearingExportView(View):
 
         for h in qs:
             local_dt = timezone.localtime(h.starts_at)
-            lawyer = str(h.case.responsible_lawyer or "")
-            client = str(h.case.client or "")
+            lawyer = str(h.assigned_to or "")
+            client = str(h.effective_client or "")
             row_data = [
                 local_dt.strftime("%d.%m.%Y"),
                 local_dt.strftime("%H:%M"),
                 h.get_kind_display(),
-                h.authority or h.case.authority,
-                h.room or "",
-                f"{h.case.official_no or ''} {h.case.subject or ''}".strip(),
+                h.authority or (h.case.authority if h.case else ""),
+                (
+                    f"{h.case.official_no or ''} {h.case.subject or ''}".strip()
+                    if h.case
+                    else h.title_display
+                ),
                 client,
                 lawyer,
-                h.get_status_display(),
+                h.attendance_label,
                 h.result or "",
                 h.notes or "",
             ]
@@ -497,7 +321,7 @@ class HearingExportView(View):
                 cell = ws.cell(row=row_idx, column=col_idx)
                 cell.border = thin_border
                 cell.font = Font(name="Calibri", size=10)
-                if col_idx in (1, 2, 3, 5, 9):
+                if col_idx in (1, 2, 3, 8):
                     cell.alignment = Alignment(horizontal="center", vertical="center")
 
         col_widths = {
@@ -505,13 +329,12 @@ class HearingExportView(View):
             "B": 8,
             "C": 14,
             "D": 32,
-            "E": 10,
+            "E": 25,
             "F": 25,
-            "G": 25,
-            "H": 20,
-            "I": 12,
-            "J": 35,
-            "K": 20,
+            "G": 20,
+            "H": 14,
+            "I": 35,
+            "J": 20,
         }
         for col_letter, width in col_widths.items():
             ws.column_dimensions[col_letter].width = width

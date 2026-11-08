@@ -152,6 +152,7 @@
     // Doğrudan Windows WhatsApp masaüstü uygulamasını tetikler (tarayıcıda SEKME AÇMAZ)
     const appUrl = `whatsapp://send?phone=${cleaned}${text ? '&text=' + text : ''}`;
     window.location.href = appUrl;
+    document.dispatchEvent(new CustomEvent('whatsapp-opened'));
 
     const bsModal = bootstrap.Modal.getInstance(modalEl);
     if (bsModal) bsModal.hide();

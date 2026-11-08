@@ -46,7 +46,7 @@ def test_backup_alert_can_be_hidden_for_today(admin_client_logged):
 
 
 def test_hearing_list_filters_apply_without_button(lawyer_client):
-    html = lawyer_client.get(reverse("hearings:list")).content.decode()
+    html = lawyer_client.get(reverse("agenda:calendar"), {"view": "list"}).content.decode()
     assert 'hx-trigger="input changed delay:300ms from:input[name=q], change, submit"' in html
     assert "Filtrele</button>" not in html
 

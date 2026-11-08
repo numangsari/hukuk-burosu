@@ -330,7 +330,7 @@ def test_filter_view_requires_login_and_case_visibility(case_factory, lawyer, se
     from apps.office.models import OfficeSettings
 
     office = OfficeSettings.load()
-    office.case_visibility_mode = "restricted"
+    office.role_permissions = {"cases.view_all": ["admin", "senior", "secretary", "accountant"]}
     office.save()
     outsider = User.objects.create_user(username="dosya-disi", role=User.Role.LAWYER)
     client = Client()

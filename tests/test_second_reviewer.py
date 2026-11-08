@@ -139,7 +139,7 @@ def test_waiting_lists_follow_active_reviewer(task, intern, lawyer, second):
 
 def test_second_reviewer_sees_task_in_restricted_mode(task, second):
     office = OfficeSettings.load()
-    office.case_visibility_mode = "restricted"
+    office.role_permissions = {"cases.view_all": ["admin", "senior", "secretary", "accountant"]}
     office.save()
     other = make_user("baska", "lawyer")
     assert login(second).get(task.get_absolute_url()).status_code == 200

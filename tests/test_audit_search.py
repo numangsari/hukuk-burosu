@@ -21,7 +21,7 @@ def test_search_hides_private_records_and_shared_party_links(
 ):
     settings.MEDIA_ROOT = tmp_path
     office = OfficeSettings.load()
-    office.case_visibility_mode = "restricted"
+    office.role_permissions = {"cases.view_all": ["admin", "senior", "secretary", "accountant"]}
     office.save()
     stranger = make_user("arama-yabanci", User.Role.LAWYER)
     hidden = case_factory()
@@ -60,7 +60,17 @@ def test_search_hides_private_records_and_shared_party_links(
         assert response.status_code == 200
         assert document.title not in response.content.decode()
         assert private_party.name not in response.content.decode()
-    office.case_visibility_mode = "public"
+    office.role_permissions = {
+        "cases.view_all": [
+            "admin",
+            "senior",
+            "lawyer",
+            "intern",
+            "paralegal",
+            "secretary",
+            "accountant",
+        ]
+    }
     office.save()
     assert search_querysets("denetim", user=stranger)["documents"].filter(pk=document.pk).exists()
 

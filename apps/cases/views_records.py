@@ -4,10 +4,10 @@ from django.shortcuts import get_object_or_404, render
 from django.utils import timezone
 from django.views import View
 
-from apps.core.permissions import AdminRequiredMixin, filter_visible_cases, is_admin
+from apps.core.permissions import PermissionRequiredMixin, filter_visible_cases, is_admin
 
-from .forms import CaseEventForm, HearingForm, HearingResultForm
-from .models import Case, CaseEvent, Hearing, HearingStatus
+from .forms import CaseEventForm
+from .models import Case, CaseEvent, Hearing
 
 
 def visible_case_or_404(request, pk):
@@ -15,13 +15,12 @@ def visible_case_or_404(request, pk):
     return get_object_or_404(filter_visible_cases(Case.objects.all(), request.user), pk=pk)
 
 
-def hearings_partial(request, case, form=None):
+def hearings_partial(request, case):
     return render(
         request,
         "cases/_hearings.html",
         {
             "case": case,
-            "hearing_form": form or HearingForm(initial={"authority": case.authority}),
             "hearings": case.hearings.prefetch_related("tasks").order_by("-starts_at"),
             "now": timezone.now(),
         },
@@ -40,41 +39,9 @@ def events_partial(request, case, form=None):
     )
 
 
-class HearingAddView(View):
-    def post(self, request, pk):
-        case = visible_case_or_404(request, pk)
-        form = HearingForm(request.POST)
-        if not form.is_valid():
-            return hearings_partial(request, case, form)
-        h = form.save(commit=False)
-        h.case, h.created_by = case, request.user
-        h.save()
-        return hearings_partial(request, case)
+class HearingDeleteView(PermissionRequiredMixin, View):
+    required_permission = "hearings.delete"
 
-
-class HearingResultView(View):
-    """Duruşma sonucunu/durumunu kaydeder; sonuç zaman çizelgesine düşer."""
-
-    def post(self, request, pk, item_pk):
-        case = visible_case_or_404(request, pk)
-        h = get_object_or_404(Hearing, pk=item_pk, case=case)
-        form = HearingResultForm(request.POST, instance=h)
-        if form.is_valid():
-            h = form.save()
-            if h.status != HearingStatus.PLANNED:
-                text = f"{h.get_kind_display()} {h.get_status_display().lower()}"
-                CaseEvent.objects.create(
-                    case=case,
-                    date=timezone.localtime(h.starts_at).date(),
-                    kind=CaseEvent.Kind.HEARING,
-                    title=text,
-                    description=h.result,
-                    created_by=request.user,
-                )
-        return hearings_partial(request, case)
-
-
-class HearingDeleteView(AdminRequiredMixin, View):
     def post(self, request, pk, item_pk):
         case = visible_case_or_404(request, pk)
         get_object_or_404(Hearing, pk=item_pk, case=case).delete()

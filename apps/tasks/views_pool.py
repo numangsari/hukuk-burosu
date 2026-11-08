@@ -12,7 +12,7 @@ from django.views.generic import CreateView, ListView, View
 
 from apps.core.forms import BootstrapMixin
 from apps.core.pagination import page_size
-from apps.core.permissions import is_admin
+from apps.core.permission_registry import has_perm
 from apps.core.text import fold
 from apps.core.uploads import validate_upload
 
@@ -62,7 +62,7 @@ class PetitionPoolListView(ListView):
             .order_by("petition_type")
         )
         ctx["types"] = [{"name": r["petition_type"], "count": r["count"]} for r in rows]
-        ctx["is_admin"] = is_admin(self.request.user)
+        ctx["is_admin"] = has_perm(self.request.user, "petition_pool.delete_any")
         return ctx
 
 
@@ -89,7 +89,8 @@ class PetitionSampleDeleteView(View):
 
     def post(self, request, pk):
         sample = get_object_or_404(PetitionSample, pk=pk)
-        if sample.created_by_id != request.user.pk and not is_admin(request.user):
+        own = sample.created_by_id == request.user.pk
+        if not own and not has_perm(request.user, "petition_pool.delete_any"):
             raise PermissionDenied
         sample.file.delete(save=False)
         sample.delete()

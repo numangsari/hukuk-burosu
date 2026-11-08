@@ -35,12 +35,6 @@ urlpatterns = [
     path("<int:pk>/haciz/yeni/", SeizureSaveView.as_view(), name="seizure_add"),
     path("<int:pk>/haciz/<int:item_pk>/", SeizureSaveView.as_view(), name="seizure_edit"),
     path("<int:pk>/haciz/<int:item_pk>/sil/", SeizureDeleteView.as_view(), name="seizure_delete"),
-    path("<int:pk>/durusma/yeni/", rec.HearingAddView.as_view(), name="hearing_add"),
-    path(
-        "<int:pk>/durusma/<int:item_pk>/sonuc/",
-        rec.HearingResultView.as_view(),
-        name="hearing_result",
-    ),
     path(
         "<int:pk>/durusma/<int:item_pk>/sil/",
         rec.HearingDeleteView.as_view(),

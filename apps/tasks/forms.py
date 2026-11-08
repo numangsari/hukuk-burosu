@@ -4,9 +4,10 @@ from apps.accounts.models import User
 from apps.cases.models import Case, CaseStatus
 from apps.clients.models import Client
 from apps.core.forms import BootstrapMixin, DateInput
+from apps.core.permission_registry import role_has_perm
 from apps.core.permissions import filter_visible_cases, filter_visible_clients
 from apps.core.uploads import validate_upload
-from apps.office.models import HEARING_TASK_TYPE_NAME, OfficeSettings, TaskType
+from apps.office.models import HEARING_TASK_TYPE_NAME, TaskType
 
 from .models import Task
 from .people import assignee_choices, reviewer_choices
@@ -78,16 +79,10 @@ class TaskForm(BootstrapMixin, forms.ModelForm):
     def __init__(self, *args, user=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["case"].required = self.case_required
-        office = OfficeSettings.load()
-        self.task_review_mode = office.task_review_mode
-        if self.task_review_mode in (
-            OfficeSettings.TaskReviewMode.OPTIONAL,
-            OfficeSettings.TaskReviewMode.ASSISTANTS_ONLY,
-        ):
-            self.fields["reviewer"].required = False
-            self.fields["reviewer"].empty_label = "Kontrolcü yok (Doğrudan kapanır)"
-        else:
-            self.fields["reviewer"].required = True
+        # Kontrolcü, sorumlunun rolü "kontrolcüsüz kapatma" yetkisine sahip değilse zorunludur
+        # (clean içinde denetlenir; sorumlu henüz seçilmediği için alan zorunlu işaretlenmez).
+        self.fields["reviewer"].required = False
+        self.fields["reviewer"].empty_label = "Kontrolcü yok"
 
         if self.instance.pk:
             # Kayıtlı görevde seçim yoksa görev türünün varsayılanı gösterilir.
@@ -188,15 +183,8 @@ class TaskForm(BootstrapMixin, forms.ModelForm):
                 )
         if a and r and a == r:
             self.add_error("reviewer", "Kontrolcü, sorumludan farklı biri olmalı.")
-        elif (
-            self.task_review_mode == OfficeSettings.TaskReviewMode.ASSISTANTS_ONLY
-            and a
-            and not a.is_lawyer_or_above
-            and not r
-        ):
-            self.add_error(
-                "reviewer", "Yardımcı personel görevlerinde kontrolcü seçimi zorunludur."
-            )
+        elif a and not r and not role_has_perm(a.role, "tasks.close_without_review"):
+            self.add_error("reviewer", "Bu görevde kontrolcü seçimi zorunludur.")
         if not case:
             data["requires_accounting"] = False  # ofis içi görevde müvekkil gelir/gideri olmaz
         return data

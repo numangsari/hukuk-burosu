@@ -13,7 +13,7 @@ from django.views.generic import CreateView, DetailView, ListView, UpdateView, V
 
 from apps.accounts.models import User
 from apps.cases.documents import mirror_task_document
-from apps.cases.models import Case
+from apps.cases.models import Case, Hearing
 from apps.core.pagination import page_size
 from apps.core.permissions import filter_visible_cases, filter_visible_tasks, is_admin
 from apps.core.text import fold
@@ -195,6 +195,19 @@ class TaskCreateView(VisibleFormMixin, CreateView):
     form_class = TaskForm
     template_name = "tasks/form.html"
 
+    def _source_hearing(self, case):
+        """Duruşma ekranından açılan görev (?durusma=) o duruşmaya bağlanır."""
+        raw = self.request.GET.get("durusma", "")
+        if not (case and raw.isdecimal()):
+            return None
+        from apps.core.permissions import filter_visible_hearings
+
+        return (
+            filter_visible_hearings(Hearing.objects.filter(case=case), self.request.user)
+            .filter(pk=raw)
+            .first()
+        )
+
     def get_initial(self):
         initial = {}
         raw_case = self.request.GET.get("dosya", "")
@@ -227,6 +240,7 @@ class TaskCreateView(VisibleFormMixin, CreateView):
 
     def form_valid(self, form):
         form.instance.created_by = self.request.user
+        form.instance.hearing = self._source_hearing(form.cleaned_data.get("case"))
         with transaction.atomic():
             if form.instance.case_id:
                 form.instance.case = Case.objects.select_for_update(of=("self",)).get(
@@ -362,13 +376,6 @@ class TaskDetailView(DetailView):
 class TaskActionView(View):
     def post(self, request, pk):
         task = visible_task_or_404(request, pk)
-        client_informed_raw = request.POST.get("client_informed")
-        client_informed = None
-        if client_informed_raw in ("true", "1", "yes"):
-            client_informed = True
-        elif client_informed_raw in ("false", "0", "no"):
-            client_informed = False
-
         try:
             services.perform(
                 task,
@@ -376,11 +383,6 @@ class TaskActionView(View):
                 request.user,
                 request.POST.get("comment", ""),
                 request.POST.get("ledger_id", ""),
-                hearing_outcome=request.POST.get("hearing_outcome", ""),
-                hearing_decisions=request.POST.get("hearing_decisions", ""),
-                client_informed=client_informed,
-                client_not_informed_reason=request.POST.get("client_not_informed_reason", ""),
-                next_hearing_at=request.POST.get("next_hearing_at", ""),
                 work_order_no=request.POST.get("work_order_no", ""),
                 receipt_no=request.POST.get("receipt_no", ""),
             )

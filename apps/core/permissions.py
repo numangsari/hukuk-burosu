@@ -3,6 +3,8 @@
 from django.contrib.auth.mixins import UserPassesTestMixin
 from django.db.models import Exists, OuterRef, Q
 
+from .permission_registry import has_perm
+
 
 def is_admin(user) -> bool:
     return bool(
@@ -16,10 +18,8 @@ class AdminRequiredMixin(UserPassesTestMixin):
 
 
 def can_manage_routines(user) -> bool:
-    """Rutin görev kurallarını yönetici ve kıdemli avukat yönetir."""
-    return bool(
-        is_admin(user) or (user and user.is_authenticated and user.role == user.Role.SENIOR)
-    )
+    """Rutin görev kurallarını yönetme (rol matrisindeki "tasks.routines" yetkisi)."""
+    return has_perm(user, "tasks.routines")
 
 
 class RoutineManagerMixin(UserPassesTestMixin):
@@ -27,26 +27,22 @@ class RoutineManagerMixin(UserPassesTestMixin):
         return can_manage_routines(self.request.user)
 
 
+class PermissionRequiredMixin(UserPassesTestMixin):
+    """`required_permission` (rol matrisi anahtarı) olmayan kullanıcıya 403 verir."""
+
+    required_permission = ""
+
+    def test_func(self):
+        return has_perm(self.request.user, self.required_permission)
+
+
 def can_view_all_office_data(user) -> bool:
     """Kullanıcının tüm müvekkil ve dosyaları görüp göremeyeceğini döner.
 
-    - Ayarlar > Yetkiler'de 'Herkese açık' (PUBLIC) seçiliyse tüm aktif kullanıcılar görür.
-    - 'Sorumlu bazlı' (RESTRICTED) seçiliyse:
-      Yönetici (admin), Kıdemli Avukat (senior), Sekreter (secretary), Muhasebe (accountant)
-      ve özel yetki verilenler (`can_view_all_cases=True`) tümünü görür;
-      Avukat (lawyer), Stajyer (intern) ve İcra Katibi (paralegal) yalnızca sorumlu/görevli
-      olduğu kayıtları görür.
+    Rol matrisindeki "cases.view_all" yetkisi olmayan roller yalnızca sorumlu veya görevli
+    olduğu dosya, müvekkil ve duruşmaları görür.
     """
-    if not (user and user.is_authenticated and user.is_active):
-        return False
-    if is_admin(user) or getattr(user, "can_view_all_cases", False):
-        return True
-    if getattr(user, "role", None) in ("senior", "secretary", "accountant"):
-        return True
-    from apps.office.models import OfficeSettings
-
-    office = OfficeSettings.load()
-    return office.case_visibility_mode == OfficeSettings.CaseVisibilityMode.PUBLIC
+    return has_perm(user, "cases.view_all")
 
 
 def filter_visible_cases(qs, user):

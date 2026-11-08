@@ -140,8 +140,6 @@ def format_hearing_reminder_message(
         lines.append(f"{title} {dt_str} tarihindedir.")
 
     details = []
-    if hearing.room:
-        details.append(f"Salon: {hearing.room}")
     if hearing.is_remote:
         details.append("E-duruşma olarak icra edilecektir.")
     if details:

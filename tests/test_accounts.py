@@ -310,8 +310,7 @@ def test_expanded_user_roles_and_accountant_balance_default(client, pin_user):
     assert r.status_code == 302
     acc = User.objects.get(first_name="Selin")
     assert acc.role == User.Role.ACCOUNTANT
-    assert acc.can_view_balances is True
-    assert can_view_balances(acc) is True
+    assert can_view_balances(acc) is True  # muhasebe rolü varsayılan olarak bakiye görür
 
 
 def test_use_assistant_assignee_toggle_controls_client_and_case_forms(client, pin_user):
@@ -372,12 +371,22 @@ def test_case_visibility_mode_restricted_vs_public(db):
     )
 
     office = OfficeSettings.load()
-    office.case_visibility_mode = OfficeSettings.CaseVisibilityMode.PUBLIC
-    office.save(update_fields=["case_visibility_mode"])
+    office.role_permissions = {
+        "cases.view_all": [
+            "admin",
+            "senior",
+            "lawyer",
+            "intern",
+            "paralegal",
+            "secretary",
+            "accountant",
+        ]
+    }
+    office.save(update_fields=["role_permissions"])
     assert filter_visible_cases(Case.objects.all(), lawyer1).count() == 2
 
-    office.case_visibility_mode = OfficeSettings.CaseVisibilityMode.RESTRICTED
-    office.save(update_fields=["case_visibility_mode"])
+    office.role_permissions = {"cases.view_all": ["admin", "senior", "secretary", "accountant"]}
+    office.save(update_fields=["role_permissions"])
 
     # Yönetici, kıdemli avukat ve büro geneli (sekreter) tümünü görür
     for u in (admin, senior, secretary):
@@ -391,10 +400,10 @@ def test_case_visibility_mode_restricted_vs_public(db):
     assert list(filter_visible_clients(Client.objects.all(), lawyer1)) == [c1]
     assert list(filter_visible_clients(Client.objects.all(), lawyer2)) == [c2]
 
-    # İstisna kutucuğu işaretlenirse tümünü görür
-    lawyer1.can_view_all_cases = True
-    lawyer1.save(update_fields=["can_view_all_cases"])
+    # Matriste avukat rolüne "tüm dosyaları görme" verilirse tüm avukatlar tümünü görür
+    office.set_role_permission("cases.view_all", ["senior", "lawyer", "secretary", "accountant"])
     assert filter_visible_cases(Case.objects.all(), lawyer1).count() == 2
+    assert filter_visible_cases(Case.objects.all(), intern1).count() == 1
 
 
 def test_task_review_modes_optional_and_assistants_only(db):
@@ -416,8 +425,8 @@ def test_task_review_modes_optional_and_assistants_only(db):
     tt = TaskType.objects.filter(is_active=True, requires_document=False).first()
 
     office = OfficeSettings.load()
-    office.task_review_mode = OfficeSettings.TaskReviewMode.ASSISTANTS_ONLY
-    office.save(update_fields=["task_review_mode"])
+    # Avukat ve kıdemli kontrolcüsüz kapatabilir; stajyer için kontrolcü zorunlu.
+    office.set_role_permission("tasks.close_without_review", ["senior", "lawyer"])
 
     # Yardımcı personel için kontrolcü zorunlu
     f_intern = TaskForm(
@@ -458,7 +467,7 @@ def test_task_review_modes_optional_and_assistants_only(db):
     assert task.status == TaskStatus.DONE
 
 
-def test_accounting_edit_mode_restricted(db):
+def test_accounting_edit_permission_by_role(db):
     from apps.accounting.permissions import can_edit
     from apps.office.models import OfficeSettings
 
@@ -467,18 +476,14 @@ def test_accounting_edit_mode_restricted(db):
     lawyer = User.objects.create_user(username="av_acc", role=User.Role.LAWYER)
 
     office = OfficeSettings.load()
-    office.accounting_edit_mode = OfficeSettings.AccountingEditMode.EVERYONE
-    office.save(update_fields=["accounting_edit_mode"])
-    assert can_edit(lawyer) is True
+    assert can_edit(lawyer) is True  # varsayılan: tüm roller
 
-    office.accounting_edit_mode = OfficeSettings.AccountingEditMode.RESTRICTED
-    office.save(update_fields=["accounting_edit_mode"])
-    assert can_edit(admin) is True
+    office.set_role_permission("accounting.edit", ["accountant"])
+    assert can_edit(admin) is True  # yönetici her zaman yetkili
     assert can_edit(acc) is True
     assert can_edit(lawyer) is False
 
-    lawyer.can_manage_accounting = True
-    lawyer.save(update_fields=["can_manage_accounting"])
+    office.set_role_permission("accounting.edit", ["accountant", "lawyer"])
     assert can_edit(lawyer) is True
 
 

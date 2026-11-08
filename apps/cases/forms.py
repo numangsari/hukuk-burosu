@@ -4,6 +4,7 @@ from django import forms
 from django.db.models import Q
 from django.utils import timezone
 
+from apps.accounts.models import User
 from apps.clients.models import Client, Party
 from apps.core.forms import BootstrapMixin, DateInput, DateTimeInput
 from apps.core.text import tr_upper
@@ -14,6 +15,8 @@ from . import stages
 from .archive_categories import category_for_case, natural_sort_key, validate_case_placement
 from .archive_locations import available_archive_slots, validate_archive_location
 from .models import (
+    LIST_KINDS,
+    RESULT_KINDS,
     ArchiveCategory,
     ArchiveFolder,
     Case,
@@ -523,14 +526,16 @@ class DocumentForm(BootstrapMixin, forms.ModelForm):
         return f
 
 
-class HearingForm(BootstrapMixin, forms.ModelForm):
-    class Meta:
-        model = Hearing
-        fields = ["kind", "starts_at", "authority", "room", "notes", "is_remote"]
-        widgets = {"starts_at": DateTimeInput(), "notes": forms.Textarea(attrs={"rows": 1})}
+ATTENDANCE_CHOICES = [
+    ("attend", "Katılınacak"),
+    ("remote", "E-duruşma"),
+    ("excuse", "Mazeret"),
+]
 
 
 class HearingStandaloneForm(BootstrapMixin, forms.ModelForm):
+    """Duruşma / etkinlik oluşturma ve düzenleme formu."""
+
     case = forms.ModelChoiceField(
         label="Dosya",
         queryset=Case.objects.none(),
@@ -547,6 +552,9 @@ class HearingStandaloneForm(BootstrapMixin, forms.ModelForm):
             attrs={"data-searchable": "true", "data-placeholder": "Müvekkil seçin..."}
         ),
     )
+    attendance = forms.ChoiceField(
+        label="Katılma durumu", choices=ATTENDANCE_CHOICES, initial="attend"
+    )
 
     class Meta:
         model = Hearing
@@ -559,10 +567,9 @@ class HearingStandaloneForm(BootstrapMixin, forms.ModelForm):
             "starts_at",
             "ends_at",
             "authority",
-            "room",
             "notes",
-            "is_remote",
         ]
+        labels = {"assigned_to": "Sorumlu avukat", "authority": "Mahkeme / yer"}
         widgets = {
             "starts_at": DateTimeInput(),
             "ends_at": DateTimeInput(),
@@ -579,6 +586,8 @@ class HearingStandaloneForm(BootstrapMixin, forms.ModelForm):
         from apps.core.permissions import filter_visible_cases
 
         qs = Case.objects.filter(status=CaseStatus.OPEN).select_related("client")
+        if self.instance.pk and self.instance.case_id:
+            qs = qs | Case.objects.filter(pk=self.instance.case_id).select_related("client")
         if user:
             qs = filter_visible_cases(qs, user)
         self.fields["case"].queryset = qs
@@ -588,6 +597,27 @@ class HearingStandaloneForm(BootstrapMixin, forms.ModelForm):
             return f"{obj.archive_reference or '-'} · {obj.display_name} · {client_name}"
 
         self.fields["case"].label_from_instance = _label
+        # Sorumlu avukat dosyadan otomatik gelmez; yönetici, kıdemli, avukat ve stajyer seçilebilir.
+        self.fields["assigned_to"].queryset = User.objects.filter(
+            is_active=True,
+            role__in=[User.Role.ADMIN, User.Role.SENIOR, User.Role.LAWYER, User.Role.INTERN],
+        ).order_by("first_name", "last_name")
+        self.fields["assigned_to"].empty_label = "Seçiniz…"
+        if self.instance.pk:
+            self.initial["attendance"] = self.instance.attendance
+        # Duruşma, ön inceleme ve keşif UYAP'tan gelir; elle eklemek ayrı bir yetkidir.
+        from apps.core.permission_registry import has_perm
+
+        keeps_list_kind = bool(self.instance.pk and self.instance.kind in LIST_KINDS)
+        if not (keeps_list_kind or (user and has_perm(user, "hearings.create_manual"))):
+            self.fields["kind"].choices = [
+                choice for choice in self.fields["kind"].choices if choice[0] not in LIST_KINDS
+            ]
+        # UYAP kaydının tarih, saat, mahkeme ve dosya bilgisi değiştirilemez; UYAP'tan güncellenir.
+        if self.instance.pk and self.instance.portal_ref:
+            for name in ("kind", "case", "client", "starts_at", "ends_at", "authority"):
+                self.fields[name].disabled = True
+                self.fields[name].help_text = "UYAP kaydı; UYAP'tan gelir, değiştirilemez."
 
     def clean(self):
         cleaned_data = super().clean()
@@ -602,89 +632,45 @@ class HearingStandaloneForm(BootstrapMixin, forms.ModelForm):
             raise forms.ValidationError(
                 "Lütfen bir dosya, müvekkil veya etkinlik başlığı belirtiniz."
             )
+        if cleaned_data.get("kind") in RESULT_KINDS and not cleaned_data.get("assigned_to"):
+            self.add_error("assigned_to", "Duruşmaya girecek sorumlu avukatı seçin.")
         return cleaned_data
+
+    def save(self, commit=True):
+        hearing = super().save(commit=False)
+        attendance = self.cleaned_data.get("attendance")
+        hearing.excuse_submitted = attendance == "excuse"
+        hearing.is_remote = attendance == "remote"
+        if commit:
+            hearing.save()
+        return hearing
 
 
 class HearingResultForm(BootstrapMixin, forms.ModelForm):
+    """Duruşma sonucu: verilen karar (zorunlu) ve isteğe bağlı sonraki duruşma tarihi."""
+
+    next_hearing_at = forms.DateTimeField(
+        label="Sonraki duruşma tarihi",
+        required=False,
+        widget=DateTimeInput(),
+        help_text="Zorunlu değil; UYAP'tan da otomatik gelir. Girilirse takvime eklenir.",
+    )
+
     class Meta:
         model = Hearing
-        fields = ["status", "result"]
-        widgets = {"result": forms.Textarea(attrs={"rows": 2})}
-
-
-class HearingTaskCreateForm(BootstrapMixin, forms.ModelForm):
-    excuse_submitted = forms.BooleanField(
-        label="Mazeret sunulacak",
-        required=False,
-        help_text=(
-            "Bu duruşmaya mazeret sunulacaksa işaretleyin "
-            "(Google Takvim'e ve ajandaya Mazeret olarak yansır)."
-        ),
-    )
-    is_remote = forms.BooleanField(label="E-duruşma", required=False)
-    client = forms.ModelChoiceField(
-        label="Müvekkil",
-        queryset=Client.objects.all(),
-        required=False,
-    )
-    case = forms.ModelChoiceField(
-        label="Dosya",
-        queryset=Case.objects.exclude(status=CaseStatus.CLOSED),
-        required=False,
-    )
-
-    class Meta:
-        from apps.tasks.models import Task
-
-        model = Task
-        fields = [
-            "title",
-            "case",
-            "assignee",
-            "reviewer",
-            "due_date",
-            "notes",
-        ]
+        fields = ["result"]
+        labels = {"result": "Duruşmada verilen karar / sonuç"}
         widgets = {
-            "due_date": DateInput(),
-            "notes": forms.Textarea(attrs={"rows": 2}),
+            "result": forms.Textarea(
+                attrs={"rows": 5, "placeholder": "Duruşmada alınan ara kararlar veya sonuç..."}
+            )
         }
 
-    def __init__(self, *args, hearing=None, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.hearing = hearing
-        from apps.tasks.people import assignee_choices, reviewer_choices
-
-        self.fields["assignee"].queryset = assignee_choices()
-        self.fields["reviewer"].queryset = reviewer_choices()
-        self.fields["assignee"].required = True
-        self.fields["reviewer"].required = False
-        self.fields["reviewer"].empty_label = "Kontrolcü yok (Doğrudan kapanır)"
-        self.fields["notes"].label = "Duruşma notu"
-        self.fields["notes"].help_text = "İşlemleri ve hatırlatmaları yazın. Not görevde görünür."
-        self.fields["title"].widget.attrs["class"] += " text-uppercase-input"
-        if hearing:
-            self.initial.setdefault("excuse_submitted", hearing.excuse_submitted)
-            self.initial.setdefault("is_remote", hearing.is_remote)
-
-    def clean(self):
-        cleaned_data = super().clean()
-        case = cleaned_data.get("case")
-        client = cleaned_data.get("client")
-        if case and case.client:
-            cleaned_data["client"] = case.client
-        elif case and not case.client:
-            self.add_error(
-                "case", "Bu dosyanın müvekkili henüz seçilmemiş. Önce dosyadan müvekkil seçin."
-            )
-        elif not case and not client:
-            self.add_error("client", "Müvekkil seçimi zorunludur.")
-
-        a = cleaned_data.get("assignee")
-        r = cleaned_data.get("reviewer")
-        if a and r and a == r:
-            self.add_error("reviewer", "Kontrolcü, sorumludan farklı biri olmalı.")
-        return cleaned_data
+    def clean_result(self):
+        result = (self.cleaned_data.get("result") or "").strip()
+        if not result:
+            raise forms.ValidationError("Duruşmada verilen kararı yazın.")
+        return result
 
 
 class CaseEventForm(BootstrapMixin, forms.ModelForm):

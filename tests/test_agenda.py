@@ -139,13 +139,13 @@ def test_calendar_page_month_and_week(lawyer_client, monkeypatch):
     assert 'data-event-location="İstanbul Adliyesi"' in html
     assert 'data-event-end="07.11.2026"' in html
     assert "Yalnızca görüntüleme" in html
-    assert '<h1 class="page-title mb-0">Takvim</h1>' in html
+    assert '<h1 class="page-title mb-0">Takvim / Duruşma</h1>' in html
     assert "Duruşma Listesi" in html and "Ajanda &amp; Duruşmalar" not in html
     r = lawyer_client.get(reverse("agenda:calendar"), {"view": "week", "date": "2026-11-05"})
     assert "2 Kasım – 8 Kasım 2026" in r.content.decode()
     assert FAKE_URL not in r.content.decode()
     r = lawyer_client.get(reverse("agenda:calendar"), {"view": "list"})
-    assert '<h1 class="page-title mb-0">Duruşma Listesi</h1>' in r.content.decode()
+    assert '<h1 class="page-title mb-0">Takvim / Duruşma</h1>' in r.content.decode()
     assert 'aria-label="Takvim aralığı"' not in r.content.decode()
 
 
@@ -241,7 +241,7 @@ def test_calendar_hides_restricted_case_and_its_google_copy(
     from apps.cases.models import Hearing
 
     office = OfficeSettings.load()
-    office.case_visibility_mode = OfficeSettings.CaseVisibilityMode.RESTRICTED
+    office.role_permissions = {"cases.view_all": ["admin", "senior", "secretary", "accountant"]}
     office.calendar_ics_url = FAKE_URL
     office.save()
     other_client = client_factory(responsible_lawyer=admin_user, responsible_intern=None)

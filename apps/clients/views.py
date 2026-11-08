@@ -29,7 +29,8 @@ from apps.accounts.models import User
 from apps.cases.flows import cluster
 from apps.cases.models import Case
 from apps.core.pagination import page_size
-from apps.core.permissions import AdminRequiredMixin, filter_visible_clients, is_admin
+from apps.core.permission_registry import has_perm
+from apps.core.permissions import PermissionRequiredMixin, filter_visible_clients
 from apps.core.text import fold
 
 from .forms import CLIENT_SUBRECORDS, DEFAULT_CONTACT_KINDS, ClientForm, client_formset
@@ -214,7 +215,7 @@ class ClientFormMixin:
     def get_formsets(self):
         data = (self.request.POST, self.request.FILES) if self.request.method == "POST" else ()
         instance = self.object or Client()
-        can_delete = is_admin(self.request.user)
+        can_delete = has_perm(self.request.user, "clients.delete")
         formsets = {}
         for prefix in CLIENT_SUBRECORDS:
             extra, initial = (0 if prefix == "sozlesme" else 1), None
@@ -462,7 +463,9 @@ class ClientCasesView(View):
         )
 
 
-class ClientDeleteView(AdminRequiredMixin, View):
+class ClientDeleteView(PermissionRequiredMixin, View):
+    required_permission = "clients.delete"
+
     """Onay sayfası: birlikte silinecek kayıtlar sayılarıyla gösterilir, onay kutusu istenir."""
 
     template_name = "clients/confirm_delete.html"

@@ -722,11 +722,15 @@ button.cal-ev:focus-visible { outline: 2px solid var(--brand); outline-offset: 2
 .wa-message-body { overflow-wrap: anywhere; }
 .wa-settings { max-width: 780px; }
 .task-panel { min-height: 520px; }
+@media (min-width: 1200px) { .home-panels .review-stack .task-panel { min-height: 0; } }
 /* Ana sayfa panelleri geniş ekranda sayfanın altına kadar uzanır, içleri kendi içinde kayar */
 .panel-scroll { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
 @media (min-width: 1200px) {
   .home-panels .card { height: calc(100vh - var(--topbar-h) - var(--foot-h) - 7rem); min-height: 460px; }
   .home-panels .panel-scroll { overflow-y: auto; }
+  /* Kontrol kartları (bekleyenler + kontrolde olanlar) birlikte tek kart yüksekliğini paylaşır. */
+  .home-panels .review-stack { height: calc(100vh - var(--topbar-h) - var(--foot-h) - 7rem); min-height: 460px; }
+  .home-panels .review-stack .card { height: auto; min-height: 0; flex: 1 1 0; }
 }
 
 /* ---------- Görevler ---------- */
@@ -1186,3 +1190,8 @@ form.is-dragover { outline: 2px dashed var(--brand); outline-offset: -2px; backg
 .team-step.is-current .fw-medium { font-weight: 700 !important; }
 .team-step.is-current .avatar { box-shadow: 0 0 0 3px var(--brand); }
 .team-now { background: var(--brand-solid); color: #fff; }
+
+/* Yetki matrisi */
+.perm-matrix th, .perm-matrix td { white-space: nowrap; }
+.perm-matrix td:first-child { white-space: normal; min-width: 18rem; }
+.perm-matrix .perm-group th { background: var(--brand-soft); color: var(--brand); font-size: .8rem; letter-spacing: .02em; text-transform: uppercase; }

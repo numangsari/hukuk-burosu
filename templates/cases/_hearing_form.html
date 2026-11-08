@@ -53,18 +53,15 @@
   </div>
 
   <div class="row g-3 mb-3">
-    <div class="col-md-8">
+    <div class="col-12">
       {% include "partials/field.html" with field=form.authority %}
-    </div>
-    <div class="col-md-4">
-      {% include "partials/field.html" with field=form.room %}
     </div>
   </div>
 
   <div class="mb-3">
     {% include "partials/field.html" with field=form.notes %}
   </div>
-  {% include "partials/field.html" with field=form.is_remote %}
+  <div class="row g-3 mb-3"><div class="col-md-6">{% include "partials/field.html" with field=form.attendance %}</div></div>
 
   <div class="d-flex justify-content-between align-items-center pt-3 border-top mt-2">
     {% if inline %}<button type="button" class="btn btn-light" @click="$dispatch('hearing-edit-cancel')">Vazgeç</button>{% else %}<a href="{{ request.GET.next|default:'/takvim/?view=list' }}" class="btn btn-light">Vazgeç</a>{% endif %}

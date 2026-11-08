@@ -9,7 +9,7 @@
 <div x-data="{ editing: false }" @task-edit-open="editing = true" @task-edit-cancel="editing = false; document.getElementById('task-edit-slot').innerHTML = ''">
 <div id="task-edit-slot" x-show="editing" x-cloak></div>
 <div x-show="!editing">
-<div class="card mb-3" x-data="{ revise: false, close: false, hearingOutcome: '{% if task.hearing.excuse_submitted %}excused{% else %}attended{% endif %}', clientInformed: 'yes', nextHearing: false }">
+<div class="card mb-3" x-data="{ revise: false, close: false }">
   <div class="detail-hero">
     <div class="hero-icon"><i class="bi bi-check2-square"></i></div>
     <div class="min-w-0">
@@ -18,9 +18,6 @@
         <h1 class="page-title">{{ task.title|tr_title }}</h1>
         {% include "tasks/_chips.html" with t=task part="status" %}
         {% include "tasks/_chips.html" with t=task part="due" %}
-        {% if task.hearing %}
-          <span class="badge bg-primary-subtle text-primary border border-primary-subtle"><i class="bi bi-calendar-event me-1"></i>Duruşma / Etkinlik Görevi</span>
-        {% endif %}
       </div>
       <div class="meta">
         {% if not task.case_id %}<span><i class="bi bi-building"></i>Ofis içi görev</span>{% else %}<span><i class="bi bi-folder2"></i><a class="fw-medium" href="{{ task.case.get_absolute_url }}"{% if request.GET.pencere %} target="_top"{% endif %}>{{ task.case.archive_reference }} — {{ task.case.display_name|tr_title }}</a></span>
@@ -30,12 +27,7 @@
         {% if task.receipt_no %}<span><i class="bi bi-receipt"></i>Makbuz no <strong class="tabular">{{ task.receipt_no }}</strong></span>{% endif %}
         <span>Kayıt: {{ task.created_at|date:"d.m.Y H:i" }} · {{ task.created_by|default:"—" }}</span>
       </div>
-      {% if task.hearing %}
-      <div class="mt-2 pt-2 border-top small text-body-secondary">
-        <i class="bi bi-pin-angle me-1"></i>Bağlı Duruşma / Etkinlik: <strong>{{ task.hearing.title_display }}</strong> ({{ task.hearing.starts_at|date:"d.m.Y H:i" }}{% if task.hearing.authority %} — {{ task.hearing.authority }}{% endif %})
-      </div>
-      {% if task.hearing.excuse_submitted and not task.hearing_outcome %}<div class="alert alert-warning mt-3 mb-0"><i class="bi bi-exclamation-triangle me-2"></i><strong>Bu duruşma için mazeret sunulacak.</strong></div>{% endif %}
-      {% endif %}
+      {% if task.hearing %}<div class="mt-2 pt-2 border-top small text-body-secondary"><i class="bi bi-pin-angle me-1"></i>Bağlı duruşma: <a href="{% url 'hearings:detail' task.hearing_id %}">{{ task.hearing.title_display }}</a> ({{ task.hearing.starts_at|date:"d.m.Y H:i" }})</div>{% endif %}
     </div>
     <div class="page-actions">
       {% if can_delete %}
@@ -45,7 +37,7 @@
       {% endif %}
       {% if can_edit %}<button type="button" class="btn btn-light" hx-get="{% url 'tasks:update' task.pk %}{% if request.GET.pencere %}?pencere=1{% endif %}" hx-target="#task-edit-slot" hx-swap="innerHTML" @click="$dispatch('task-edit-open')"><i class="bi bi-pencil"></i>Düzenle</button>{% endif %}
       {% for a in actions %}
-        {% if a.key == 'close' %}<button type="button" class="btn btn-{{ a.style }}" @click="close = !close">{% if task.hearing %}Görevi Tamamla{% else %}{{ a.label }}{% endif %}</button>
+        {% if a.key == 'close' %}<button type="button" class="btn btn-{{ a.style }}" @click="close = !close">{{ a.label }}</button>
         {% elif a.key == 'submit' %}<form method="post" class="d-flex gap-2 align-items-start" action="{% url 'tasks:action' task.pk %}{% if request.GET.pencere %}?pencere=1{% endif %}">{% csrf_token %}<input type="hidden" name="action" value="submit"><textarea class="form-control" name="comment" rows="1" required style="min-width: 18rem" placeholder="Görev notu (zorunlu): ne yapıldı, kontrolcü neye bakmalı?" aria-label="Görev notu"></textarea><button class="btn btn-{{ a.style }} text-nowrap">{{ a.label }}</button></form>
         {% elif a.needs_comment %}<button type="button" class="btn btn-{{ a.style }}" @click="revise = !revise">{{ a.label }}</button>
         {% else %}<form method="post" action="{% url 'tasks:action' task.pk %}{% if request.GET.pencere %}?pencere=1{% endif %}">{% csrf_token %}<input type="hidden" name="action" value="{{ a.key }}"><button class="btn btn-{{ a.style }}">{{ a.label }}</button></form>{% endif %}
@@ -61,85 +53,8 @@
   <form method="post" action="{% url 'tasks:action' task.pk %}{% if request.GET.pencere %}?pencere=1{% endif %}" class="card-body border-top" x-show="close" x-cloak>{% csrf_token %}
     <input type="hidden" name="action" value="close">
 
-    {% if task.hearing %}
-    <div class="alert alert-primary py-2 px-3 small d-flex align-items-center gap-2 mb-3">
-      <i class="bi bi-calendar-event fs-5"></i>
-      <div>
-        <strong>Duruşma / Etkinlik:</strong> {{ task.hearing.title_display }} — {{ task.hearing.starts_at|date:"d.m.Y H:i" }}
-        {% if task.hearing.authority %}<span class="text-body-secondary">({{ task.hearing.authority }})</span>{% endif %}
-      </div>
-    </div>
-
-    <div class="mb-3">
-      <label class="form-label fw-semibold">Duruşma Katılım Durumu *</label>
-      <div class="d-flex gap-4">
-        <div class="form-check">
-          <input class="form-check-input" type="radio" name="hearing_outcome" id="ho_attended" value="attended" x-model="hearingOutcome">
-          <label class="form-check-label" for="ho_attended"><i class="bi bi-check-circle text-success me-1"></i> Duruşmaya Girildi</label>
-        </div>
-        <div class="form-check">
-          <input class="form-check-input" type="radio" name="hearing_outcome" id="ho_excused" value="excused" x-model="hearingOutcome">
-          <label class="form-check-label" for="ho_excused"><i class="bi bi-clock-history text-warning me-1"></i> Mazeret Gönderildi (Girilmedi)</label>
-        </div>
-      </div>
-    </div>
-
-    <!-- Duruşmaya Girildi Alanları -->
-    <div x-show="hearingOutcome === 'attended'">
-      <div class="mb-3">
-        <label class="form-label fw-semibold" for="hearing-decisions">Duruşmada Verilen Kararlar (Ara Karar Tutanağı) *</label>
-        <textarea class="form-control" id="hearing-decisions" name="hearing_decisions" rows="4" placeholder="Duruşmada zapta geçen ara kararları ve ertelenen yeni tarihi giriniz..." :required="hearingOutcome === 'attended'"></textarea>
-      </div>
-
-      <div class="mb-3">
-        <label class="form-label fw-semibold">Müvekkile Bilgi Verildi mi? *</label>
-        <div class="d-flex gap-4 mb-2">
-          <div class="form-check">
-            <input class="form-check-input" type="radio" name="client_informed" id="ci_yes" value="yes" x-model="clientInformed">
-            <label class="form-check-label" for="ci_yes">Evet, bilgi verildi</label>
-          </div>
-          <div class="form-check">
-            <input class="form-check-input" type="radio" name="client_informed" id="ci_no" value="no" x-model="clientInformed">
-            <label class="form-check-label" for="ci_no">Hayır, henüz verilmedi</label>
-          </div>
-        </div>
-
-        <div x-show="clientInformed === 'no'" class="mt-2">
-          <label class="form-label small text-body-secondary" for="client-not-informed-reason">Müvekkile Bilgi Verilmeme Sebebi *</label>
-          <textarea class="form-control" id="client-not-informed-reason" name="client_not_informed_reason" rows="2" placeholder="Neden bilgi verilemediğini açıklayınız..." :required="hearingOutcome === 'attended' && clientInformed === 'no'"></textarea>
-        </div>
-      </div>
-
-      <div class="mb-3">
-        <label class="form-label small text-body-secondary" for="close-note-att">Ek Not (İsteğe bağlı)</label>
-        <textarea class="form-control" id="close-note-att" name="comment" rows="2" :disabled="hearingOutcome !== 'attended'" placeholder="Görevi tamamlarken eklemek istediğiniz not..."></textarea>
-      </div>
-    </div>
-
-    <!-- Mazeret Gönderildi Alanları -->
-    <div x-show="hearingOutcome === 'excused'">
-      <div class="mb-3">
-        <label class="form-label fw-semibold" for="close-note-exc">Mazeret Bildirim Notu *</label>
-        <textarea class="form-control" id="close-note-exc" name="comment" rows="3" :disabled="hearingOutcome !== 'excused'" placeholder="Mesleki mazeret sunuldu / yeni gün bekleniyor..." :required="hearingOutcome === 'excused'"></textarea>
-      </div>
-    </div>
-
-    <div class="mb-3 p-3 border rounded">
-      <div class="form-check">
-        <input class="form-check-input" type="checkbox" id="next-hearing-toggle" x-model="nextHearing">
-        <label class="form-check-label fw-semibold" for="next-hearing-toggle">Yeni duruşma var mı?</label>
-      </div>
-      <div x-show="nextHearing" x-cloak class="mt-3">
-        <label class="form-label" for="next-hearing-at">Yeni duruşma tarihi ve saati <span class="text-body-secondary">(isteğe bağlı)</span></label>
-        <input class="form-control" type="datetime-local" id="next-hearing-at" name="next_hearing_at" :disabled="!nextHearing">
-        <div class="form-text">Tarih ve saat girilirse duruşma takvime eklenir.</div>
-      </div>
-    </div>
-
-    {% else %}
     <label class="form-label" for="close-note">Sonuç notu *</label>
     <textarea class="form-control mb-3" id="close-note" name="comment" rows="3" required></textarea>
-    {% endif %}
 
     {% if task.needs_accounting %}
     <label class="form-label" for="ledger-entry">Yapılan gelir/gider işlemi *</label>
@@ -155,20 +70,14 @@
       {% if task.needs_accounting and task.case_id %}<div class="col-md-6"><label class="form-label" for="receipt-no">Makbuz no <span class="text-body-secondary">(isteğe bağlı)</span></label><input class="form-control" id="receipt-no" name="receipt_no" maxlength="60" value="{{ task.receipt_no }}"></div>{% endif %}
     </div>
     {% endif %}
-    <button class="btn btn-primary"><i class="bi bi-check2"></i> {% if task.hearing %}Görevi Tamamla{% else %}Görevi kapat{% endif %}</button>
+    <button class="btn btn-primary"><i class="bi bi-check2"></i> Görevi kapat</button>
   </form>{% endif %}{% endfor %}
 </div>
 
 <div class="row g-3">
-  {% if not task.hearing or task.notes %}
-  <div class="{% if task.hearing %}col-12{% else %}col-lg-8{% endif %} d-flex flex-column gap-3">
-    {% if task.hearing %}
-      {% if task.notes %}<div class="card border-primary-subtle"><div class="card-body"><h2 class="h6 text-primary"><i class="bi bi-journal-text me-2"></i>Duruşma notu</h2><div>{{ task.notes|linebreaksbr }}</div></div></div>{% endif %}
-    {% else %}{% include "tasks/_documents.html" %}{% endif %}
-  </div>
-  {% endif %}
+  <div class="col-lg-8 d-flex flex-column gap-3">{% include "tasks/_documents.html" %}</div>
 
-  <div class="{% if task.hearing %}col-12{% else %}col-lg-4{% endif %}">
+  <div class="col-lg-4">
     <div class="card"><div class="card-body">
       <h2 class="section-title">Ekip</h2>
       <ol class="team-flow list-unstyled mb-3">
@@ -181,52 +90,9 @@
         {% endfor %}
       </ol>
       {% if not task.reviewer %}<div class="small text-body-secondary mb-3">Kontrolcü yok (doğrudan kapanır)</div>{% endif %}
-      {% if task.hearing_outcome %}
-      <h2 class="section-title mt-4">Duruşma Sonucu</h2>
-      <div class="mb-3 p-2 bg-body-tertiary rounded border">
-        {% if task.hearing_outcome == 'excused' %}
-          <div class="badge bg-warning-subtle text-warning border border-warning-subtle mb-1"><i class="bi bi-clock-history me-1"></i>Mazeret Gönderildi</div>
-        {% else %}
-          <div class="badge bg-success-subtle text-success border border-success-subtle mb-2"><i class="bi bi-check-circle me-1"></i>Duruşmaya Girildi</div>
-          <div class="small fw-semibold mt-1">Verilen Kararlar:</div>
-          <div class="small text-body mb-2">{{ task.hearing_decisions|linebreaksbr }}</div>
-          <div class="small fw-semibold">Müvekkil Bilgilendirmesi:</div>
-          <div class="small text-body">
-            {% if task.client_informed %}
-              <span class="text-success"><i class="bi bi-check-lg me-1"></i>Müvekkile bilgi verildi.</span>
-            {% else %}
-              <span class="text-danger"><i class="bi bi-x-circle me-1"></i>Müvekkile bilgi verilmedi:</span> {{ task.client_not_informed_reason }}
-            {% endif %}
-          </div>
-        {% endif %}
-        {% if task.hearing %}
-        <div class="mt-2 pt-2 border-top">
-          {% hearing_wa_templates task.hearing as th_templates %}
-          <button type="button" class="btn btn-sm btn-outline-success d-inline-flex align-items-center gap-1"
-                  data-bs-toggle="modal" data-bs-target="#whatsappModal"
-                  data-wa-phone="{{ task.hearing.client_phone }}"
-                  data-wa-name="{{ task.hearing.effective_client.name|default:'' }}"
-                  data-wa-templates="{{ th_templates|json_attr }}">
-            <i class="bi bi-whatsapp"></i> Müvekkile WhatsApp ile İlet
-          </button>
-        </div>
-        {% endif %}
-      </div>
-      {% elif task.hearing %}
-      <div class="mb-3 mt-3">
-        {% hearing_wa_templates task.hearing as th_templates %}
-        <button type="button" class="btn btn-sm btn-outline-success d-inline-flex align-items-center gap-1"
-                data-bs-toggle="modal" data-bs-target="#whatsappModal"
-                data-wa-phone="{{ task.hearing.client_phone }}"
-                data-wa-name="{{ task.hearing.effective_client.name|default:'' }}"
-                data-wa-templates="{{ th_templates|json_attr }}">
-          <i class="bi bi-whatsapp"></i> Duruşma Bilgisini WhatsApp ile İlet
-        </button>
-      </div>
-      {% endif %}
       <h2 class="section-title mt-4">Notlar</h2>
       {% for event in events %}{% if event.kind == 'submitted' and event.comment %}<div class="mb-3"><div class="small text-body-secondary">Kontrole gönderme notu · {{ event.actor }} · {{ event.created_at|date:"d.m.Y H:i" }}</div><div>{{ event.comment|linebreaksbr }}</div></div>{% elif event.kind == 'revision' and event.comment %}<div class="mb-3"><div class="small text-body-secondary">Revize notu · {{ event.actor }} · {{ event.created_at|date:"d.m.Y H:i" }}</div><div>{{ event.comment|linebreaksbr }}</div></div>{% endif %}{% if event.kind == 'closed' %}<div class="mb-3"><div class="small text-body-secondary">Sonuç · {{ event.actor }} · {{ event.created_at|date:"d.m.Y H:i" }}</div><div>{{ event.comment|linebreaksbr }}</div></div>{% endif %}{% endfor %}
-      {% if task.notes and not task.hearing %}<div class="mb-3"><div class="small text-body-secondary">Önceki not · Oluşturulma bilgisi bilinmiyor</div><div>{{ task.notes|linebreaksbr }}</div></div>{% endif %}
+      {% if task.notes %}<div class="mb-3"><div class="small text-body-secondary">Önceki not · Oluşturulma bilgisi bilinmiyor</div><div>{{ task.notes|linebreaksbr }}</div></div>{% endif %}
       {% for note in notes %}<div class="mb-3"><div class="small text-body-secondary">{{ note.actor }} · {{ note.created_at|date:"d.m.Y H:i" }}</div><div>{{ note.comment|linebreaksbr }}</div></div>{% empty %}{% if not task.notes %}<div class="small text-body-secondary">Henüz not yok.</div>{% endif %}{% endfor %}
       <form method="post" action="{% url 'tasks:note' task.pk %}{% if request.GET.pencere %}?pencere=1{% endif %}" class="mt-3">{% csrf_token %}
         <label class="form-label" for="new-note">Yeni not</label><textarea class="form-control" name="note" id="new-note" rows="2" required></textarea><button class="btn btn-light btn-sm mt-2">Not ekle</button>

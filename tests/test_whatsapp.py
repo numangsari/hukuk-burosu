@@ -63,7 +63,6 @@ def test_whatsapp_message_formatters(case_factory):
         kind=HearingKind.HEARING,
         starts_at=hearing_dt,
         authority="İstanbul 3. Asliye Hukuk Mahkemesi",
-        room="D-4",
         is_remote=True,
         result="Bilirkişi raporu bekleniyor.",
         decisions="1. Bilirkişiye ek süre verildi.\n2. Gelecek celseye kadar rapor tanzim edilecek.",
@@ -83,7 +82,6 @@ def test_whatsapp_message_formatters(case_factory):
     reminder_msg = format_hearing_reminder_message(hearing, office_name=office.name)
     assert case.client.name in reminder_msg
     assert "15.06.2026 saat 10:30" in reminder_msg
-    assert "Salon: D-4" in reminder_msg
     assert "E-duruşma" in reminder_msg
 
     # Dosya bilgilendirme mesajı

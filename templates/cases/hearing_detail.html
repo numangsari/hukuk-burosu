@@ -5,7 +5,7 @@
 <div class="page-header mb-3">
   <div class="eyebrow"><a href="{% url 'agenda:calendar' %}?view=list"><i class="bi bi-chevron-left"></i> Duruşmalar</a></div>
 </div>
-<div x-data="{ editing: false }" @hearing-edit-open="editing = true" @hearing-edit-cancel="editing = false; document.getElementById('hearing-edit-slot').innerHTML = ''">
+<div x-data="{ editing: false, editResult: {% if hearing.result %}false{% else %}true{% endif %} }" @hearing-edit-open="editing = true" @hearing-edit-cancel="editing = false; document.getElementById('hearing-edit-slot').innerHTML = ''">
   <div id="hearing-edit-slot" x-show="editing" x-cloak></div>
   <div x-show="!editing">
     <div class="card mb-3">
@@ -15,42 +15,105 @@
           <div class="small text-body-secondary fw-medium">{{ hearing.get_kind_display }}</div>
           <div class="d-flex align-items-center gap-2 flex-wrap">
             <h1 class="page-title">{{ hearing.title_display|tr_title }}</h1>
-            {% if hearing.is_remote %}<span class="chip chip-info">E-duruşma</span>{% endif %}
-            {% if hearing.excuse_submitted %}<span class="chip chip-warning">Mazeret Sunuldu</span>{% else %}<span class="chip">{{ hearing.get_status_display }}</span>{% endif %}
+            {% if hearing.portal_ref %}<span class="badge-source badge-source-uyap" role="img" aria-label="UYAP kaydı" title="UYAP kaydı"><i class="bi bi-bank2" aria-hidden="true"></i></span>{% endif %}
+            {% if hearing.excuse_submitted %}<span class="chip chip-warning">Mazeret</span>{% elif hearing.is_remote %}<span class="chip chip-info">E-duruşma</span>{% else %}<span class="chip chip-primary">Katılınacak</span>{% endif %}
           </div>
           <div class="meta">
             <span><i class="bi bi-calendar-event"></i><strong class="tabular">{{ hearing.starts_at|date:"d.m.Y H:i" }}</strong>{% if hearing.ends_at %} – <span class="tabular">{{ hearing.ends_at|date:"H:i" }}</span>{% endif %}</span>
-            {% if hearing.authority or hearing.case.authority %}<span><i class="bi bi-bank"></i>{{ hearing.authority|default:hearing.case.authority|tr_title }}</span>{% endif %}
-            {% if hearing.room %}<span><i class="bi bi-geo-alt"></i>Salon: {{ hearing.room }}</span>{% endif %}
+            {% if hearing.authority or hearing.case.authority %}<span><i class="bi bi-bank"></i>{{ hearing.authority|default:hearing.case.authority|tr_title }}{% if hearing.case.official_no_display %} · <span class="tabular">{{ hearing.case.official_no_display }}</span>{% endif %}</span>{% endif %}
           </div>
         </div>
         <div class="page-actions">
-          {% if can_edit %}<button type="button" class="btn btn-light" hx-get="{% url 'hearings:edit' hearing.pk %}{% if request.GET.pencere %}?pencere=1{% endif %}" hx-target="#hearing-edit-slot" hx-swap="innerHTML" @click="$dispatch('hearing-edit-open')"><i class="bi bi-pencil"></i>Düzenle</button>{% endif %}
+          {% if not done %}<button type="button" class="btn btn-light" hx-get="{% url 'hearings:edit' hearing.pk %}{% if request.GET.pencere %}?pencere=1{% endif %}" hx-target="#hearing-edit-slot" hx-swap="innerHTML" @click="$dispatch('hearing-edit-open')"><i class="bi bi-pencil"></i>Düzenle</button>{% endif %}
         </div>
       </div>
     </div>
-    <div class="card"><div class="card-body">
+
+    <div class="card mb-3"><div class="card-body">
       <dl class="row mb-0">
         <dt class="col-sm-3">Dosya</dt>
         <dd class="col-sm-9">{% if hearing.case %}<a href="{{ hearing.case.get_absolute_url }}#t-durusmalar"{% if request.GET.pencere %} target="_top"{% endif %}>{{ hearing.case.archive_reference }} — {{ hearing.case.display_name|tr_title }}</a>{% else %}<span class="text-body-secondary">Dosyasız</span>{% endif %}</dd>
         <dt class="col-sm-3">Müvekkil</dt>
         <dd class="col-sm-9">{% with c=hearing.effective_client %}{% if c %}<a href="{{ c.get_absolute_url }}"{% if request.GET.pencere %} target="_top"{% endif %}>{{ c|tr_title }}</a>{% else %}<span class="text-body-secondary">—</span>{% endif %}{% endwith %}</dd>
-        <dt class="col-sm-3">Sorumlu</dt>
-        <dd class="col-sm-9">{% if hearing.assigned_to %}{{ hearing.assigned_to|tr_title }}{% elif hearing.case.responsible_lawyer %}{{ hearing.case.responsible_lawyer|tr_title }}{% else %}—{% endif %}</dd>
+        <dt class="col-sm-3">Sorumlu avukat</dt>
+        <dd class="col-sm-9">{% if hearing.assigned_to %}{{ hearing.assigned_to|tr_title }}{% else %}<span class="chip chip-warning no-dot">Seçilmedi</span>{% endif %}</dd>
         <dt class="col-sm-3">Not</dt>
         <dd class="col-sm-9">{{ hearing.notes|linebreaksbr|default:"—" }}</dd>
-        {% if hearing.result %}
-        <dt class="col-sm-3">Sonuç / Ara karar</dt>
-        <dd class="col-sm-9">{{ hearing.result|linebreaksbr }}</dd>
-        {% endif %}
-        {% if hearing.client_informed is not None %}
-        <dt class="col-sm-3">Müvekkil bilgilendirme</dt>
-        <dd class="col-sm-9">{% if hearing.client_informed %}Bilgi verildi{% else %}Bilgi verilmedi: {{ hearing.client_not_informed_reason }}{% endif %}</dd>
-        {% endif %}
-        <dt class="col-sm-3">Bağlantılı görev</dt>
-        <dd class="col-sm-9">{% for t in tasks %}<a href="{{ t.get_absolute_url }}{% if request.GET.pencere %}?pencere=1{% endif %}">{{ t.title|tr_title }}</a> <span class="text-body-secondary">({{ t.assignee }})</span>{% if not forloop.last %}<br>{% endif %}{% empty %}<span class="text-body-secondary">Yok</span>{% endfor %}</dd>
       </dl>
     </div></div>
+
+    {% if done %}
+    {% if hearing.needs_attention %}
+    <div class="alert alert-warning d-flex gap-2 align-items-start"><i class="bi bi-exclamation-triangle-fill mt-1"></i>
+      <div><strong>Eksik:</strong> {% if hearing.result_missing %}sonuç{% endif %}{% if hearing.result_missing and hearing.inform_missing %}, {% endif %}{% if hearing.inform_missing %}müvekkil bilgilendirme{% endif %}</div>
+    </div>
+    {% endif %}
+
+    <div class="card mb-3"><div class="card-header"><h2 class="card-title">1. Duruşma sonucu</h2></div><div class="card-body">
+      {% if hearing.result %}
+      <div x-show="!editResult">
+        <div class="mb-3">{{ hearing.result|linebreaksbr }}</div>
+        <button type="button" class="btn btn-light btn-sm" @click="editResult = true"><i class="bi bi-pencil"></i>Sonucu düzenle</button>
+      </div>
+      {% endif %}
+      <div x-show="editResult" {% if hearing.result %}x-cloak{% endif %}>{% include "cases/_hearing_result_form.html" %}</div>
+    </div></div>
+
+    <div class="card mb-3"><div class="card-header"><h2 class="card-title">2. Müvekkil bilgilendirme</h2></div><div class="card-body">
+      {% if not hearing.effective_client %}
+        <div class="text-body-secondary">Bu kayıtta müvekkil yok; bilgilendirme gerekmez.</div>
+      {% elif hearing.client_informed_at %}
+        <div class="mb-2"><span class="chip chip-solid-success no-dot"><i class="bi bi-check-circle-fill"></i> Bilgilendirildi</span>
+          <span class="small text-body-secondary ms-2">{{ hearing.client_informed_at|date:"d.m.Y H:i" }} · {{ hearing.client_informed_by|default:"—" }} · {{ hearing.get_inform_method_display }}</span></div>
+      {% else %}
+        <p class="text-body-secondary mb-2">Karar ve (varsa) sonraki duruşma tarihiyle hazırlanan mesaj WhatsApp'ta açılır; açıldığında bilgilendirildi olarak işaretlenir.</p>
+      {% endif %}
+      {% if hearing.effective_client %}
+      <div class="d-flex gap-2 flex-wrap">
+        {% if hearing.result and wa_templates %}
+        <button type="button" class="btn btn-success d-inline-flex align-items-center gap-1" id="hearing-wa-button"
+                data-bs-toggle="modal" data-bs-target="#whatsappModal"
+                data-wa-phone="{{ hearing.client_phone }}" data-wa-name="{{ hearing.effective_client.name|default:'' }}"
+                data-wa-templates="{{ wa_templates|json_attr }}">
+          <i class="bi bi-whatsapp"></i>{% if hearing.client_informed_at %}Yeniden WhatsApp ile ilet{% else %}WhatsApp ile bilgilendir{% endif %}
+        </button>
+        {% else %}
+        <button type="button" class="btn btn-success" disabled title="Önce duruşma sonucunu girin"><i class="bi bi-whatsapp"></i> WhatsApp ile bilgilendir</button>
+        {% endif %}
+        {% if hearing.result and not hearing.client_informed_at %}
+        <form method="post" action="{% url 'hearings:inform' hearing.pk %}{% if request.GET.pencere %}?pencere=1{% endif %}" hx-post="{% url 'hearings:inform' hearing.pk %}{% if request.GET.pencere %}?pencere=1{% endif %}" hx-confirm="Müvekkile başka yolla (telefon, yüz yüze) bilgi verildi olarak işaretlensin mi?">{% csrf_token %}
+          <input type="hidden" name="method" value="other"><button class="btn btn-light">Başka yolla bildirildi</button>
+        </form>
+        {% endif %}
+      </div>
+      {% endif %}
+      <form id="hearing-inform-wa" method="post" action="{% url 'hearings:inform' hearing.pk %}" class="d-none">{% csrf_token %}<input type="hidden" name="method" value="whatsapp"></form>
+    </div></div>
+
+    <div class="card mb-3"><div class="card-header"><h2 class="card-title">3. Görev</h2></div><div class="card-body">
+      {% for t in tasks %}<div class="mb-2"><a href="{{ t.get_absolute_url }}{% if request.GET.pencere %}?pencere=1{% endif %}">{{ t.title|tr_title }}</a> <span class="text-body-secondary">({{ t.assignee }})</span></div>{% endfor %}
+      {% if hearing.case %}
+        <a class="btn btn-primary" href="{% url 'tasks:create' %}?dosya={{ hearing.case_id }}&amp;durusma={{ hearing.pk }}{% if request.GET.pencere %}&amp;pencere=1{% endif %}"><i class="bi bi-plus-lg"></i>Görev oluştur</a>
+      {% else %}
+        <span class="text-body-secondary">Görev oluşturmak için duruşmanın dosyası olmalı.</span>
+      {% endif %}
+    </div></div>
+    <script>
+      (() => {
+        let marked = false;
+        document.addEventListener('whatsapp-opened', async () => {
+          const form = document.getElementById('hearing-inform-wa');
+          if (!form) return;
+          try {
+            const response = await fetch(form.action, {method: 'POST', body: new FormData(form), headers: {'X-Requested-With': 'XMLHttpRequest'}});
+            marked = response.ok;
+          } catch (_) { marked = false; }
+        });
+        const modal = document.getElementById('whatsappModal');
+        if (modal) modal.addEventListener('hidden.bs.modal', () => { if (marked) location.reload(); });
+      })();
+    </script>
+    {% endif %}
   </div>
 </div>
 {% endblock %}

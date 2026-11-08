@@ -119,8 +119,6 @@ def hearing_to_google_payload(hearing: Hearing) -> dict:
     authority = hearing.authority or (hearing.case.authority if hearing.case else "")
     if authority:
         lines.append(f"Mahkeme/Birim: {authority}")
-    if hearing.room:
-        lines.append(f"Duruşma Salonu: {hearing.room}")
 
     if hearing.excuse_submitted:
         lines.append("\n[SİSTEM BİLGİSİ: Bu duruşmaya mazeret sunulması kararlaştırılmıştır.]")

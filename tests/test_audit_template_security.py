@@ -28,8 +28,6 @@ class AlpineAttributes(HTMLParser):
         ("cases/form.html", "case_type"),
         ("accounting/form.html", "kind"),
         ("accounts/settings.html", "role"),
-        ("accounts/settings.html", "case_visibility_mode"),
-        ("accounts/settings.html", "accounting_edit_mode"),
     ],
 )
 def test_bound_values_remain_javascript_strings(template, field):

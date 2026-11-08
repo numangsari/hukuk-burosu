@@ -3,6 +3,7 @@ import copy
 import datetime
 
 from django.db import models
+from django.utils import timezone
 
 from apps.core.text import tr_capitalize_words
 
@@ -165,6 +166,12 @@ class OfficeSettings(models.Model):
         choices=AccountingEditMode.choices,
         default=AccountingEditMode.EVERYONE,
     )
+    # Rol bazlı yetki matrisi: {yetki anahtarı: [roller]}. Kaydı olmayan yetki için
+    # `apps/core/permission_registry.py` içindeki varsayılan geçerlidir. Yukarıdaki üç eski mod
+    # alanı (görünürlük, kontrolcü onayı, muhasebe) yalnızca ilk geçişte matrise taşındı.
+    role_permissions = models.JSONField("rol yetkileri", default=dict, blank=True)
+    # Kurulum tarihi: UYAP eklentisi yalnızca bu tarihten sonraki duruşmaları aktarır.
+    installed_on = models.DateField("kurulum tarihi", default=timezone.localdate)
     notice_default_due_days = models.PositiveSmallIntegerField(
         "UETS tebligat varsayılan görev süresi (gün)",
         default=14,
@@ -223,6 +230,13 @@ class OfficeSettings(models.Model):
         cache = request_cache.get()
         if cache is not None:
             cache.pop("obj", None)
+
+    def set_role_permission(self, key: str, roles) -> None:
+        """Bir yetkiye sahip rolleri kaydeder (yönetici her zaman yetkilidir)."""
+        saved = dict(self.role_permissions or {})
+        saved[key] = sorted(set(roles) | {"admin"})
+        self.role_permissions = saved
+        self.save(update_fields=["role_permissions"])
 
     @classmethod
     def load(cls) -> "OfficeSettings":

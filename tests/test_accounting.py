@@ -133,17 +133,17 @@ def test_records_for_everyone_balances_for_selected(lawyer, intern, client_facto
     assert (
         "Hesap ekstresi" not in login(lawyer).get(case.client.get_absolute_url()).content.decode()
     )
-    lawyer.can_view_balances = True
-    lawyer.save()
+    from apps.office.models import OfficeSettings
+
+    OfficeSettings.load().set_role_permission("accounting.balances", ["accountant", "lawyer"])
     assert "Bakiye" in login(lawyer).get(reverse("clients:list")).content.decode()
 
 
 def test_client_list_balance_tasks_and_filters(lawyer, client_factory, case_factory):
-    from apps.office.models import TaskType
+    from apps.office.models import OfficeSettings, TaskType
     from apps.tasks.models import Task
 
-    lawyer.can_view_balances = True
-    lawyer.save()
+    OfficeSettings.load().set_role_permission("accounting.balances", ["accountant", "lawyer"])
     lawyer_client = login(lawyer)
     a = client_factory(first_name="Borçlu")
     b = client_factory(first_name="Temiz")
@@ -176,19 +176,34 @@ def test_detail_tabs_show_statement(admin_user, case_factory):
     assert "Dosya hareketleri" in html
 
 
-def test_balance_viewers_form(admin_user, lawyer, intern):
-    login(admin_user).post(
-        reverse("accounts:settings"), {"section": "yetkiler", "viewers": [intern.pk]}
+def test_permission_matrix_saves_role_choices(admin_user, lawyer, intern):
+    from apps.core.permission_registry import has_perm
+
+    assert not has_perm(intern, "accounting.balances")
+    r = login(admin_user).post(
+        reverse("accounts:settings"),
+        {
+            "section": "yetkiler",
+            "perm:accounting.balances:intern": "on",
+            "perm:accounting.balances:accountant": "on",
+        },
     )
-    lawyer.refresh_from_db()
-    intern.refresh_from_db()
-    assert intern.can_view_balances and not lawyer.can_view_balances
+    assert r.status_code == 302
+    assert has_perm(intern, "accounting.balances") and not has_perm(lawyer, "accounting.balances")
+    # İşaretlenmeyen yetkiler yönetici dışında herkesten alınır; yönetici kilitlidir.
+    assert not has_perm(lawyer, "tasks.edit_any") and has_perm(admin_user, "tasks.edit_any")
 
 
 def test_settings_sections_render(admin_user, intern):
     c = login(admin_user)
     r = c.get(reverse("accounts:settings"), {"bolum": "yetkiler"})
-    assert r.status_code == 200 and "Bakiye görme yetkisi" in r.content.decode()
+    html = r.content.decode()
+    assert r.status_code == 200 and "Roller ve yetkiler" in html
+    assert "Tebligattan görev oluşturma" in html and "yok sayma" in html
+    assert (
+        'name="perm:cases.view_all:lawyer"' in html
+        and 'name="perm:cases.view_all:admin"' not in html
+    )
     r = c.get(reverse("accounts:settings"), {"bolum": "kullanicilar", "id": intern.pk})
     assert r.status_code == 200 and "Kontrolcü" in r.content.decode()
 
