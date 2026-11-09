@@ -157,6 +157,23 @@ def test_profile_settings(client, pin_user):
     assert (pin_user.first_name, pin_user.theme) == ("Yeni", "dark")
 
 
+def test_about_section_shows_version_and_hides_tech_from_non_admin(client, pin_user):
+    from apps.core.version import app_version
+
+    client.force_login(pin_user)  # avukat rolü
+    url = reverse("accounts:settings")
+    r = client.get(url, {"bolum": "hakkinda"})
+    html = r.content.decode()
+    assert r.context["active"] == "hakkinda"
+    assert app_version() in html and "Hukuk Bürosu Otomasyonu" in html
+    assert "Django" not in html
+
+    pin_user.role = User.Role.ADMIN
+    pin_user.save()
+    html = client.get(url, {"bolum": "hakkinda"}).content.decode()
+    assert "Django" in html and "Python" in html
+
+
 def test_office_and_calendar_settings_admin_only(client, pin_user):
     from apps.office.models import OfficeSettings
 

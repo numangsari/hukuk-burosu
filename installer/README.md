@@ -3,7 +3,7 @@
 Ofis sunucusu (Windows PC) için tek dosyalık kurulum: `HukukBurosuOtomasyonu-Kurulum-<sürüm>.exe`.
 Diğer PC'lere kurulum yapılmaz; sunucunun masaüstündeki `Hukuk Bürosu Otomasyonu.url` kısayolu kopyalanır.
 
-**Sürüm:** Tek kaynak `pyproject.toml` içindeki `version`. Paket derlenirken uygulamaya `VERSION` dosyası yazılır; kurulu sürüm Ayarlar > Sistem > Sistem monitörü'nde görünür. Her yeni pakette `version` artırılır.
+**Sürüm:** Tek kaynak `pyproject.toml` içindeki `version`. Paket derlenirken uygulamaya `VERSION` dosyası yazılır; kurulu sürüm Ayarlar > Program > Hakkında ve Sistem monitörü'nde görünür. Her yeni pakette `version` artırılır.
 
 **Adlar:** Görünen ad "Hukuk Bürosu Otomasyonu". Eski kurulumların güncellenebilmesi için `AppId`, kurulum klasörü (yeni kurulumda `C:\HukukBurosu`; güncellemede önceki klasör kullanılır), servis adları (`HukukBuroApp`, `HukukBuroDB`; eski kurulumda `OzkurtHukuk*`) ve zamanlanmış görev adları (`Hukuk Buro ...`) değiştirilmez.
 
@@ -36,9 +36,35 @@ indirir, `installer\cache\` altında saklar ve SHA256 değerlerini `build\indiri
 
 ## Güncelleme
 
-Yeni sürümün kurulum dosyası aynı sunucuda çalıştırılır. Kurulum önce yedek alır, servisi durdurur,
-dosyaları değiştirir, veritabanını günceller (`migrate`) ve servisi başlatır. Veriler ve `.env` korunur.
+Yeni sürümün kurulum dosyası aynı sunucuda çalıştırılır. Kurulum önce yedek alır (yedek alınamazsa
+sessiz kurulum durur), uygulama ve veritabanı servislerini durdurur, dosyaları değiştirir, veritabanını
+günceller (`migrate`) ve servisleri başlatır. Veriler ve `.env` korunur.
 Eski masaüstü kısayolları (`Hukuk Buro Yonetimi.url`, `Ozkurt Hukuk.url`) silinir, yenisi oluşturulur.
+
+### Otomatik güncelleme (`tools\updater.ps1`)
+
+Kaynak kod private repoda kalır; kurulum paketleri ayrı **public** repoda yayınlanır
+(`numangsari/hukuk-burosu-releases`, etiket `v<sürüm>`, dosyalar `HukukBurosuOtomasyonu-Kurulum-<sürüm>.exe`
+ve `.exe.sha256`). Yayınlama: `build.ps1` (`.sha256` dosyasını da üretir), ardından
+`powershell -ExecutionPolicy Bypass -File installer\publish-release.ps1 -Notes "..."`.
+
+- **Kontrol** — "Hukuk Buro Guncelleme Kontrol" görevi her gün 12:00'de (PC kapalıysa ilk açılışta)
+  son sürüme bakar. Daha yeniyse ve `data\updates\bad-versions.txt`'de yoksa paketi indirir, SHA256 ile
+  doğrular, `data\updates\pending.json` yazar. Kurulum yapmaz. İnternet yoksa sessizce çıkar.
+- **Kurulum** — "Hukuk Buro Guncelleme" görevi bilgisayar açılışında bekleyen sürümü kurar:
+  veritabanına dokunan görevleri durdurur, uygulama servisini durdurur, `app`, `python`, `tools`
+  klasörlerinin ve veritabanının (`pg_dump`) anlık kopyasını `data\updates\rollback\` altına alır,
+  port 80'de "Güncelleniyor" sayfasını açar (`maintenance.py`, kopyadaki Python ile), paketi
+  `/VERYSILENT /DEFERSTART=1` ile çalıştırır, servisi başlatıp `/saglik/` adresinden yeni sürümü doğrular.
+- **Geri dönüş** — Kurulum çıkış kodu sıfır değilse veya sağlık kontrolü 4 dakikada geçmezse klasörler
+  ve veritabanı (drop + `pg_restore`) anlık kopyadan geri yüklenir, önceki sürüm başlatılır ve sürüm
+  `bad-versions.txt`'ye yazılır; daha yeni bir sürüm yayınlanana kadar tekrar denenmez. Kuruluma
+  geçilmeden önce (ör. kopya alınamadı) hata olursa hiçbir şey değişmez, sonraki açılışta yeniden denenir.
+- Sonuç `data\updates\status.json`'a yazılır ve Ayarlar > Hakkında'da görünür; ayrıntı
+  `logs\guncelleme.log` ve `logs\guncelleme-kurulum-<sürüm>.log`. `data\updates` yalnızca
+  Administrators ve SYSTEM tarafından okunabilir (anlık kopya `.env` ve veritabanını içerir).
+- **Sınır:** PostgreSQL ana sürüm yükseltmesi (ör. 17 → 18) otomatik güncellemeyle yapılmaz; `pgsql`
+  klasörü anlık kopyaya alınmaz.
 
 ## Gerçek kurulum denemesi (elle, ayrı Windows makinede)
 
@@ -50,6 +76,8 @@ Betikler sözdizimi ve sahte servisle sınanır; gerçek servis, zamanlanmış g
 4. `Hukuk Buro Haciz Takibi` görevi var ve `check-reminders.ps1` çalıştırınca `create_seizure_tasks` ile `retry_google_sync` çağrılıyor mu (uygulama servisi kapalıyken bir şey yapmamalı)?
 5. Eski sürümden güncelleme: aynı klasöre kuruluyor mu, `Ozkurt*` servis ve görev adları korunuyor mu, veri ve `.env` aynı mı, masaüstünde yalnızca yeni kısayol mu var?
 6. Kaldırma (`uninstall.ps1`): servisler, görevler ve kısayollar siliniyor, veri klasörü duruyor mu?
+7. Otomatik güncelleme: test releases reposuna daha yeni sürüm yükleyip `updater.ps1 -Mode Check` çalıştırın, PC'yi yeniden başlatın; "Güncelleniyor" sayfası çıkıyor, yeni sürüm açılıyor, Hakkında'da "Güncelleme başarılı" görünüyor mu?
+8. Geri dönüş: bilerek bozuk bir sürüm yayınlayın (ör. `/saglik/` hata veren); açılışta önceki sürüme ve verilere dönülüyor, Hakkında'da uyarı çıkıyor, sürüm bir daha denenmiyor mu?
 
 ## Notlar
 

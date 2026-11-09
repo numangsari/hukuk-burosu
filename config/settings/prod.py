@@ -14,6 +14,11 @@ STORAGES = {
     "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
     "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"},
 }
+# Otomatik güncelleyicinin (tools\updater.ps1) son sonucu; Ayarlar > Hakkında'da gösterilir.
+UPDATE_STATUS_FILE = env.path(
+    "UPDATE_STATUS_FILE",
+    default=BASE_DIR.parent / "data" / "updates" / "status.json",  # noqa: F405
+)
 LOG_FILE = env.path("LOG_FILE", default=BASE_DIR / "logs" / "app.log")  # noqa: F405
 Path(LOG_FILE).parent.mkdir(parents=True, exist_ok=True)
 LOGGING = {

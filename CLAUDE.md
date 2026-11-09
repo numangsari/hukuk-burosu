@@ -12,7 +12,8 @@ Hukuk büroları için dava/icra takibi, müvekkil portföyü, görev/onay iş a
 
 - **Çalışma Ortamı:** Ofis içi yerel ağda (LAN) 5–15 kullanıcının tarayıcı üzerinden eriştiği yerel Windows sunucu.
 - **İnternetsiz Çalışabilirlik:** CDN veya harici bulut bağımlılığı yoktur. Tüm kütüphaneler (`static/vendor/`) repoda yereldir.
-- **Ürün adı ve sürüm:** Görünen ad "Hukuk Bürosu Otomasyonu" (`apps/core/version.py`). Sürümün tek kaynağı `pyproject.toml` `version`; paket derlenince `VERSION` dosyası yazılır, Ayarlar > Sistem monitöründe görünür. Her yeni pakette sürüm artırılır. Eski kurulumların güncellenmesi için AppId, kurulum klasörü, servis ve zamanlanmış görev adları değiştirilmez (`installer/README.md`).
+- **Ürün adı ve sürüm:** Görünen ad "Hukuk Bürosu Otomasyonu" (`apps/core/version.py`). Sürümün tek kaynağı `pyproject.toml` `version`; paket derlenince `VERSION` dosyası yazılır, Ayarlar > Program > Hakkında (herkese; Python/Django/PostgreSQL sürümleri yalnızca yöneticiye) ve Sistem monitöründe görünür. Her yeni pakette sürüm artırılır. Eski kurulumların güncellenmesi için AppId, kurulum klasörü, servis ve zamanlanmış görev adları değiştirilmez (`installer/README.md`).
+- **Otomatik güncelleme:** Kurulum paketleri ayrı public repoda (`numangsari/hukuk-burosu-releases`) yayınlanır (`installer/publish-release.ps1`); ana repo private kalır. Sunucuda `tools\updater.ps1` günde bir indirir ve SHA256 ile doğrular, açılışta bakım sayfası arkasında sessiz kurar, `/saglik/` (girişsiz; yalnızca durum ve sürüm) ile doğrular; başarısızlıkta klasörleri ve veritabanını anlık kopyadan geri yükleyip sürümü bir daha denemez. Sonuç `data\updates\status.json` → Ayarlar > Hakkında (`apps/core/updates.py`). Ayrıntı: `installer/README.md`.
 - **Production Dağıtımı:** Git/Docker gerektirmez. Inno Setup ile derlenen `HukukBurosuOtomasyonu-Kurulum-<sürüm>.exe` ile kurulur; arka planda WinSW servisleri (`HukukBuroApp` ve `HukukBuroDB`) ile Waitress WSGI sunucusu üzerinden port 80'de çalışır.
 
 ---
@@ -315,4 +316,5 @@ Bitmemiş veya karar bekleyen işler. Tamamlanan madde silinir.
 - **Küçük teknik:** Geliştirme veritabanı/kullanıcı adı hâlâ `ozkurt` (`docker-compose.dev.yml`, `config/settings/dev.py`). `OfficeSettings.load()` istek başına önbelleği eski değer riski nedeniyle değerlendirilmedi.
 - **Tasarım kararı bekleyenler:** Tek sekme bileşeni, tek Kaydet yeri, liste yoğunluğu, ana sayfa kart tekrarı, sürükle-bırak yükleme.
 - **Özellik adayları:** Hukuki süre hesaplayıcı (adli tatil ve bayramlar; Bölüm 11 gereği öneri olarak ve hukuki doğrulamayla), sabah özeti/bildirimler, menfaat çakışması kontrolü.
+- **Otomatik güncelleme:** `numangsari/hukuk-burosu-releases` reposu henüz açılmadı. Gerçek servislerle kurulum ve geri dönüş akışı denenmedi; yalnızca indirme/doğrulama adımları ve betik sözdizimi testli. Güncelleyiciyi içeren ilk sürüm sunuculara elle kurulmalı.
 - **Kurulum:** Gerçek Windows makinede elle deneme listesi `installer/README.md` ("Gerçek kurulum denemesi").

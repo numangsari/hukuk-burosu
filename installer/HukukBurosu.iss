@@ -112,6 +112,18 @@ begin
   Result := VcRestartNeeded;
 end;
 
+// Otomatik güncelleyici /DEFERSTART=1 verir: uygulama servisini kurulum değil güncelleyici başlatır.
+function DeferArg(Param: String): String;
+begin
+  if ExpandConstant('{param:DEFERSTART|0}') = '1' then Result := ' -DeferAppStart' else Result := '';
+end;
+
+// Sessiz kurulumda hata çıkış koduyla bildirilir (güncelleyici buna bakarak geri döner).
+function GetCustomSetupExitCode(): Integer;
+begin
+  if PostInstallFailed then Result := 9 else Result := 0;
+end;
+
 procedure ReportPostInstallError(Msg: String);
 begin
   PostInstallFailed := True;
@@ -142,7 +154,7 @@ begin
   WizardForm.StatusLabel.Caption := 'Veritabanı ve servisler hazırlanıyor (birkaç dakika sürebilir)...';
   if not Exec('powershell.exe',
               '-NoProfile -ExecutionPolicy Bypass -File "' + ExpandConstant('{app}\tools\postinstall.ps1') +
-              '" -InstallDir "' + ExpandConstant('{app}') + '" -Pin "' + GetPin('') + '"',
+              '" -InstallDir "' + ExpandConstant('{app}') + '" -Pin "' + GetPin('') + '"' + DeferArg(''),
               '', SW_HIDE, ewWaitUntilTerminated, Code) or (Code <> 0) then
     ReportPostInstallError('Veritabanı ve servisler hazırlanamadı; sistem çalışmıyor.');
 end;
@@ -155,14 +167,20 @@ begin
   // Güncellemede: önce yedek al, sonra uygulama servisini durdur.
   if not IsFirstInstall() then begin
     Exec(ExpandConstant('{app}\tools\manage.cmd'), 'backup --update', '', SW_HIDE, ewWaitUntilTerminated, Code);
-    if Code <> 0 then
-      if MsgBox('Güncelleme öncesi yedek alınamadı. Yine de devam edilsin mi?', mbConfirmation, MB_YESNO) = IDNO then begin
+    if Code <> 0 then begin
+      // Sessiz kurulumda soru sorulamaz; yedeksiz devam edilmez.
+      if WizardSilent() or
+         (MsgBox('Güncelleme öncesi yedek alınamadı. Yine de devam edilsin mi?', mbConfirmation, MB_YESNO) = IDNO) then begin
         Result := 'Güncelleme iptal edildi; yedek alınamadı.';
         exit;
       end;
+    end;
     if FileExists(ExpandConstant('{app}\tools\HukukBuroApp.exe')) then
       Exec(ExpandConstant('{app}\tools\HukukBuroApp.exe'), 'stop', '', SW_HIDE, ewWaitUntilTerminated, Code)
     else
       Exec(ExpandConstant('{app}\tools\OzkurtHukukApp.exe'), 'stop', '', SW_HIDE, ewWaitUntilTerminated, Code);
+    // PostgreSQL dosyaları çalışırken değiştirilemez; postinstall.ps1 servisi yeniden başlatır.
+    Exec(ExpandConstant('{sys}\net.exe'), 'stop HukukBuroDB', '', SW_HIDE, ewWaitUntilTerminated, Code);
+    Exec(ExpandConstant('{sys}\net.exe'), 'stop OzkurtHukukDB', '', SW_HIDE, ewWaitUntilTerminated, Code);
   end;
 end;

@@ -32,6 +32,8 @@
       <a class="{% if active == 'veri_aktarim' %}active{% endif %}" href="?bolum=veri_aktarim"><i class="bi bi-database-down"></i>Veri içe / dışa aktar</a>
       <a href="{% url 'admin:index' %}" target="_blank"><i class="bi bi-sliders"></i>Yönetim paneli</a>
       {% endif %}
+      <div class="nav-group">Program</div>
+      <a class="{% if active == 'hakkinda' %}active{% endif %}" href="?bolum=hakkinda"><i class="bi bi-info-circle"></i>Hakkında</a>
     </nav>
   </div>
 
@@ -884,6 +886,33 @@
           </div>
         </div>
       </div>
+    </div>
+  {% elif active == "hakkinda" %}
+    <div class="card p-3">
+      <h2 class="h5 mb-3">Hakkında</h2>
+      <dl class="row mb-0">
+        <dt class="col-sm-4">Program</dt><dd class="col-sm-8">{{ product_name }}</dd>
+        <dt class="col-sm-4">Sürüm</dt><dd class="col-sm-8 tabular">{{ app_version }}</dd>
+        <dt class="col-sm-4">Büro</dt><dd class="col-sm-8">{{ office.name }}</dd>
+        <dt class="col-sm-4">Kurulum tarihi</dt><dd class="col-sm-8 tabular">{{ office.installed_on|date:"d.m.Y" }}</dd>
+        {% for label, value in tech_versions %}
+        <dt class="col-sm-4">{{ label }}</dt><dd class="col-sm-8 tabular">{{ value }}</dd>
+        {% endfor %}
+      </dl>
+    </div>
+    <div class="card p-3 mt-3">
+      <h2 class="h6 mb-2">Güncellemeler</h2>
+      <p class="small text-body-secondary mb-2">Program yeni sürümü günde bir kez denetler ve indirir. Kurulum, sunucu bilgisayarı bir sonraki açılışta yapılır. Kurulum başarısız olursa önceki sürüme ve verilere kendiliğinden dönülür.</p>
+      {% if update_status %}
+      <div class="alert {% if update_status.problem %}alert-warning{% else %}alert-light{% endif %} mb-0 py-2">
+        <strong>{{ update_status.label }}</strong>
+        {% if update_status.version %} · sürüm <span class="tabular">{{ update_status.version }}</span>{% endif %}
+        {% if update_status.at %} · <span class="tabular">{{ update_status.at|date:"d.m.Y H:i" }}</span>{% endif %}
+        {% if update_status.problem and tech_versions %}<div class="small mt-1">Ayrıntı sunucudaki <code>logs\guncelleme.log</code> dosyasındadır.</div>{% endif %}
+      </div>
+      {% else %}
+      <p class="small mb-0">Henüz otomatik güncelleme yapılmadı.</p>
+      {% endif %}
     </div>
   {% endif %}
   </div>

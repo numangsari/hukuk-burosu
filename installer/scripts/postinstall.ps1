@@ -7,7 +7,10 @@
 #>
 param(
     [Parameter(Mandatory = $true)][string]$InstallDir,
-    [string]$Pin = ""
+    [string]$Pin = "",
+    # Otomatik güncelleyici (updater.ps1) kullanır: uygulama servisi başlatılmaz, port 80'deki
+    # bakım sayfası açık kalır; servisi ve sağlık kontrolünü güncelleyici yapar.
+    [switch]$DeferAppStart
 )
 $ErrorActionPreference = "Stop"
 $log = Join-Path $InstallDir "logs\kurulum.log"
@@ -120,7 +123,7 @@ if (-not (Test-Path $svc)) {
     $appSvcName = "OzkurtHukukApp"
 }
 if (-not (Get-Service $appSvcName -ErrorAction SilentlyContinue)) { Invoke-Checked $svc @("install") }
-& $svc restart | Out-Null
+if ($DeferAppStart) { & $svc stop | Out-Null } else { & $svc restart | Out-Null }
 
 # 5) Güvenlik duvarı: yalnızca özel (ofis) ağdan 80 numaralı port
 # Kural eklenemezse (ör. Windows Sandbox'ta güvenlik duvarı arayüzü yok) kurulum durmaz; yalnızca
@@ -177,6 +180,25 @@ Register-ScheduledTask -TaskName "Hukuk Buro Listeler" -Action $listAction `
     -Trigger $listTriggers -Settings $listSettings -User "SYSTEM" -RunLevel Highest -Force | Out-Null
 Unregister-ScheduledTask -TaskName "Ozkurt Hukuk Listeler" -Confirm:$false -ErrorAction SilentlyContinue
 
+# Otomatik güncelleme: günde bir yeni sürüm denetlenip indirilir, açılışta kurulur (updater.ps1).
+$updaterScript = Join-Path $InstallDir "tools\updater.ps1"
+$updaterBase = "-NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$updaterScript`""
+$checkAction = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "$updaterBase -Mode Check"
+$checkSettings = New-ScheduledTaskSettingsSet -StartWhenAvailable -AllowStartIfOnBatteries `
+    -DontStopIfGoingOnBatteries -ExecutionTimeLimit (New-TimeSpan -Hours 1) -MultipleInstances IgnoreNew
+Register-ScheduledTask -TaskName "Hukuk Buro Guncelleme Kontrol" -Action $checkAction `
+    -Trigger (New-ScheduledTaskTrigger -Daily -At "12:00") -Settings $checkSettings `
+    -User "SYSTEM" -RunLevel Highest -Force | Out-Null
+# Kurulumu yapan görev güncelleyici tarafından çalıştırılırken yeniden kaydedilmez.
+if (-not $DeferAppStart) {
+    $applyAction = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "$updaterBase -Mode Apply"
+    $applySettings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
+        -ExecutionTimeLimit (New-TimeSpan -Hours 1) -MultipleInstances IgnoreNew -Priority 4
+    Register-ScheduledTask -TaskName "Hukuk Buro Guncelleme" -Action $applyAction `
+        -Trigger (New-ScheduledTaskTrigger -AtStartup) -Settings $applySettings `
+        -User "SYSTEM" -RunLevel Highest -Force | Out-Null
+}
+
 # 7) İstemci kısayolu (diğer PC'lerin masaüstüne kopyalanacak)
 $url = "http://$($env:COMPUTERNAME)/"
 $shortcut = "[InternetShortcut]`r`nURL=$url`r`n"
@@ -190,7 +212,12 @@ foreach ($old in @("Hukuk Buro Yonetimi.url", "Ozkurt Hukuk.url")) {
 Set-Content -Encoding ascii (Join-Path $InstallDir $shortcutName) $shortcut
 Set-Content -Encoding ascii (Join-Path $desktop $shortcutName) $shortcut
 
-# 8) Sağlık kontrolü
+# 8) Sağlık kontrolü (güncelleyici çalıştırıyorsa kontrolü o yapar)
+if ($DeferAppStart) {
+    Write-Host "Kurulum tamamlandı; uygulama servisini güncelleyici başlatacak."
+    Stop-Transcript | Out-Null
+    exit 0
+}
 $ok = $false
 for ($i = 0; $i -lt 30 -and -not $ok; $i++) {
     try { $ok = (Invoke-WebRequest "http://localhost/" -UseBasicParsing -TimeoutSec 5).StatusCode -eq 200 } catch { Start-Sleep 2 }

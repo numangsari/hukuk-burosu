@@ -1,7 +1,12 @@
 import datetime as dt
+import logging
 
+from django.contrib.auth.decorators import login_not_required
+from django.db import DatabaseError, connection
 from django.db.models import OuterRef, Q, Subquery
+from django.http import JsonResponse
 from django.utils import timezone
+from django.views.decorators.cache import never_cache
 from django.views.generic import TemplateView
 
 from apps.agenda.services import calendar_events
@@ -10,6 +15,26 @@ from apps.tasks.models import Task, TaskEvent, TaskStatus
 
 AGENDA_DAYS = 7
 HOME_TASK_LIMIT = 25
+
+logger = logging.getLogger(__name__)
+
+
+@login_not_required
+@never_cache
+def health(request):
+    """Güncelleyici ve kurulumun sağlık kontrolü: veritabanı yanıt veriyor mu, sürüm ne?
+
+    Girişsiz açıktır; yalnızca durum ve uygulama sürümünü döndürür, büro verisi içermez.
+    """
+    from .version import app_version
+
+    try:
+        with connection.cursor() as cur:
+            cur.execute("SELECT 1")
+    except DatabaseError:
+        logger.exception("Sağlık kontrolü: veritabanına ulaşılamadı")
+        return JsonResponse({"status": "db_error", "version": app_version()}, status=503)
+    return JsonResponse({"status": "ok", "version": app_version()})
 
 
 def greeting(hour: int) -> str:

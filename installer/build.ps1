@@ -119,4 +119,9 @@ $iscc = @("${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe", "$env:ProgramFiles\I
 if (-not $iscc) { throw "Inno Setup 6 bulunamadı. Kurmak için: winget install JRSoftware.InnoSetup" }
 & $iscc "/DAppVersion=$Version" "/DBuildDir=$Build" (Join-Path $PSScriptRoot "HukukBurosu.iss")
 if ($LASTEXITCODE -ne 0) { throw "Inno Setup derlemesi başarısız." }
-Write-Host "Hazır: $(Join-Path $PSScriptRoot "dist\HukukBurosuOtomasyonu-Kurulum-$Version.exe")"
+$setupExe = Join-Path $PSScriptRoot "dist\HukukBurosuOtomasyonu-Kurulum-$Version.exe"
+# Otomatik güncelleyici indirdiği dosyayı bu değerle doğrular (publish-release.ps1 yükler).
+$setupHash = (Get-FileHash -Algorithm SHA256 $setupExe).Hash.ToLowerInvariant()
+[System.IO.File]::WriteAllText("$setupExe.sha256", "$setupHash  $(Split-Path $setupExe -Leaf)`n",
+    (New-Object System.Text.UTF8Encoding $false))
+Write-Host "Hazır: $setupExe"

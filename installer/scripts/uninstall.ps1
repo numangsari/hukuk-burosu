@@ -20,6 +20,7 @@ foreach ($dbSvc in @("HukukBuroDB", "OzkurtHukukDB")) {
 
 foreach ($taskName in @(
     "Hukuk Buro Listeler", "Hukuk Buro Yedek", "Hukuk Buro Hatirlatma", "Hukuk Buro Haciz Takibi",
+    "Hukuk Buro Guncelleme", "Hukuk Buro Guncelleme Kontrol",
     "Ozkurt Hukuk Listeler", "Ozkurt Hukuk Yedek", "Ozkurt Hukuk Hatirlatma", "Ozkurt Hukuk Haciz Takibi"
 )) {
     Stop-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
