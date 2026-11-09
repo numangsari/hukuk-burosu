@@ -208,3 +208,25 @@ def test_reason_for_closed_session_and_silent_extension():
     silent = make(owner, uyap_status="tamamlandi")
     silent.last_seen = timezone.now() - dt.timedelta(minutes=10)
     assert "yanıt vermiyor" in reason(silent)
+
+
+def test_scan_without_progress_is_passive_and_explained():
+    owner, _ = paired_client()
+    now = timezone.now()
+    stuck = make(
+        owner,
+        uyap_status="basladi",
+        uyap_attempt_at=now - dt.timedelta(minutes=30),
+        uyap_session_ok=True,
+        uyap_session_at=now,
+    )
+    assert state(stuck) == "pasif"
+    assert "ilerlemiyor" in reason(stuck)
+    moving = make(
+        owner,
+        uyap_status="basladi",
+        uyap_attempt_at=now - dt.timedelta(minutes=2),
+        uyap_session_ok=True,
+        uyap_session_at=now,
+    )
+    assert state(moving) == "aktif"

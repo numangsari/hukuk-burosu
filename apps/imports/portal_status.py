@@ -16,6 +16,8 @@ SESSION_FRESH = timedelta(minutes=10)
 BLOCKED_STATES = {"izin_yok", "sunucu_yok"}
 # Tarama sonucu "oturum açık" anlamına gelenler. `eksik`: oturum açık, bazı kayıtlar alınamadı.
 ACTIVE_STATES = {"basladi", "tamamlandi", "eksik"}
+# Tarama "başladı" durumunda bu süredir hiç ilerleme bildirmediyse takılmış sayılır.
+STALL_AFTER = timedelta(minutes=15)
 SOURCES = (("uyap", "UYAP"), ("uets", "UETS"))
 STATE_TEXT = {
     "aktif": "Aktarım var",
@@ -25,11 +27,21 @@ STATE_TEXT = {
 }
 
 
+def is_stalled(connection, source, now):
+    """Tarama başladı ama uzun süredir ilerleme bildirimi gelmiyor (ör. %30'da donmuş)."""
+    if getattr(connection, f"{source}_status") != "basladi":
+        return False
+    attempt = getattr(connection, f"{source}_attempt_at")
+    return bool(attempt) and now - attempt > STALL_AFTER
+
+
 def connection_state(connection, source, now):
     seen = connection.last_seen
     if not seen or now - seen > CONNECTED_WINDOW:
         return "pasif"
     status = getattr(connection, f"{source}_status")
+    if is_stalled(connection, source, now):
+        return "pasif"
     session_at = getattr(connection, f"{source}_session_at")
     session_ok = getattr(connection, f"{source}_session_ok")
     if session_at and session_ok is not None and now - session_at <= SESSION_FRESH:
@@ -45,6 +57,7 @@ REASON_TEXT = {
     "oturum_yok": "Oturum kapalı; yeniden giriş yapın",
     "durduruldu": "Aktarım durduruldu",
 }
+STALL_TEXT = "Tarama ilerlemiyor (15 dakikadır yeni dosya bildirilmedi)"
 
 
 def inactive_reason(connection, source, now):
@@ -54,6 +67,8 @@ def inactive_reason(connection, source, now):
     seen = connection.last_seen
     if not seen or now - seen > CONNECTED_WINDOW:
         return "Eklenti yanıt vermiyor (tarayıcı kapalı olabilir)"
+    if is_stalled(connection, source, now):
+        return STALL_TEXT
     status = getattr(connection, f"{source}_status")
     if status in REASON_TEXT:
         return REASON_TEXT[status]
