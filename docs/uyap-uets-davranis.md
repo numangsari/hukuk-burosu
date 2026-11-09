@@ -16,7 +16,7 @@ Tarih: 7 Kasım 2026. Eklenti (`uyap-uets-eklentisi/`) ile sunucu (`apps/imports
 - **Otomatik başlama:** Oturum kapalıyken (veya ilk kez) açık algılanınca eklenti taramayı beklemeden başlatır (iki saatlik süre kuralı yine geçerlidir). Son tarama `izin_yok` (avukata henüz izin verilmemiş veya ad eşleşmemiş) ya da `sunucu_yok` ile kaldıysa iki saat beklenmez; oturum yoklaması veya zamanlayıcı beş dakikada bir yeniden dener. Sekme kapanınca veya oturum düşünce tarama durur.
 - **Gösterge (herkese görünür):** Üst çubukta UYAP ve UETS için ışık; üzerine gelince Ayarlar > Eklenti bağlantıları'nda otomasyon izni verilmiş her avukat ve o an aktarımı olup olmadığı listelenir. Bir avukatta **aktarım var**: hesabı ana bilgisayarda açık, oturumu geçerli ve eklenti son 3 dakikada haber verdi (oturum bilgisi 10 dakikadan eskiyse son tarama sonucuna bakılır; `izin_yok` ve `sunucu_yok` durumunda aktarım yok sayılır).
 - **Genel ışık:** hepsinde aktarım varsa yeşil, hiçbirinde yoksa kırmızı, karışıksa sarı, otomasyon izni verilmiş avukat yoksa gri. Yalnızca aktarımı olması gereken avukatlara izin verilmelidir; izin verilen ama hesabı ana bilgisayarda açılmayan avukat ışığı sarı tutar.
-- **Oturumu canlı tutma:** Yoklamanın UYAP sunucusundaki boşta kalma süresini uzattığı doğrulanmadı. Etkisi uzun süreli gözlemle ölçülmeli; uzatmıyorsa ayrı bir yenileme isteği araştırılmalıdır.
+- **Oturumu canlı tutma:** Yoklama başarılıysa (oturum açık) `session.js` sayfaya hafif bir `mousemove` olayı gönderir; sayfanın kendi boşta kalma sayacı sıfırlanır. Etkisi UYAP/UETS'te uzun süreli gözlemle doğrulanmadı. Sunucu tarafı boşta kalma süresini yoklama isteği uzatmıyorsa ayrı bir yenileme isteği araştırılmalıdır.
 
 ## Eklenti tarama davranışı
 

@@ -123,3 +123,27 @@ test('Mesaj gönderimi bağlam hatası verirse yoklama durur', async () => {
   await result.tick();
   assert.ok(result.context.cleared >= 1);
 });
+
+test('Oturum açıksa sayfaya fare hareketi gönderilir, kapalıysa gönderilmez', async () => {
+  const events = [];
+  const mouseContext = (status) => async () => response(status, status === 200 ? 'text/json' : 'text/xml');
+  for (const [status, expected] of [[200, 1], [401, 0]]) {
+    const before = events.length;
+    const source2 = source;
+    const sent = [];
+    const window = {}; window.top = window;
+    const body = {dispatchEvent: event => { events.push(event.type); return true; }};
+    const context = {
+      window, fetch: mouseContext(status), AbortSignal, MouseEvent: class { constructor(type) { this.type = type; } },
+      location: {hostname: 'avukat.uyap.gov.tr'},
+      document: {body, querySelectorAll: () => []},
+      localStorage: {getItem: () => null},
+      chrome: {runtime: {id: 'var', sendMessage: async message => { sent.push(message); }}},
+      clearInterval: () => {}, setTimeout: fn => { context.first = fn; return 1; }, setInterval: () => 1
+    };
+    vm.runInNewContext(source2, context);
+    await context.first();
+    assert.equal(events.length - before, expected);
+  }
+  assert.deepEqual(events, ['mousemove']);
+});

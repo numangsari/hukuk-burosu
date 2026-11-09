@@ -36,6 +36,16 @@
     } catch (_) { return null; }
   }
 
+  // Sayfanın kendi boşta kalma sayacı yalnızca fare/klavye olaylarını görür; yoklama isteği onu sıfırlamaz.
+  // Yoklamayla birlikte hafif bir fare hareketi bildirilir ki sayfa kullanıcı etkinliği var saysın.
+  function keepActive() {
+    try {
+      const target = document.body || document;
+      const options = {bubbles: true, cancelable: true, clientX: 1 + Math.floor(Math.random() * 50), clientY: 1 + Math.floor(Math.random() * 50)};
+      target.dispatchEvent(new MouseEvent('mousemove', options));
+    } catch (_) { /* olay gönderilemezse yalnızca yoklama çalışır */ }
+  }
+
   // Eklenti yeniden yüklenince sayfada kalan eski betiğin bağlamı geçersiz olur; sessizce durur.
   const alive = () => { try { return Boolean(chrome.runtime?.id); } catch (_) { return false; } };
   let interval;
@@ -44,6 +54,7 @@
     if (!alive()) { clearInterval(interval); return; }
     const ok = await check();
     if (ok === null) return;
+    if (ok) keepActive();
     try {
       await chrome.runtime.sendMessage({type: 'session', ok, name: ok ? accountName() : ''});
     } catch (_) { clearInterval(interval); }
