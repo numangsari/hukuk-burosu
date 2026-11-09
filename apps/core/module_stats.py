@@ -5,9 +5,12 @@ gösterilir. Parasal tutar veya bakiye içermez (bakiye yetkisi ayrıdır). Kıs
 """
 
 import datetime as dt
+import logging
 
 from django.core.cache import cache
 from django.utils import timezone
+
+logger = logging.getLogger(__name__)
 
 CACHE_SECONDS = 60
 
@@ -151,6 +154,7 @@ def module_stats(key: str) -> list:
         try:
             data = builder()
         except Exception:  # özet satırı sayfanın çalışmasını engellememeli
+            logger.exception("Modül özet satırı hesaplanamadı (%s)", key)
             return []
         cache.set(cache_key, data, CACHE_SECONDS)
     return data

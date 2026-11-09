@@ -3,6 +3,7 @@
 import datetime as dt
 import hashlib
 import json
+import logging
 import os
 import tempfile
 from contextlib import contextmanager, suppress
@@ -21,6 +22,8 @@ DIRECTORY = "Güncel Sistem Listeleri"
 STATE_FILE = ".ofis-liste-durumu.json"
 SIGNATURE = "hukuk-office-lists-v1"
 LOCK_ID = 793401256
+
+logger = logging.getLogger(__name__)
 
 # Gizli bağlantılar, oturum bilgileri ve parolalar hiçbir listede bulunmaz.
 # Kullanım dışı duruşma, mesajlaşma ve eski aktarım ekranları dışarıda bırakılır.
@@ -620,6 +623,8 @@ def export_all_lists_zip() -> bytes:
                 else:
                     report = _report(title, model, fields)
                 zf.writestr(f"{title}.xlsx", to_xlsx(report, office_name))
-            except Exception:
+            except Exception as exc:
+                # Kayıt içeriği günlüğe girmesin diye yalnızca liste adı ve hata türü yazılır.
+                logger.warning("ZIP için liste hazırlanamadı (%s): %s", title, type(exc).__name__)
                 continue
     return buffer.getvalue()

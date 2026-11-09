@@ -172,7 +172,8 @@ class SettingsView(View):
                     "client_email": data.get("client_email", ""),
                     "project_id": data.get("project_id", ""),
                 }
-            except Exception:
+            except (ValueError, AttributeError):
+                # Bozuk JSON veya nesne olmayan içerik: bilgi kutusu gösterilmez.
                 pass
 
         ctx = {
