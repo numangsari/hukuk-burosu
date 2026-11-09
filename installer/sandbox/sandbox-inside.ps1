@@ -68,10 +68,15 @@ function Read-Status {
 try {
     Note "Sandbox testi basladi: $Old -> $New, hatali $Bad"
 
-    # A) Temiz kurulum
-    $setup = Start-Process (Join-Path $Work "pkg\$Prefix$Old.exe") -Wait -PassThru `
+    # A) Temiz kurulum. Once biri veri klasorunu onceden acmis gibi yapilir: ilk kurulum ona
+    # guvenmemeli, klasoru kenara alip sifirdan acmali.
+    New-Item -ItemType Directory -Force "$DataRoot\pgdata" | Out-Null
+    Set-Content "$DataRoot\pgdata\sahte.txt" "onceden konmus"
+    $setup =Start-Process (Join-Path $Work "pkg\$Prefix$Old.exe") -Wait -PassThru `
         -ArgumentList @("/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/LOG=`"$Out\A-kurulum.log`"")
     Check "A kurulum cikis kodu 0" ($setup.ExitCode -eq 0) "kod=$($setup.ExitCode)"
+    $aside = @(Get-ChildItem "C:\ProgramData" -Directory -Filter "HukukBurosu.onceki-*")
+    Check "A onceden var olan veri klasoru kenara alindi" ($aside.Count -eq 1 -and (Test-Path "$($aside[0].FullName)\pgdata\sahte.txt") -and -not (Test-Path "$DataRoot\pgdata\sahte.txt")) (($aside | ForEach-Object Name) -join ",")
     $h = Health
     Check "A saglik $Old" ($h -and $h.status -eq "ok" -and $h.version -eq $Old) ($h | ConvertTo-Json -Compress)
     foreach ($svc in "HukukBuroApp", "HukukBuroDB") {

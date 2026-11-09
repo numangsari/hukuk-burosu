@@ -22,15 +22,56 @@ if (-not $DataDir) {
     if (Test-Path (Join-Path $InstallDir "data\pgdata\PG_VERSION")) { $DataDir = Join-Path $InstallDir "data" }
 }
 $Data = $DataDir
-$Logs = if ($Data -eq (Join-Path $InstallDir "data")) { Join-Path $InstallDir "logs" } else { Join-Path $Data "logs" }
-$log = Join-Path $Logs "kurulum.log"
-New-Item -ItemType Directory -Force $Logs | Out-Null
-Start-Transcript -Path $log -Append | Out-Null
-
+$Legacy = $Data -eq (Join-Path $InstallDir "data")
+$Logs = if ($Legacy) { Join-Path $InstallDir "logs" } else { Join-Path $Data "logs" }
 $App = Join-Path $InstallDir "app"
+$Env = Join-Path $App ".env"
+
+$Admins = "*S-1-5-32-544"; $System = "*S-1-5-18"; $Users = "*S-1-5-32-545"; $NetworkService = "*S-1-5-20"
+# Kökün izni değiştirilir, alt öğeler miras alır. -Recurse önce alt öğelerdeki açık izinleri siler
+# (/reset). Dikkat: "/grant:r ... /T" kullanılmaz; (OI)(CI) bayraklı izinler dosyalara uygulanamaz ve
+# dosyalar izinsiz (kimse açamaz) kalır.
+function Set-FolderAcl([string]$Path, [string[]]$Grants, [switch]$Recurse) {
+    if ($Recurse) {
+        icacls $Path /reset /T /C /Q | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw "İzinler sıfırlanamadı: $Path" }
+    }
+    $icaclsArgs = @($Path, "/inheritance:r", "/grant:r") + $Grants + @("/C", "/Q")
+    icacls @icaclsArgs | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw "İzinler ayarlanamadı: $Path" }
+}
+
+# 0) Veri kökü, içine hiçbir dosya (kurulum günlüğü dahil) yazılmadan önce güvenli hale getirilir.
+# ProgramData'da sıradan kullanıcılar klasör açabilir; ilk kurulumdan önce açılmış bir HukukBurosu
+# klasörüne (sahte veritabanı, bağlantı/junction) güvenilmez.
+$movedAside = ""
+if (-not $Legacy) {
+    foreach ($p in @($env:ProgramData, $Data)) {
+        if ((Test-Path $p) -and ((Get-Item $p -Force).Attributes -band [IO.FileAttributes]::ReparsePoint)) {
+            throw "Veri yolu bir bağlantı (reparse point), kurulum durduruldu: $p"
+        }
+    }
+    if (-not (Test-Path $Env) -and (Test-Path $Data)) {
+        # İlk kurulum (.env yok) ama veri klasörü var: silinmez, kenara alınır; sıfırdan açılır.
+        $movedAside = "$Data.onceki-$(Get-Date -Format yyyyMMdd-HHmmss)"
+        Rename-Item -Path $Data -NewName (Split-Path $movedAside -Leaf)
+    }
+    New-Item -ItemType Directory -Force $Data | Out-Null
+    icacls $Data /setowner $Admins /C /Q | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw "Veri klasörünün sahipliği ayarlanamadı: $Data" }
+    Set-FolderAcl $Data @("$($Admins):(OI)(CI)F", "$($System):(OI)(CI)F")
+    # Kök artık yalnızca yöneticilere açık; mevcut ağaç sahiplik ve açık izinlerden arındırılır.
+    # pgdata'nın NetworkService izni aşağıda yeniden verilir (veritabanı servisi bu sırada durdurulmuştur).
+    icacls $Data /setowner $Admins /T /C /Q | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw "Veri klasörünün sahipliği ayarlanamadı: $Data" }
+    Set-FolderAcl $Data @("$($Admins):(OI)(CI)F", "$($System):(OI)(CI)F") -Recurse
+}
+New-Item -ItemType Directory -Force $Logs | Out-Null
+Start-Transcript -Path (Join-Path $Logs "kurulum.log") -Append | Out-Null
+if ($movedAside) { Write-Warning "Önceden var olan veri klasörü kenara alındı: $movedAside" }
+
 $Pg = Join-Path $InstallDir "pgsql\bin"
 $PgData = Join-Path $Data "pgdata"
-$Env = Join-Path $App ".env"
 $Manage = Join-Path $InstallDir "tools\manage.cmd"
 $PgService = "HukukBuroDB"
 if (-not (Get-Service $PgService -ErrorAction SilentlyContinue) -and (Get-Service "OzkurtHukukDB" -ErrorAction SilentlyContinue)) {
@@ -54,20 +95,6 @@ foreach ($d in @($Data, "$Data\media", "$Data\backups", "$Data\updates", $Logs))
     New-Item -ItemType Directory -Force $d | Out-Null
 }
 
-$Admins = "*S-1-5-32-544"; $System = "*S-1-5-18"; $Users = "*S-1-5-32-545"; $NetworkService = "*S-1-5-20"
-# Kökün izni değiştirilir, alt öğeler miras alır. -Recurse önce alt öğelerdeki açık izinleri siler
-# (/reset). Dikkat: "/grant:r ... /T" kullanılmaz; (OI)(CI) bayraklı izinler dosyalara uygulanamaz ve
-# dosyalar izinsiz (kimse açamaz) kalır.
-function Set-FolderAcl([string]$Path, [string[]]$Grants, [switch]$Recurse) {
-    if ($Recurse) {
-        icacls $Path /reset /T /C /Q | Out-Null
-        if ($LASTEXITCODE -ne 0) { throw "İzinler sıfırlanamadı: $Path" }
-    }
-    $icaclsArgs = @($Path, "/inheritance:r", "/grant:r") + $Grants + @("/C", "/Q")
-    icacls @icaclsArgs | Out-Null
-    if ($LASTEXITCODE -ne 0) { throw "İzinler ayarlanamadı: $Path" }
-}
-
 # Program klasörü: SYSTEM olarak çalışan kod (uygulama, Python, PostgreSQL, betikler, eklenti) yalnızca
 # yöneticilerce değiştirilebilir, herkes okuyabilir. Program Files zaten böyledir; eski düzendeki
 # C:\HukukBurosu ise "Authenticated Users: Modify" miras aldığından açıkça daraltılır.
@@ -75,18 +102,7 @@ foreach ($d in @("app", "python", "tools", "eklenti", "pgsql")) {
     $path = Join-Path $InstallDir $d
     if (Test-Path $path) { Set-FolderAcl $path @("$($Admins):(OI)(CI)F", "$($System):(OI)(CI)F", "$($Users):(OI)(CI)RX") -Recurse }
 }
-# Veri klasörü: müvekkil belgeleri, yedekler ve veritabanı yalnızca yöneticiler ve SYSTEM'e açıktır.
-# Kök özyinelemesiz ayarlanır; alt klasörler miras alır, pgdata'nın açık izni korunur.
-if ($Data -ne (Join-Path $InstallDir "data")) {
-    # ProgramData'da sıradan kullanıcılar klasör açabilir. Klasörü veya alt öğelerini önceden açan kişi
-    # sahip olarak izinleri değiştirebileceğinden her çalışmada bütün ağacın sahipliği Administrators'a
-    # alınır ve açık izinler silinir (her şey yalnızca kökten miras alır). Ağacın içindeki dosyalara
-    # (ör. PG_VERSION) bakılarak karar verilmez. pgdata'nın NetworkService izni aşağıda yeniden verilir;
-    # veritabanı servisi bu sırada durdurulmuştur (kurulum PrepareToInstall'da durdurur).
-    icacls $Data /setowner $Admins /T /C /Q | Out-Null
-    if ($LASTEXITCODE -ne 0) { throw "Veri klasörünün sahipliği ayarlanamadı: $Data" }
-    Set-FolderAcl $Data @("$($Admins):(OI)(CI)F", "$($System):(OI)(CI)F") -Recurse
-}
+# Veri kökünün izinleri yukarıda (0. adım) ayarlandı.
 Set-FolderAcl "$Data\updates" @("$($Admins):(OI)(CI)F", "$($System):(OI)(CI)F") -Recurse
 # .env, app klasörüne verilen okuma izninden ayrı tutulur: yalnızca Administrators ve SYSTEM.
 if (Test-Path $Env) { Set-FolderAcl $Env @("$($Admins):F", "$($System):F") }
