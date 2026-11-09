@@ -447,17 +447,31 @@ def test_backup_uses_dynamic_office_slug(backup_env):
     assert (backup_env / "yedekler" / rec.file_name).exists()
 
 
-def test_backup_contains_readable_list_snapshot(backup_env):
+def test_backup_lists_are_generated_from_current_data(backup_env):
+    """Yedekteki listeler ofis klasöründeki (eski olabilecek) kopyalardan değil, yedek anındaki
+    veriden üretilir."""
+    import io
+
+    from openpyxl import load_workbook
+
     office = OfficeSettings.load()
     office.documents_root = str(backup_env / "Ofis")
+    office.name = "Güncel Ad Hukuk Bürosu"
     office.save()
     lists = backup_env / "Ofis" / "Güncel Sistem Listeleri"
     lists.mkdir(parents=True)
+    (lists / "Büro Bilgileri.xlsx").write_bytes(b"eski kopya")
     (lists / "Örnek.xlsx").write_bytes(b"uydurma liste")
     record = services.run_backup()
     assert record.status == "ok"
     with zipfile.ZipFile(backup_env / "yedekler" / record.file_name) as archive:
-        assert archive.read("office_lists/Örnek.xlsx") == b"uydurma liste"
+        names = archive.namelist()
+        assert "office_lists/Örnek.xlsx" not in names
+        data = archive.read("office_lists/Büro Bilgileri.xlsx")
+    assert data != b"eski kopya"
+    sheet = load_workbook(io.BytesIO(data)).active
+    cells = [str(c.value) for row in sheet.iter_rows() for c in row if c.value]
+    assert any("Güncel Ad Hukuk Bürosu" in c for c in cells)
 
 
 def test_restore_command_takes_safety_backup_first(backup_env, monkeypatch):

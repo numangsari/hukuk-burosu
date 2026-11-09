@@ -602,29 +602,39 @@ def office_lists_status() -> dict:
         return {"message": "Liste güncelleme durumu okunamadı."}
 
 
+def generate_list_files() -> list[tuple[str, bytes]]:
+    """Tüm sistem listelerini veritabanının o anki hâlinden üretir: [(dosya adı, xlsx)].
+
+    Üretilemeyen liste atlanır ve günlüğe yazılır (kayıt içeriği değil, yalnızca liste adı ve
+    hata türü).
+    """
+    office_name = OfficeSettings.load().name
+    files = []
+    for title, model, fields in (
+        *SPECS,
+        ("İşlem Geçmişi", None, None),
+        ("Takvim", "calendar", None),
+    ):
+        try:
+            if model is None:
+                report = _activity_report()
+            elif model == "calendar":
+                report = _calendar_report()
+            else:
+                report = _report(title, model, fields)
+            files.append((f"{title}.xlsx", to_xlsx(report, office_name)))
+        except Exception as exc:
+            logger.warning("Liste hazırlanamadı (%s): %s", title, type(exc).__name__)
+    return files
+
+
 def export_all_lists_zip() -> bytes:
     """Tüm güncel sistem listelerini bellekte üretip tek bir ZIP arşivi olarak döndürür."""
     import io
     import zipfile
 
-    office_name = OfficeSettings.load().name
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED) as zf:
-        for title, model, fields in (
-            *SPECS,
-            ("İşlem Geçmişi", None, None),
-            ("Takvim", "calendar", None),
-        ):
-            try:
-                if model is None:
-                    report = _activity_report()
-                elif model == "calendar":
-                    report = _calendar_report()
-                else:
-                    report = _report(title, model, fields)
-                zf.writestr(f"{title}.xlsx", to_xlsx(report, office_name))
-            except Exception as exc:
-                # Kayıt içeriği günlüğe girmesin diye yalnızca liste adı ve hata türü yazılır.
-                logger.warning("ZIP için liste hazırlanamadı (%s): %s", title, type(exc).__name__)
-                continue
+        for name, data in generate_list_files():
+            zf.writestr(name, data)
     return buffer.getvalue()

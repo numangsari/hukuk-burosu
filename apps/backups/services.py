@@ -207,22 +207,17 @@ def _add_office_templates(zf) -> int:
 
 
 def _add_office_lists(zf) -> int:
-    """Görüntüleme tablolarının o andaki kopyalarını yedeğe ekler."""
-    from apps.core.office_lists import DIRECTORY
+    """Görüntüleme tablolarını yedek anındaki veriden üretip yedeğe ekler.
 
-    root = (OfficeSettings.load().documents_root or "").strip()
-    directory = Path(root) / DIRECTORY if root else None
-    if not directory or not directory.exists():
-        return 0
-    if directory.is_symlink() or not directory.is_dir():
-        raise BackupError("Liste klasörü güvenli değil.")
-    count = 0
-    for path in directory.glob("*.xlsx"):
-        if path.is_symlink() or not path.is_file():
-            raise BackupError("Liste klasöründe güvenli olmayan bir dosya var.")
-        zf.write(path, f"office_lists/{path.name}")
-        count += 1
-    return count
+    Ofis klasöründeki kopyalar zamanlanmış görevle yenilendiği için eski olabilir; bu yüzden
+    oradan kopyalanmaz, veritabanından yeniden üretilir.
+    """
+    from apps.core.office_lists import generate_list_files
+
+    files = generate_list_files()
+    for name, data in files:
+        zf.writestr(f"office_lists/{name}", data)
+    return len(files)
 
 
 def _restore_office_templates(source: Path) -> list[Path]:
