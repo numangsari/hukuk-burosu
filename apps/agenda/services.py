@@ -255,8 +255,10 @@ def google_api_events(start: dt.date, end: dt.date, office: OfficeSettings) -> A
             token = page.get("nextPageToken")
             if not token:
                 break
-    except Exception:
-        log.warning("Google Takvim etkinlikleri okunamadı")
+    except Exception as exc:
+        # Ayrıntı (adres, takvim kimliği) yazılmaz; yalnızca hata türü ve HTTP durumu.
+        status = getattr(getattr(exc, "resp", None), "status", "")
+        log.warning("Google Takvim etkinlikleri okunamadı: %s %s", type(exc).__name__, status)
         return AgendaResult(configured=True, error="Google Takvim etkinlikleri okunamadı.")
     return AgendaResult(configured=True, events=events)
 

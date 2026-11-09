@@ -192,3 +192,12 @@ def test_civil_fee_beyond_advance_is_reported_not_written(lawyer, ministry):
     record = make_record(case, "2025/1", block, lawyer, category="Hukuk Dava Dosyası")
     result = import_finance(record)
     assert result["yazilan"] == 0 and any("fark" in note for note in result["notlar"])
+
+
+@pytest.mark.django_db
+def test_case_without_client_does_not_crash_and_writes_nothing(lawyer):
+    case = make_case(CaseType.ENFORCEMENT, None, "", lawyer)
+    record = make_record(case, "2026/77", enforcement_block(), lawyer)
+    result = import_finance(record)
+    assert result["yazilan"] == 0
+    assert not LedgerEntry.objects.filter(case=case).exists()

@@ -25,12 +25,18 @@ Path(LOG_FILE).parent.mkdir(parents=True, exist_ok=True)
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
+    # Saatli biçim: Ayarlar > Sistem günlüğü ekranı (apps/core/syslog.py) bu biçimi ayrıştırır.
+    "formatters": {
+        "plain": {"format": "%(asctime)s %(levelname)s %(name)s: %(message)s"},
+    },
     "handlers": {
         "file": {
             "class": "logging.handlers.RotatingFileHandler",
             "filename": str(LOG_FILE),
             "maxBytes": 5 * 1024 * 1024,
             "backupCount": 5,
+            "encoding": "utf-8",
+            "formatter": "plain",
         }
     },
     "root": {"handlers": ["file"], "level": "WARNING"},

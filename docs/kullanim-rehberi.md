@@ -102,7 +102,7 @@ Bu rehber programı günlük kullanan herkes içindir. Bazı ekranlar ve düğme
 ## 13. Ayarlar
 
 - **Herkes:** Profil ve görünüm (açık/koyu tema), PIN değiştir, **Hakkında** (sürüm ve son güncelleme).
-- **Yönetici:** Ofis bilgileri, Kullanıcılar, Ofis klasörü ve yedek, Görev türleri, Şablon dilekçeler, Personel puanları, Yetkiler ve çalışma düzeni, Eklenti ayarları, Google Takvim, Sistem monitörü, Erişim adresleri, Aktivite kaydı, Kullanıcı analizi, Veri içe/dışa aktar.
+- **Yönetici:** Ofis bilgileri, Kullanıcılar, Ofis klasörü ve yedek, Görev türleri, Şablon dilekçeler, Personel puanları, Yetkiler ve çalışma düzeni, Eklenti ayarları, Google Takvim, Sistem monitörü, Sistem günlüğü (son uyarı ve hata kayıtları; sorun bildirirken kaydın saatini ve son satırını iletin), Erişim adresleri, Aktivite kaydı, Kullanıcı analizi, Veri içe/dışa aktar.
 - **Aktivite kaydı:** kim, neyi, ne zaman değiştirdi; giriş/çıkışlar ve hatalı PIN denemeleri.
 
 ## 14. Sık sorulanlar

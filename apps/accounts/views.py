@@ -118,6 +118,7 @@ class SettingsView(View):
         "puanlar",
         "eklenti",
         "monitor",
+        "log",
         "kullanici_analizi",
         "veri_aktarim",
         "erisim",
@@ -264,6 +265,8 @@ class SettingsView(View):
             ctx.update(self._about_context(request.user))
         if active == "monitor" and is_admin(request.user):
             ctx.update(self._monitor_context(office))
+        if active == "log" and is_admin(request.user):
+            ctx.update(self._log_context())
         if active == "kullanici_analizi" and is_admin(request.user):
             ctx.update(self._user_analytics_context())
         if active == "veri_aktarim" and is_admin(request.user):
@@ -277,6 +280,16 @@ class SettingsView(View):
                 "-created_at"
             )[:15]
         return render(request, self.template_name, ctx)
+
+    def _log_context(self) -> dict:
+        """Sistem günlüğü: app.log'un sonundan en yeni uyarı ve hata kayıtları."""
+        from django.conf import settings
+
+        from apps.core.syslog import read_recent_entries
+
+        path = getattr(settings, "LOG_FILE", None)
+        entries = read_recent_entries(path, limit=60) if path else []
+        return {"log_entries": entries, "log_configured": bool(path)}
 
     def _about_context(self, user) -> dict:
         """Hakkında bölümü: ürün ve sürüm herkese, teknik sürümler yalnızca yöneticiye."""
@@ -481,7 +494,7 @@ class SettingsView(View):
         if (
             active not in forms
             and not (
-                active in {"puanlar", "monitor", "kullanici_analizi", "veri_aktarim"}
+                active in {"puanlar", "monitor", "log", "kullanici_analizi", "veri_aktarim"}
                 and is_admin(request.user)
             )
             and active != "hakkinda"

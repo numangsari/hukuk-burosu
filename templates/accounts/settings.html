@@ -26,6 +26,7 @@
       <a class="{% if active == 'takvim' %}active{% endif %}" href="?bolum=takvim"><i class="bi bi-calendar3"></i>Google Takvim
         {% if calendar_connected %}<span class="chip chip-success ms-auto">Bağlı</span>{% endif %}</a>
       <a class="{% if active == 'monitor' %}active{% endif %}" href="?bolum=monitor"><i class="bi bi-activity"></i>Sistem monitörü</a>
+      <a class="{% if active == 'log' %}active{% endif %}" href="?bolum=log"><i class="bi bi-bug"></i>Sistem günlüğü</a>
       <a class="{% if active == 'erisim' %}active{% endif %}" href="?bolum=erisim"><i class="bi bi-hdd-network"></i>Erişim adresleri</a>
       <a href="{% url 'activity:list' %}"><i class="bi bi-clock-history"></i>Aktivite kaydı</a>
       <a class="{% if active == 'kullanici_analizi' %}active{% endif %}" href="?bolum=kullanici_analizi"><i class="bi bi-person-lines-fill"></i>Kullanıcı analizi</a>
@@ -530,6 +531,28 @@
       </div>
     </form>
     {% endwith %}
+
+  {% elif active == "log" %}
+    <p class="small text-body-secondary mb-2"><i class="bi bi-info-circle me-1"></i>Uygulamanın son uyarı ve hata kayıtları, en yeni üstte. Sorun bildirirken ilgili kaydın saatini ve son satırını iletin. Kayıtlar müvekkil bilgisi içerebilir; başkalarına göndermeden önce gizli kısımları silin.</p>
+    {% if not log_entries %}
+      <div class="card"><div class="card-body text-body-secondary">{% if log_configured %}Kayıtlı uyarı veya hata yok.{% else %}Günlük dosyası ayarlı değil (geliştirme ortamı).{% endif %}</div></div>
+    {% else %}
+      <div class="card">
+        <div class="list-group list-group-flush">
+          {% for entry in log_entries %}
+          <details class="list-group-item">
+            <summary class="d-flex gap-2 align-items-baseline">
+              <span class="tabular text-body-secondary">{% if entry.time %}{{ entry.time|date:"d.m.Y H:i:s" }}{% else %}Saat yok{% endif %}</span>
+              {% if entry.level %}<span class="chip {% if entry.level == 'WARNING' %}chip-warning{% else %}chip-danger{% endif %}">{{ entry.level }}</span>{% endif %}
+              <span class="fw-medium">{{ entry.title|truncatechars:120 }}</span>
+              <span class="text-body-secondary small clip-inline">{{ entry.summary|truncatechars:140 }}</span>
+            </summary>
+            {% if entry.detail %}<pre class="small mt-2 mb-0" style="white-space:pre-wrap">{{ entry.detail }}</pre>{% endif %}
+          </details>
+          {% endfor %}
+        </div>
+      </div>
+    {% endif %}
 
   {% elif active == "monitor" %}
     <p class="small text-body-secondary mb-2"><i class="bi bi-info-circle me-1"></i>{{ product_name }} · sürüm <span class="tabular">{{ app_version }}</span></p>

@@ -71,7 +71,8 @@ class Side:
 
     def __init__(self, record, case):
         self.case = case
-        self.clients = [(case.client, case.client_role)]
+        # UYAP'tan yeni gelen dosyada müvekkil henüz eşleşmemiş olabilir (client=None).
+        self.clients = [(case.client, case.client_role)] if case.client else []
         for link in case.co_client_links.select_related("client"):
             self.clients.append((link.client, link.role))
         self.lawyers = [words(user.get_full_name()) for user in record.source_users.all()]
@@ -127,11 +128,15 @@ def analyze(record, case):
                 if "teminat" in kind_text:
                     notes.append(f"Teminat, masraf sayılmadı: {label} {amount}")
                     continue
+                owner = side.client_in(payer) or case.client
+                if owner is None:
+                    notes.append(f"Dosyada müvekkil eşleşmedi, yazılmadı: {label} {amount}")
+                    continue
                 own_advance += amount
                 entries.append(
                     {
                         "kind": EntryKind.EXPENSE,
-                        "client": side.client_in(payer) or case.client,
+                        "client": owner,
                         "amount": amount,
                         "date": day,
                         "description": f"UYAP: {label}",
@@ -159,6 +164,9 @@ def analyze(record, case):
                     notes.append(f"Bağlı tahsilat borç tahsilatı değil: {label}")
                 else:
                     owner = client or case.client
+                    if owner is None:
+                        notes.append(f"Dosyada müvekkil eşleşmedi, yazılmadı: {label} · {amount}")
+                        continue
                     role = side.role_of(owner)
                     if role != "creditor":
                         why = "borçlu" if role == "debtor" else "sıfatı belirsiz"
