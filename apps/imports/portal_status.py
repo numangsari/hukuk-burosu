@@ -37,6 +37,36 @@ def connection_state(connection, source, now):
     return "aktif" if status in ACTIVE_STATES else "pasif"
 
 
+REASON_TEXT = {
+    "izin_yok": "Eklentiye izin verilmemiş; eşleştirmeyi ve avukat iznini kontrol edin",
+    "sunucu_yok": "Eklenti sunucuya ulaşamadı veya sunucu hata verdi",
+    "sekme_yok": "Sekme açık değil",
+    "sekme_hazir_degil": "Sekme henüz yüklenmedi",
+    "oturum_yok": "Oturum kapalı; yeniden giriş yapın",
+    "durduruldu": "Aktarım durduruldu",
+}
+
+
+def inactive_reason(connection, source, now):
+    """Bağlantı pasifse nedeni (kısa Türkçe metin); aktifse boş."""
+    if connection_state(connection, source, now) == "aktif":
+        return ""
+    seen = connection.last_seen
+    if not seen or now - seen > CONNECTED_WINDOW:
+        return "Eklenti yanıt vermiyor (tarayıcı kapalı olabilir)"
+    status = getattr(connection, f"{source}_status")
+    if status in REASON_TEXT:
+        return REASON_TEXT[status]
+    session_at = getattr(connection, f"{source}_session_at")
+    if (
+        getattr(connection, f"{source}_session_ok") is False
+        and session_at
+        and now - session_at <= SESSION_FRESH
+    ):
+        return REASON_TEXT["oturum_yok"]
+    return "Aktarım bilgisi yok"
+
+
 def _summary(states):
     if not states:
         return "yok"
@@ -84,6 +114,13 @@ def portal_indicator(user, now=None):
                 {
                     "name": access.user.get_full_name() or access.user.username,
                     "state": "aktif" if live else "pasif",
+                    "reason": ""
+                    if live
+                    else (
+                        inactive_reason(matched[0], key, now)
+                        if matched
+                        else "Bu avukatın hesabı eklentiyle eşleşmemiş"
+                    ),
                     "last_success": max(
                         (
                             getattr(c, f"{key}_success_at")

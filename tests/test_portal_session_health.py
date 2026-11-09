@@ -172,3 +172,39 @@ def test_stale_session_info_falls_back_to_scan_status():
     bad_scan = make(owner, uyap_status="oturum_yok", uyap_session_ok=True, uyap_session_at=old)
     assert state(good_scan) == "aktif"
     assert state(bad_scan) == "pasif"
+
+
+def reason(connection, source="uyap"):
+    return portal_status.inactive_reason(connection, source, timezone.now())
+
+
+def test_reason_is_empty_when_active():
+    owner, _ = paired_client()
+    connection = make(owner, uyap_status="tamamlandi")
+    assert reason(connection) == ""
+
+
+@pytest.mark.parametrize(
+    ("status", "text"),
+    [
+        ("izin_yok", "izin verilmemiş"),
+        ("sunucu_yok", "sunucuya ulaşamadı"),
+        ("sekme_yok", "Sekme açık değil"),
+        ("oturum_yok", "Oturum kapalı"),
+    ],
+)
+def test_reason_names_the_blocking_scan_state(status, text):
+    owner, _ = paired_client()
+    connection = make(owner, uyap_status=status)
+    assert text in reason(connection)
+
+
+def test_reason_for_closed_session_and_silent_extension():
+    owner, _ = paired_client()
+    closed = make(
+        owner, uyap_status="tamamlandi", uyap_session_ok=False, uyap_session_at=timezone.now()
+    )
+    assert "Oturum kapalı" in reason(closed)
+    silent = make(owner, uyap_status="tamamlandi")
+    silent.last_seen = timezone.now() - dt.timedelta(minutes=10)
+    assert "yanıt vermiyor" in reason(silent)

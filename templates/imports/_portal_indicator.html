@@ -11,6 +11,7 @@
         <span class="portal-name">{{ person.name }}</span>
         <span class="portal-time">{% if person.last_success %}{{ person.last_success|date:"d.m H:i" }}{% else %}—{% endif %}</span>
       </span>
+      {% if person.reason %}<span class="portal-hint">{{ person.reason }}</span>{% endif %}
       {% empty %}
         <span class="portal-hint">Ayarlar &gt; Eklenti bağlantıları bölümünden avukata izin verilmeli.</span>
       {% endfor %}
