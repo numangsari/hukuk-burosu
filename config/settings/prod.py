@@ -14,10 +14,11 @@ STORAGES = {
     "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
     "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"},
 }
+# Veri kökü (C:\ProgramData\HukukBurosu; eski düzende kurulum klasörü\data). postinstall.ps1 yazar.
+DATA_DIR = env.path("DATA_DIR", default=BASE_DIR.parent / "data")  # noqa: F405
 # Otomatik güncelleyicinin (tools\updater.ps1) son sonucu; Ayarlar > Hakkında'da gösterilir.
 UPDATE_STATUS_FILE = env.path(
-    "UPDATE_STATUS_FILE",
-    default=BASE_DIR.parent / "data" / "updates" / "status.json",  # noqa: F405
+    "UPDATE_STATUS_FILE", default=Path(DATA_DIR) / "updates" / "status.json"
 )
 LOG_FILE = env.path("LOG_FILE", default=BASE_DIR / "logs" / "app.log")  # noqa: F405
 Path(LOG_FILE).parent.mkdir(parents=True, exist_ok=True)

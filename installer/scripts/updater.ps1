@@ -13,29 +13,43 @@
       olursa klasorleri ve veritabanini anlik kopyadan geri yukler, onceki surumle devam eder ve
       surumu bad-versions.txt'ye yazar (daha yeni surum cikana kadar tekrar denenmez).
 
-  Sonuc data\updates\status.json'a yazilir (Ayarlar > Hakkinda), ayrinti logs\guncelleme.log.
+  Sonuc <veri koku>\updates\status.json'a yazilir (Ayarlar > Hakkinda), ayrinti <veri koku>\logs\guncelleme.log.
+  Veri koku: C:\ProgramData\HukukBurosu (eski duzende kurulum klasoru\data).
   Betik BOM'suz UTF-8'dir; PowerShell 5.1 uyumu icin metinler ASCII yazilir.
 #>
 param(
     [Parameter(Mandatory = $true)][ValidateSet("Check", "Apply")][string]$Mode,
-    [string]$InstallDir = (Split-Path $PSScriptRoot -Parent),
+    # Bos ise betigin klasorunun bir ustu. PowerShell 5.1'de $PSScriptRoot param varsayilaninda bos gelir.
+    [string]$InstallDir = "",
     [string]$Repo = "numangsari/hukuk-burosu-releases",
     [string]$ApiBase = "https://api.github.com",
     [int]$HealthTimeoutSec = 240,
+    # Veri koku; verilmezse .env'deki DATA_DIR, o da yoksa eski duzen (InstallDir\data) veya ProgramData.
+    [string]$DataDir = "",
     [switch]$Relaunched
 )
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
-$Updates = Join-Path $InstallDir "data\updates"
+if (-not $InstallDir) { $InstallDir = Split-Path $PSScriptRoot -Parent }
+if (-not $DataDir) {
+    $envFile = Join-Path $InstallDir "app\.env"
+    $line = if (Test-Path $envFile) { Get-Content $envFile | Where-Object { $_ -like "DATA_DIR=*" } | Select-Object -First 1 }
+    if ($line) { $DataDir = $line.Substring("DATA_DIR=".Length).Trim() }
+    elseif (Test-Path (Join-Path $InstallDir "data")) { $DataDir = Join-Path $InstallDir "data" }
+    else { $DataDir = Join-Path $env:ProgramData "HukukBurosu" }
+}
+$LegacyLayout = $DataDir -eq (Join-Path $InstallDir "data")
+$Updates = Join-Path $DataDir "updates"
 $PendingFile = Join-Path $Updates "pending.json"
 $StatusFile = Join-Path $Updates "status.json"
 $BadFile = Join-Path $Updates "bad-versions.txt"
 $LockFile = Join-Path $Updates "applying.lock"
 $Snapshot = Join-Path $Updates "rollback"
 $DownloadDir = Join-Path $Updates "indirilen"
-$LogFile = Join-Path $InstallDir "logs\guncelleme.log"
+$LogDir = if ($LegacyLayout) { Join-Path $InstallDir "logs" } else { Join-Path $DataDir "logs" }
+$LogFile = Join-Path $LogDir "guncelleme.log"
 $Pg = Join-Path $InstallDir "pgsql\bin"
 $AssetPrefix = "HukukBurosuOtomasyonu-Kurulum-"
 $UserAgent = @{ "User-Agent" = "HukukBurosuUpdater" }
@@ -44,7 +58,7 @@ $QuietTasks = @(
     "Hukuk Buro Yedek", "Hukuk Buro Haciz Takibi", "Hukuk Buro Listeler",
     "Ozkurt Hukuk Yedek", "Ozkurt Hukuk Haciz Takibi", "Ozkurt Hukuk Listeler"
 )
-$SnapshotDirs = @("app", "python", "tools")
+$SnapshotDirs = @("app", "python", "tools", "eklenti")
 
 function Write-Log([string]$Message) {
     New-Item -ItemType Directory -Force (Split-Path $LogFile) | Out-Null
@@ -56,12 +70,16 @@ function Write-TextNoBom([string]$Path, [string]$Text) {
 }
 
 function Initialize-UpdateDir {
-    if (-not (Test-Path $Updates)) {
-        New-Item -ItemType Directory -Force $Updates | Out-Null
-        # Anlik kopya .env ve tum veritabanini icerir: yalnizca Administrators ve SYSTEM.
-        if ([Security.Principal.WindowsIdentity]::GetCurrent().IsSystem) {
-            icacls $Updates /inheritance:r /grant:r "*S-1-5-32-544:(OI)(CI)F" "*S-1-5-18:(OI)(CI)F" | Out-Null
-        }
+    New-Item -ItemType Directory -Force $Updates | Out-Null
+    # Anlik kopya .env ve tum veritabanini icerir; indirilen paket SYSTEM olarak calisir.
+    # Her calismada yalnizca Administrators ve SYSTEM'e daraltilir; daraltilamazsa durulur.
+    if ([Security.Principal.WindowsIdentity]::GetCurrent().IsSystem) {
+        # Alt ogelerdeki acik izinler silinir, kok daraltilir, alt ogeler miras alir. "/grant:r ... /T"
+        # kullanilmaz: (OI)(CI) bayrakli izin dosyalara uygulanamaz ve dosyalar izinsiz kalir.
+        icacls $Updates /reset /T /C /Q | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw "updates izinleri sifirlanamadi." }
+        icacls $Updates /inheritance:r /grant:r "*S-1-5-32-544:(OI)(CI)F" "*S-1-5-18:(OI)(CI)F" /C /Q | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw "updates izinleri daraltilamadi." }
     }
 }
 
@@ -108,14 +126,24 @@ function Read-Pending {
     try { return (Get-Content $PendingFile -Raw | ConvertFrom-Json) } catch { return $null }
 }
 
+function Test-InDownloadDir([string]$Path) {
+    # Yalnizca guncelleyicinin indirme klasorundeki paket calistirilir veya silinir.
+    $full = [IO.Path]::GetFullPath($Path)
+    $root = [IO.Path]::GetFullPath($DownloadDir).TrimEnd("\") + "\"
+    return $full.StartsWith($root, [StringComparison]::OrdinalIgnoreCase)
+}
+
 function Test-PendingValid($Pending) {
-    return $Pending -and $Pending.file -and (Test-Path $Pending.file) -and
-        ((Get-Sha256 $Pending.file) -eq $Pending.sha256)
+    if (-not ($Pending -and $Pending.file -and (Test-Path $Pending.file))) { return $false }
+    if (-not (Test-InDownloadDir $Pending.file)) { return $false }
+    return (Get-Sha256 $Pending.file) -eq $Pending.sha256
 }
 
 function Remove-Pending {
     $pending = Read-Pending
-    if ($pending -and $pending.file) { Remove-Item $pending.file -Force -ErrorAction SilentlyContinue }
+    if ($pending -and $pending.file -and (Test-InDownloadDir $pending.file)) {
+        Remove-Item $pending.file -Force -ErrorAction SilentlyContinue
+    }
     Remove-Item $PendingFile -Force -ErrorAction SilentlyContinue
 }
 
@@ -260,7 +288,9 @@ function Invoke-Apply {
 
             # 1) Anlik kopya: klasorler ve veritabani
             New-Item -ItemType Directory -Force $Snapshot | Out-Null
-            foreach ($dir in $SnapshotDirs) { Copy-Mirror (Join-Path $InstallDir $dir) (Join-Path $Snapshot $dir) }
+            foreach ($dir in $SnapshotDirs) {
+                if (Test-Path (Join-Path $InstallDir $dir)) { Copy-Mirror (Join-Path $InstallDir $dir) (Join-Path $Snapshot $dir) }
+            }
             Remove-Item $dump -Force -ErrorAction SilentlyContinue
             Invoke-Pg "pg_dump.exe" @("-Fc", "-f", $dump, $db.Name) $db
             Write-Log "Anlik kopya alindi."
@@ -268,7 +298,7 @@ function Invoke-Apply {
             # 2) Bakim sayfasi ve sessiz kurulum (uygulama servisini kurulum degil biz baslatiriz)
             $maintenance = Start-Maintenance
             $installerStarted = $true
-            $setupLog = Join-Path $InstallDir "logs\guncelleme-kurulum-$version.log"
+            $setupLog = Join-Path $LogDir "guncelleme-kurulum-$version.log"
             $setup = Start-Process -FilePath $pending.file -Wait -PassThru -ArgumentList @(
                 "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/DEFERSTART=1", "/LOG=`"$setupLog`""
             )
@@ -297,7 +327,9 @@ function Invoke-Apply {
             try {
                 if (-not $maintenance -or $maintenance.HasExited) { $maintenance = Start-Maintenance }
                 Stop-Service $appService -Force -ErrorAction SilentlyContinue
-                foreach ($dir in $SnapshotDirs) { Copy-Mirror (Join-Path $Snapshot $dir) (Join-Path $InstallDir $dir) }
+                foreach ($dir in $SnapshotDirs) {
+                    if (Test-Path (Join-Path $Snapshot $dir)) { Copy-Mirror (Join-Path $Snapshot $dir) (Join-Path $InstallDir $dir) }
+                }
                 Start-Service $dbService
                 Invoke-Pg "dropdb.exe" @("--force", "--if-exists", "--maintenance-db=postgres", $db.Name) $db
                 Invoke-Pg "createdb.exe" @($db.Name) $db
@@ -329,7 +361,7 @@ try {
         $copy = Join-Path $Updates "updater-run.ps1"
         Copy-Item -Force $PSCommandPath $copy
         & powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $copy `
-            -Mode Apply -InstallDir $InstallDir -Repo $Repo -ApiBase $ApiBase `
+            -Mode Apply -InstallDir $InstallDir -DataDir $DataDir -Repo $Repo -ApiBase $ApiBase `
             -HealthTimeoutSec $HealthTimeoutSec -Relaunched
         exit $LASTEXITCODE
     }

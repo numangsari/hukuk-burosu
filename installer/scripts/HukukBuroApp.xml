@@ -13,7 +13,7 @@
   <delayedAutoStart>false</delayedAutoStart>
   <onfailure action="restart" delay="10 sec"/>
   <onfailure action="restart" delay="30 sec"/>
-  <logpath>%BASE%\..\logs</logpath>
+  <logpath>%ProgramData%\HukukBurosu\logs</logpath>
   <log mode="roll-by-size">
     <sizeThreshold>5120</sizeThreshold>
     <keepFiles>5</keepFiles>

@@ -29,7 +29,7 @@ foreach ($taskName in @(
 
 Remove-NetFirewallRule -DisplayName "Hukuk Buro Yonetimi" -ErrorAction SilentlyContinue
 $desktop = [Environment]::GetFolderPath("CommonDesktopDirectory")
-foreach ($name in @("Hukuk B$([char]0x00FC)ro$([char]0x015F)u Otomasyonu.url", "Hukuk Buro Yonetimi.url", "Ozkurt Hukuk.url")) {
+foreach ($name in @("Hukuk B$([char]0x00FC)rosu Otomasyonu.url", "Hukuk B$([char]0x00FC)ro$([char]0x015F)u Otomasyonu.url", "Hukuk Buro Yonetimi.url", "Ozkurt Hukuk.url")) {
     Remove-Item (Join-Path $desktop $name) -ErrorAction SilentlyContinue
 }
 Remove-NetFirewallRule -DisplayName "Ozkurt Hukuk" -ErrorAction SilentlyContinue

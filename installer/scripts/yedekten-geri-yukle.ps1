@@ -8,7 +8,10 @@ Add-Type -AssemblyName System.Windows.Forms
 $dlg = New-Object System.Windows.Forms.OpenFileDialog
 $dlg.Title = "Geri yüklenecek yedeği seçin"
 $dlg.Filter = "Yedek arşivleri (*-yedek-*.zip;*.zip)|*-yedek-*.zip;*.zip"
-$dlg.InitialDirectory = Join-Path (Split-Path $tools) "data\backups"
+# Yedek klasörü .env'deki BACKUP_DIR'dır (yeni düzende C:\ProgramData\HukukBurosu\backups).
+$backupLine = Get-Content (Join-Path (Split-Path $tools) "app\.env") -ErrorAction SilentlyContinue |
+    Where-Object { $_ -like "BACKUP_DIR=*" } | Select-Object -First 1
+$dlg.InitialDirectory = if ($backupLine) { $backupLine.Substring("BACKUP_DIR=".Length).Trim() } else { Join-Path (Split-Path $tools) "data\backups" }
 if ($dlg.ShowDialog() -ne "OK") { exit 0 }
 $answer = [System.Windows.Forms.MessageBox]::Show(
     "$($dlg.SafeFileName) geri yüklenecek. Mevcut veriler bu yedekteki hâliyle değiştirilecek.`n`nGeri yüklemeden önce mevcut durumun da yedeği alınacak. Devam edilsin mi?",

@@ -20,7 +20,9 @@ param(
     [string]$Version = "",
     [string]$PythonVersion = "3.13.15",
     [string]$PostgresVersion = "17.6-1",
-    [string]$WinSWVersion = "v2.12.0"
+    [string]$WinSWVersion = "v2.12.0",
+    # Yalnızca test (Sandbox) için: sıkıştırmasız paket; yayınlanmaz.
+    [switch]$Fast
 )
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"  # Invoke-WebRequest/Expand-Archive ilerleme çubuğu çok yavaşlatır
@@ -71,7 +73,11 @@ $pgTmp = Join-Path $Build "pgtmp"
 New-Item -ItemType Directory -Force $pgTmp | Out-Null
 tar -xf $pgZip -C $pgTmp  # Windows'un yerleşik tar'ı Expand-Archive'den çok daha hızlı
 if ($LASTEXITCODE -ne 0) { throw "PostgreSQL arşivi açılamadı." }
-Move-Item (Join-Path $pgTmp "pgsql") (Join-Path $Build "pgsql")
+# Yeni açılan dosyaları antivirüs/dizinleyici kısa süre kilitleyebilir; taşıma birkaç kez denenir.
+for ($try = 1; ; $try++) {
+    try { Move-Item (Join-Path $pgTmp "pgsql") (Join-Path $Build "pgsql"); break }
+    catch { if ($try -ge 6) { throw }; Start-Sleep -Seconds 5 }
+}
 Remove-Item -Recurse -Force $pgTmp
 foreach ($junk in @("pgAdmin 4", "doc", "StackBuilder", "symbols", "include")) {
     $p = Join-Path $Build "pgsql\$junk"
@@ -85,6 +91,10 @@ $winsw = Get-Cached "https://github.com/winsw/winsw/releases/download/$WinSWVers
 Copy-Item $winsw (Join-Path $tools "HukukBuroApp.exe")
 Copy-Item $winsw (Join-Path $tools "OzkurtHukukApp.exe")
 Copy-Item (Join-Path $PSScriptRoot "scripts\*") $tools
+# UYAP/UETS tarayıcı eklentisi: ana bilgisayarda Chrome'a "paketlenmemiş" olarak yüklenir.
+$extension = Join-Path $Build "eklenti"
+if (Test-Path $extension) { Remove-Item -Recurse -Force $extension }
+Copy-Item -Recurse (Join-Path $Root "uyap-uets-eklentisi") $extension
 
 # 3b) Visual C++ çalışma kütüphanesi: PostgreSQL programları VCRUNTIME140/MSVCP140 ister,
 # temiz Windows'ta bunlar yoktur. Kurulum bu paketi postinstall'dan önce sessizce kurar.
@@ -117,11 +127,17 @@ $iscc = @("${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe", "$env:ProgramFiles\I
           "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe") |
     Where-Object { Test-Path $_ } | Select-Object -First 1
 if (-not $iscc) { throw "Inno Setup 6 bulunamadı. Kurmak için: winget install JRSoftware.InnoSetup" }
-& $iscc "/DAppVersion=$Version" "/DBuildDir=$Build" (Join-Path $PSScriptRoot "HukukBurosu.iss")
+$isccArgs = @("/DAppVersion=$Version", "/DBuildDir=$Build")
+if ($Fast) { $isccArgs += "/DCompression=none"; Write-Host "Hızlı (sıkıştırmasız) test paketi; yayınlamayın." }
+& $iscc @isccArgs (Join-Path $PSScriptRoot "HukukBurosu.iss")
 if ($LASTEXITCODE -ne 0) { throw "Inno Setup derlemesi başarısız." }
 $setupExe = Join-Path $PSScriptRoot "dist\HukukBurosuOtomasyonu-Kurulum-$Version.exe"
 # Otomatik güncelleyici indirdiği dosyayı bu değerle doğrular (publish-release.ps1 yükler).
-$setupHash = (Get-FileHash -Algorithm SHA256 $setupExe).Hash.ToLowerInvariant()
-[System.IO.File]::WriteAllText("$setupExe.sha256", "$setupHash  $(Split-Path $setupExe -Leaf)`n",
-    (New-Object System.Text.UTF8Encoding $false))
+# Hızlı test paketine .sha256 yazılmaz; publish-release.ps1 onu yayınlamayı reddeder.
+Remove-Item "$setupExe.sha256" -ErrorAction SilentlyContinue
+if (-not $Fast) {
+    $setupHash = (Get-FileHash -Algorithm SHA256 $setupExe).Hash.ToLowerInvariant()
+    [System.IO.File]::WriteAllText("$setupExe.sha256", "$setupHash  $(Split-Path $setupExe -Leaf)`n",
+        (New-Object System.Text.UTF8Encoding $false))
+}
 Write-Host "Hazır: $setupExe"

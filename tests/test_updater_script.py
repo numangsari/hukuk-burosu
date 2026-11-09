@@ -50,7 +50,8 @@ def run_updater(install, mode, tag="v1.3.0", sha=None):
         "[IO.File]::WriteAllText($OutFile, $t) }; "
     )
     script = (
-        mocks + f"& {quote(UPDATER)} -Mode {mode} -InstallDir {quote(install)} -Relaunched; "
+        mocks + f"& {quote(UPDATER)} -Mode {mode} -InstallDir {quote(install)} "
+        f"-DataDir {quote(install / 'data')} -Relaunched; "
         "exit $LASTEXITCODE"
     )
     return subprocess.run(
@@ -107,8 +108,8 @@ def test_apply_without_pending_does_nothing(tmp_path):
 
 def test_apply_discards_pending_that_is_not_newer(tmp_path):
     install = make_install(tmp_path, "1.3.0")
-    updates(install).mkdir(parents=True)
-    exe = updates(install) / "eski.exe"
+    (updates(install) / "indirilen").mkdir(parents=True)
+    exe = updates(install) / "indirilen" / "eski.exe"
     exe.write_bytes(EXE_BYTES)
     pending = {
         "version": "1.3.0",
@@ -137,3 +138,57 @@ def test_all_installer_scripts_parse():
         check=False,
     )
     assert result.returncode == 0, result.stdout.decode(errors="replace")
+
+
+def test_apply_refuses_package_outside_download_dir(tmp_path):
+    install = make_install(tmp_path, "1.2.0")
+    updates(install).mkdir(parents=True)
+    outside = tmp_path / "baska-yer.exe"
+    outside.write_bytes(EXE_BYTES)
+    pending = {
+        "version": "1.3.0",
+        "file": str(outside),
+        "sha256": hashlib.sha256(EXE_BYTES).hexdigest(),
+    }
+    (updates(install) / "pending.json").write_text(json.dumps(pending), encoding="utf-8")
+    assert run_updater(install, "Apply").returncode == 0
+    assert not (updates(install) / "pending.json").exists()
+    assert not (updates(install) / "status.json").exists()  # kurulum hiç başlamadı
+    assert outside.exists()  # klasör dışındaki dosya silinmez
+
+
+def test_finds_install_and_data_dirs_when_run_as_file(tmp_path):
+    """Zamanlanmış görev betiği -File ile ve -InstallDir vermeden çalıştırır.
+
+    PowerShell 5.1'de öznitelikli parametresi olan betikte $PSScriptRoot param varsayılanında boş
+    gelir; kurulum klasörü gövdede bulunmalı, veri kökü .env'deki DATA_DIR'dan okunmalı.
+    """
+    install = tmp_path / "Program Files" / "HukukBurosu"
+    (install / "tools").mkdir(parents=True)
+    (install / "app").mkdir()
+    (install / "app/VERSION").write_text("1.2.0", encoding="utf-8")
+    data = tmp_path / "veri"
+    (install / "app/.env").write_text(f"DATA_DIR={data}\n", encoding="utf-8")
+    (install / "tools/updater.ps1").write_bytes(UPDATER.read_bytes())
+    result = subprocess.run(
+        [
+            "powershell.exe",
+            "-NoProfile",
+            "-NonInteractive",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            str(install / "tools/updater.ps1"),
+            "-Mode",
+            "Check",
+            "-ApiBase",
+            "http://127.0.0.1:9",
+            "-Relaunched",
+        ],
+        capture_output=True,
+        timeout=60,
+        check=False,
+    )
+    assert result.returncode == 1  # ağ yok: hata günlüğe yazılıp çıkılır
+    log = (data / "logs/guncelleme.log").read_text(encoding="utf-8-sig")
+    assert "[Check] HATA" in log
