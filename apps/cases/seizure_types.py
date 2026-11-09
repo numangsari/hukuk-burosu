@@ -67,6 +67,28 @@ RENEWAL_STATES = {
     "property_sale",
     "claim_exists",
 }
+# Haciz simgesi renkleri: olumlu (yeşil), olumsuz (kırmızı), sonuç bekleyen (sarı),
+# kayıt girilmemiş (gri). Sonuç bekleyen durumlar yazı/talep aşamalarıdır.
+POSITIVE_STATES = SEIZED_STATES | {"salary_employed", "notice_unobjected"}
+NEGATIVE_STATES = {
+    "salary_unemployed",
+    "employer_no_reply",
+    "bank_no_money",
+    "vehicle_none",
+    "property_none",
+    "location_failed",
+    "claim_none",
+    "notice_objected",
+}
+KIND_ICONS = {
+    "salary": "bi-person-workspace",
+    "bank": "bi-bank",
+    "vehicle": "bi-car-front",
+    "property": "bi-house-door",
+    "claim": "bi-folder2-open",
+    "location": "bi-geo-alt",
+    "notice": "bi-envelope-paper",
+}
 DETAIL_FIELDS = {
     "salary": ["employer"],
     "bank": ["bank_name"],
@@ -87,3 +109,32 @@ def suggested_renewal(seized_on):
     except ValueError:
         anniversary = seized_on.replace(year=seized_on.year + 1, day=28)
     return anniversary - dt.timedelta(days=30)
+
+
+def _level(state):
+    if state in POSITIVE_STATES:
+        return "pos"
+    if state in NEGATIVE_STATES:
+        return "neg"
+    return "wait"
+
+
+def kind_badges(seizures):
+    """Her haciz türü için tek simge: aktif kayıtların en olumlusuna göre renk (pos > wait > neg).
+
+    Aktif kayıt yoksa `none` (gri)."""
+    badges = []
+    for kind, label in KINDS:
+        items = [s for s in seizures if s.kind == kind and s.is_active]
+        levels = {_level(s.state) for s in items}
+        level = next((lv for lv in ("pos", "wait", "neg") if lv in levels), "none")
+        states = [s.state_label for s in items if s.state_label]
+        badges.append(
+            {
+                "kind": kind,
+                "icon": KIND_ICONS[kind],
+                "level": level,
+                "title": f"{label}: {', '.join(dict.fromkeys(states)) or 'kayıt girilmemiş'}",
+            }
+        )
+    return badges

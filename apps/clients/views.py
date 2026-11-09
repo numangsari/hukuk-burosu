@@ -32,6 +32,7 @@ from apps.core.list_export import ListExportMixin
 from apps.core.pagination import page_size
 from apps.core.permission_registry import has_perm
 from apps.core.permissions import PermissionRequiredMixin, filter_visible_clients
+from apps.core.scope import responsible_q, wants_mine
 from apps.core.text import fold, tr_title
 from apps.reports.base import Column
 
@@ -172,6 +173,8 @@ class ClientListView(ListExportMixin, ListView):
             qs = qs.filter(has_poa=True)
         elif g.get("poa") == "no":
             qs = qs.filter(has_poa=False)
+        if wants_mine(g):
+            qs = qs.filter(responsible_q(self.request.user))
         if lawyer := g.get("lawyer"):
             qs = qs.filter(responsible_lawyer_id=lawyer)
         if intern := g.get("intern"):

@@ -6,6 +6,7 @@ from django.db.models import Q
 from django.utils import timezone
 
 from apps.core.permissions import filter_visible_cases
+from apps.core.scope import wants_mine
 
 from .models import LIST_KINDS, RESULT_KINDS, Case, Hearing, HearingStatus
 
@@ -103,6 +104,8 @@ def list_context(request) -> dict:
     if scope not in SCOPES:
         scope = "upcoming"
     base = base_hearings(request.user).filter(kind__in=LIST_KINDS)
+    if wants_mine(request.GET):
+        base = base.filter(assigned_to=request.user)
     ranges = [
         {
             "label": label,

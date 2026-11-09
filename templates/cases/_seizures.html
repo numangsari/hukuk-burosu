@@ -1,5 +1,6 @@
 {% load ui %}
 {% if not case.responsible_lawyer.is_active or case.responsible_intern and not case.responsible_intern.is_active %}<div class="alert alert-warning">Dosyanın sorumlularından biri pasif. Yenileme görevi oluşturulabilmesi için dosyanın sorumlularını güncelleyin.</div>{% endif %}
+<div class="card mb-3"><div class="card-body d-flex align-items-center gap-3 py-2"><span class="info-label mb-0">Haciz durumu</span>{% include "cases/_seizure_badges.html" with badges=seizure_badges %}<span class="text-body-secondary small ms-auto">Gri: kayıt yok · Sarı: yazı/talep aşamasında · Yeşil: olumlu · Kırmızı: olumsuz</span></div></div>
 <div class="card mb-3"><div class="card-body"><div class="row">
   <div class="col-md-4"><div class="info-label">Takip türü</div><div>{{ case.get_enforcement_type_display|default:"—" }}</div></div>
   <div class="col-md-4"><div class="info-label">Takipte kesinleşen miktar</div><div>{% if case.enforcement_amount != None %}{{ case.enforcement_amount|tl }}{% else %}—{% endif %}</div></div>

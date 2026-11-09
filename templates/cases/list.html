@@ -15,6 +15,7 @@
 <div class="card table-card" id="list-card">
   <form class="filter-bar" hx-get="{% url 'cases:list' %}" hx-target="#list-table" hx-push-url="true"
         hx-trigger="input changed delay:300ms from:input[name=q], change" hx-indicator="#list-card">
+    {% include "partials/scope_toggle.html" %}
     <div class="grow"><i class="bi bi-search"></i><input class="form-control" type="search" name="q" value="{{ request.GET.q }}" placeholder="Arşiv no, resmi no, konu, merci, müvekkil ara"></div>
     <select class="form-select" name="lawyer">
       <option value="">Tüm avukatlar</option>
@@ -26,7 +27,6 @@
         {% for key, name in choices %}{% with value=kind|add:':'|add:key %}<option value="{{ value }}" {% if request.GET.stage == value %}selected{% endif %}>{{ name }}</option>{% endwith %}{% endfor %}
       </optgroup>{% endfor %}
     </select>
-    {% if request.GET.mine %}<input type="hidden" name="mine" value="1"><span class="chip chip-primary no-dot">Sorumlu olduklarım</span>{% endif %}
     <div class="filter-chips w-100">
       <div class="chip-group" role="radiogroup" aria-label="Durum">
         {% with st=request.GET.status|default:"open" %}

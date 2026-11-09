@@ -14,46 +14,28 @@
 <div class="card table-card" id="list-card">
   <form class="filter-bar" hx-get="{% url 'enforcement:list' %}" hx-target="#list-table" hx-push-url="true"
         hx-trigger="input changed delay:300ms from:input[name=q], change" hx-indicator="#list-card">
+    {% include "partials/scope_toggle.html" %}
     <div class="grow"><i class="bi bi-search"></i><input class="form-control" type="search" name="q" value="{{ request.GET.q }}" placeholder="Dosya no, icra dairesi, konu, müvekkil ara"></div>
     <select class="form-select" name="tur" aria-label="İcra türü">
       <option value="">Tüm icra türleri</option>
       {% for v, l in enforcement_types %}<option value="{{ v }}" {% if request.GET.tur == v %}selected{% endif %}>{{ l }}</option>{% endfor %}
     </select>
-    <select class="form-select" name="asama" aria-label="Aşama">
-      <option value="">Tüm aşamalar</option>
-      {% for v, l in stage_choices %}<option value="{{ v }}" {% if request.GET.asama == v %}selected{% endif %}>{{ l }}</option>{% endfor %}
-    </select>
-    <select class="form-select" name="sifat" aria-label="Müvekkilin sıfatı">
-      <option value="">Müvekkil sıfatı: tümü</option>
-      <option value="creditor" {% if request.GET.sifat == 'creditor' %}selected{% endif %}>Alacaklı olduklarımız</option>
-      <option value="debtor" {% if request.GET.sifat == 'debtor' %}selected{% endif %}>Borçlu olduklarımız</option>
-      <option value="other" {% if request.GET.sifat == 'other' %}selected{% endif %}>Diğer sıfatlar</option>
-    </select>
-    <select class="form-select" name="haciz" aria-label="Haciz durumu">
+    {% if tab == "haciz" %}<select class="form-select" name="haciz" aria-label="Haciz durumu">
       <option value="">Haciz: tümü</option>
       <option value="var" {% if request.GET.haciz == 'var' %}selected{% endif %}>Haczi olan</option>
       <option value="yok" {% if request.GET.haciz == 'yok' %}selected{% endif %}>Haczi olmayan</option>
       <option value="yenileme" {% if request.GET.haciz == 'yenileme' %}selected{% endif %}>Yenilemesi {{ renewal_days }} gün içinde</option>
-      {% for v, l in seizure_kinds %}<option value="{{ v }}" {% if request.GET.haciz == v %}selected{% endif %}>{{ l }}</option>{% endfor %}
-    </select>
+    </select>{% endif %}
     <select class="form-select" name="avukat" aria-label="Sorumlu avukat">
       <option value="">Tüm avukatlar</option>
       {% for u in lawyers %}<option value="{{ u.pk }}" {% if request.GET.avukat == u.pk|stringformat:'s' %}selected{% endif %}>{{ u }}</option>{% endfor %}
     </select>
-    <div class="filter-chips w-100">
-      <div class="chip-group" role="radiogroup" aria-label="Durum">
-        {% with st=request.GET.status|default:"open" %}
-        <input type="radio" class="btn-check" name="status" id="st-open" value="open" {% if st == "open" %}checked{% endif %}><label class="chip-btn" for="st-open">Açık</label>
-        <input type="radio" class="btn-check" name="status" id="st-closed" value="closed" {% if st == "closed" %}checked{% endif %}><label class="chip-btn" for="st-closed">Kapalı</label>
-        <input type="radio" class="btn-check" name="status" id="st-all" value="all" {% if st == "all" %}checked{% endif %}><label class="chip-btn" for="st-all">Tümü</label>
-        {% endwith %}
-      </div>
-      <span class="chip-sep"></span>
-      <input type="checkbox" class="btn-check" name="tebligat" id="flt-notice" value="1" {% if request.GET.tebligat %}checked{% endif %}>
-      <label class="chip-btn" for="flt-notice"><i class="bi bi-envelope me-1"></i>Tebligatı olanlar</label>
-    </div>
+    <input type="hidden" name="sekme" value="{{ tab }}">
     {% if request.GET.sort %}<input type="hidden" name="sort" value="{{ request.GET.sort }}">{% endif %}
   </form>
+  <ul class="nav nav-underline-tabs" style="border-top: 0; border-bottom: 1px solid var(--line)">
+    {% for key, label, count in tabs %}<li><a class="nav-link {% if tab == key %}active{% endif %}" href="{% query_with sekme=key page=None %}">{{ label }} <span class="count">{{ count }}</span></a></li>{% endfor %}
+  </ul>
   <div id="list-table">{% include "cases/_enforcement_table.html" %}</div>
 </div>
 {% endblock %}

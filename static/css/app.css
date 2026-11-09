@@ -479,6 +479,11 @@ select[data-searchable-ready="1"] { display: none; }
 .searchable-select-option:hover, .searchable-select-option[aria-selected="true"] { background: var(--brand-soft); color: var(--brand); }
 .searchable-select-group { padding: .55rem .65rem .25rem; color: var(--muted); font-size: .75rem; font-weight: 650; }
 .searchable-select-empty { padding: .6rem .65rem; color: var(--muted); font-size: .875rem; }
+.seizure-badges { display: inline-flex; gap: .55rem; font-size: 1.05rem; vertical-align: middle; }
+.seizure-badge.is-none { color: var(--bs-secondary-color); opacity: .5; }
+.seizure-badge.is-neg { color: var(--danger-ink); }
+.seizure-badge.is-pos { color: var(--success-ink); }
+.seizure-badge.is-wait { color: var(--warning-ink); }
 .seizure-group + .seizure-group { border-top: 3px solid var(--line); }
 .seizure-group-header { background: var(--brand-soft); border-left: 4px solid var(--brand); }
 .seizure-group-header .card-title { color: var(--brand); }

@@ -33,6 +33,7 @@ from apps.core.list_export import ListExportMixin
 from apps.core.pagination import page_size
 from apps.core.permission_registry import has_perm
 from apps.core.permissions import PermissionRequiredMixin, filter_visible_cases, is_admin
+from apps.core.scope import responsible_q, wants_mine
 from apps.core.text import fold, tr_title
 from apps.office.models import Court
 from apps.reports.base import Column
@@ -166,9 +167,8 @@ class CaseListView(ListExportMixin, ListView):
             qs = qs.filter(status=status)
         if lawyer := g.get("lawyer"):
             qs = qs.filter(responsible_lawyer_id=lawyer)
-        if g.get("mine"):
-            u = self.request.user
-            qs = qs.filter(Q(responsible_lawyer=u) | Q(responsible_intern=u))
+        if wants_mine(g):
+            qs = qs.filter(responsible_q(self.request.user))
         if g.get("missing"):
             qs = qs.filter(
                 Q(client__isnull=True)
@@ -513,6 +513,7 @@ class CaseDetailView(DetailView):
                     "debtor_party", "debtor_client"
                 ).prefetch_related("renewals__task")
             )
+            ctx["seizure_badges"] = seizure_types.kind_badges(ctx["seizures"])
             ctx["seizure_groups"] = [
                 {
                     "kind": kind,

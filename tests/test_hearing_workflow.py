@@ -278,7 +278,7 @@ def test_list_tabs_date_filters_and_columns(admin_user, case, lawyer):
     assert "Katılma durumu" in html and "Takvim / Duruşma" in html
     for label in ("Yaklaşanlar", "Geçmiş", "Bugün", "Bu hafta", "Gelecek hafta", "Bu ay"):
         assert label in html
-    assert ">Tümü" not in html.split("Sorumlu")[0] and 'name="tur"' not in html
+    assert ">Tümü</a>" not in html.split("Sorumlu")[0] and 'name="tur"' not in html
     past_only = rows("past")[1].content.decode()
     assert "Gelecek hafta" not in past_only  # hızlı tarih filtreleri yalnızca Yaklaşanlar'da
     assert "Sonuç Bekleyenler" not in html and 'name="baslangic"' in html and 'name="bitis"' in html

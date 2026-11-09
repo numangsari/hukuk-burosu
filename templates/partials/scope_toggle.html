@@ -1,0 +1,4 @@
+<div class="chip-group" role="radiogroup" aria-label="Kapsam">
+  <input type="radio" class="btn-check" name="kapsam" id="kp-bana" value="bana" {% if request.GET.kapsam == "bana" %}checked{% endif %}><label class="chip-btn" for="kp-bana"><i class="bi bi-person-check"></i>Bana atanmış</label>
+  <input type="radio" class="btn-check" name="kapsam" id="kp-tumu" value="tumu" {% if request.GET.kapsam != "bana" %}checked{% endif %}><label class="chip-btn" for="kp-tumu">Tümü</label>
+</div>
