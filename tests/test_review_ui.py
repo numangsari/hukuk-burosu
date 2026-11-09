@@ -1,4 +1,4 @@
-"""Teknik inceleme (docs/inceleme-2026-11.md) UI maddelerinin sunucu çıktısı denetimleri."""
+"""Kasım 2026 teknik incelemesindeki UI maddelerinin sunucu çıktısı denetimleri."""
 
 from decimal import Decimal
 

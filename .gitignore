@@ -34,3 +34,6 @@ installer/dist/
 Thumbs.db
 installer/cache/
 installer/build-log.txt
+
+# Claude Code yerel ayarları
+.claude/

@@ -44,8 +44,6 @@ uv run ruff format --check .                         # Format denetimi
 
 ## 3. Mimari ve Modül Yapısı
 
-**Görsel proje haritası:** `docs/obsidian/` klasörü Obsidian'da ayrı kasa olarak açılır; `Proje Haritası.canvas` ana ilişkileri, bağlantılı notlar grafik görünümünü sağlar. Obsidian kurmadan `docs/proje-haritasi.html` tarayıcıda açılabilir; dış bağlantı gerektirmez. Harita koddan otomatik üretilmez; ilgili yapı değiştiğinde notlar, çizim ve tarayıcı görünümü birlikte güncellenir. İş kurallarının asıl kaynağı bu belge ve koddur.
-
 ### `apps/core`
 - Ortak model altyapısı (`TimeStampedModel`), TCKN / VKN / IBAN doğrulayıcıları.
 - Türkçe metin yardımcıları (`fold`, `tr_lower`, `tr_upper`, `tr_capitalize_words`).
@@ -299,3 +297,22 @@ Bir geliştirme ancak aşağıdaki koşullar sağlandığında **tamamlandı** o
 - [ ] Değişen dosyalar, doğrulama sonuçları, açık riskler ve yapılmayan işler kullanıcıya özetlenmiştir.
 
 **Koşullardan biri sağlanamadıysa** işi tamamlandı diye sunma; hangi koşulun eksik kaldığını belirt.
+
+---
+
+## 13. Açık İşler
+
+Bitmemiş veya karar bekleyen işler. Tamamlanan madde silinir.
+
+- **UYAP/UETS aktarımı:** Yoklamanın oturumu canlı tuttuğu ve ilk tam evrak taramasının gerçek hacimle (süre, depolama) davranışı gözlenmedi. UETS göstergesinin kırmızı yanma nedeni (eşleşme / oturum / son aktarım zamanı) araştırılmadı.
+- **Çoklu avukat/bilgisayar eşzamanlı aktarım:** Kapsam dışı. Gerekirse aynı UYAP hesabı için tek tarayıcı kuralı, ilerlemenin sunucuda tutulması ve hesap bazlı gösterge gerekir. Otomatik/eşzamanlı isteklerin hesabı kısıtlama riski değerlendirilmeden yük artırılmaz.
+- **Görsel kontrol:** Rutin görevler, dilekçe havuzu ve yumuşak görünümün liste/form/pop-up/koyu tema sayfaları yalnızca testlerle doğrulandı; tarayıcıda gözle bakılmadı.
+- **İlk kurulum yarışı:** `InitialSetupView` eşzamanlı ilk POST'ları tekleştiren DB kilidi içermez. Öneri: transaction içinde kilitli tekrar kontrol ve tek kullanımlık yerel kurulum sırrı; kurulum/kurtarma tasarımı onay bekliyor.
+- **Muhasebe görünürlüğü:** Liste ve makbuzlar bilinçli olarak herkese açık; hareketlerden bakiye yeniden hesaplanabilir. Görüntüleme yetkisi için politika kararı bekleniyor.
+- **Performans:** Raporlar bütün satırları belleğe topluyor; üretim hacminde yük testi yapılmadı.
+- **Yedek güvenliği:** Ayrı diske/NAS'a kopya, şifreli arşiv ve yöneticinin arayüzden geri yükleme başlatması yapılmadı (bkz. Bölüm 8).
+- **PIN:** Deneme sayaçları önbellekte, servis yeniden başlayınca sıfırlanır; yönetici için uzun PIN/parola seçeneği yok.
+- **Küçük teknik:** Geliştirme veritabanı/kullanıcı adı hâlâ `ozkurt` (`docker-compose.dev.yml`, `config/settings/dev.py`). `OfficeSettings.load()` istek başına önbelleği eski değer riski nedeniyle değerlendirilmedi.
+- **Tasarım kararı bekleyenler:** Tek sekme bileşeni, tek Kaydet yeri, liste yoğunluğu, ana sayfa kart tekrarı, sürükle-bırak yükleme.
+- **Özellik adayları:** Hukuki süre hesaplayıcı (adli tatil ve bayramlar; Bölüm 11 gereği öneri olarak ve hukuki doğrulamayla), sabah özeti/bildirimler, menfaat çakışması kontrolü.
+- **Kurulum:** Gerçek Windows makinede elle deneme listesi `installer/README.md` ("Gerçek kurulum denemesi").
