@@ -1,6 +1,6 @@
 [project]
 name = "hukuk-burosu"
-version = "1.2.0"
+version = "1.2.1"
 description = "Hukuk büro yönetim sistemi"
 requires-python = ">=3.13,<3.14"
 dependencies = [
