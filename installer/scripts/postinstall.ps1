@@ -51,12 +51,35 @@ if (-not $Legacy) {
             throw "Veri yolu bir bağlantı (reparse point), kurulum durduruldu: $p"
         }
     }
-    if (-not (Test-Path $Env) -and (Test-Path $Data)) {
-        # İlk kurulum (.env yok) ama veri klasörü var: silinmez, kenara alınır; sıfırdan açılır.
-        $movedAside = "$Data.onceki-$(Get-Date -Format yyyyMMdd-HHmmss)"
-        Rename-Item -Path $Data -NewName (Split-Path $movedAside -Leaf)
+    if (-not (Test-Path $Env)) {
+        # İlk kurulum (.env yok). Var olan veri klasörü silinmez, kenara alınır.
+        if (Test-Path $Data) {
+            $movedAside = "$Data.onceki-$(Get-Date -Format yyyyMMdd-HHmmss)"
+            Rename-Item -Path $Data -NewName (Split-Path $movedAside -Leaf)
+        }
+        # Klasör kısıtlı izinlerle tek adımda açılır; arada biri yeniden açmışsa (CreateDirectory var
+        # olanı sessizce döndürür) sahiplik, bağlantı ve boşluk denetimiyle yakalanır, kurulum durur.
+        $sec = New-Object System.Security.AccessControl.DirectorySecurity
+        $sec.SetAccessRuleProtection($true, $false)
+        $inherit = [Security.AccessControl.InheritanceFlags]"ContainerInherit, ObjectInherit"
+        foreach ($sid in @("S-1-5-32-544", "S-1-5-18")) {
+            $sec.AddAccessRule((New-Object System.Security.AccessControl.FileSystemAccessRule(
+                (New-Object System.Security.Principal.SecurityIdentifier $sid), "FullControl", $inherit, "None", "Allow")))
+        }
+        $sec.SetOwner((New-Object System.Security.Principal.SecurityIdentifier "S-1-5-32-544"))
+        $created = [System.IO.Directory]::CreateDirectory($Data, $sec)
+        $owner = (Get-Acl $Data).GetOwner([System.Security.Principal.SecurityIdentifier]).Value
+        if (($created.Attributes -band [IO.FileAttributes]::ReparsePoint) -or
+            ($owner -notin @("S-1-5-32-544", "S-1-5-18")) -or
+            (Get-ChildItem -LiteralPath $Data -Force | Select-Object -First 1)) {
+            throw "Veri klasörü kurulum sırasında başkası tarafından değiştirildi, kurulum durduruldu: $Data"
+        }
+    } else {
+        New-Item -ItemType Directory -Force $Data | Out-Null
+        if ((Get-Item $Data -Force).Attributes -band [IO.FileAttributes]::ReparsePoint) {
+            throw "Veri yolu bir bağlantı (reparse point), kurulum durduruldu: $Data"
+        }
     }
-    New-Item -ItemType Directory -Force $Data | Out-Null
     icacls $Data /setowner $Admins /C /Q | Out-Null
     if ($LASTEXITCODE -ne 0) { throw "Veri klasörünün sahipliği ayarlanamadı: $Data" }
     Set-FolderAcl $Data @("$($Admins):(OI)(CI)F", "$($System):(OI)(CI)F")
