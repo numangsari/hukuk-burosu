@@ -16,8 +16,8 @@
     ".studio/*"
   ],
   "id": "studio-baglantisi",
-  "next_step": "Docker'ı açıp Mac'te pytest çalıştır; Windows'ta tüm kontrolleri çalıştır; sonra verification alanlarını güncelle.",
+  "next_step": "Docker'ı açıp Mac'te pytest çalıştır; Windows'ta tüm kontrolleri çalıştır; sonra verification alanlarını güncelle. Windows'ta proje klasöründe `git config core.hooksPath ../../kancalar` ile gizli bilgi kancasını bağla (Mac'te bağlı, 2026-11-12).",
   "status": "active",
   "title": "Projeyi Yazılım Stüdyosu düzenine bağla",
-  "updated_at": "2026-11-11T21:41:34+00:00"
+  "updated_at": "2026-11-12T13:00:00+00:00"
 }
