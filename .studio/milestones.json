@@ -1,0 +1,41 @@
+{
+  "milestones": [
+    {
+      "due": "2026-11-20",
+      "id": "studio-dogrulama",
+      "status": "active",
+      "tasks": [
+        "studio-baglantisi"
+      ],
+      "title": "Stüdyo bağlantısı ve Mac/Windows doğrulaması"
+    },
+    {
+      "due": "2026-12-04",
+      "id": "buro-kurulumu",
+      "status": "planned",
+      "tasks": [
+        "gercek-kurulum-denemesi"
+      ],
+      "title": "Büroda gerçek Windows kurulumu ve güncelleme"
+    },
+    {
+      "due": "2026-12-18",
+      "id": "uyap-uets-saglam",
+      "status": "planned",
+      "tasks": [
+        "uyap-uets-gozlem"
+      ],
+      "title": "UYAP/UETS aktarımı gerçek hacimde sağlam"
+    },
+    {
+      "due": "2027-01-15",
+      "id": "urun-hazirligi",
+      "status": "planned",
+      "tasks": [
+        "repo-gizliligi"
+      ],
+      "title": "Ürün aşamasına geçiş hazırlığı"
+    }
+  ],
+  "version": 1
+}
