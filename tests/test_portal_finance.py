@@ -40,7 +40,7 @@ def enforcement_block():
             {
                 "kayitId": 1,
                 "makbuzNo": "198052",
-                "odeyenKisi": "HASAN ADAY",
+                "odeyenKisi": "TEST TARAF",
                 "tahsilatTuru": "Borç Tahsilatı",
                 "tahsilatTarihi": "Jul 13, 2026 2:53:09 PM",
                 "tahsilatTutari": 38268,
@@ -88,7 +88,7 @@ def enforcement_block():
 @pytest.fixture
 def lawyer(db):
     return User.objects.create_user(
-        username="fin-avukat", first_name="Ali Samet", last_name="Özkurt", role=User.Role.LAWYER
+        username="fin-avukat", first_name="Test", last_name="Avukat", role=User.Role.LAWYER
     )
 
 
@@ -133,8 +133,8 @@ def test_debt_collection_not_written_when_client_is_debtor_or_unpaid(lawyer, min
 def test_civil_advance_paid_by_lawyer_and_skipped_other_payer(lawyer):
     client = Client.objects.create(
         kind="person",
-        first_name="Nurgül",
-        last_name="Ergün",
+        first_name="Test",
+        last_name="Müvekkil",
         responsible_lawyer=lawyer,
         responsible_intern=lawyer,
     )
@@ -144,7 +144,7 @@ def test_civil_advance_paid_by_lawyer_and_skipped_other_payer(lawyer):
             {
                 "kayitId": 5,
                 "makbuzNo": "4366",
-                "odeyenKisi": "Davacı NURGÜL ERGÜN 12384555004 Vekili ALİ SAMET ÖZKURT",
+                "odeyenKisi": "Davacı TEST MÜVEKKİL 10000000146 Vekili TEST AVUKAT",
                 "tahsilatTuru": "Gider Avansı",
                 "tahsilatTarihi": "Jan 31, 2024 8:35:28 AM",
                 "tahsilatTutari": 20,
@@ -152,7 +152,7 @@ def test_civil_advance_paid_by_lawyer_and_skipped_other_payer(lawyer):
             {
                 "kayitId": 6,
                 "makbuzNo": "1654",
-                "odeyenKisi": "NURGÜL ERGÜN",
+                "odeyenKisi": "TEST MÜVEKKİL",
                 "tahsilatTuru": "Gider Avansı",
                 "tahsilatTarihi": "Jan 12, 2024 9:47:26 AM",
                 "tahsilatTutari": 1120,
@@ -160,7 +160,7 @@ def test_civil_advance_paid_by_lawyer_and_skipped_other_payer(lawyer):
             {
                 "kayitId": 7,
                 "makbuzNo": "9",
-                "odeyenKisi": "DOĞAN ERGÜN",
+                "odeyenKisi": "TEST ÖDEYEN",
                 "tahsilatTuru": "Gider Avansı",
                 "tahsilatTarihi": "Jan 12, 2024 9:47:26 AM",
                 "tahsilatTutari": 50,
@@ -168,16 +168,16 @@ def test_civil_advance_paid_by_lawyer_and_skipped_other_payer(lawyer):
         ],
         "reddiyatList": [],
         "harcList": [
-            {"odeyenKisi": "DOĞAN ERGÜN", "tahsilatTuru": "Vekalet Suret Harcı", "miktar": 60.8},
-            {"odeyenKisi": "NURGÜL ERGÜN", "tahsilatTuru": "Başvurma Harcı", "miktar": 427.6},
-            {"odeyenKisi": "NURGÜL ERGÜN", "tahsilatTuru": "Peşin Harç", "miktar": 427.6},
+            {"odeyenKisi": "TEST ÖDEYEN", "tahsilatTuru": "Vekalet Suret Harcı", "miktar": 60.8},
+            {"odeyenKisi": "TEST MÜVEKKİL", "tahsilatTuru": "Başvurma Harcı", "miktar": 427.6},
+            {"odeyenKisi": "TEST MÜVEKKİL", "tahsilatTuru": "Peşin Harç", "miktar": 427.6},
         ],
     }
     record = make_record(case, "2024/33", block, lawyer, category="Hukuk Dava Dosyası")
     result = import_finance(record)
     assert result["yazilan"] == 2
     assert sorted(LedgerEntry.objects.values_list("amount", flat=True)) == [20, 1120]
-    assert any("DOĞAN ERGÜN" in note for note in result["notlar"])
+    assert any("TEST ÖDEYEN" in note for note in result["notlar"])
     assert not any("harc" in note.lower() for note in result["notlar"])
 
 

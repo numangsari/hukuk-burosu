@@ -228,11 +228,7 @@ def _restore_office_templates(source: Path) -> list[Path]:
     with suppress(Exception):
         root = (OfficeSettings.load().documents_root or "").strip()
     if not root or not Path(root).is_dir():
-        default_root = Path(r"C:\Users\numan\OneDrive\Masaüstü\Ozkurt Hukuk Test")
-        if default_root.is_dir():
-            root = str(default_root)
-        else:
-            raise BackupError("Şablonları geri yüklemek için ofis klasörü erişilebilir olmalı.")
+        raise BackupError("Şablonları geri yüklemek için ofis klasörü erişilebilir olmalı.")
     destination = Path(root) / "Şablon Dilekçeler"
     if destination.is_symlink():
         raise BackupError("Şablon klasörü bağlantı olamaz.")

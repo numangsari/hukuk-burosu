@@ -23,8 +23,8 @@ def admin_user(db):
         username="admin_uyap",
         password="secret",
         role=User.Role.ADMIN,
-        first_name="Ali Samet",
-        last_name="Özkurt",
+        first_name="Test",
+        last_name="Avukat",
     )
 
 
@@ -111,10 +111,10 @@ def test_sync_enforcement_case_separates_basis_and_populates_account_tab(
                         "adi": "AİLE VE SOSYAL HİZMETLER BAKANLIĞI",
                         "rol": "Alacaklı",
                         "kisiKurum": "Kurum",
-                        "vekil": "[ALİ SAMET ÖZKURT]",
+                        "vekil": "[TEST AVUKAT]",
                     },
                     {
-                        "adi": "HASAN ADAY",
+                        "adi": "TEST TARAF",
                         "rol": "Borçlu",
                         "kisiKurum": "Kişi",
                         "vekil": "[]",
@@ -140,7 +140,7 @@ def test_sync_enforcement_case_separates_basis_and_populates_account_tab(
 
     party_links = list(CaseParty.objects.filter(case=case).select_related("party"))
     assert len(party_links) == 1
-    assert party_links[0].party.name == "HASAN ADAY"
+    assert party_links[0].party.name == "TEST TARAF"
     assert party_links[0].role == "debtor"
     assert party_links[0].from_uyap is True
 
@@ -187,7 +187,7 @@ def test_open_administrative_case_keeps_first_instance_decision_and_next_hearing
                         "adi": "AİLE VE SOSYAL HİZMETLER BAKANLIĞI",
                         "rol": "Davalı",
                         "kisiKurum": "Kurum",
-                        "vekil": "[ALİ SAMET ÖZKURT]",
+                        "vekil": "[TEST AVUKAT]",
                     }
                 ]
             ],

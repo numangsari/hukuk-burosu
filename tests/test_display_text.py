@@ -19,7 +19,7 @@ from apps.core.text import tr_title
             "GAZİOSMANPAŞA 8. ASLİYE CEZA MAHKEMESİ - 2023/271 Esas",
             "Gaziosmanpaşa 8. Asliye Ceza Mahkemesi - 2023/271 Esas",
         ),
-        ("Numan Görkem SARI", "Numan Görkem Sarı"),
+        ("TEST KİŞİ SOYADI", "Test Kişi Soyadı"),
         ("SGK İL MÜDÜRLÜĞÜ", "SGK İl Müdürlüğü"),
         ("", ""),
         (None, ""),
