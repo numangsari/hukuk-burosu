@@ -1,0 +1,13 @@
+{
+  "acceptance": [
+    "Yoklama oturumu canlı tutuyor mu gözlenmeli.",
+    "İlk tam evrak taramasının süre ve depolama değeri ölçülmeli.",
+    "UETS göstergesinin kırmızı yanma nedeni (eşleşme/oturum/son aktarım) bulunmalı."
+  ],
+  "blockers": [],
+  "id": "uyap-uets-gozlem",
+  "next_step": "CLAUDE.md Açık İşler: UETS göstergesinin kırmızı yanma nedenini araştır.",
+  "status": "planned",
+  "title": "UYAP/UETS aktarımını gerçek hacimle gözle",
+  "updated_at": "2026-11-11T21:41:24+00:00"
+}

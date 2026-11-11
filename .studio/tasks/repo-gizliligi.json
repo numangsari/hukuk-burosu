@@ -1,0 +1,14 @@
+{
+  "acceptance": [
+    "Depo private yapıldığında erişim yalnız sahibine açık olmalı.",
+    "Güncelleme kaynağı hukuk-burosu-releases public kalmalı ve otomatik güncelleme çalışmalı."
+  ],
+  "blockers": [
+    "Kullanıcı şimdilik public bırakmayı seçti."
+  ],
+  "id": "repo-gizliligi",
+  "next_step": "Kullanıcı kararı bekliyor; kural private, depo şimdilik public.",
+  "status": "blocked",
+  "title": "GitHub deposunu private yap",
+  "updated_at": "2026-11-11T21:41:24+00:00"
+}

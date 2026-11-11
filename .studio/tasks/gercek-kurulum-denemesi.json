@@ -1,0 +1,12 @@
+{
+  "acceptance": [
+    "installer/README.md'deki gerçek kurulum listesi uygulanmalı.",
+    "Bakım sayfası ağdan görünmeli, güvenlik duvarı sorusu çıkmamalı."
+  ],
+  "blockers": [],
+  "id": "gercek-kurulum-denemesi",
+  "next_step": "Windows'ta installer/README.md madde 7b ve 'Gerçek kurulum denemesi' listesini uygula.",
+  "status": "planned",
+  "title": "Gerçek Windows makinede kurulum ve güncelleme denemesi",
+  "updated_at": "2026-11-11T21:41:24+00:00"
+}
