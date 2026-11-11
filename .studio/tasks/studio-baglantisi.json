@@ -6,8 +6,7 @@
     "Mac ve Windows doğrulaması ayrı raporlanmalı."
   ],
   "blockers": [
-    "Depo GitHub'da public görünüyor; kullanıcı şimdilik değiştirmemeyi seçti.",
-    "Mac'te pytest çalıştırılamadı (Docker kapalı, geliştirme veritabanı yok); ruff ve Node testleri (70) geçti.",
+    "Mac'te pytest çalıştırılamadı (Docker kapalı, geliştirme veritabanı yok); ruff ve Node testleri geçti.",
     "Windows doğrulaması yapılmadı."
   ],
   "branch": "studio/studyo-baglantisi",
@@ -17,8 +16,8 @@
     ".studio/*"
   ],
   "id": "studio-baglantisi",
-  "next_step": "Docker'ı açıp Mac'te pytest çalıştır; Windows'ta tüm kontrolleri çalıştır; sonra verification alanını güncelle ve dalı main'e al.",
+  "next_step": "Docker'ı açıp Mac'te pytest çalıştır; Windows'ta tüm kontrolleri çalıştır; sonra verification alanlarını güncelle.",
   "status": "active",
   "title": "Projeyi Yazılım Stüdyosu düzenine bağla",
-  "updated_at": "2026-11-12T00:00:00+00:00"
+  "updated_at": "2026-11-11T21:41:34+00:00"
 }
