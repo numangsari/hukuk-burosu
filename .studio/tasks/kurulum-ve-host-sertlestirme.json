@@ -1,0 +1,14 @@
+{
+  "acceptance": [
+    "Aynı anda iki ilk kurulum isteği yalnız bir yönetici oluşturmalı (test).",
+    "Kullanıcı varken kurulum sayfası her yolda kapalı olmalı.",
+    "ALLOWED_HOSTS varsayılanı '*' olmamalı; mevcut kurulumlar güncellemede bozulmamalı."
+  ],
+  "blockers": [],
+  "id": "kurulum-ve-host-sertlestirme",
+  "milestone": "buro-oncesi-guvenlik",
+  "next_step": "apps/accounts/views.py:88-100 için kilitli/atomik ilk kullanıcı oluşturma ve davranış testi yaz; config/settings/base.py:20 varsayılanını daralt.",
+  "status": "planned",
+  "title": "İlk kurulum yarışını ve ALLOWED_HOSTS varsayılanını kapat",
+  "updated_at": "2026-11-12T12:00:00+00:00"
+}

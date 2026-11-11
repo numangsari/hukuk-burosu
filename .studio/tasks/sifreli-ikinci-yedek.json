@@ -1,0 +1,14 @@
+{
+  "acceptance": [
+    "Yedek arşivi parolayla şifrelenmeli.",
+    "Yedeğin bir kopyası sunucu diskinden ayrı bir konuma gitmeli.",
+    "Şifreli yedekten geri yükleme bir kez denenmeli."
+  ],
+  "blockers": [],
+  "id": "sifreli-ikinci-yedek",
+  "milestone": "buro-oncesi-guvenlik",
+  "next_step": "CLAUDE.md:249 ve 319'daki yedek düzenini oku; şifreli arşiv ve ikinci konum (NAS/harici disk) seçeneklerini çıkar.",
+  "status": "planned",
+  "title": "Yedeği şifreli ve ikinci konuma al",
+  "updated_at": "2026-11-12T12:00:00+00:00"
+}

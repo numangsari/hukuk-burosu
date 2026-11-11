@@ -1,14 +1,12 @@
 {
   "acceptance": [
-    "Depo private yapıldığında erişim yalnız sahibine açık olmalı.",
-    "Güncelleme kaynağı hukuk-burosu-releases public kalmalı ve otomatik güncelleme çalışmalı."
+    "Görünürlük kararı kayda geçmeli.",
+    "CLAUDE.md gerçek durumu yansıtmalı."
   ],
-  "blockers": [
-    "Kullanıcı şimdilik public bırakmayı seçti."
-  ],
+  "blockers": [],
   "id": "repo-gizliligi",
-  "next_step": "Kullanıcı kararı bekliyor; kural private, depo şimdilik public.",
-  "status": "blocked",
-  "title": "GitHub deposunu private yap",
-  "updated_at": "2026-11-11T21:41:24+00:00"
+  "next_step": "Kullanıcı kararı (2026-11-12): ana depo public kalır. Gizli bilgi sızıntısına karşı dikkat sürer.",
+  "status": "done",
+  "title": "GitHub deposunun görünürlüğüne karar ver",
+  "updated_at": "2026-11-12T12:00:00+00:00"
 }

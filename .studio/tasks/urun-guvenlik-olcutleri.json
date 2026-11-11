@@ -1,0 +1,14 @@
+{
+  "acceptance": [
+    "product_criteria boş olmamalı ve kullanıcı onaylı olmalı.",
+    "PIN deneme sayacı servis yeniden başlayınca sıfırlanmamalı.",
+    "Güncelleyici imzasız veya imzası tutmayan paketi kurmamalı."
+  ],
+  "blockers": [],
+  "id": "urun-guvenlik-olcutleri",
+  "milestone": "urun-hazirligi",
+  "next_step": "project.json product_criteria alanını kullanıcıyla yaz; PIN sayacını kalıcı depoya taşıma ve güncelleme paketi imzası seçeneklerini çıkar.",
+  "status": "planned",
+  "title": "Ürün ölçütlerini yaz; kalıcı PIN sayacı ve imzalı güncelleme",
+  "updated_at": "2026-11-12T12:00:00+00:00"
+}

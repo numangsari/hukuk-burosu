@@ -10,7 +10,17 @@
       "title": "Stüdyo bağlantısı ve Mac/Windows doğrulaması"
     },
     {
-      "due": "2026-12-04",
+      "due": "2026-11-27",
+      "id": "buro-oncesi-guvenlik",
+      "status": "planned",
+      "tasks": [
+        "sifreli-ikinci-yedek",
+        "kurulum-ve-host-sertlestirme"
+      ],
+      "title": "Büro öncesi güvenlik: şifreli yedek ve kurulum sertleştirme"
+    },
+    {
+      "due": "2026-12-11",
       "id": "buro-kurulumu",
       "status": "planned",
       "tasks": [
@@ -19,7 +29,7 @@
       "title": "Büroda gerçek Windows kurulumu ve güncelleme"
     },
     {
-      "due": "2026-12-18",
+      "due": "2027-01-08",
       "id": "uyap-uets-saglam",
       "status": "planned",
       "tasks": [
@@ -28,11 +38,11 @@
       "title": "UYAP/UETS aktarımı gerçek hacimde sağlam"
     },
     {
-      "due": "2027-01-15",
+      "due": "2027-02-05",
       "id": "urun-hazirligi",
       "status": "planned",
       "tasks": [
-        "repo-gizliligi"
+        "urun-guvenlik-olcutleri"
       ],
       "title": "Ürün aşamasına geçiş hazırlığı"
     }
