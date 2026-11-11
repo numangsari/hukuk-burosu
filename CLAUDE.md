@@ -4,6 +4,8 @@ Bu dosya projenin **mimari ve geliştirme kuralları için** tek bilgi kaynağı
 
 > **Belge statüsü:** 1–4. bölümler mevcut sistemin dokümante edilmiş davranışlarını anlatır. 5–12. bölümler geliştirme ajanları için **uygulanacak kurallardır**; yeni kuralların yazılması ilgili güvenlik/teknik özelliğin kodda zaten uygulandığı anlamına gelmez. Davranıştan emin olunmadığında kod ve testlerle doğrulayın.
 
+> **Stüdyo bağı:** Bu proje Yazılım Stüdyosu'na bağlıdır. Proje aşaması ve kontrol komutları `.studio/project.json`, görevler `.studio/tasks/` içindedir; ortak kurallar stüdyo deposundadır (`AGENTS.md`). Veri (`media/`, dökümler, yedekler, `.env`) yalnız çalıştığı makinede durur, Git'e girmez. Bu belge proje bilgisinin tek aslı olmaya devam eder.
+
 ---
 
 ## 1. Amaç ve Kapsam

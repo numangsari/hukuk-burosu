@@ -1,0 +1,24 @@
+{
+  "acceptance": [
+    "AGENTS.md stüdyo başlangıç kurallarını içermeli ve CLAUDE.md'ye yönlendirmeyi korumalı.",
+    "CLAUDE.md'de mevcut mimari ve iş kuralları değişmemeli; yalnız kısa Stüdyo bağı bölümü eklenmeli.",
+    ".studio/project.json stüdyo izleme ekranında okunabilmeli.",
+    "Mac ve Windows doğrulaması ayrı raporlanmalı."
+  ],
+  "blockers": [
+    "Depo GitHub'da public görünüyor; kullanıcı şimdilik değiştirmemeyi seçti.",
+    "Mac'te pytest çalıştırılamadı (Docker kapalı, geliştirme veritabanı yok); ruff ve Node testleri (70) geçti.",
+    "Windows doğrulaması yapılmadı."
+  ],
+  "branch": "studio/studyo-baglantisi",
+  "files": [
+    "AGENTS.md",
+    "CLAUDE.md",
+    ".studio/*"
+  ],
+  "id": "studio-baglantisi",
+  "next_step": "Docker'ı açıp Mac'te pytest çalıştır; Windows'ta tüm kontrolleri çalıştır; sonra verification alanını güncelle ve dalı main'e al.",
+  "status": "active",
+  "title": "Projeyi Yazılım Stüdyosu düzenine bağla",
+  "updated_at": "2026-11-12T00:00:00+00:00"
+}

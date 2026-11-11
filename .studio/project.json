@@ -1,0 +1,37 @@
+{
+  "audience": "Hukuk bürosu çalışanları (ofis içi LAN) ve büro sahibi",
+  "checks": [
+    {"argv": ["uv", "run", "ruff", "check", "."], "name": "Ruff denetimi", "timeout": 120},
+    {"argv": ["uv", "run", "ruff", "format", "--check", "."], "name": "Ruff biçim denetimi", "timeout": 120},
+    {"argv": ["node", "--test", "tests/*.js", "tests/js/*.cjs"], "name": "Eklenti ve arayüz betikleri", "timeout": 180},
+    {"argv": ["uv", "run", "pytest"], "name": "Django davranış testleri (geliştirme veritabanı gerekir)", "timeout": 900}
+  ],
+  "context": "CLAUDE.md",
+  "id": "hukuk-burosu",
+  "main_branch": "main",
+  "name": "Hukuk Bürosu Otomasyonu",
+  "product_criteria": [],
+  "product_evidence": [],
+  "purpose": "Dava, icra, müvekkil, görev, duruşma, arşiv ve cari hesap takibini ofis içinde tek merkezde toplamak.",
+  "risk_paths": [
+    "apps/accounts/*",
+    "apps/accounting/*",
+    "apps/backups/*",
+    "apps/imports/*",
+    "config/settings/*",
+    "installer/*",
+    "uyap-uets-eklentisi/*",
+    "pyproject.toml",
+    "uv.lock",
+    ".studio/project.json",
+    ".github/*"
+  ],
+  "runtime_version": "1.0.0",
+  "stage": "development",
+  "verification": {
+    "mac": "pending",
+    "native_hooks": "pending",
+    "tool_handoff": "pending",
+    "windows": "pending"
+  }
+}

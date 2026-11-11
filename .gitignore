@@ -37,3 +37,6 @@ installer/build-log.txt
 
 # Claude Code yerel ayarları
 .claude/
+
+# Stüdyo makineye özgü kayıtlar
+.studio/local/
