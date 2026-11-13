@@ -22,6 +22,27 @@ def test_saved_office_logo_is_a_decorative_sidebar_background(lawyer_client):
     assert office.name in head
 
 
+def test_office_icon_is_used_as_tab_icon(lawyer_client):
+    assert 'rel="icon"' not in lawyer_client.get("/").content.decode()
+    office = OfficeSettings.load()
+    office.icon = "office/simge.png"
+    office.save()
+    html = lawyer_client.get("/").content.decode()
+    assert '<link rel="icon" href="/media/office/simge.png">' in html
+
+
+def test_login_page_shows_office_logo_instead_of_plain_name(client, lawyer):
+    login_url = "/hesap/giris/"
+    html = client.get(login_url).content.decode()
+    assert "<h1>" in html and 'class="login-logo"' not in html
+    office = OfficeSettings.load()
+    office.logo = "office/ornek-logo.png"
+    office.save()
+    html = client.get(login_url).content.decode()
+    assert '<img class="login-logo" src="/media/office/ornek-logo.png"' in html
+    assert f'<h1 class="visually-hidden">{office.name}</h1>' in html
+
+
 @pytest.mark.parametrize(
     "days, css, icon",
     [

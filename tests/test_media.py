@@ -80,6 +80,14 @@ def test_office_logo_public(media):
     assert login().get(office.logo.url).status_code == 200
 
 
+def test_office_icon_public_but_other_office_files_hidden(media):
+    office = OfficeSettings.load()
+    office.icon.save("simge.png", ContentFile(b"\x89PNG"), save=True)
+    assert login().get(office.icon.url).status_code == 200
+    (media / "office" / "sahipsiz.png").write_bytes(b"\x89PNG")
+    assert login().get("/media/office/sahipsiz.png").status_code == 404
+
+
 def test_dangerous_uploads_rejected(case_factory, client_factory, lawyer_client, intern, lawyer):
     case = case_factory()
     r = lawyer_client.post(

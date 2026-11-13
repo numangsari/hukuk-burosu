@@ -94,7 +94,7 @@
     {% with form=forms.ofis %}
     <form method="post" enctype="multipart/form-data" class="card" style="max-width: 760px">{% csrf_token %}<input type="hidden" name="section" value="ofis">
       <div class="form-section">
-        <div class="form-section-head"><h2>Ofis bilgileri</h2><p>Ofis adı ve logosu giriş ekranında, yan menüde ve raporlarda kullanılır.</p></div>
+        <div class="form-section-head"><h2>Ofis bilgileri</h2><p>Ofis adı ve logosu giriş ekranında, yan menüde ve raporlarda kullanılır; sekme simgesi tarayıcı sekmesinde görünür.</p></div>
         <div class="row">
           <div class="col-md-8">{% include "partials/field.html" with field=form.name %}</div>
           <div class="col-md-4">{% include "partials/field.html" with field=form.phone %}</div>
@@ -104,6 +104,7 @@
           <div class="col-md-4">{% include "partials/field.html" with field=form.tax_number %}</div>
           <div class="col-12">{% include "partials/field.html" with field=form.bank_details %}</div>
           <div class="col-md-6">{% include "partials/field.html" with field=form.logo %}</div>
+          <div class="col-md-6">{% include "partials/field.html" with field=form.icon %}</div>
           <div class="col-md-3">{% include "partials/field.html" with field=form.idle_minutes %}</div>
           <div class="col-md-3">{% include "partials/field.html" with field=form.notice_default_due_days %}</div>
           <div class="col-md-3">{% include "partials/field.html" with field=form.archive_folder_default_capacity %}</div>
