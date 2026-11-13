@@ -184,13 +184,32 @@
       for (let start = 0; start < bytes.length; start += 32768) binary += String.fromCharCode(...bytes.subarray(start, start + 32768));
       return {name: documentName(response.headers.get('content-disposition')), content: btoa(binary)};
     };
+    const isHeavyCriminalUnit = unit => Object.values(unit || {}).some(value =>
+      typeof value === 'string' && /a[gğ][ıi]r\s*ceza/.test(value.toLocaleLowerCase('tr')));
     const categories = [{name:'Ceza', code:'0'}, {name:'Hukuk', code:'1'}, {name:'İcra', code:'2'}, {name:'İdari Yargı', code:'6'}, {name:'Satış Memurluğu', code:'11'}, {name:'Arabuluculuk', code:'25'}];
     const paths = ['/dosyaAyrintiBilgileri_brd.ajx', '/dosya_taraf_bilgileri_brd.ajx', '/list_dosya_evraklar.ajx'];
     let partial = false;
     const seenCases = new Set();
     const completedCases = new Set(await checkpoint('get'));
+    // Önce avukatın önümüzdeki duruşmaları: UYAP en fazla bir aylık aralığa izin verir,
+    // bu yüzden altı ay 30 günlük parçalarla sorulur. Duruşmalar dosyalarına sunucuda bağlanır.
+    const uyapDate = date => `${String(date.getDate()).padStart(2, '0')}.${String(date.getMonth() + 1).padStart(2, '0')}.${date.getFullYear()}`;
+    for (let windowIndex = 0; windowIndex < 6; windowIndex++) {
+      const start = new Date(Date.now() + windowIndex * 30 * 86400000);
+      const end = new Date(start.getTime() + 29 * 86400000);
+      try {
+        const data = await post('/avukat_durusma_sorgula_brd.ajx', {baslangicTarihi: uyapDate(start), bitisTarihi: uyapDate(end)});
+        if (Array.isArray(data)) {
+          if (data.length) await send({type:'uyap', captures:[{source:'UYAP', path:'/avukat_durusma_sorgula_brd.ajx', data}]});
+        } else if (data?.error || data?.errorCode) partial = true;
+      } catch (error) { if (['oturum', 'izin'].includes(error.message)) throw error; if (error.message === 'yetki') throw new Error('oturum'); partial = true; }
+    }
+    // Önce bütün yargı birimleri toplanır; ağır ceza birimleri en sona bırakılır
+    // (evrakı çok olduğu için tarama uzun sürer, diğer dosyaların gelmesini geciktirmesin).
+    const jobs = [];
+    const heavyCriminalJobs = [];
+    const documentJobs = [];
     for (const category of categories) {
-      const sampleCounts = {acik:0, kapali:0};
       let units;
       try { units = await post('/yargiBirimleriSorgula_brd.ajx', {yargiTuru: category.code}); }
       catch (error) { if (error.message === 'izin') throw error; if (error.message === 'oturum' || error.message === 'yetki') throw new Error('oturum'); partial = true; continue; }
@@ -199,126 +218,142 @@
       for (const unit of units) {
         if (unit?.tablo == null || seenUnits.has(String(unit.tablo))) continue;
         seenUnits.add(String(unit.tablo));
-        for (const state of ['acik', 'kapali']) {
-          
-          const seenPages = new Set();
-          for (let page = 1; page <= 2000; page++) {
-            let result;
-            try { result = await post('/search_phrase_detayli.ajx', {dosyaDurumKod: state === 'acik' ? 0 : 1, pageSize: 10, pageNumber: page, birimTuru2: unit.tablo, birimTuru3: category.code}); }
-            catch (error) { if (['oturum', 'izin'].includes(error.message)) throw error; partial = true; break; }
-            if (!Array.isArray(result) || !Array.isArray(result[0]) || !Number.isInteger(result[1])) { partial = true; break; }
-            const pageRows = result[0];
-            const signature = pageRows.map(row => String(row?.dosyaId || '')).join('|');
-            if (pageRows.length && seenPages.has(signature)) { partial = true; break; }
-            seenPages.add(signature);
-            const rows = [];
-            for (const row of pageRows) {
-              if (typeof row?.dosyaId !== 'string' || !row.dosyaId) { partial = true; continue; }
-              if (seenCases.has(row.dosyaId) || rows.some(item => item.dosyaId === row.dosyaId)) continue;
-              rows.push(row);
-              
+        (category.name === 'Ceza' && isHeavyCriminalUnit(unit) ? heavyCriminalJobs : jobs).push({category, unit});
+      }
+    }
+    // Sıra: bütün birimlerin açık dosyaları, sonra açık dosyaların evrakları, en son kapalı dosyalar
+    // (kapalı dosya sayısı çok fazla olabilir; işe yarayan açık dosyaları günlerce geciktirmesin).
+    const scanCases = async state => {
+    for (const {category, unit} of [...jobs, ...heavyCriminalJobs]) {
+      const sampleCounts = {acik:0, kapali:0};
+      {
+        const seenPages = new Set();
+        for (let page = 1; page <= 2000; page++) {
+          let result;
+          try { result = await post('/search_phrase_detayli.ajx', {dosyaDurumKod: state === 'acik' ? 0 : 1, pageSize: 10, pageNumber: page, birimTuru2: unit.tablo, birimTuru3: category.code}); }
+          catch (error) { if (['oturum', 'izin'].includes(error.message)) throw error; partial = true; break; }
+          if (!Array.isArray(result) || !Array.isArray(result[0]) || !Number.isInteger(result[1])) { partial = true; break; }
+          const pageRows = result[0];
+          const signature = pageRows.map(row => String(row?.dosyaId || '')).join('|');
+          if (pageRows.length && seenPages.has(signature)) { partial = true; break; }
+          seenPages.add(signature);
+          const rows = [];
+          for (const row of pageRows) {
+            if (typeof row?.dosyaId !== 'string' || !row.dosyaId) { partial = true; continue; }
+            if (seenCases.has(row.dosyaId) || rows.some(item => item.dosyaId === row.dosyaId)) continue;
+            rows.push(row);
+            
+          }
+          if (rows.length) {
+            const capture = {source:'UYAP', path:'/search_phrase_detayli.ajx', data:{kategori:category.name, birim:unit.kod, durum:state, sonuc:[rows, result[1]]}};
+            await send({type:'uyap', captures:[capture]});
+          }
+          for (const row of rows) {
+            const caseId = row?.dosyaId;
+            seenCases.add(caseId);
+            sampleCounts[state]++;
+            // UYAP dosyaId'si her oturumda değişir; iz, değişmeyen birim adı + esas no + dosya türüyle tutulur.
+            const caseKey = row.birimAdi && row.dosyaNo ? `dosya:${row.birimAdi}|${row.dosyaNo}|${row.dosyaTurKod ?? ''}` : caseId;
+            const caseFingerprint = await fingerprint(caseKey);
+            const financeFingerprint = await fingerprint('finans1:' + caseKey);
+            const mainDone = completedCases.has(caseFingerprint);
+            const financeDone = completedCases.has(financeFingerprint);
+            const docsFingerprint = await fingerprint('belge2:' + caseKey);
+            // Kapalı dosyaların evrakı indirilmez (evrak listesi yine gelir); açık dosyalarınki ikinci turda iner.
+            const wantsDocs = state === 'acik' && !completedCases.has(docsFingerprint);
+            if (mainDone && financeDone) {
+              if (wantsDocs) documentJobs.push({caseId, docsFingerprint, items: null});
+              continue;
             }
-            if (rows.length) {
-              const capture = {source:'UYAP', path:'/search_phrase_detayli.ajx', data:{kategori:category.name, birim:unit.kod, durum:state, sonuc:[rows, result[1]]}};
-              await send({type:'uyap', captures:[capture]});
-            }
-            for (const row of rows) {
-              const caseId = row?.dosyaId;
-              seenCases.add(caseId);
-              sampleCounts[state]++;
-              const caseFingerprint = await fingerprint(caseId);
-              const financeFingerprint = await fingerprint('finans1:' + caseId);
-              const mainDone = completedCases.has(caseFingerprint);
-              const financeDone = completedCases.has(financeFingerprint);
-              const docsFingerprint = await fingerprint('belge2:' + caseId);
-              const docsDone = completedCases.has(docsFingerprint);
-              if (mainDone && financeDone && docsDone) continue;
-              let evrakItems = null;
-              let caseComplete = true; status('basladi', {total: result[1] || 0, processed: seenCases.size, currentFile: row?.dosyaNo || ''});
-              const itemList = {source:'UYAP', path:'/search_phrase_detayli.ajx', data:{kategori:category.name, birim:unit.kod, durum:state, sonuc:[[row], 1]}};
-              let captures = [itemList];
-              const casePaths = [...paths];
-              if (category.name === 'İcra') casePaths.push('/dosya_hesap_bilgileri.ajx');
-              for (const path of (mainDone ? [] : casePaths)) {
-                try {
-                  const body = {dosyaId: caseId};
-                  if (path === '/list_dosya_evraklar.ajx') {
-                    const documentPages = new Set();
-                    evrakItems = [];
-                    for (let documentPage = 1; documentPage <= 2000; documentPage++) {
-                      const data = await post(path, {...body, pageNumber:documentPage});
-                      if (!data || !Array.isArray(data.son20Evrak)) { partial = true; caseComplete = false; evrakItems = null; break; }
-                      const signature = JSON.stringify(data.son20Evrak);
-                      if (data.son20Evrak.length && documentPages.has(signature)) { partial = true; caseComplete = false; evrakItems = null; break; }
-                      documentPages.add(signature);
-                      evrakItems.push(...data.son20Evrak);
-                      captures.push({source:'UYAP', path, data:{kategori:category.name, durum:state, dosyaId:caseId, sonuc:data}});
-                      if (captures.length >= 90) { await send({type:'uyap', captures}); captures = [itemList]; }
-                      if (data.son20Evrak.length < 20) break;
-                      if (documentPage === 2000) { partial = true; caseComplete = false; }
-                      await wait(150);
-                    }
-                  } else {
-                    const data = await post(path, body);
+            let evrakItems = null;
+            let caseComplete = true; status('basladi', {total: result[1] || 0, processed: seenCases.size, currentFile: row?.dosyaNo || ''});
+            const itemList = {source:'UYAP', path:'/search_phrase_detayli.ajx', data:{kategori:category.name, birim:unit.kod, durum:state, sonuc:[[row], 1]}};
+            let captures = [itemList];
+            const casePaths = [...paths];
+            if (category.name === 'İcra') casePaths.push('/dosya_hesap_bilgileri.ajx');
+            for (const path of (mainDone ? [] : casePaths)) {
+              try {
+                const body = {dosyaId: caseId};
+                if (path === '/list_dosya_evraklar.ajx') {
+                  const documentPages = new Set();
+                  evrakItems = [];
+                  for (let documentPage = 1; documentPage <= 2000; documentPage++) {
+                    const data = await post(path, {...body, pageNumber:documentPage});
+                    if (!data || !Array.isArray(data.son20Evrak)) { partial = true; caseComplete = false; evrakItems = null; break; }
+                    const signature = JSON.stringify(data.son20Evrak);
+                    if (data.son20Evrak.length && documentPages.has(signature)) { partial = true; caseComplete = false; evrakItems = null; break; }
+                    documentPages.add(signature);
+                    evrakItems.push(...data.son20Evrak);
                     captures.push({source:'UYAP', path, data:{kategori:category.name, durum:state, dosyaId:caseId, sonuc:data}});
-                  }
-                } catch (error) {
-                  if (['oturum', 'sunucu', 'izin'].includes(error.message)) throw error;
-                  // Ceza dosyalarında /dosyaAyrintiBilgileri_brd.ajx bazen UYAP yetki yanıtı (error) döner;
-                  // HTTP 200 ile gelen bu yanıt diğer uç noktaların tamamlanmasını engellememeli.
-                  if (!(category.name === 'Ceza' && path === '/dosyaAyrintiBilgileri_brd.ajx' && error.message === 'yanit')) {
-                    partial = true; caseComplete = false;
-                  }
-                }
-                await wait(150);
-              }
-              let financeComplete = true;
-              if (!financeDone) {
-                // Tahsilat/reddiyat/harç yanıtı tüm dosya türleri için istenir; ödeyen ve tür ayrımı sunucuda yapılır.
-                const financePath = '/dosya_tahsilat_reddiyat_bilgileri_brd.ajx';
-                if (Number.isInteger(row?.dosyaTurKod)) {
-                  try {
-                    const data = await post(financePath, {dosyaId: caseId, dosyaTurKod: row.dosyaTurKod});
-                    captures.push({source:'UYAP', path:financePath, data:{kategori:category.name, durum:state, dosyaId:caseId, sonuc:data}});
-                  } catch (error) { if (['oturum', 'sunucu', 'izin'].includes(error.message)) throw error; partial = true; financeComplete = false; }
-                  await wait(150);
-                } else { partial = true; financeComplete = false; }
-              }
-              await send({type:'uyap', captures});
-              if (caseComplete && !mainDone) { await checkpoint('add', caseFingerprint); completedCases.add(caseFingerprint); }
-              if (financeComplete && !financeDone) { await checkpoint('add', financeFingerprint); completedCases.add(financeFingerprint); }
-              if (!docsDone) {
-                let items = caseComplete && evrakItems ? evrakItems : null;
-                if (!items) {
-                  try { items = await evrakList(caseId); }
-                  catch (error) { if (['oturum', 'izin'].includes(error.message)) throw error; partial = true; items = null; }
-                }
-                if (items) {
-                  let docsComplete = true;
-                  for (const entry of evrakEntries(items)) {
-                    try {
-                      const file = await downloadDocument(caseId, entry.id);
-                      await send({type:'uyap_document', dosyaId:caseId, evrakId:entry.id, meta:entry.meta, name:file.name, content:file.content});
-                    } catch (error) {
-                      if (['oturum', 'izin'].includes(error.message)) throw error;
-                      if (error.message === 'sunucu' && ![400, 403, 404, 409].includes(error.status)) throw error;
-                      partial = true;
-                      // Yalnızca istemci tarafında 20 MB üstü bulunan evrak kalıcı atlanır; sunucu reddi (400 dahil)
-                      // sonraki taramada yeniden denenir, çünkü sunucu hatası evrakı sonsuza dek kaybettirmemelidir.
-                      if (error.message !== 'boyut') docsComplete = false;
-                    }
+                    if (captures.length >= 90) { await send({type:'uyap', captures}); captures = [itemList]; }
+                    if (data.son20Evrak.length < 20) break;
+                    if (documentPage === 2000) { partial = true; caseComplete = false; }
                     await wait(150);
                   }
-                  if (docsComplete) { await checkpoint('add', docsFingerprint); completedCases.add(docsFingerprint); }
+                } else {
+                  const data = await post(path, body);
+                  captures.push({source:'UYAP', path, data:{kategori:category.name, durum:state, dosyaId:caseId, sonuc:data}});
+                }
+              } catch (error) {
+                if (['oturum', 'sunucu', 'izin'].includes(error.message)) throw error;
+                // Ceza dosyalarında /dosyaAyrintiBilgileri_brd.ajx bazen UYAP yetki yanıtı (error) döner;
+                // HTTP 200 ile gelen bu yanıt diğer uç noktaların tamamlanmasını engellememeli.
+                if (!(category.name === 'Ceza' && path === '/dosyaAyrintiBilgileri_brd.ajx' && error.message === 'yanit')) {
+                  partial = true; caseComplete = false;
                 }
               }
+              await wait(150);
             }
-            if (page * 10 >= result[1]) break;
-            if (!pageRows.length || page === 2000) { partial = true; break; }
+            let financeComplete = true;
+            if (!financeDone) {
+              // Tahsilat/reddiyat/harç yanıtı tüm dosya türleri için istenir; ödeyen ve tür ayrımı sunucuda yapılır.
+              const financePath = '/dosya_tahsilat_reddiyat_bilgileri_brd.ajx';
+              if (Number.isInteger(row?.dosyaTurKod)) {
+                try {
+                  const data = await post(financePath, {dosyaId: caseId, dosyaTurKod: row.dosyaTurKod});
+                  captures.push({source:'UYAP', path:financePath, data:{kategori:category.name, durum:state, dosyaId:caseId, sonuc:data}});
+                } catch (error) { if (['oturum', 'sunucu', 'izin'].includes(error.message)) throw error; partial = true; financeComplete = false; }
+                await wait(150);
+              } else { partial = true; financeComplete = false; }
+            }
+            await send({type:'uyap', captures});
+            if (caseComplete && !mainDone) { await checkpoint('add', caseFingerprint); completedCases.add(caseFingerprint); }
+            if (financeComplete && !financeDone) { await checkpoint('add', financeFingerprint); completedCases.add(financeFingerprint); }
+            if (wantsDocs) documentJobs.push({caseId, docsFingerprint, items: caseComplete && evrakItems ? evrakEntries(evrakItems) : null});
           }
+          if (page * 10 >= result[1]) break;
+          if (!pageRows.length || page === 2000) { partial = true; break; }
         }
       }
     }
+    };
+    await scanCases('acik');
+    // İkinci tur: bütün açık dosyaların bilgisi geldikten sonra evrakları indirilir.
+    for (const [index, job] of documentJobs.entries()) {
+      status('basladi', {total: documentJobs.length, processed: index, currentFile: 'Evraklar'});
+      let entries = job.items;
+      if (!entries) {
+        try { entries = evrakEntries(await evrakList(job.caseId)); }
+        catch (error) { if (['oturum', 'izin'].includes(error.message)) throw error; partial = true; continue; }
+      }
+      let docsComplete = true;
+      for (const entry of entries) {
+        try {
+          const file = await downloadDocument(job.caseId, entry.id);
+          await send({type:'uyap_document', dosyaId:job.caseId, evrakId:entry.id, meta:entry.meta, name:file.name, content:file.content});
+        } catch (error) {
+          if (['oturum', 'izin'].includes(error.message)) throw error;
+          if (error.message === 'sunucu' && ![400, 403, 404, 409].includes(error.status)) throw error;
+          partial = true;
+          // Yalnızca istemci tarafında 20 MB üstü bulunan evrak kalıcı atlanır; sunucu reddi (400 dahil)
+          // sonraki taramada yeniden denenir, çünkü sunucu hatası evrakı sonsuza dek kaybettirmemelidir.
+          if (error.message !== 'boyut') docsComplete = false;
+        }
+        await wait(150);
+      }
+      if (docsComplete) { await checkpoint('add', job.docsFingerprint); completedCases.add(job.docsFingerprint); }
+    }
+    await scanCases('kapali');
     await checkpoint('clear');
     return partial;
   }
