@@ -736,7 +736,11 @@ def sync_record_hearings(case: Case, record: PortalCase, default_user=None):
     durusmalar = data.get("durusmalar") or []
     from apps.office.models import OfficeSettings
 
-    installed_on = OfficeSettings.load().installed_on
+    office = OfficeSettings.load()
+    installed_on = office.installed_on
+    # Google Takvim açıksa UYAP'tan gelen/değişen duruşma işaretlenir; `retry_google_sync`
+    # (beş dakikalık düzenli iş) takvime yazar. Kapalıyken işaret konmaz.
+    mark_for_google = office.google_calendar_api_enabled
     for item in durusmalar:
         if not isinstance(item, dict):
             continue
@@ -773,6 +777,9 @@ def sync_record_hearings(case: Case, record: PortalCase, default_user=None):
                 hearing.status = HearingStatus.CANCELLED  # UYAP'ta iptal edilen duruşma
                 updates.append("status")
             if updates:
+                if mark_for_google and set(updates) & {"authority", "starts_at", "status"}:
+                    hearing.google_sync_pending = True
+                    updates.append("google_sync_pending")
                 hearing.save(update_fields=updates)
         else:
             Hearing.objects.create(
@@ -784,4 +791,5 @@ def sync_record_hearings(case: Case, record: PortalCase, default_user=None):
                 status=status,
                 portal_ref=portal_ref,
                 created_by=case.created_by or default_user,
+                google_sync_pending=mark_for_google,
             )
