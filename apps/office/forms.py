@@ -17,6 +17,7 @@ class OfficeForm(BootstrapMixin, forms.ModelForm):
             "tax_number",
             "bank_details",
             "logo",
+            "icon",
             "idle_minutes",
             "notice_default_due_days",
             "archive_folder_default_capacity",

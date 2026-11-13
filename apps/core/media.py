@@ -6,7 +6,7 @@ Her dosya bağlı olduğu kaydın kuralıyla açılır:
 - avatars/, petition-pool/          : giriş yapmış kullanıcı
 - ledger/                           : muhasebe görme yetkisi
 - office-ledger/                    : yalnızca yönetici (ofis içi gelir/gider belgeleri)
-- office/                           : ofis logosu, giriş ekranında da görünür (girişsiz)
+- office/                           : ofis logosu ve sekme simgesi (girişsiz görünür)
 - diğer her yol (ör. imports/tmp)   : sunulmaz
 Dosyanın gerçekten bir kayda ait olması da kontrol edilir; sahipsiz dosya sunulmaz.
 PDF/resim tarayıcıda açılır, diğerleri indirme olarak verilir.
@@ -18,6 +18,7 @@ from pathlib import Path
 from django.conf import settings
 from django.contrib.auth.decorators import login_not_required
 from django.core.exceptions import PermissionDenied
+from django.db.models import Q
 from django.http import FileResponse, Http404
 from django.utils._os import safe_join
 
@@ -44,6 +45,8 @@ def _record_for(path: str):
         "office": (OfficeSettings, "logo"),
     }
     prefix = path.split("/", 1)[0]
+    if prefix == "office":
+        return OfficeSettings.objects.filter(Q(logo=path) | Q(icon=path)).first()
     model, field = owners[prefix]
     if prefix == "clients" and "/sozlesme/" in path:
         model = RetainerAgreement

@@ -54,6 +54,12 @@ class OfficeSettings(models.Model):
     tax_office = models.CharField("vergi dairesi", max_length=100, blank=True)
     tax_number = models.CharField("vergi no", max_length=20, blank=True)
     logo = models.ImageField("logo", upload_to="office/", blank=True)
+    icon = models.ImageField(
+        "sekme simgesi",
+        upload_to="office/",
+        blank=True,
+        help_text="Kare görsel (en az 180×180 px). Tarayıcı sekmesinde ve kısayollarda görünür.",
+    )
     calendar_ics_url = models.URLField(
         "Google Takvim gizli iCal adresi",
         max_length=1000,
