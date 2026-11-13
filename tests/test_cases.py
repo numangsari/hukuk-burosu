@@ -560,3 +560,15 @@ def test_parties_tab_splits_office_entries_and_uyap_list(admin_user, case_factor
     assert [i["name"] for i in cols["office"] if not i["is_client"]] == ["Elle Girilen"]
     assert [i["name"] for i in cols["uyap"]] == ["Uyaptan Gelen"]
     assert cols["office"][-1]["link_pk"] and cols["uyap"][0]["link_pk"] is None  # UYAP salt okunur
+
+
+def test_assigning_client_to_uyap_case_without_client_does_not_crash(lawyer_client, case_factory):
+    # UYAP'tan müvekkilsiz gelen dosyaya müvekkil seçilince belgeler klasöre kopyalanır;
+    # dosya belgelerinde sürüm (is_current) alanı yoktur, kayıt hatasız tamamlanmalı.
+    case = case_factory(archive_no="2026/0098")
+    owner = case.client
+    Case.objects.filter(pk=case.pk).update(client=None)
+    data = _case_data(owner, archive_folder_no="", archive_no=case.archive_no)
+    assert lawyer_client.post(reverse("cases:update", args=[case.pk]), data).status_code == 302
+    case.refresh_from_db()
+    assert case.client == owner

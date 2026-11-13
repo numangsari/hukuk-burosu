@@ -323,7 +323,7 @@ class CaseFormMixin:
         if had_no_client and self.object.client_id:
             from .documents import mirror_document
 
-            for doc in self.object.documents.filter(is_current=True):
+            for doc in self.object.documents.all():
                 if warning := mirror_document(doc):
                     messages.warning(self.request, warning)
                     break
