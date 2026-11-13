@@ -128,13 +128,14 @@ const UNIT = body => response(body.yargiTuru === '0' ? [{tablo:'birim', kod:'Ör
 function listPage(total, prefix, body) {
   const start = (body.pageNumber - 1) * body.pageSize;
   const count = Math.max(0, Math.min(body.pageSize, total - start));
-  const rows = Array.from({length:count}, (_, i) => ({dosyaId:`${prefix}${start + i + 1}`, birimAdi:'Örnek', dosyaNo:`2026/${start + i + 1}`, dosyaTurKod:1}));
+  const rows = Array.from({length:count}, (_, i) => ({dosyaId:`${prefix}${start + i + 1}`, birimAdi:'Örnek', dosyaNo:`${body.dosyaDurumKod === 1 ? 2025 : 2026}/${start + i + 1}`, dosyaTurKod:1}));
   return response([rows, total]);
 }
 
 const UYAP_PATHS = new Set([
   '/yargiBirimleriSorgula_brd.ajx', '/search_phrase_detayli.ajx', '/dosyaAyrintiBilgileri_brd.ajx',
-  '/dosya_taraf_bilgileri_brd.ajx', '/list_dosya_evraklar.ajx', '/dosya_tahsilat_reddiyat_bilgileri_brd.ajx'
+  '/dosya_taraf_bilgileri_brd.ajx', '/list_dosya_evraklar.ajx', '/dosya_tahsilat_reddiyat_bilgileri_brd.ajx',
+  '/avukat_durusma_sorgula_brd.ajx'
 ]);
 
 test('UYAP tüm dosyaları sayfa sayfa tarar ve sorguları yavaşlatır', async () => {
@@ -166,12 +167,13 @@ test('Kesilen UYAP taraması tamamlanan dosyaları yeniden sorgulamaz', async ()
     const body = JSON.parse(options.body);
     if (path === '/yargiBirimleriSorgula_brd.ajx') return UNIT(body);
     if (path === '/search_phrase_detayli.ajx') return listPage(body.dosyaDurumKod === 0 ? 3 : 0, '', body);
-    details.push(body.dosyaId);
+    // Evrak listesi ikinci turda (evrak indirme) yeniden istenebilir; burada yalnızca dosya bilgisi sayılır.
+    if (path !== '/list_dosya_evraklar.ajx') details.push(body.dosyaId);
     return response(path === '/list_dosya_evraklar.ajx' ? {son20Evrak:[]} : {ornek:true});
   };
   const first = await run('avukat.uyap.gov.tr', fetch, data => !data.captures.some(c => c.data?.dosyaId === '2'), saved);
   assert.equal(first.statuses.at(-1), 'sunucu_yok');
-  assert.equal(saved.size, 3); // ilk dosyanın ana, finans ve belge izi
+  assert.equal(saved.size, 2); // ilk dosyanın ana ve finans izi (evrak turu henüz başlamadı)
   details.length = 0;
   const second = await run('avukat.uyap.gov.tr', fetch, true, saved);
   assert.equal(second.statuses.at(-1), 'tamamlandi');
@@ -294,7 +296,7 @@ test('Belgeleri tamamlanan dosya sonraki taramada yeniden indirilmez', async () 
   // Tarama bitince izler silinir; ara verilen taramayı taklit etmek için izleri geri koyarız.
   const fingerprints = async () => {
     const digest = async value => Buffer.from(await webcrypto.subtle.digest('SHA-256', new TextEncoder().encode(value))).toString('hex');
-    return [await digest('a1'), await digest('finans1:a1'), await digest('belge2:a1')];
+    return [await digest('dosya:Örnek|2026/1|1'), await digest('finans1:' + 'dosya:Örnek|2026/1|1'), await digest('belge2:' + 'dosya:Örnek|2026/1|1')];
   };
   for (const item of await fingerprints()) saved.add(item);
   const second = [];
@@ -306,8 +308,8 @@ test('Belgeleri tamamlanan dosya sonraki taramada yeniden indirilmez', async () 
 test('Ana ve finans verisi tamam, belgeler eksikse yalnızca belgeler alınır', async () => {
   const saved = new Set();
   const digest = async value => Buffer.from(await webcrypto.subtle.digest('SHA-256', new TextEncoder().encode(value))).toString('hex');
-  saved.add(await digest('a1'));
-  saved.add(await digest('finans1:a1'));
+  saved.add(await digest('dosya:Örnek|2026/1|1'));
+  saved.add(await digest('finans1:' + 'dosya:Örnek|2026/1|1'));
   const downloads = [];
   const metadata = [];
   const base = documentFetch({items: EVRAKS, downloads});
@@ -327,7 +329,7 @@ test('Sunucu dosyayı henüz bağlamadıysa belge atlanır, tarama sürer ve eks
   assert.equal(result.statuses.at(-1), 'eksik');
   // Belge izi eklenmediği için bir sonraki taramada yeniden denenir.
   const digest = async value => Buffer.from(await webcrypto.subtle.digest('SHA-256', new TextEncoder().encode(value))).toString('hex');
-  assert.equal(saved.has(await digest('belge2:a1')), false);
+  assert.equal(saved.has(await digest('belge2:' + 'dosya:Örnek|2026/1|1')), false);
 });
 
 test('Sunucu belgeyi reddederse (400) iz eklenmez, sonraki taramada yeniden denenir', async () => {
@@ -341,7 +343,7 @@ test('Sunucu belgeyi reddederse (400) iz eklenmez, sonraki taramada yeniden dene
   assert.equal(first.length, 2);
   // Tarama bitince izler temizlenir; asıl denetim: belge izi eklenmediği için dosya tamamlanmış sayılmaz.
   // Kesilen tarama taklidi: ana ve finans izi var, belge izi yok -> belgeler yeniden istenir.
-  const resume = new Set([await digest('a1'), await digest('finans1:a1')]);
+  const resume = new Set([await digest('dosya:Örnek|2026/1|1'), await digest('finans1:' + 'dosya:Örnek|2026/1|1')]);
   const again = [];
   const second = await run('avukat.uyap.gov.tr', documentFetch({items: EVRAKS, downloads: again}), true, resume);
   assert.deepEqual(again.map(item => item.evrakId), ['e1', 'e2']);
@@ -393,4 +395,103 @@ test('Dosya adı UTF-8 başlığından okunur', async () => {
     download: () => pdfResponse('%PDF-1.4\nx', "inline; filename*=UTF-8''Tensip%20Zapt%C4%B1.pdf")
   }));
   assert.equal(result.uploads.find(item => item.type === 'uyap_document').name, 'Tensip Zaptı.pdf');
+});
+
+test('Ağır ceza birimleri diğer bütün birimlerden sonra taranır', async () => {
+  const order = [];
+  const units = {
+    '0': [{tablo:'agir', kod:'AGIR CEZA MAHKEMESI'}, {tablo:'asliye', kod:'Asliye Ceza Mahkemesi'}],
+    '1': [{tablo:'hukuk', kod:'Asliye Hukuk Mahkemesi'}],
+    '2': [{tablo:'icra', kod:'İcra Dairesi'}],
+  };
+  const result = await run('avukat.uyap.gov.tr', async (path, options) => {
+    const body = JSON.parse(options.body);
+    if (path === '/yargiBirimleriSorgula_brd.ajx') return response(units[body.yargiTuru] || []);
+    if (path === '/search_phrase_detayli.ajx') {
+      if (body.dosyaDurumKod === 0 && body.pageNumber === 1) order.push(body.birimTuru2);
+      return listPage(body.dosyaDurumKod === 0 ? 1 : 0, body.birimTuru2, body);
+    }
+    if (path === '/list_dosya_evraklar.ajx') return response({son20Evrak:[]});
+    return response({ornek:true});
+  });
+  assert.deepEqual(order, ['asliye', 'hukuk', 'icra', 'agir']);
+  assert.equal(result.statuses.at(-1), 'tamamlandi');
+});
+
+test('Önce açık dosyaların bilgisi gelir, sonra evrakları iner, en son kapalı dosyalar; kapalı dosyanın evrakı inmez', async () => {
+  const log = [];
+  const result = await run('avukat.uyap.gov.tr', async (path, options) => {
+    if (path.startsWith('/download_document_brd.uyap')) {
+      const query = new URL(path, 'https://avukat.uyap.gov.tr').searchParams;
+      log.push(`indir:${query.get('dosyaId')}:${query.get('evrakId')}`);
+      return pdfResponse();
+    }
+    const body = JSON.parse(options.body);
+    if (path === '/yargiBirimleriSorgula_brd.ajx') return UNIT(body);
+    if (path === '/search_phrase_detayli.ajx') return body.dosyaDurumKod === 0 ? listPage(2, 'a', body) : listPage(1, 'k', body);
+    if (path === '/list_dosya_evraklar.ajx') return response({son20Evrak: body.pageNumber === 1 ? EVRAKS : []});
+    if (path === '/dosyaAyrintiBilgileri_brd.ajx') log.push(`bilgi:${body.dosyaId}`);
+    return response({ornek:true});
+  });
+  assert.deepEqual(log, ['bilgi:a1', 'bilgi:a2', 'indir:a1:e1', 'indir:a1:e2', 'indir:a2:e1', 'indir:a2:e2', 'bilgi:k1']);
+  assert.equal(result.statuses.at(-1), 'tamamlandi');
+});
+
+test('Dosya izi UYAP oturumu değişince de geçerli kalır (dosyaId değil birim + esas no)', async () => {
+  const saved = new Set();
+  const details = [];
+  const fetchFor = session => async (path, options) => {
+    const body = JSON.parse(options.body);
+    if (path === '/yargiBirimleriSorgula_brd.ajx') return UNIT(body);
+    if (path === '/search_phrase_detayli.ajx') return listPage(body.dosyaDurumKod === 0 ? 2 : 0, session, body);
+    if (path !== '/list_dosya_evraklar.ajx') details.push(body.dosyaId);
+    return response(path === '/list_dosya_evraklar.ajx' ? {son20Evrak:[]} : {ornek:true});
+  };
+  // İlk oturum ikinci dosyada kesilir.
+  const first = await run('avukat.uyap.gov.tr', fetchFor('s1-'), data => !data.captures.some(c => c.data?.dosyaId === 's1-2'), saved);
+  assert.equal(first.statuses.at(-1), 'sunucu_yok');
+  details.length = 0;
+  // Yeni oturumda aynı dosyalar başka dosyaId ile gelir; ilk dosya yeniden sorgulanmaz.
+  const second = await run('avukat.uyap.gov.tr', fetchFor('s2-'), true, saved);
+  assert.equal(second.statuses.at(-1), 'tamamlandi');
+  assert(!details.includes('s2-1'));
+  assert(details.includes('s2-2'));
+});
+
+test('Bütün birimlerin açık dosyaları, herhangi bir kapalı dosyadan önce taranır', async () => {
+  const order = [];
+  const units = {'0': [{tablo:'ceza', kod:'Asliye Ceza'}], '1': [{tablo:'hukuk', kod:'Asliye Hukuk'}]};
+  const result = await run('avukat.uyap.gov.tr', async (path, options) => {
+    const body = JSON.parse(options.body);
+    if (path === '/yargiBirimleriSorgula_brd.ajx') return response(units[body.yargiTuru] || []);
+    if (path === '/search_phrase_detayli.ajx') {
+      if (body.pageNumber === 1) order.push(`${body.birimTuru2}:${body.dosyaDurumKod === 0 ? 'acik' : 'kapali'}`);
+      return listPage(1, body.birimTuru2 + body.dosyaDurumKod, body);
+    }
+    if (path === '/list_dosya_evraklar.ajx') return response({son20Evrak:[]});
+    return response({ornek:true});
+  });
+  assert.deepEqual(order, ['ceza:acik', 'hukuk:acik', 'ceza:kapali', 'hukuk:kapali']);
+  assert.equal(result.statuses.at(-1), 'tamamlandi');
+});
+
+test('Tarama başında önümüzdeki altı ayın duruşmaları 30 günlük parçalarla sorulup sunucuya gönderilir', async () => {
+  const windows = [];
+  const result = await run('avukat.uyap.gov.tr', async (path, options) => {
+    const body = JSON.parse(options.body);
+    if (path === '/avukat_durusma_sorgula_brd.ajx') {
+      windows.push([body.baslangicTarihi, body.bitisTarihi]);
+      return response(windows.length === 1 ? [{dosyaNo:'2026/5', yerelBirimAd:'Örnek Mahkeme', tarihSaat:'2026-12-01 10:00'}] : []);
+    }
+    if (path === '/yargiBirimleriSorgula_brd.ajx') return response([]);
+    return response({ornek:true});
+  });
+  assert.equal(windows.length, 6);
+  const parse = value => { const [d, m, y] = value.split('.').map(Number); return Date.UTC(y, m - 1, d); };
+  for (const [start, end] of windows) assert.equal((parse(end) - parse(start)) / 86400000, 29);
+  for (let i = 1; i < windows.length; i++) assert.equal((parse(windows[i][0]) - parse(windows[i - 1][0])) / 86400000, 30);
+  const sent = result.uploads.flatMap(item => item.captures || []).filter(item => item.path === '/avukat_durusma_sorgula_brd.ajx');
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0].data[0].dosyaNo, '2026/5');
+  assert.equal(result.statuses.at(-1), 'tamamlandi');
 });
